@@ -1,0 +1,101 @@
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { AuroraBackground, GlassPanel } from "@/components/glass";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+
+export const Route = createFileRoute("/auth")({
+  component: AuthPage,
+});
+
+function AuthPage() {
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) navigate({ to: "/dispatch" });
+    });
+  }, [navigate]);
+
+  async function signIn(email: string, password: string) {
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    setLoading(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Welcome back");
+    navigate({ to: "/dispatch" });
+  }
+
+  async function signUp(email: string, password: string) {
+    setLoading(true);
+    const { data, error } = await supabase.auth.signUp({
+      email, password,
+      options: { emailRedirectTo: `${window.location.origin}/onboarding` },
+    });
+    setLoading(false);
+    if (error) { toast.error(error.message); return; }
+    if (data.session) {
+      toast.success("Account created");
+      navigate({ to: "/onboarding" });
+    } else {
+      toast.success("Check your email to confirm your account");
+    }
+  }
+
+  return (
+    <div className="relative min-h-screen text-foreground">
+      <AuroraBackground />
+      <div className="relative z-10 flex min-h-screen items-center justify-center px-4">
+        <div className="w-full max-w-md">
+          <Link to="/" className="mb-6 flex items-center justify-center gap-2">
+            <div className="grid size-8 place-items-center rounded-lg bg-gradient-to-br from-violet to-cyan font-black">L</div>
+            <span className="text-lg font-extrabold tracking-tight">LEXICON</span>
+          </Link>
+          <GlassPanel className="p-6">
+            <h1 className="text-xl font-bold">Library owner access</h1>
+            <p className="mt-1 text-sm text-muted-foreground">Sign in or create a new owner workspace.</p>
+            <Tabs defaultValue="signin" className="mt-6">
+              <TabsList className="grid w-full grid-cols-2 bg-panel">
+                <TabsTrigger value="signin">Sign in</TabsTrigger>
+                <TabsTrigger value="signup">Create workspace</TabsTrigger>
+              </TabsList>
+              <TabsContent value="signin"><AuthForm loading={loading} onSubmit={signIn} submitLabel="Sign in" /></TabsContent>
+              <TabsContent value="signup"><AuthForm loading={loading} onSubmit={signUp} submitLabel="Create account" /></TabsContent>
+            </Tabs>
+            <p className="mt-6 text-center text-xs text-muted-foreground">
+              Are you a student? <Link to="/student-login" className="text-violet hover:underline">Sign in with mobile</Link>
+            </p>
+          </GlassPanel>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AuthForm({
+  onSubmit, submitLabel, loading,
+}: { onSubmit: (email: string, pw: string) => Promise<void>; submitLabel: string; loading: boolean }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  return (
+    <form
+      onSubmit={(e) => { e.preventDefault(); onSubmit(email, password); }}
+      className="mt-4 space-y-4"
+    >
+      <div className="space-y-2">
+        <Label htmlFor="email">Email</Label>
+        <Input id="email" type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className="bg-panel border-panel-border" />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="pw">Password</Label>
+        <Input id="pw" type="password" required minLength={6} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} className="bg-panel border-panel-border" />
+      </div>
+      <Button disabled={loading} type="submit" className="w-full bg-white text-slate-900 hover:bg-white/90">{loading ? "…" : submitLabel}</Button>
+    </form>
+  );
+}
