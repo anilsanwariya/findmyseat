@@ -32,7 +32,7 @@ function LeadsPage() {
       .order("created_at", { ascending: false })).data ?? [],
   });
 
-  async function move(id: string, status: string) {
+  async function move(id: string, status: "pending" | "contacted" | "converted" | "lost") {
     const { error } = await supabase.from("seat_requests").update({ status }).eq("id", id);
     if (error) toast.error(error.message);
     else { toast.success("Updated"); qc.invalidateQueries({ queryKey: ["leads"] }); }
