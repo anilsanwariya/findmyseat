@@ -15,7 +15,9 @@ function Dispatch() {
     if (isLoading) return;
     if (!data?.userId) { navigate({ to: "/auth" }); return; }
     if (!data.role) { navigate({ to: "/onboarding" }); return; }
-    if (data.role === "super_admin" || data.role === "org_admin") {
+    if (data.role === "super_admin") {
+      navigate({ to: "/super-admin" });
+    } else if (data.role === "org_admin") {
       navigate({ to: "/admin" });
     } else if (data.role === "student") {
       navigate({ to: "/student" });
