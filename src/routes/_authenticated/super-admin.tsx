@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase as sb } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { LogOut, ShieldCheck, Building2, Users, Library as LibraryIcon, Pencil, Trash2, Plus } from "lucide-react";
+import { LogOut, ShieldCheck, Pencil, Trash2, Plus } from "lucide-react";
 import { fmtDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
