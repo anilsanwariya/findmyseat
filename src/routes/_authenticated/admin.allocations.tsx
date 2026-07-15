@@ -25,6 +25,12 @@ import {
   UserMinus,
   UserPlus,
   Info,
+  Square,
+  AppWindow,
+  Image as ImageIcon,
+  Navigation,
+  MessageSquare,
+  Utensils,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/allocations")({
@@ -32,12 +38,24 @@ export const Route = createFileRoute("/_authenticated/admin/allocations")({
 });
 
 const DIR_ICON = { north: ArrowUp, south: ArrowDown, east: ArrowRight, west: ArrowLeft };
+
+// Enhanced Object Meta matching the Layout Builder
 const OBJ_META: Record<string, { icon: any; label: string; color: string }> = {
   aisle: { icon: null, label: "Aisle", color: "bg-transparent" },
-  entry_gate: { icon: DoorOpen, label: "Entry", color: "bg-slate-800/60 text-slate-300" },
+  entry_gate: { icon: DoorOpen, label: "Entry", color: "bg-slate-800/60 text-slate-300 border-slate-700" },
   washroom: { icon: Waves, label: "W/C", color: "bg-magenta/10 text-magenta border-magenta/30" },
   water_cooler: { icon: Droplets, label: "H₂O", color: "bg-cyan/10 text-cyan border-cyan/30" },
   reception: { icon: null, label: "Rcpt", color: "bg-panel-strong text-muted-foreground" },
+  wall: { icon: null, label: "", color: "bg-slate-600 border-slate-500 shadow-md" }, // Wall acts as a thick, solid block
+  window: { icon: AppWindow, label: "Window", color: "bg-sky-500/20 text-sky-300 border-sky-500/30 backdrop-blur-sm" },
+  gallery: { icon: ImageIcon, label: "Gallery", color: "bg-purple-500/10 text-purple-300 border-purple-500/30" },
+  hallway: { icon: Navigation, label: "Hallway", color: "bg-stone-500/10 text-stone-300 border-stone-500/30" },
+  discussion: {
+    icon: MessageSquare,
+    label: "Discussion Area",
+    color: "bg-amber-500/10 text-amber-300 border-amber-500/30",
+  },
+  dining: { icon: Utensils, label: "Dining Area", color: "bg-orange-500/10 text-orange-300 border-orange-500/30" },
 };
 
 function AllocationsPage() {
@@ -106,6 +124,69 @@ function AllocationsPage() {
       return { ...seat, isOccupied: !!alloc, allocation: alloc };
     });
   }, [layoutData.data, allocations.data]);
+
+  // 🧠 Greedy Algorithm to Group Adjacent Objects (Walls, Areas) into single blocks
+  const mergedObjects = useMemo(() => {
+    if (!currentSection || !layoutData.data?.objs) return [];
+    const objs = layoutData.data.objs;
+    const merged: any[] = [];
+    const visited = new Set<string>();
+    const objMap = new Map<string, any>();
+
+    // Map objects by coordinate for instant lookup
+    objs.forEach((obj: any) => objMap.set(`${obj.row_position}-${obj.column_position}`, obj));
+
+    for (let r = 0; r < currentSection.grid_rows; r++) {
+      for (let c = 0; c < currentSection.grid_cols; c++) {
+        const key = `${r}-${c}`;
+        if (visited.has(key) || !objMap.has(key)) continue;
+
+        const baseObj = objMap.get(key);
+        const type = baseObj.object_type;
+
+        // 1. Expand horizontally (width)
+        let width = 1;
+        while (c + width < currentSection.grid_cols) {
+          const nextKey = `${r}-${c + width}`;
+          if (visited.has(nextKey) || !objMap.has(nextKey) || objMap.get(nextKey).object_type !== type) break;
+          width++;
+        }
+
+        // 2. Expand vertically (height)
+        let height = 1;
+        let canExpandDown = true;
+        while (r + height < currentSection.grid_rows && canExpandDown) {
+          // Check if entire row of 'width' matches
+          for (let i = 0; i < width; i++) {
+            const nextKey = `${r + height}-${c + i}`;
+            if (visited.has(nextKey) || !objMap.has(nextKey) || objMap.get(nextKey).object_type !== type) {
+              canExpandDown = false;
+              break;
+            }
+          }
+          if (canExpandDown) height++;
+        }
+
+        // 3. Mark all identified cells as visited
+        for (let i = 0; i < height; i++) {
+          for (let j = 0; j < width; j++) {
+            visited.add(`${r + i}-${c + j}`);
+          }
+        }
+
+        // 4. Store the merged block
+        merged.push({
+          id: baseObj.id,
+          type,
+          startRow: r,
+          startCol: c,
+          height,
+          width,
+        });
+      }
+    }
+    return merged;
+  }, [currentSection, layoutData.data]);
 
   const refreshData = () => {
     qc.invalidateQueries({ queryKey: ["allocations"] });
@@ -182,21 +263,39 @@ function AllocationsPage() {
                 gridTemplateRows: `repeat(${currentSection.grid_rows}, minmax(44px, 1fr))`,
               }}
             >
-              {/* Render Objects */}
-              {layoutData.data?.objs.map((obj: any) => {
-                const meta = OBJ_META[obj.object_type] ?? OBJ_META.reception;
+              {/* Render Grouped/Merged Objects (Walls, Areas) */}
+              {mergedObjects.map((obj: any) => {
+                const meta = OBJ_META[obj.type] ?? OBJ_META.reception;
                 const Icon = meta.icon;
+                const isWallOrWindow = obj.type === "wall" || obj.type === "window";
+                const isMultiCell = obj.width > 1 || obj.height > 1;
+
                 return (
                   <div
                     key={obj.id}
                     className={cn(
-                      "flex flex-col items-center justify-center rounded border text-[8px] font-mono",
+                      "flex flex-col items-center justify-center rounded-md border font-mono overflow-hidden transition-all",
                       meta.color,
+                      isMultiCell ? "text-xs" : "text-[8px]",
                     )}
-                    style={{ gridColumn: obj.column_position + 1, gridRow: obj.row_position + 1 }}
+                    style={{
+                      gridColumn: `${obj.startCol + 1} / span ${obj.width}`,
+                      gridRow: `${obj.startRow + 1} / span ${obj.height}`,
+                    }}
                   >
-                    {Icon && <Icon className="size-3.5" />}
-                    <span className="mt-0.5 truncate">{meta.label}</span>
+                    {/* Render Icon/Label (Hide for 1-cell thick walls/windows to keep them looking like solid lines) */}
+                    {!(isWallOrWindow && !isMultiCell) && (
+                      <div className="flex flex-col items-center justify-center opacity-80 gap-1 p-2 text-center pointer-events-none">
+                        {Icon && <Icon className={cn(isMultiCell && !isWallOrWindow ? "size-5" : "size-3.5")} />}
+                        {(!isWallOrWindow || obj.width > 2 || obj.height > 2) && meta.label && (
+                          <span
+                            className={cn("truncate", isMultiCell ? "font-bold tracking-widest uppercase" : "mt-0.5")}
+                          >
+                            {meta.label}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -210,7 +309,7 @@ function AllocationsPage() {
                     onClick={() => (seat.isOccupied ? setSelectedOccupiedSeat(seat) : setSelectedVacantSeat(seat))}
                     style={{ gridColumn: seat.column_position + 1, gridRow: seat.row_position + 1 }}
                     className={cn(
-                      "group flex flex-col items-center justify-center rounded border text-[10px] font-mono transition-all hover:scale-110",
+                      "group z-10 flex flex-col items-center justify-center rounded border text-[10px] font-mono transition-all hover:scale-110",
                       seat.isOccupied
                         ? "border-rose/50 bg-rose/20 text-rose shadow-[0_0_12px_rgba(244,63,94,0.25)] hover:border-rose hover:bg-rose/30"
                         : seat.is_corner
@@ -362,7 +461,7 @@ function AllocationsPage() {
   );
 }
 
-// Reusable Allocation Form Component (Accepts initial values if triggered from the map)
+// Reusable Allocation Form Component
 function NewAllocDialog({
   onDone,
   initialLibraryId,
@@ -384,7 +483,7 @@ function NewAllocDialog({
   const [reservationType, setReservationType] = useState<"reserved" | "unreserved">("reserved");
   const [loading, setLoading] = useState(false);
 
-  // Sync state if props change (useful when modal is opened via map click)
+  // Sync state if props change
   useEffect(() => {
     if (initialLibraryId) setLibraryId(initialLibraryId);
     if (initialSeatId) setSeatId(initialSeatId);
@@ -417,7 +516,6 @@ function NewAllocDialog({
         supabase.from("allocations").select("seat_id").eq("library_id", libraryId).eq("is_active", true),
       ]);
       const taken = new Set((allocRes.data ?? []).map((a) => a.seat_id));
-      // Include the initially selected seat even if it's somehow "taken" (fail-safe) or just filter normal vacant seats
       return (seatsRes.data ?? []).filter((s) => !taken.has(s.id) || s.id === initialSeatId);
     },
   });
