@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/lib/auth";
@@ -9,10 +9,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Plus, Building2, Globe, Languages } from "lucide-react";
+import { Plus, Building2, Globe, Languages, Edit2, Trash2, Mail, AlertTriangle } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/settings")({
   component: SettingsPage,
@@ -88,7 +95,7 @@ function SettingsPage() {
               <Plus className="mr-1 size-4" /> New branch
             </Button>
           </DialogTrigger>
-          <NewBranchDialog
+          <LibraryFormDialog
             orgId={orgId!}
             onDone={() => {
               qc.invalidateQueries({ queryKey: ["libraries"] });
@@ -100,7 +107,12 @@ function SettingsPage() {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {(libs ?? []).map((l) => (
-          <BranchCard key={l.id} lib={l} onChanged={() => qc.invalidateQueries({ queryKey: ["libraries"] })} />
+          <BranchCard
+            key={l.id}
+            lib={l}
+            onChanged={() => qc.invalidateQueries({ queryKey: ["libraries"] })}
+            orgId={orgId!}
+          />
         ))}
         {(libs ?? []).length === 0 && (
           <GlassPanel className="col-span-full p-10 text-center">
@@ -114,65 +126,125 @@ function SettingsPage() {
   );
 }
 
-function BranchCard({ lib, onChanged }: { lib: any; onChanged: () => void }) {
+function BranchCard({ lib, onChanged, orgId }: { lib: any; onChanged: () => void; orgId: string }) {
+  const [editOpen, setEditOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+
   return (
-    <GlassPanel className="p-5">
+    <GlassPanel className="p-5 flex flex-col h-full">
       <div className="flex items-start justify-between">
-        <div className="min-w-0">
+        <div className="min-w-0 pr-4">
           <div className="flex items-center gap-2">
-            <Building2 className="size-4 text-violet" />
+            <Building2 className="size-4 text-violet shrink-0" />
             <h3 className="truncate font-semibold">{lib.name}</h3>
           </div>
-          <div className="mt-1 text-xs text-muted-foreground">
+          <div className="mt-1 text-xs text-muted-foreground truncate">
             {lib.zone_area ?? "—"}
             {lib.city ? `, ${lib.city}` : ""}
           </div>
         </div>
-        <span
-          className={`rounded px-2 py-0.5 text-[10px] ${lib.is_active ? "bg-emerald/10 text-emerald" : "bg-rose/10 text-rose"}`}
-        >
-          {lib.is_active ? "Active" : "Off"}
-        </span>
-      </div>
-      <div className="mt-4 flex items-center justify-between rounded-lg border border-panel-border bg-panel p-3">
-        <div className="flex items-center gap-2 text-xs">
-          <Globe className="size-3.5 text-cyan" /> Show availability on marketplace
+        <div className="flex flex-col items-end gap-2 shrink-0">
+          <span
+            className={`rounded px-2 py-0.5 text-[10px] ${lib.is_active ? "bg-emerald/10 text-emerald" : "bg-rose/10 text-rose"}`}
+          >
+            {lib.is_active ? "Active" : "Off"}
+          </span>
+          <div className="flex items-center gap-1">
+            <Dialog open={editOpen} onOpenChange={setEditOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-7 rounded-full bg-panel hover:bg-cyan/20 hover:text-cyan border border-panel-border transition-colors"
+                >
+                  <Edit2 className="size-3" />
+                </Button>
+              </DialogTrigger>
+              <LibraryFormDialog
+                orgId={orgId}
+                existingLib={lib}
+                onDone={() => {
+                  onChanged();
+                  setEditOpen(false);
+                }}
+              />
+            </Dialog>
+
+            <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-7 rounded-full bg-panel hover:bg-rose/20 hover:text-rose border border-panel-border transition-colors"
+                >
+                  <Trash2 className="size-3" />
+                </Button>
+              </DialogTrigger>
+              <DeleteBranchDialog
+                lib={lib}
+                onDone={() => {
+                  onChanged();
+                  setDeleteOpen(false);
+                }}
+              />
+            </Dialog>
+          </div>
         </div>
-        <Switch
-          checked={lib.show_public_availability}
-          onCheckedChange={async (v) => {
-            await supabase.from("libraries").update({ show_public_availability: v }).eq("id", lib.id);
-            onChanged();
-          }}
-        />
+      </div>
+
+      <div className="mt-auto pt-4">
+        <div className="flex items-center justify-between rounded-lg border border-panel-border bg-panel p-3">
+          <div className="flex items-center gap-2 text-xs">
+            <Globe className="size-3.5 text-cyan" /> Public availability
+          </div>
+          <Switch
+            checked={lib.show_public_availability}
+            onCheckedChange={async (v) => {
+              await supabase.from("libraries").update({ show_public_availability: v }).eq("id", lib.id);
+              onChanged();
+            }}
+          />
+        </div>
       </div>
     </GlassPanel>
   );
 }
 
-function NewBranchDialog({ orgId, onDone }: { orgId: string; onDone: () => void }) {
+// Unified Dialog for both Creating and Editing a Library
+function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; existingLib?: any; onDone: () => void }) {
   const [loading, setLoading] = useState(false);
   const [lang, setLang] = useState<"en" | "hi">("en");
 
-  // Basic Details
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-
-  // Location
   const [address, setAddress] = useState("");
   const [googleMapsUrl, setGoogleMapsUrl] = useState("");
   const [zone, setZone] = useState("");
   const [city, setCity] = useState("");
-
-  // Schedule
   const [openingHours, setOpeningHours] = useState("");
   const [shifts, setShifts] = useState("");
   const [closedOn, setClosedOn] = useState("");
 
-  // Exams & Amenities
   const { data: exams } = useMasterExams();
   const [selectedExams, setSelectedExams] = useState<Set<string>>(new Set());
   const [amenities, setAmenities] = useState<Record<string, boolean>>({});
+
+  // Pre-fill data if editing
+  useEffect(() => {
+    if (existingLib) {
+      setName(existingLib.name || "");
+      setPhone(existingLib.contact_phone || "");
+      setAddress(existingLib.address || "");
+      setGoogleMapsUrl(existingLib.google_maps_url || "");
+      setZone(existingLib.zone_area || "");
+      setCity(existingLib.city || "");
+      setOpeningHours(existingLib.opening_hours || "");
+      setShifts(existingLib.shifts || "");
+      setClosedOn(existingLib.closed_on || "");
+      setSelectedExams(new Set(existingLib.targeted_exam_ids || []));
+      setAmenities(existingLib.amenities || {});
+    }
+  }, [existingLib]);
 
   const handleToggleAmenity = (key: string) => {
     setAmenities((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -181,7 +253,7 @@ function NewBranchDialog({ orgId, onDone }: { orgId: string; onDone: () => void 
   return (
     <DialogContent className="glass-strong border-panel-border w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto">
       <DialogHeader>
-        <DialogTitle>New branch onboarding</DialogTitle>
+        <DialogTitle>{existingLib ? "Edit Library Details" : "New branch onboarding"}</DialogTitle>
       </DialogHeader>
       <form
         className="space-y-6"
@@ -203,18 +275,25 @@ function NewBranchDialog({ orgId, onDone }: { orgId: string; onDone: () => void 
             amenities: amenities,
           };
 
-          const { error } = await supabase.from("libraries").insert(payload);
+          let error;
+          if (existingLib) {
+            const res = await supabase.from("libraries").update(payload).eq("id", existingLib.id);
+            error = res.error;
+          } else {
+            const res = await supabase.from("libraries").insert(payload);
+            error = res.error;
+          }
+
           setLoading(false);
 
           if (error) {
             toast.error(error.message);
             return;
           }
-          toast.success("Branch successfully created");
+          toast.success(existingLib ? "Library updated successfully" : "Branch successfully created");
           onDone();
         }}
       >
-        {/* Basic Info */}
         <div className="space-y-3">
           <h4 className="text-xs font-mono uppercase tracking-widest text-cyan border-b border-panel-border/50 pb-1">
             Basic Info
@@ -242,7 +321,6 @@ function NewBranchDialog({ orgId, onDone }: { orgId: string; onDone: () => void 
           </div>
         </div>
 
-        {/* Location Info */}
         <div className="space-y-3">
           <h4 className="text-xs font-mono uppercase tracking-widest text-cyan border-b border-panel-border/50 pb-1">
             Location Details
@@ -287,7 +365,6 @@ function NewBranchDialog({ orgId, onDone }: { orgId: string; onDone: () => void 
           </div>
         </div>
 
-        {/* Schedule */}
         <div className="space-y-3">
           <h4 className="text-xs font-mono uppercase tracking-widest text-cyan border-b border-panel-border/50 pb-1">
             Timings & Schedule
@@ -323,7 +400,6 @@ function NewBranchDialog({ orgId, onDone }: { orgId: string; onDone: () => void 
           </div>
         </div>
 
-        {/* Exams */}
         <div className="space-y-3">
           <h4 className="text-xs font-mono uppercase tracking-widest text-cyan border-b border-panel-border/50 pb-1">
             Targeted Exams
@@ -350,7 +426,6 @@ function NewBranchDialog({ orgId, onDone }: { orgId: string; onDone: () => void 
           </div>
         </div>
 
-        {/* Amenities section with Language Toggle */}
         <div className="space-y-4 pt-2">
           <div className="flex items-center justify-between border-b border-panel-border/50 pb-2">
             <h4 className="text-xs font-mono uppercase tracking-widest text-cyan">Facilities & Amenities</h4>
@@ -365,7 +440,6 @@ function NewBranchDialog({ orgId, onDone }: { orgId: string; onDone: () => void 
               {lang === "en" ? "Switch to Hindi" : "Switch to English"}
             </Button>
           </div>
-
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 rounded-lg bg-black/20 p-4 border border-panel-border">
             {Object.entries(AMENITIES_DICT).map(([key, translations]) => (
               <div key={key} className="flex items-center justify-between gap-4">
@@ -383,10 +457,113 @@ function NewBranchDialog({ orgId, onDone }: { orgId: string; onDone: () => void 
 
         <div className="pt-4 border-t border-panel-border/50">
           <Button disabled={loading} type="submit" className="w-full bg-white text-slate-900 hover:bg-white/90">
-            {loading ? "Saving..." : "Complete Onboarding & Create Branch"}
+            {loading ? "Saving..." : existingLib ? "Save Changes" : "Complete Onboarding & Create Branch"}
           </Button>
         </div>
       </form>
+    </DialogContent>
+  );
+}
+
+// New OTP Deletion Component
+function DeleteBranchDialog({ lib, onDone }: { lib: any; onDone: () => void }) {
+  const [step, setStep] = useState<"warning" | "otp">("warning");
+  const [otp, setOtp] = useState("");
+  const [loading, setLoading] = useState(false);
+  const { data: session } = useSession();
+
+  const handleRequestOtp = async () => {
+    setLoading(true);
+    try {
+      const { error } = await supabase.functions.invoke("send-library-delete-otp", {
+        body: { library_id: lib.id },
+      });
+      if (error) throw error;
+      toast.success("Verification code sent to your registered email");
+      setStep("otp");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to send verification code");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyAndDelete = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const { error } = await supabase.functions.invoke("verify-library-delete-otp", {
+        body: { library_id: lib.id, otp_code: otp },
+      });
+      if (error) throw error;
+
+      toast.success(`${lib.name} has been permanently deleted`);
+      onDone();
+    } catch (err: any) {
+      toast.error(err.message || "Invalid or expired OTP");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <DialogContent className="glass-strong border-rose/30 max-w-md">
+      <DialogHeader>
+        <DialogTitle className="text-rose flex items-center gap-2">
+          <AlertTriangle className="size-5" /> Delete Library
+        </DialogTitle>
+        <DialogDescription>
+          This action is irreversible. It will delete all seats, layouts, and allocations associated with {lib.name}.
+        </DialogDescription>
+      </DialogHeader>
+
+      {step === "warning" ? (
+        <div className="space-y-4 mt-2">
+          <div className="p-3 rounded-lg bg-rose/10 border border-rose/20 text-sm text-rose-200">
+            To proceed with the deletion of <strong>{lib.name}</strong>, we need to verify your identity.
+          </div>
+          <Button onClick={handleRequestOtp} disabled={loading} className="w-full bg-rose text-white hover:bg-rose/90">
+            {loading ? (
+              "Sending..."
+            ) : (
+              <>
+                <Mail className="size-4 mr-2" /> Send OTP to my Email
+              </>
+            )}
+          </Button>
+        </div>
+      ) : (
+        <form onSubmit={handleVerifyAndDelete} className="space-y-4 mt-2">
+          <div className="space-y-2">
+            <Label>Enter 6-Digit OTP</Label>
+            <Input
+              required
+              inputMode="numeric"
+              maxLength={6}
+              minLength={6}
+              value={otp}
+              onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+              className="bg-panel border-rose/30 font-mono text-center tracking-widest text-lg focus-visible:ring-rose"
+              placeholder="------"
+              autoFocus
+            />
+          </div>
+          <Button
+            disabled={loading || otp.length < 6}
+            type="submit"
+            className="w-full bg-rose text-white hover:bg-rose/90"
+          >
+            {loading ? "Verifying..." : "Permanently Delete Library"}
+          </Button>
+          <button
+            type="button"
+            onClick={() => setStep("warning")}
+            className="w-full text-xs text-muted-foreground hover:text-white mt-2"
+          >
+            Cancel
+          </button>
+        </form>
+      )}
     </DialogContent>
   );
 }
