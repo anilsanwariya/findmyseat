@@ -24,9 +24,6 @@ import {
   Waves,
   UserMinus,
   UserPlus,
-  Info,
-  Square,
-  AppWindow,
   Image as ImageIcon,
   Navigation,
   MessageSquare,
@@ -39,15 +36,13 @@ export const Route = createFileRoute("/_authenticated/admin/allocations")({
 
 const DIR_ICON = { north: ArrowUp, south: ArrowDown, east: ArrowRight, west: ArrowLeft };
 
-// Enhanced Object Meta matching the Layout Builder
+// Enhanced Object Meta for Areas & standalone blocks
 const OBJ_META: Record<string, { icon: any; label: string; color: string }> = {
   aisle: { icon: null, label: "Aisle", color: "bg-transparent" },
   entry_gate: { icon: DoorOpen, label: "Entry", color: "bg-slate-800/60 text-slate-300 border-slate-700" },
   washroom: { icon: Waves, label: "W/C", color: "bg-magenta/10 text-magenta border-magenta/30" },
   water_cooler: { icon: Droplets, label: "H₂O", color: "bg-cyan/10 text-cyan border-cyan/30" },
   reception: { icon: null, label: "Rcpt", color: "bg-panel-strong text-muted-foreground" },
-  wall: { icon: null, label: "", color: "bg-slate-600 border-slate-500 shadow-md" }, // Wall acts as a thick, solid block
-  window: { icon: AppWindow, label: "Window", color: "bg-sky-500/20 text-sky-300 border-sky-500/30 backdrop-blur-sm" },
   gallery: { icon: ImageIcon, label: "Gallery", color: "bg-purple-500/10 text-purple-300 border-purple-500/30" },
   hallway: { icon: Navigation, label: "Hallway", color: "bg-stone-500/10 text-stone-300 border-stone-500/30" },
   discussion: {
@@ -125,11 +120,13 @@ function AllocationsPage() {
     });
   }, [layoutData.data, allocations.data]);
 
-  // 🧠 Greedy Algorithm to Group Adjacent Objects (Walls, Areas) into single blocks
-  const mergedObjects = useMemo(() => {
-    if (!currentSection || !layoutData.data?.objs) return [];
+  // 🧠 Smart Layout Processor: Tile-matching for Walls/Windows & Merging for Areas
+  const processedLayout = useMemo(() => {
+    if (!currentSection || !layoutData.data?.objs) return { areas: [], lines: [], objMap: new Map() };
+
     const objs = layoutData.data.objs;
-    const merged: any[] = [];
+    const areas: any[] = [];
+    const lines: any[] = [];
     const visited = new Set<string>();
     const objMap = new Map<string, any>();
 
@@ -143,6 +140,15 @@ function AllocationsPage() {
 
         const baseObj = objMap.get(key);
         const type = baseObj.object_type;
+
+        // Process Walls and Windows individually for line-drawing
+        if (type === "wall" || type === "window") {
+          lines.push(baseObj);
+          visited.add(key);
+          continue;
+        }
+
+        // --- Greedy Block Algorithm for Areas (Gallery, Hallway, etc.) ---
 
         // 1. Expand horizontally (width)
         let width = 1;
@@ -167,15 +173,15 @@ function AllocationsPage() {
           if (canExpandDown) height++;
         }
 
-        // 3. Mark all identified cells as visited
+        // 3. Mark all identified area cells as visited
         for (let i = 0; i < height; i++) {
           for (let j = 0; j < width; j++) {
             visited.add(`${r + i}-${c + j}`);
           }
         }
 
-        // 4. Store the merged block
-        merged.push({
+        // 4. Store the merged block area
+        areas.push({
           id: baseObj.id,
           type,
           startRow: r,
@@ -185,7 +191,7 @@ function AllocationsPage() {
         });
       }
     }
-    return merged;
+    return { areas, lines, objMap };
   }, [currentSection, layoutData.data]);
 
   const refreshData = () => {
@@ -263,18 +269,17 @@ function AllocationsPage() {
                 gridTemplateRows: `repeat(${currentSection.grid_rows}, minmax(44px, 1fr))`,
               }}
             >
-              {/* Render Grouped/Merged Objects (Walls, Areas) */}
-              {mergedObjects.map((obj: any) => {
+              {/* 1. Render Grouped/Merged Areas (Hallways, Galleries, etc) */}
+              {processedLayout.areas.map((obj: any) => {
                 const meta = OBJ_META[obj.type] ?? OBJ_META.reception;
                 const Icon = meta.icon;
-                const isWallOrWindow = obj.type === "wall" || obj.type === "window";
                 const isMultiCell = obj.width > 1 || obj.height > 1;
 
                 return (
                   <div
                     key={obj.id}
                     className={cn(
-                      "flex flex-col items-center justify-center rounded-md border font-mono overflow-hidden transition-all",
+                      "flex flex-col items-center justify-center rounded-md border font-mono overflow-hidden transition-all pointer-events-none",
                       meta.color,
                       isMultiCell ? "text-xs" : "text-[8px]",
                     )}
@@ -283,24 +288,84 @@ function AllocationsPage() {
                       gridRow: `${obj.startRow + 1} / span ${obj.height}`,
                     }}
                   >
-                    {/* Render Icon/Label (Hide for 1-cell thick walls/windows to keep them looking like solid lines) */}
-                    {!(isWallOrWindow && !isMultiCell) && (
-                      <div className="flex flex-col items-center justify-center opacity-80 gap-1 p-2 text-center pointer-events-none">
-                        {Icon && <Icon className={cn(isMultiCell && !isWallOrWindow ? "size-5" : "size-3.5")} />}
-                        {(!isWallOrWindow || obj.width > 2 || obj.height > 2) && meta.label && (
-                          <span
-                            className={cn("truncate", isMultiCell ? "font-bold tracking-widest uppercase" : "mt-0.5")}
-                          >
-                            {meta.label}
-                          </span>
-                        )}
-                      </div>
+                    <div className="flex flex-col items-center justify-center opacity-80 gap-1 p-2 text-center">
+                      {Icon && <Icon className={cn(isMultiCell ? "size-5" : "size-3.5")} />}
+                      {meta.label && (
+                        <span
+                          className={cn("truncate", isMultiCell ? "font-bold tracking-widest uppercase" : "mt-0.5")}
+                        >
+                          {meta.label}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* 2. Render Connected Lines (Walls & Windows) */}
+              {processedLayout.lines.map((obj: any) => {
+                const r = obj.row_position;
+                const c = obj.column_position;
+
+                // Helper to check if a neighbor is a connectable line
+                const isLine = (type: string | undefined) => type === "wall" || type === "window";
+
+                const top = isLine(processedLayout.objMap.get(`${r - 1}-${c}`)?.object_type);
+                const bottom = isLine(processedLayout.objMap.get(`${r + 1}-${c}`)?.object_type);
+                const left = isLine(processedLayout.objMap.get(`${r}-${c - 1}`)?.object_type);
+                const right = isLine(processedLayout.objMap.get(`${r}-${c + 1}`)?.object_type);
+
+                const isWindow = obj.object_type === "window";
+                const thickness = isWindow ? "8px" : "4px";
+                const color = isWindow
+                  ? "bg-sky-400/90 shadow-[0_0_8px_rgba(56,189,248,0.5)]"
+                  : "bg-slate-500 shadow-md";
+
+                // If it has absolutely no neighbors, default to a horizontal dash
+                const isolated = !top && !bottom && !left && !right;
+
+                return (
+                  <div
+                    key={obj.id}
+                    className="relative flex items-center justify-center pointer-events-none"
+                    style={{ gridColumn: c + 1, gridRow: r + 1 }}
+                  >
+                    {/* The core joint where all arms meet */}
+                    <div
+                      className={cn("absolute", color)}
+                      style={{ width: thickness, height: thickness, zIndex: isWindow ? 5 : 4 }}
+                    />
+
+                    {/* Directional Arms reaching to the edge of the CSS grid cell */}
+                    {top && (
+                      <div
+                        className={cn("absolute top-0 bottom-[50%] left-1/2 -translate-x-1/2", color)}
+                        style={{ width: thickness, zIndex: isWindow ? 5 : 4 }}
+                      />
+                    )}
+                    {bottom && (
+                      <div
+                        className={cn("absolute top-[50%] bottom-0 left-1/2 -translate-x-1/2", color)}
+                        style={{ width: thickness, zIndex: isWindow ? 5 : 4 }}
+                      />
+                    )}
+                    {(left || isolated) && (
+                      <div
+                        className={cn("absolute left-0 right-[50%] top-1/2 -translate-y-1/2", color)}
+                        style={{ height: thickness, zIndex: isWindow ? 5 : 4 }}
+                      />
+                    )}
+                    {(right || isolated) && (
+                      <div
+                        className={cn("absolute left-[50%] right-0 top-1/2 -translate-y-1/2", color)}
+                        style={{ height: thickness, zIndex: isWindow ? 5 : 4 }}
+                      />
                     )}
                   </div>
                 );
               })}
 
-              {/* Render Seats */}
+              {/* 3. Render Seats */}
               {mapSeats.map((seat: any) => {
                 const Icon = DIR_ICON[seat.facing_direction as keyof typeof DIR_ICON] || ArrowUp;
                 return (
@@ -461,7 +526,7 @@ function AllocationsPage() {
   );
 }
 
-// Reusable Allocation Form Component
+// Reusable Allocation Form Component (Accepts initial values if triggered from the map)
 function NewAllocDialog({
   onDone,
   initialLibraryId,
@@ -483,7 +548,7 @@ function NewAllocDialog({
   const [reservationType, setReservationType] = useState<"reserved" | "unreserved">("reserved");
   const [loading, setLoading] = useState(false);
 
-  // Sync state if props change
+  // Sync state if props change (useful when modal is opened via map click)
   useEffect(() => {
     if (initialLibraryId) setLibraryId(initialLibraryId);
     if (initialSeatId) setSeatId(initialSeatId);
@@ -516,6 +581,7 @@ function NewAllocDialog({
         supabase.from("allocations").select("seat_id").eq("library_id", libraryId).eq("is_active", true),
       ]);
       const taken = new Set((allocRes.data ?? []).map((a) => a.seat_id));
+      // Include the initially selected seat even if it's somehow "taken" (fail-safe) or just filter normal vacant seats
       return (seatsRes.data ?? []).filter((s) => !taken.has(s.id) || s.id === initialSeatId);
     },
   });
