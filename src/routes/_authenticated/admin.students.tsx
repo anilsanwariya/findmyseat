@@ -53,7 +53,7 @@ function StudentsPage() {
         right={
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button className="bg-white text-slate-900 hover:bg-white/90">
+              <Button className="w-full sm:w-auto bg-white text-slate-900 hover:bg-white/90">
                 <Plus className="mr-1 size-4" /> New student
               </Button>
             </DialogTrigger>
@@ -66,7 +66,7 @@ function StudentsPage() {
           </Dialog>
         }
       />
-      <GlassPanel className="p-4">
+      <GlassPanel className="p-4 overflow-hidden">
         <div className="mb-3 flex items-center gap-2">
           <Search className="size-4 text-muted-foreground" />
           <Input
@@ -76,26 +76,29 @@ function StudentsPage() {
             className="bg-panel border-panel-border"
           />
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+        <div className="w-full overflow-x-auto pb-4 custom-scrollbar">
+          <table className="w-full text-left text-sm min-w-[700px]">
             <thead>
-              <tr className="border-b border-panel-border text-[10px] uppercase tracking-widest text-muted-foreground">
-                <th className="py-2 font-normal">Student</th>
-                <th className="py-2 font-normal">Mobile</th>
-                <th className="py-2 font-normal">Branch</th>
-                <th className="py-2 font-normal">Valid Till</th>
-                <th className="py-2 font-normal">PIN</th>
-                <th className="py-2 font-normal">Onboarded</th>
-                <th className="py-2 font-normal text-right">Actions</th>
+              <tr className="border-b border-panel-border text-[10px] uppercase tracking-widest text-muted-foreground whitespace-nowrap">
+                <th className="py-3 px-2 font-normal">Student</th>
+                <th className="py-3 px-2 font-normal">Mobile</th>
+                <th className="py-3 px-2 font-normal">Branch</th>
+                <th className="py-3 px-2 font-normal">Valid Till</th>
+                <th className="py-3 px-2 font-normal">PIN</th>
+                <th className="py-3 px-2 font-normal">Onboarded</th>
+                <th className="py-3 px-2 font-normal text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
               {(students.data ?? []).map((s: any) => (
-                <tr key={s.id} className="border-b border-panel-border/50">
-                  <td className="py-3 font-medium">{s.full_name}</td>
-                  <td className="py-3 font-mono">{s.mobile_number}</td>
-                  <td className="py-3 text-muted-foreground">{s.libraries?.name ?? "—"}</td>
-                  <td className="py-3">
+                <tr
+                  key={s.id}
+                  className="border-b border-panel-border/50 hover:bg-white/[0.02] transition-colors whitespace-nowrap"
+                >
+                  <td className="py-3 px-2 font-medium">{s.full_name}</td>
+                  <td className="py-3 px-2 font-mono">{s.mobile_number}</td>
+                  <td className="py-3 px-2 text-muted-foreground">{s.libraries?.name ?? "—"}</td>
+                  <td className="py-3 px-2">
                     {s.subscription_end ? (
                       <span
                         className={`px-2 py-0.5 rounded text-[10px] ${new Date(s.subscription_end) < new Date() ? "bg-red-500/10 text-red-500" : "bg-emerald/10 text-emerald"}`}
@@ -106,7 +109,7 @@ function StudentsPage() {
                       "—"
                     )}
                   </td>
-                  <td className="py-3">
+                  <td className="py-3 px-2">
                     {s.requires_pin_change ? (
                       <span className="rounded bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-400">
                         Default (DOB)
@@ -115,8 +118,8 @@ function StudentsPage() {
                       <span className="rounded bg-emerald/10 px-2 py-0.5 text-[10px] text-emerald">Set</span>
                     )}
                   </td>
-                  <td className="py-3 text-muted-foreground">{fmtDate(s.created_at)}</td>
-                  <td className="py-3 text-right">
+                  <td className="py-3 px-2 text-muted-foreground">{fmtDate(s.created_at)}</td>
+                  <td className="py-3 px-2 text-right">
                     <Button
                       size="sm"
                       variant="ghost"
@@ -182,7 +185,7 @@ function NewStudentDialog({ onDone }: { onDone: () => void }) {
   }, [duration, startDate, customEndDate]);
 
   return (
-    <DialogContent className="glass-strong border-panel-border max-h-[90vh] overflow-y-auto">
+    <DialogContent className="glass-strong border-panel-border w-[95vw] max-w-lg max-h-[90vh] overflow-y-auto p-4 md:p-6">
       <DialogHeader>
         <DialogTitle>New student</DialogTitle>
       </DialogHeader>
@@ -221,7 +224,7 @@ function NewStudentDialog({ onDone }: { onDone: () => void }) {
             className="bg-panel border-panel-border"
           />
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-2">
             <Label>Mobile (10 digits)</Label>
             <Input
@@ -248,7 +251,7 @@ function NewStudentDialog({ onDone }: { onDone: () => void }) {
         </div>
 
         {/* Branch & Exam Section */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-2">
             <Label>Branch</Label>
             <Select value={libraryId} onValueChange={setLibraryId}>
@@ -298,7 +301,7 @@ function NewStudentDialog({ onDone }: { onDone: () => void }) {
             </Select>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label>Start Date</Label>
               <Input
@@ -306,7 +309,7 @@ function NewStudentDialog({ onDone }: { onDone: () => void }) {
                 required
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="bg-panel border-panel-border text-sm block"
+                className="bg-panel border-panel-border text-sm block w-full"
               />
             </div>
 
@@ -318,10 +321,10 @@ function NewStudentDialog({ onDone }: { onDone: () => void }) {
                   required
                   value={customEndDate}
                   onChange={(e) => setCustomEndDate(e.target.value)}
-                  className="bg-panel border-panel-border text-sm block"
+                  className="bg-panel border-panel-border text-sm block w-full"
                 />
               ) : (
-                <div className="h-10 flex items-center px-3 rounded-md border border-panel-border bg-panel text-sm text-muted-foreground">
+                <div className="h-10 flex items-center px-3 rounded-md border border-panel-border bg-panel text-sm text-muted-foreground overflow-hidden whitespace-nowrap text-ellipsis">
                   {calculatedEndDate ? fmtDate(calculatedEndDate) : "—"}
                 </div>
               )}
@@ -329,7 +332,7 @@ function NewStudentDialog({ onDone }: { onDone: () => void }) {
           </div>
         </div>
 
-        <div className="rounded-lg border border-panel-border bg-panel p-3 text-xs text-muted-foreground">
+        <div className="rounded-lg border border-panel-border bg-panel p-3 text-xs text-muted-foreground leading-relaxed">
           Login credentials: mobile + DOB. Student will be forced to set a 6-digit PIN on first login.
         </div>
         <Button
