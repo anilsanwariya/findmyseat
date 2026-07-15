@@ -495,6 +495,47 @@ export type Database = {
           },
         ]
       }
+      pin_reset_otps: {
+        Row: {
+          attempts: number
+          code_hash: string
+          consumed_at: string | null
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          student_id: string
+        }
+        Insert: {
+          attempts?: number
+          code_hash: string
+          consumed_at?: string | null
+          created_at?: string
+          email: string
+          expires_at: string
+          id?: string
+          student_id: string
+        }
+        Update: {
+          attempts?: number
+          code_hash?: string
+          consumed_at?: string | null
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pin_reset_otps_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       seat_requests: {
         Row: {
           admin_notes: string | null
@@ -743,6 +784,7 @@ export type Database = {
           address: string | null
           created_at: string
           dob: string
+          email: string | null
           full_name: string
           id: string
           is_active: boolean
@@ -760,6 +802,7 @@ export type Database = {
           address?: string | null
           created_at?: string
           dob: string
+          email?: string | null
           full_name: string
           id?: string
           is_active?: boolean
@@ -777,6 +820,7 @@ export type Database = {
           address?: string | null
           created_at?: string
           dob?: string
+          email?: string | null
           full_name?: string
           id?: string
           is_active?: boolean
