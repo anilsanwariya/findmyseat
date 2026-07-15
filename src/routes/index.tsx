@@ -98,7 +98,7 @@ function Marketplace() {
         <section className="mx-auto max-w-7xl px-4 pb-16 pt-6 sm:px-6">
           {results.isLoading ? (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {Array.from({ length: 6 }).map((_, i) => <GlassPanel key={i} className="h-72 animate-pulse" />)}
+              {Array.from({ length: 6 }).map((_, i) => <GlassPanel key={i} className="h-72 animate-pulse"><span /></GlassPanel>)}
             </div>
           ) : libs.length === 0 ? (
             <GlassPanel className="p-10 text-center">
