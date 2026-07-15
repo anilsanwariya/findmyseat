@@ -9,7 +9,7 @@ import { studentEmailFromMobile } from "@/lib/student-utils";
 import { toast } from "sonner";
 
 // HIDDEN SUFFIX: Must exactly match the suffix in students.functions.ts
-const PIN_SUFFIX = "-Lexicon1!";
+const PIN_SUFFIX = "_Lx!9aZ*qW2#vP7$Lex26";
 
 export const Route = createFileRoute("/student-login")({
   component: StudentLogin,
@@ -26,11 +26,20 @@ function StudentLogin() {
     setLoading(true);
     const email = studentEmailFromMobile(mobile);
 
-    // Append the hidden suffix here so it matches the backend policy
-    const { error } = await supabase.auth.signInWithPassword({
+    // Attempt 1: Try with the new secure suffix
+    let { error } = await supabase.auth.signInWithPassword({
       email,
       password: credential + PIN_SUFFIX,
     });
+
+    // Attempt 2: If it fails, try WITHOUT the suffix (for older legacy students)
+    if (error) {
+      const legacyAttempt = await supabase.auth.signInWithPassword({
+        email,
+        password: credential,
+      });
+      error = legacyAttempt.error;
+    }
 
     setLoading(false);
     if (error) {
