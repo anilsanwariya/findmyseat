@@ -196,7 +196,7 @@ function TenantsTable() {
                       {o.subscription_plan === "multi_branch" ? "Multi" : "Single"}
                     </span>
                   </TableCell>
-                  <TableCell className="text-muted-foreground">{o.next_billing_date ? formatDate(o.next_billing_date) : "—"}</TableCell>
+                  <TableCell className="text-muted-foreground">{o.next_billing_date ? fmtDate(o.next_billing_date) : "—"}</TableCell>
                   <TableCell>
                     <span className={cn(
                       "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest",
