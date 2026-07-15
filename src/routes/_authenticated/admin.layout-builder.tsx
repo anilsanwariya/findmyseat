@@ -22,9 +22,14 @@ import {
   Waves,
   Plus,
   Minus,
-  UserPlus,
-  UserMinus,
   Trash2,
+  MousePointer2,
+  Square,
+  AppWindow,
+  Image as ImageIcon,
+  Navigation,
+  MessageSquare,
+  Utensils,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/layout-builder")({
@@ -32,39 +37,47 @@ export const Route = createFileRoute("/_authenticated/admin/layout-builder")({
 });
 
 type Cell =
-  | {
-      kind: "seat";
-      id: string;
-      seat_number: string;
-      facing: "north" | "south" | "east" | "west";
-      is_corner: boolean;
-      occupied?: boolean;
-      alloc?: any;
-    }
+  | { kind: "seat"; id: string; seat_number: string; facing: "north" | "south" | "east" | "west"; is_corner: boolean }
   | { kind: "object"; id: string; object_type: string }
   | { kind: "empty" };
 
 const DIR_ICON = { north: ArrowUp, south: ArrowDown, east: ArrowRight, west: ArrowLeft };
+
+// Enhanced Object Meta with Walls, Windows, and Custom Areas
 const OBJ_META: Record<string, { icon: any; label: string; color: string }> = {
   aisle: { icon: null, label: "Aisle", color: "bg-transparent" },
   entry_gate: { icon: DoorOpen, label: "Entry", color: "bg-slate-800/60 text-slate-300" },
   washroom: { icon: Waves, label: "W/C", color: "bg-magenta/10 text-magenta border-magenta/30" },
   water_cooler: { icon: Droplets, label: "H₂O", color: "bg-cyan/10 text-cyan border-cyan/30" },
   reception: { icon: null, label: "Rcpt", color: "bg-panel-strong text-muted-foreground" },
+  wall: { icon: Square, label: "Wall", color: "bg-slate-700/80 text-slate-300 border-slate-600" },
+  window: { icon: AppWindow, label: "Window", color: "bg-sky-500/20 text-sky-300 border-sky-500/30" },
+  gallery: { icon: ImageIcon, label: "Gallery", color: "bg-purple-500/20 text-purple-300 border-purple-500/30" },
+  hallway: { icon: Navigation, label: "Hallway", color: "bg-stone-500/20 text-stone-300 border-stone-500/30" },
+  discussion: { icon: MessageSquare, label: "Discussion", color: "bg-amber-500/20 text-amber-300 border-amber-500/30" },
+  dining: { icon: Utensils, label: "Dining", color: "bg-orange-500/20 text-orange-300 border-orange-500/30" },
 };
 
 function LayoutBuilderPage() {
   const { data: session } = useSession();
   const orgId = session?.orgId;
   const { data: libs } = useLibraries();
+
   const [libraryId, setLibraryId] = useState<string | undefined>();
   const [sectionId, setSectionId] = useState<string | undefined>();
   const [selectedSeat, setSelectedSeat] = useState<string | null>(null);
+
   const [addSectionOpen, setAddSectionOpen] = useState(false);
   const [addSeatOpen, setAddSeatOpen] = useState(false);
   const [addSeatPos, setAddSeatPos] = useState<{ row: number; col: number } | null>(null);
-  const qc = useQueryClient();
 
+  // Multi-select & Shift States
+  const [multiSelectMode, setMultiSelectMode] = useState(false);
+  const [selectedCells, setSelectedCells] = useState<{ r: number; c: number }[]>([]);
+  const [bulkAreaOpen, setBulkAreaOpen] = useState(false);
+  const [isShifting, setIsShifting] = useState(false);
+
+  const qc = useQueryClient();
   const currentLibId = libraryId ?? libs?.[0]?.id;
 
   const sectionsQ = useQuery({
@@ -75,37 +88,20 @@ function LayoutBuilderPage() {
       return data ?? [];
     },
   });
+
   const currentSectionId = sectionId ?? sectionsQ.data?.[0]?.id;
   const currentSection = sectionsQ.data?.find((s: any) => s.id === currentSectionId);
 
+  // Fetch only physical layout elements (Seats & Objects), NO allocations
   const seatsQ = useQuery({
     queryKey: ["seats", currentSectionId],
     enabled: !!currentSectionId,
     queryFn: async () => {
-      const [seats, objs, allocs] = await Promise.all([
+      const [seats, objs] = await Promise.all([
         supabase.from("seats").select("*").eq("section_id", currentSectionId!),
         supabase.from("layout_objects").select("*").eq("section_id", currentSectionId!),
-        supabase
-          .from("allocations")
-          .select(
-            "id, seat_id, student_id, next_due_date, status, monthly_fee, students(full_name, mobile_number), shifts(name)",
-          )
-          .eq("is_active", true),
       ]);
-      return { seats: seats.data ?? [], objs: objs.data ?? [], allocs: allocs.data ?? [] };
-    },
-  });
-
-  const studentsQ = useQuery({
-    queryKey: ["active_students", orgId],
-    enabled: !!orgId,
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("students")
-        .select("id, full_name, mobile_number")
-        .eq("org_id", orgId!)
-        .order("full_name");
-      return data ?? [];
+      return { seats: seats.data ?? [], objs: objs.data ?? [] };
     },
   });
 
@@ -116,8 +112,8 @@ function LayoutBuilderPage() {
     const g: Cell[][] = Array.from({ length: rows }, () =>
       Array.from({ length: cols }, () => ({ kind: "empty" }) as Cell),
     );
+
     for (const s of seatsQ.data?.seats ?? []) {
-      const alloc = (seatsQ.data?.allocs ?? []).find((a: any) => a.seat_id === s.id);
       g[s.row_position]?.[s.column_position] &&
         (g[s.row_position][s.column_position] = {
           kind: "seat",
@@ -125,8 +121,6 @@ function LayoutBuilderPage() {
           seat_number: s.seat_number,
           facing: s.facing_direction,
           is_corner: s.is_corner,
-          occupied: !!alloc,
-          alloc,
         });
     }
     for (const o of seatsQ.data?.objs ?? []) {
@@ -138,15 +132,29 @@ function LayoutBuilderPage() {
 
   const selectedSeatObj = useMemo(() => {
     if (!selectedSeat || !seatsQ.data) return null;
-    const s = seatsQ.data.seats.find((x: any) => x.id === selectedSeat);
-    if (!s) return null;
-    const a = seatsQ.data.allocs.find((x: any) => x.seat_id === s.id);
-    return { seat: s, alloc: a };
+    return seatsQ.data.seats.find((x: any) => x.id === selectedSeat) || null;
   }, [selectedSeat, seatsQ.data]);
 
   async function handleCellClick(row: number, col: number) {
     if (!grid) return;
     const cell = grid[row][col];
+
+    // Multi-Select Handling
+    if (multiSelectMode) {
+      if (cell.kind !== "empty") {
+        toast.error("You can only select empty cells to paint areas or objects.");
+        return;
+      }
+      const isSelected = selectedCells.some((x) => x.r === row && x.c === col);
+      if (isSelected) {
+        setSelectedCells((prev) => prev.filter((x) => !(x.r === row && x.c === col)));
+      } else {
+        setSelectedCells((prev) => [...prev, { r: row, c: col }]);
+      }
+      return;
+    }
+
+    // Standard Handling
     if (cell.kind === "seat") {
       setSelectedSeat(cell.id);
       return;
@@ -164,7 +172,7 @@ function LayoutBuilderPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["seats", currentSectionId] }),
   });
 
-  // --- DYNAMIC ROWS & COLUMNS MUTATION ---
+  // --- DYNAMIC ROWS & COLUMNS MUTATION (4-WAY) ---
   const updateDimensions = useMutation({
     mutationFn: async ({ rows, cols }: { rows: number; cols: number }) => {
       const { error } = await supabase
@@ -176,38 +184,120 @@ function LayoutBuilderPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["sections", currentLibId] }),
   });
 
-  const handleAddRow = () =>
-    updateDimensions.mutate({ rows: currentSection.grid_rows + 1, cols: currentSection.grid_cols });
-  const handleAddCol = () =>
-    updateDimensions.mutate({ rows: currentSection.grid_rows, cols: currentSection.grid_cols + 1 });
+  // Shift Logic for Top and Left additions/removals
+  async function shiftGridItems(dr: number, dc: number) {
+    const seats = seatsQ.data?.seats ?? [];
+    const objs = seatsQ.data?.objs ?? [];
 
-  const handleRemoveRow = () => {
-    if (!grid) return;
-    const lastRowIdx = currentSection.grid_rows - 1;
-    const hasItems = grid[lastRowIdx].some((c) => c.kind !== "empty");
-    if (hasItems) {
-      toast.error("Warning: Cannot remove the bottom row because it contains active seats or objects.");
-      return;
+    for (const seat of seats) {
+      await supabase
+        .from("seats")
+        .update({ row_position: seat.row_position + dr, column_position: seat.column_position + dc })
+        .eq("id", seat.id);
     }
-    updateDimensions.mutate({ rows: lastRowIdx, cols: currentSection.grid_cols });
+    for (const obj of objs) {
+      await supabase
+        .from("layout_objects")
+        .update({ row_position: obj.row_position + dr, column_position: obj.column_position + dc })
+        .eq("id", obj.id);
+    }
+  }
+
+  const handleAddTop = async () => {
+    if (!currentSection) return;
+    setIsShifting(true);
+    toast.loading("Expanding map upwards...", { id: "shift" });
+    await supabase
+      .from("sections")
+      .update({ grid_rows: currentSection.grid_rows + 1 })
+      .eq("id", currentSectionId);
+    await shiftGridItems(1, 0);
+    qc.invalidateQueries({ queryKey: ["sections"] });
+    qc.invalidateQueries({ queryKey: ["seats"] });
+    toast.success("Row added to Top", { id: "shift" });
+    setIsShifting(false);
   };
 
-  const handleRemoveCol = () => {
-    if (!grid) return;
-    const lastColIdx = currentSection.grid_cols - 1;
-    const hasItems = grid.some((row) => row[lastColIdx].kind !== "empty");
-    if (hasItems) {
-      toast.error("Warning: Cannot remove the rightmost column because it contains active seats or objects.");
+  const handleRemoveTop = async () => {
+    if (!grid || !currentSection) return;
+    if (grid[0].some((c) => c.kind !== "empty")) {
+      toast.error("Cannot remove top row: It contains active seats or objects.");
       return;
     }
-    updateDimensions.mutate({ rows: currentSection.grid_rows, cols: lastColIdx });
+    setIsShifting(true);
+    toast.loading("Shrinking map from top...", { id: "shift" });
+    await shiftGridItems(-1, 0);
+    await supabase
+      .from("sections")
+      .update({ grid_rows: currentSection.grid_rows - 1 })
+      .eq("id", currentSectionId);
+    qc.invalidateQueries({ queryKey: ["sections"] });
+    qc.invalidateQueries({ queryKey: ["seats"] });
+    toast.success("Row removed from Top", { id: "shift" });
+    setIsShifting(false);
+  };
+
+  const handleAddLeft = async () => {
+    if (!currentSection) return;
+    setIsShifting(true);
+    toast.loading("Expanding map leftwards...", { id: "shift" });
+    await supabase
+      .from("sections")
+      .update({ grid_cols: currentSection.grid_cols + 1 })
+      .eq("id", currentSectionId);
+    await shiftGridItems(0, 1);
+    qc.invalidateQueries({ queryKey: ["sections"] });
+    qc.invalidateQueries({ queryKey: ["seats"] });
+    toast.success("Column added to Left", { id: "shift" });
+    setIsShifting(false);
+  };
+
+  const handleRemoveLeft = async () => {
+    if (!grid || !currentSection) return;
+    if (grid.some((row) => row[0].kind !== "empty")) {
+      toast.error("Cannot remove left column: It contains active seats or objects.");
+      return;
+    }
+    setIsShifting(true);
+    toast.loading("Shrinking map from left...", { id: "shift" });
+    await shiftGridItems(0, -1);
+    await supabase
+      .from("sections")
+      .update({ grid_cols: currentSection.grid_cols - 1 })
+      .eq("id", currentSectionId);
+    qc.invalidateQueries({ queryKey: ["sections"] });
+    qc.invalidateQueries({ queryKey: ["seats"] });
+    toast.success("Column removed from Left", { id: "shift" });
+    setIsShifting(false);
+  };
+
+  const handleAddBottom = () =>
+    updateDimensions.mutate({ rows: currentSection.grid_rows + 1, cols: currentSection.grid_cols });
+  const handleAddRight = () =>
+    updateDimensions.mutate({ rows: currentSection.grid_rows, cols: currentSection.grid_cols + 1 });
+
+  const handleRemoveBottom = () => {
+    if (!grid) return;
+    if (grid[currentSection.grid_rows - 1].some((c) => c.kind !== "empty")) {
+      toast.error("Cannot remove bottom row: It contains active seats or objects.");
+      return;
+    }
+    updateDimensions.mutate({ rows: currentSection.grid_rows - 1, cols: currentSection.grid_cols });
+  };
+  const handleRemoveRight = () => {
+    if (!grid) return;
+    if (grid.some((row) => row[currentSection.grid_cols - 1].kind !== "empty")) {
+      toast.error("Cannot remove rightmost column: It contains active seats or objects.");
+      return;
+    }
+    updateDimensions.mutate({ rows: currentSection.grid_rows, cols: currentSection.grid_cols - 1 });
   };
 
   return (
     <div className="space-y-6">
       <SectionHeader
-        title="Layout & Allocation"
-        hint="Build your floor plan and click seats to assign students directly from the map."
+        title="Layout Builder"
+        hint="Build your floor plan, setup seats, and define custom areas."
         right={
           <div className="flex flex-wrap items-center gap-2">
             <Select
@@ -277,94 +367,183 @@ function LayoutBuilderPage() {
       ) : (
         <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
           <GlassPanel className="p-4 flex flex-col min-w-0">
-            <div className="mb-3 flex items-center justify-between px-2">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3 px-2">
               <div>
                 <div className="text-sm font-bold">{currentSection?.name}</div>
                 <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                  {currentSection?.grid_rows} × {currentSection?.grid_cols} · {seatsQ.data?.seats.length ?? 0} seats ·{" "}
-                  {seatsQ.data?.allocs.filter((a: any) =>
-                    (seatsQ.data?.seats ?? []).some((s: any) => s.id === a.seat_id),
-                  ).length ?? 0}{" "}
-                  occupied
+                  {currentSection?.grid_rows} × {currentSection?.grid_cols} · {seatsQ.data?.seats.length ?? 0} physical
+                  seats
                 </div>
               </div>
-              <BulkSeatDialog
-                sectionId={currentSectionId}
-                orgId={orgId!}
-                libraryId={currentLibId!}
-                onDone={() => qc.invalidateQueries({ queryKey: ["seats", currentSectionId] })}
-              />
+
+              {/* Map Tools */}
+              <div className="flex gap-2">
+                <Button
+                  variant={multiSelectMode ? "default" : "outline"}
+                  onClick={() => {
+                    setMultiSelectMode(!multiSelectMode);
+                    setSelectedCells([]);
+                  }}
+                  className={cn(
+                    "bg-panel transition-colors",
+                    multiSelectMode &&
+                      "bg-cyan text-cyan-950 hover:bg-cyan/90 border-cyan/50 shadow-[0_0_15px_rgba(34,211,238,0.2)]",
+                  )}
+                  size="sm"
+                >
+                  <MousePointer2 className="size-4 mr-2" /> {multiSelectMode ? "Cancel Selection" : "Select Area"}
+                </Button>
+                <BulkSeatDialog
+                  sectionId={currentSectionId}
+                  orgId={orgId!}
+                  libraryId={currentLibId!}
+                  onDone={() => qc.invalidateQueries({ queryKey: ["seats", currentSectionId] })}
+                />
+              </div>
             </div>
 
+            {/* Selection Action Banner */}
+            {multiSelectMode && selectedCells.length > 0 && (
+              <div className="bg-cyan/10 border border-cyan/30 rounded-lg p-3 mb-4 mx-2 flex items-center justify-between animate-in fade-in zoom-in slide-in-from-top-4">
+                <span className="text-sm font-medium text-cyan">{selectedCells.length} cells selected</span>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setSelectedCells([])}
+                    className="text-muted-foreground hover:text-white"
+                  >
+                    Clear
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="bg-cyan text-cyan-950 hover:bg-cyan/90"
+                    onClick={() => setBulkAreaOpen(true)}
+                  >
+                    Assign Object / Area
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {/* INTERACTIVE RESPONSIVE GRID WRAPPER */}
-            <div className="relative w-full overflow-auto rounded-lg bg-black/30 p-4 ring-1 ring-panel-border touch-pan-x touch-pan-y custom-scrollbar">
+            <div className="relative w-full overflow-auto rounded-lg bg-black/30 p-4 ring-1 ring-panel-border touch-pan-x touch-pan-y custom-scrollbar flex justify-center">
               {grid && (
-                <div className="flex flex-col min-w-max">
-                  <div className="flex">
+                <div className="flex flex-col items-center min-w-max p-4">
+                  {/* Top Controls */}
+                  <div className="flex items-center gap-2 mb-4 border-b border-panel-border/30 pb-4">
+                    <Button
+                      disabled={isShifting}
+                      size="sm"
+                      variant="outline"
+                      onClick={handleAddTop}
+                      className="rounded-full bg-panel hover:bg-panel-strong"
+                    >
+                      <Plus className="size-3 mr-1" /> Top Row
+                    </Button>
+                    <Button
+                      disabled={isShifting}
+                      size="sm"
+                      variant="outline"
+                      onClick={handleRemoveTop}
+                      className="rounded-full bg-panel hover:bg-rose/20 hover:text-rose hover:border-rose/30"
+                    >
+                      <Minus className="size-3 mr-1" /> Top Row
+                    </Button>
+                  </div>
+
+                  <div className="flex items-center">
+                    {/* Left Controls */}
+                    <div className="flex flex-col gap-2 mr-4 border-r border-panel-border/30 pr-4">
+                      <Button
+                        disabled={isShifting}
+                        size="icon"
+                        variant="outline"
+                        onClick={handleAddLeft}
+                        title="Add Col Left"
+                        className="size-8 rounded-full bg-panel hover:bg-panel-strong"
+                      >
+                        <Plus className="size-4" />
+                      </Button>
+                      <Button
+                        disabled={isShifting}
+                        size="icon"
+                        variant="outline"
+                        onClick={handleRemoveLeft}
+                        title="Remove Col Left"
+                        className="size-8 rounded-full bg-panel hover:bg-rose/20 hover:text-rose hover:border-rose/30"
+                      >
+                        <Minus className="size-4" />
+                      </Button>
+                    </div>
+
                     {/* The Grid */}
                     <div
                       className="grid gap-1.5"
                       style={{ gridTemplateColumns: `repeat(${currentSection?.grid_cols ?? 15}, minmax(40px, 1fr))` }}
                     >
                       {grid.map((row, r) =>
-                        row.map((cell, c) => (
-                          <CellView
-                            key={`${r}-${c}`}
-                            row={r}
-                            col={c}
-                            cell={cell}
-                            onClick={() => handleCellClick(r, c)}
-                            onDeleteObject={(id) => deleteObject.mutate(id)}
-                          />
-                        )),
+                        row.map((cell, c) => {
+                          const isSelected = selectedCells.some((x) => x.r === r && x.c === c);
+                          return (
+                            <CellView
+                              key={`${r}-${c}`}
+                              row={r}
+                              col={c}
+                              cell={cell}
+                              isSelected={isSelected}
+                              onClick={() => handleCellClick(r, c)}
+                              onDeleteObject={(id) => deleteObject.mutate(id)}
+                            />
+                          );
+                        }),
                       )}
                     </div>
-                    {/* Column Controls */}
-                    <div className="flex flex-col items-center justify-center gap-2 ml-4 border-l border-panel-border/30 pl-4">
+
+                    {/* Right Controls */}
+                    <div className="flex flex-col gap-2 ml-4 border-l border-panel-border/30 pl-4">
                       <Button
+                        disabled={isShifting}
                         size="icon"
                         variant="outline"
-                        onClick={handleAddCol}
-                        title="Add Column"
+                        onClick={handleAddRight}
+                        title="Add Col Right"
                         className="size-8 rounded-full bg-panel hover:bg-panel-strong"
                       >
                         <Plus className="size-4" />
                       </Button>
                       <Button
+                        disabled={isShifting}
                         size="icon"
                         variant="outline"
-                        onClick={handleRemoveCol}
-                        title="Remove Column"
+                        onClick={handleRemoveRight}
+                        title="Remove Col Right"
                         className="size-8 rounded-full bg-panel hover:bg-rose/20 hover:text-rose hover:border-rose/30"
                       >
                         <Minus className="size-4" />
                       </Button>
                     </div>
                   </div>
-                  {/* Row Controls */}
-                  <div
-                    className="flex items-center justify-center gap-2 mt-4 border-t border-panel-border/30 pt-4"
-                    style={{
-                      maxWidth: `calc(${currentSection?.grid_cols * 40}px + ${(currentSection?.grid_cols - 1) * 6}px)`,
-                    }}
-                  >
+
+                  {/* Bottom Controls */}
+                  <div className="flex items-center gap-2 mt-4 border-t border-panel-border/30 pt-4">
                     <Button
-                      size="icon"
+                      disabled={isShifting}
+                      size="sm"
                       variant="outline"
-                      onClick={handleAddRow}
-                      title="Add Row"
-                      className="size-8 rounded-full bg-panel hover:bg-panel-strong"
+                      onClick={handleAddBottom}
+                      className="rounded-full bg-panel hover:bg-panel-strong"
                     >
-                      <Plus className="size-4" />
+                      <Plus className="size-3 mr-1" /> Bottom Row
                     </Button>
                     <Button
-                      size="icon"
+                      disabled={isShifting}
+                      size="sm"
                       variant="outline"
-                      onClick={handleRemoveRow}
-                      title="Remove Row"
-                      className="size-8 rounded-full bg-panel hover:bg-rose/20 hover:text-rose hover:border-rose/30"
+                      onClick={handleRemoveBottom}
+                      className="rounded-full bg-panel hover:bg-rose/20 hover:text-rose hover:border-rose/30"
                     >
-                      <Minus className="size-4" />
+                      <Minus className="size-3 mr-1" /> Bottom Row
                     </Button>
                   </div>
                 </div>
@@ -374,12 +553,9 @@ function LayoutBuilderPage() {
 
           <InspectorPanel
             selected={selectedSeatObj}
-            students={studentsQ.data}
-            orgId={orgId!}
-            onRefresh={() => qc.invalidateQueries({ queryKey: ["seats", currentSectionId] })}
             onDelete={async () => {
               if (!selectedSeatObj) return;
-              const { error } = await supabase.from("seats").delete().eq("id", selectedSeatObj.seat.id);
+              const { error } = await supabase.from("seats").delete().eq("id", selectedSeatObj.id);
               if (error) {
                 toast.error(error.message);
                 return;
@@ -392,6 +568,7 @@ function LayoutBuilderPage() {
         </div>
       )}
 
+      {/* Normal Single Object/Seat Add */}
       <AddSeatDialog
         open={addSeatOpen}
         onOpenChange={setAddSeatOpen}
@@ -401,6 +578,20 @@ function LayoutBuilderPage() {
         libraryId={currentLibId!}
         onDone={() => qc.invalidateQueries({ queryKey: ["seats", currentSectionId] })}
       />
+
+      {/* Bulk Area Assigner (Triggered by Multi-Select) */}
+      <BulkAreaDialog
+        open={bulkAreaOpen}
+        onOpenChange={setBulkAreaOpen}
+        cells={selectedCells}
+        section={currentSection}
+        orgId={orgId!}
+        onDone={() => {
+          qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
+          setMultiSelectMode(false);
+          setSelectedCells([]);
+        }}
+      />
     </div>
   );
 }
@@ -409,33 +600,32 @@ function CellView({
   row,
   col,
   cell,
+  isSelected,
   onClick,
   onDeleteObject,
 }: {
   row: number;
   col: number;
   cell: Cell;
+  isSelected: boolean;
   onClick: () => void;
   onDeleteObject: (id: string) => void;
 }) {
   if (cell.kind === "seat") {
     const Icon = DIR_ICON[cell.facing];
-    const occ = cell.occupied;
     return (
       <button
         onClick={onClick}
-        title={`Seat ${cell.seat_number}${occ ? " · occupied" : " · vacant"}`}
+        title={`Seat ${cell.seat_number}`}
         className={cn(
           "group flex size-10 min-w-0 flex-col items-center justify-center rounded border text-[9px] font-mono transition-all hover:scale-[1.06]",
-          occ
-            ? "border border-rose/50 bg-rose/20 text-rose shadow-[0_0_10px_rgba(244,63,94,0.3)]" // Red/Blue Occupied
-            : cell.is_corner
-              ? "border-2 border-gold/60 bg-gold/10 text-gold glow-gold"
-              : "border border-emerald/50 bg-emerald/10 text-emerald shadow-[0_0_10px_rgba(16,185,129,0.1)] hover:border-emerald hover:bg-emerald/20", // Green Vacant
+          cell.is_corner
+            ? "border-2 border-gold/60 bg-gold/10 text-gold glow-gold hover:bg-gold/20"
+            : "border-emerald/50 bg-emerald/10 text-emerald shadow-[0_0_10px_rgba(16,185,129,0.1)] hover:border-emerald hover:bg-emerald/20",
         )}
       >
         <Icon className="mb-0.5 size-2.5 opacity-70" />
-        <span className="truncate">{cell.seat_number}</span>
+        <span className="truncate font-bold">{cell.seat_number}</span>
       </button>
     );
   }
@@ -447,7 +637,7 @@ function CellView({
         onClick={() => onDeleteObject(cell.id)}
         title={`${meta.label} (click to remove)`}
         className={cn(
-          "flex size-10 min-w-0 flex-col items-center justify-center rounded border text-[8px] font-mono",
+          "flex size-10 min-w-0 flex-col items-center justify-center rounded border text-[8px] font-mono hover:scale-105 transition-all hover:border-rose/50",
           meta.color,
         )}
       >
@@ -460,48 +650,29 @@ function CellView({
     <button
       onClick={onClick}
       title={`Row ${row + 1}, Col ${col + 1}`}
-      className="size-10 min-w-0 rounded border border-panel-border/30 bg-white/[0.02] transition-colors hover:border-panel-border hover:bg-panel"
+      className={cn(
+        "size-10 min-w-0 rounded border transition-colors hover:scale-[1.03]",
+        isSelected
+          ? "border-cyan bg-cyan/20 shadow-[0_0_8px_rgba(34,211,238,0.3)]"
+          : "border-panel-border/30 bg-white/[0.02] hover:border-panel-border hover:bg-panel",
+      )}
     />
   );
 }
 
-// --- VISUAL SEAT ALLOCATION (INSPECTOR UPGRADE) ---
-function InspectorPanel({
-  selected,
-  students,
-  orgId,
-  onRefresh,
-  onDelete,
-}: {
-  selected: any;
-  students: any[];
-  orgId: string;
-  onRefresh: () => void;
-  onDelete: () => void;
-}) {
-  const [assignOpen, setAssignOpen] = useState(false);
-  const [selectedStudent, setSelectedStudent] = useState("");
-  const [fee, setFee] = useState("");
-
+// --- PURE LAYOUT INSPECTOR (NO ALLOCATIONS) ---
+function InspectorPanel({ selected, onDelete }: { selected: any; onDelete: () => void }) {
   if (!selected) {
     return (
       <GlassPanel className="p-5 flex flex-col h-full">
-        <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-          Allocation & Inspector
-        </div>
+        <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Inspector</div>
         <p className="mt-4 text-sm text-muted-foreground">
-          Click a <span className="text-emerald">Green (Vacant)</span> seat to assign a student.
-        </p>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Click a <span className="text-rose">Red (Occupied)</span> seat to view details or remove.
+          Click a seat or layout object to view details or remove it.
         </p>
 
         <div className="mt-8 space-y-3 text-xs text-muted-foreground border-t border-panel-border/50 pt-6">
           <div className="flex items-center gap-2">
-            <span className="inline-block size-3 rounded border border-emerald/50 bg-emerald/10" /> Vacant (Available)
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="inline-block size-3 rounded border border-rose/50 bg-rose/20" /> Occupied (Assigned)
+            <span className="inline-block size-3 rounded border border-emerald/50 bg-emerald/10" /> Standard Seat
           </div>
           <div className="flex items-center gap-2">
             <span className="inline-block size-3 rounded border-2 border-gold/60 bg-gold/10" /> Corner Seat (Premium)
@@ -510,121 +681,15 @@ function InspectorPanel({
       </GlassPanel>
     );
   }
-  const s = selected.seat;
-  const a = selected.alloc;
-
-  const handleAssign = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedStudent || !fee) return;
-    const { error } = await supabase.from("allocations").insert({
-      seat_id: s.id,
-      student_id: selectedStudent,
-      org_id: orgId,
-      monthly_fee: Number(fee),
-      status: "active",
-      next_due_date: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().split("T")[0], // Default to 1 month from now
-    });
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-    toast.success("Student assigned successfully");
-    setAssignOpen(false);
-    onRefresh();
-  };
-
-  const handleUnassign = async () => {
-    if (!confirm("Are you sure you want to remove this student from the seat?")) return;
-    const { error } = await supabase
-      .from("allocations")
-      .update({ is_active: false, status: "completed" })
-      .eq("id", a.id);
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-    toast.success("Seat vacated");
-    onRefresh();
-  };
 
   return (
     <GlassPanel className="p-5 flex flex-col h-full">
       <div className="font-mono text-[10px] uppercase tracking-widest text-cyan">Selected seat</div>
-      <div className="mt-1 text-2xl font-extrabold">{s.seat_number}</div>
-      <div className="mt-1 text-xs text-muted-foreground">
-        Row {s.row_position + 1} · Col {s.column_position + 1} · Facing {s.facing_direction}
-        {s.is_corner ? " · Corner" : ""}
+      <div className="mt-1 text-2xl font-extrabold">{selected.seat_number}</div>
+      <div className="mt-1 text-xs text-muted-foreground mb-6">
+        Row {selected.row_position + 1} · Col {selected.column_position + 1} · Facing {selected.facing_direction}
+        {selected.is_corner ? " · Corner" : ""}
       </div>
-
-      {a ? (
-        <div className="mt-5 space-y-3 flex-1">
-          <div className="rounded-lg border border-rose/30 bg-rose/10 p-3 mb-4 text-xs font-semibold text-rose flex items-center justify-center gap-2">
-            Currently Occupied
-          </div>
-          <InfoRow label="Student" value={a.students?.full_name ?? "—"} />
-          <InfoRow label="Mobile" value={a.students?.mobile_number ?? "—"} mono />
-          <InfoRow label="Fee / month" value={`₹${a.monthly_fee}`} mono />
-          <InfoRow label="Next due" value={a.next_due_date} mono />
-
-          <Button
-            onClick={handleUnassign}
-            variant="outline"
-            className="w-full mt-4 border-rose/30 text-rose hover:bg-rose/10 hover:text-rose"
-          >
-            <UserMinus className="mr-2 size-4" /> Vacate Seat
-          </Button>
-        </div>
-      ) : (
-        <div className="mt-6 flex-1 flex flex-col">
-          <div className="rounded-lg border border-emerald/30 bg-emerald/10 p-3 mb-6 text-xs font-semibold text-emerald flex items-center justify-center gap-2">
-            Seat is Vacant
-          </div>
-
-          <Dialog open={assignOpen} onOpenChange={setAssignOpen}>
-            <DialogTrigger asChild>
-              <Button className="w-full bg-emerald text-emerald-950 hover:bg-emerald/90">
-                <UserPlus className="mr-2 size-4" /> Assign Student
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="glass-strong border-panel-border">
-              <DialogHeader>
-                <DialogTitle>Assign Seat {s.seat_number}</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleAssign} className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Select Student</Label>
-                  <Select value={selectedStudent} onValueChange={setSelectedStudent}>
-                    <SelectTrigger className="bg-panel border-panel-border">
-                      <SelectValue placeholder="Choose student..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {students.map((st: any) => (
-                        <SelectItem key={st.id} value={st.id}>
-                          {st.full_name} ({st.mobile_number})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Monthly Fee (₹)</Label>
-                  <Input
-                    required
-                    type="number"
-                    value={fee}
-                    onChange={(e) => setFee(e.target.value)}
-                    className="bg-panel border-panel-border"
-                    placeholder="e.g. 1000"
-                  />
-                </div>
-                <Button type="submit" className="w-full bg-white text-slate-900 hover:bg-white/90">
-                  Confirm Assignment
-                </Button>
-              </form>
-            </DialogContent>
-          </Dialog>
-        </div>
-      )}
 
       <button
         onClick={onDelete}
@@ -633,15 +698,6 @@ function InspectorPanel({
         <Trash2 className="size-3" /> Remove seat physically
       </button>
     </GlassPanel>
-  );
-}
-
-function InfoRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
-  return (
-    <div className="rounded-lg bg-panel p-3">
-      <div className="text-[10px] uppercase text-muted-foreground">{label}</div>
-      <div className={cn("mt-0.5 text-sm", mono && "font-mono")}>{value}</div>
-    </div>
   );
 }
 
@@ -757,7 +813,7 @@ function AddSeatDialog({ open, onOpenChange, pos, section, orgId, libraryId, onD
   const [seatNumber, setSeatNumber] = useState("");
   const [facing, setFacing] = useState<"north" | "south" | "east" | "west">("north");
   const [isCorner, setIsCorner] = useState(false);
-  const [objectType, setObjectType] = useState("aisle");
+  const [objectType, setObjectType] = useState("wall");
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="glass-strong border-panel-border">
@@ -781,7 +837,7 @@ function AddSeatDialog({ open, onOpenChange, pos, section, orgId, libraryId, onD
             onClick={() => setMode("object")}
             className={cn(mode === "object" && "bg-white text-slate-900")}
           >
-            Object
+            Object / Area
           </Button>
         </div>
         {mode === "seat" ? (
@@ -848,13 +904,15 @@ function AddSeatDialog({ open, onOpenChange, pos, section, orgId, libraryId, onD
             onSubmit={async (e) => {
               e.preventDefault();
               if (!pos || !section) return;
-              const { error } = await supabase.from("layout_objects").insert({
-                section_id: section.id,
-                org_id: orgId,
-                object_type: objectType,
-                row_position: pos.row,
-                column_position: pos.col,
-              });
+              const { error } = await supabase
+                .from("layout_objects")
+                .insert({
+                  section_id: section.id,
+                  org_id: orgId,
+                  object_type: objectType,
+                  row_position: pos.row,
+                  column_position: pos.col,
+                });
               if (error) {
                 toast.error(error.message);
                 return;
@@ -866,17 +924,17 @@ function AddSeatDialog({ open, onOpenChange, pos, section, orgId, libraryId, onD
             className="space-y-3"
           >
             <div className="space-y-2">
-              <Label>Object type</Label>
+              <Label>Object / Area Type</Label>
               <Select value={objectType} onValueChange={setObjectType}>
                 <SelectTrigger className="bg-panel border-panel-border">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="aisle">Aisle</SelectItem>
-                  <SelectItem value="entry_gate">Entry gate</SelectItem>
-                  <SelectItem value="washroom">Washroom</SelectItem>
-                  <SelectItem value="water_cooler">Water cooler</SelectItem>
-                  <SelectItem value="reception">Reception</SelectItem>
+                  {Object.entries(OBJ_META).map(([key, meta]) => (
+                    <SelectItem key={key} value={key}>
+                      {meta.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -885,6 +943,65 @@ function AddSeatDialog({ open, onOpenChange, pos, section, orgId, libraryId, onD
             </Button>
           </form>
         )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Bulk Object / Area Assigner
+function BulkAreaDialog({ open, onOpenChange, cells, section, orgId, onDone }: any) {
+  const [objectType, setObjectType] = useState("wall");
+  const [loading, setLoading] = useState(false);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="glass-strong border-panel-border">
+        <DialogHeader>
+          <DialogTitle>Assign Area to {cells.length} Cells</DialogTitle>
+        </DialogHeader>
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (!cells.length || !section) return;
+            setLoading(true);
+            const insertions = cells.map((pos: any) => ({
+              section_id: section.id,
+              org_id: orgId,
+              object_type: objectType,
+              row_position: pos.r,
+              column_position: pos.c,
+            }));
+            const { error } = await supabase.from("layout_objects").insert(insertions);
+            setLoading(false);
+            if (error) {
+              toast.error(error.message);
+              return;
+            }
+            toast.success(`Filled ${cells.length} cells successfully`);
+            onOpenChange(false);
+            onDone();
+          }}
+          className="space-y-4"
+        >
+          <div className="space-y-2">
+            <Label>Object / Area Type</Label>
+            <Select value={objectType} onValueChange={setObjectType}>
+              <SelectTrigger className="bg-panel border-panel-border">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(OBJ_META).map(([key, meta]) => (
+                  <SelectItem key={key} value={key}>
+                    {meta.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <Button disabled={loading} type="submit" className="w-full bg-cyan text-cyan-950 hover:bg-cyan/90">
+            {loading ? "Filling..." : "Fill Area"}
+          </Button>
+        </form>
       </DialogContent>
     </Dialog>
   );
