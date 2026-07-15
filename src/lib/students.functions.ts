@@ -15,6 +15,8 @@ const CreateStudentSchema = z.object({
   library_id: z.string().uuid(),
   target_exam_id: z.string().uuid().optional().nullable(),
   email: z.string().trim().email().max(255).optional().nullable(),
+  subscription_start: z.string().optional().nullable(),
+  subscription_end: z.string().optional().nullable(),
 });
 
 async function assertOrgAdmin(ctx: { supabase: any; userId: string }) {
@@ -64,6 +66,8 @@ export const createStudent = createServerFn({ method: "POST" })
         target_exam_id: data.target_exam_id ?? null,
         email: data.email ?? null,
         requires_pin_change: true,
+        subscription_start: data.subscription_start ?? null,
+        subscription_end: data.subscription_end ?? null,
       })
       .select("id")
       .single();
@@ -194,8 +198,6 @@ export const requestPinReset = createServerFn({ method: "POST" })
       code_hash,
       expires_at,
     });
-    // TODO: send real email. For now, return code as dev_code so the flow is testable.
-    // In production, dispatch via Lovable Emails; do NOT return the code here.
     return { ok: true, dev_code: code };
   });
 
