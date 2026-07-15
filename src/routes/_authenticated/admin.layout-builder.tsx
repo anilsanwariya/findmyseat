@@ -30,6 +30,8 @@ import {
   Navigation,
   MessageSquare,
   Utensils,
+  Grid3X3,
+  Settings2,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/layout-builder")({
@@ -71,10 +73,12 @@ function LayoutBuilderPage() {
   const [addSeatOpen, setAddSeatOpen] = useState(false);
   const [addSeatPos, setAddSeatPos] = useState<{ row: number; col: number } | null>(null);
 
-  // Multi-select & Shift States
+  // Unified Multi-select States
   const [multiSelectMode, setMultiSelectMode] = useState(false);
   const [selectedCells, setSelectedCells] = useState<{ r: number; c: number }[]>([]);
   const [bulkAreaOpen, setBulkAreaOpen] = useState(false);
+  const [bulkSeatOpen, setBulkSeatOpen] = useState(false);
+  const [bulkEditOpen, setBulkEditOpen] = useState(false);
   const [isShifting, setIsShifting] = useState(false);
 
   const qc = useQueryClient();
@@ -139,12 +143,8 @@ function LayoutBuilderPage() {
     if (!grid) return;
     const cell = grid[row][col];
 
-    // Multi-Select Handling
+    // Multi-Select Handling (Allow selecting ANY cell now)
     if (multiSelectMode) {
-      if (cell.kind !== "empty") {
-        toast.error("You can only select empty cells to paint areas or objects.");
-        return;
-      }
       const isSelected = selectedCells.some((x) => x.r === row && x.c === col);
       if (isSelected) {
         setSelectedCells((prev) => prev.filter((x) => !(x.r === row && x.c === col)));
@@ -154,7 +154,7 @@ function LayoutBuilderPage() {
       return;
     }
 
-    // Standard Handling
+    // Standard Single Handling
     if (cell.kind === "seat") {
       setSelectedSeat(cell.id);
       return;
@@ -164,15 +164,32 @@ function LayoutBuilderPage() {
     setAddSeatOpen(true);
   }
 
-  const deleteObject = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("layout_objects").delete().eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["seats", currentSectionId] }),
-  });
+  const handleBulkDelete = async () => {
+    if (!selectedCells.length) return;
+    if (!confirm("Are you sure you want to delete all seats and objects in the selected area?")) return;
 
-  // --- DYNAMIC ROWS & COLUMNS MUTATION (4-WAY) ---
+    setIsShifting(true);
+    toast.loading("Deleting selected area...");
+
+    const seatIds =
+      seatsQ.data?.seats
+        .filter((s) => selectedCells.some((c) => c.r === s.row_position && c.c === s.column_position))
+        .map((s) => s.id) || [];
+    const objIds =
+      seatsQ.data?.objs
+        .filter((o) => selectedCells.some((c) => c.r === o.row_position && c.c === o.column_position))
+        .map((o) => o.id) || [];
+
+    if (seatIds.length) await supabase.from("seats").delete().in("id", seatIds);
+    if (objIds.length) await supabase.from("layout_objects").delete().in("id", objIds);
+
+    toast.success("Area cleared successfully");
+    qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
+    setIsShifting(false);
+    setSelectedCells([]);
+    setMultiSelectMode(false);
+  };
+
   const updateDimensions = useMutation({
     mutationFn: async ({ rows, cols }: { rows: number; cols: number }) => {
       const { error } = await supabase
@@ -184,23 +201,19 @@ function LayoutBuilderPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["sections", currentLibId] }),
   });
 
-  // Shift Logic for Top and Left additions/removals
   async function shiftGridItems(dr: number, dc: number) {
     const seats = seatsQ.data?.seats ?? [];
     const objs = seatsQ.data?.objs ?? [];
-
-    for (const seat of seats) {
+    for (const seat of seats)
       await supabase
         .from("seats")
         .update({ row_position: seat.row_position + dr, column_position: seat.column_position + dc })
         .eq("id", seat.id);
-    }
-    for (const obj of objs) {
+    for (const obj of objs)
       await supabase
         .from("layout_objects")
         .update({ row_position: obj.row_position + dr, column_position: obj.column_position + dc })
         .eq("id", obj.id);
-    }
   }
 
   const handleAddTop = async () => {
@@ -393,20 +406,14 @@ function LayoutBuilderPage() {
                 >
                   <MousePointer2 className="size-4 mr-2" /> {multiSelectMode ? "Cancel Selection" : "Select Area"}
                 </Button>
-                <BulkSeatDialog
-                  sectionId={currentSectionId}
-                  orgId={orgId!}
-                  libraryId={currentLibId!}
-                  onDone={() => qc.invalidateQueries({ queryKey: ["seats", currentSectionId] })}
-                />
               </div>
             </div>
 
-            {/* Selection Action Banner */}
+            {/* Unified Selection Action Banner */}
             {multiSelectMode && selectedCells.length > 0 && (
-              <div className="bg-cyan/10 border border-cyan/30 rounded-lg p-3 mb-4 mx-2 flex items-center justify-between animate-in fade-in zoom-in slide-in-from-top-4">
+              <div className="bg-cyan/10 border border-cyan/30 rounded-lg p-3 mb-4 mx-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in zoom-in slide-in-from-top-4">
                 <span className="text-sm font-medium text-cyan">{selectedCells.length} cells selected</span>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <Button
                     size="sm"
                     variant="ghost"
@@ -417,10 +424,27 @@ function LayoutBuilderPage() {
                   </Button>
                   <Button
                     size="sm"
+                    className="bg-emerald text-emerald-950 hover:bg-emerald/90"
+                    onClick={() => setBulkSeatOpen(true)}
+                  >
+                    <Grid3X3 className="size-3.5 mr-1.5" /> Generate Seats
+                  </Button>
+                  <Button
+                    size="sm"
                     className="bg-cyan text-cyan-950 hover:bg-cyan/90"
                     onClick={() => setBulkAreaOpen(true)}
                   >
-                    Assign Object / Area
+                    <Square className="size-3.5 mr-1.5" /> Assign Object
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="bg-amber-500 text-amber-950 hover:bg-amber-400"
+                    onClick={() => setBulkEditOpen(true)}
+                  >
+                    <Settings2 className="size-3.5 mr-1.5" /> Edit Seats
+                  </Button>
+                  <Button size="sm" variant="destructive" onClick={handleBulkDelete} disabled={isShifting}>
+                    <Trash2 className="size-3.5 mr-1.5" /> Delete
                   </Button>
                 </div>
               </div>
@@ -493,7 +517,6 @@ function LayoutBuilderPage() {
                               cell={cell}
                               isSelected={isSelected}
                               onClick={() => handleCellClick(r, c)}
-                              onDeleteObject={(id) => deleteObject.mutate(id)}
                             />
                           );
                         }),
@@ -553,6 +576,16 @@ function LayoutBuilderPage() {
 
           <InspectorPanel
             selected={selectedSeatObj}
+            onUpdate={async (updates) => {
+              if (!selectedSeatObj) return;
+              const { error } = await supabase.from("seats").update(updates).eq("id", selectedSeatObj.id);
+              if (error) {
+                toast.error(error.message);
+                return;
+              }
+              toast.success("Seat updated");
+              qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
+            }}
             onDelete={async () => {
               if (!selectedSeatObj) return;
               const { error } = await supabase.from("seats").delete().eq("id", selectedSeatObj.id);
@@ -579,13 +612,39 @@ function LayoutBuilderPage() {
         onDone={() => qc.invalidateQueries({ queryKey: ["seats", currentSectionId] })}
       />
 
-      {/* Bulk Area Assigner (Triggered by Multi-Select) */}
+      {/* Unified Bulk Tools (Triggered by Multi-Select Banner) */}
       <BulkAreaDialog
         open={bulkAreaOpen}
         onOpenChange={setBulkAreaOpen}
         cells={selectedCells}
         section={currentSection}
         orgId={orgId!}
+        onDone={() => {
+          qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
+          setMultiSelectMode(false);
+          setSelectedCells([]);
+        }}
+      />
+      <BulkSeatDialog
+        open={bulkSeatOpen}
+        onOpenChange={setBulkSeatOpen}
+        cells={selectedCells}
+        existingSeats={seatsQ.data?.seats || []}
+        existingObjs={seatsQ.data?.objs || []}
+        section={currentSection}
+        libraryId={currentLibId!}
+        orgId={orgId!}
+        onDone={() => {
+          qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
+          setMultiSelectMode(false);
+          setSelectedCells([]);
+        }}
+      />
+      <BulkEditSeatsDialog
+        open={bulkEditOpen}
+        onOpenChange={setBulkEditOpen}
+        cells={selectedCells}
+        existingSeats={seatsQ.data?.seats || []}
         onDone={() => {
           qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
           setMultiSelectMode(false);
@@ -602,14 +661,12 @@ function CellView({
   cell,
   isSelected,
   onClick,
-  onDeleteObject,
 }: {
   row: number;
   col: number;
   cell: Cell;
   isSelected: boolean;
   onClick: () => void;
-  onDeleteObject: (id: string) => void;
 }) {
   if (cell.kind === "seat") {
     const Icon = DIR_ICON[cell.facing];
@@ -618,10 +675,16 @@ function CellView({
         onClick={onClick}
         title={`Seat ${cell.seat_number}`}
         className={cn(
-          "group flex size-10 min-w-0 flex-col items-center justify-center rounded border text-[9px] font-mono transition-all hover:scale-[1.06]",
-          cell.is_corner
+          "group flex size-10 min-w-0 flex-col items-center justify-center rounded border text-[9px] font-mono transition-all",
+          isSelected
+            ? "border-cyan bg-cyan/20 shadow-[0_0_8px_rgba(34,211,238,0.5)] scale-[1.06]"
+            : "hover:scale-[1.06]",
+          !isSelected && cell.is_corner
             ? "border-2 border-gold/60 bg-gold/10 text-gold glow-gold hover:bg-gold/20"
-            : "border-emerald/50 bg-emerald/10 text-emerald shadow-[0_0_10px_rgba(16,185,129,0.1)] hover:border-emerald hover:bg-emerald/20",
+            : "",
+          !isSelected && !cell.is_corner
+            ? "border-emerald/50 bg-emerald/10 text-emerald shadow-[0_0_10px_rgba(16,185,129,0.1)] hover:border-emerald hover:bg-emerald/20"
+            : "",
         )}
       >
         <Icon className="mb-0.5 size-2.5 opacity-70" />
@@ -634,11 +697,12 @@ function CellView({
     const Icon = meta.icon;
     return (
       <button
-        onClick={() => onDeleteObject(cell.id)}
-        title={`${meta.label} (click to remove)`}
+        onClick={onClick}
+        title={`${meta.label}`}
         className={cn(
-          "flex size-10 min-w-0 flex-col items-center justify-center rounded border text-[8px] font-mono hover:scale-105 transition-all hover:border-rose/50",
-          meta.color,
+          "flex size-10 min-w-0 flex-col items-center justify-center rounded border text-[8px] font-mono transition-all",
+          isSelected ? "border-cyan bg-cyan/20 shadow-[0_0_8px_rgba(34,211,238,0.5)] scale-105" : "hover:scale-105",
+          !isSelected && meta.color,
         )}
       >
         {Icon && <Icon className="size-3" />}
@@ -661,13 +725,21 @@ function CellView({
 }
 
 // --- PURE LAYOUT INSPECTOR (NO ALLOCATIONS) ---
-function InspectorPanel({ selected, onDelete }: { selected: any; onDelete: () => void }) {
+function InspectorPanel({
+  selected,
+  onUpdate,
+  onDelete,
+}: {
+  selected: any;
+  onUpdate: (updates: any) => void;
+  onDelete: () => void;
+}) {
   if (!selected) {
     return (
       <GlassPanel className="p-5 flex flex-col h-full">
         <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Inspector</div>
         <p className="mt-4 text-sm text-muted-foreground">
-          Click a seat or layout object to view details or remove it.
+          Click a seat to view details, rotate it, or mark it as premium.
         </p>
 
         <div className="mt-8 space-y-3 text-xs text-muted-foreground border-t border-panel-border/50 pt-6">
@@ -685,10 +757,60 @@ function InspectorPanel({ selected, onDelete }: { selected: any; onDelete: () =>
   return (
     <GlassPanel className="p-5 flex flex-col h-full">
       <div className="font-mono text-[10px] uppercase tracking-widest text-cyan">Selected seat</div>
-      <div className="mt-1 text-2xl font-extrabold">{selected.seat_number}</div>
+      <div className="mt-1 flex items-center justify-between">
+        <div className="text-2xl font-extrabold">{selected.seat_number}</div>
+        {selected.is_corner && (
+          <span className="px-2 py-0.5 rounded text-[10px] uppercase tracking-wider bg-gold/10 text-gold border border-gold/30">
+            Premium
+          </span>
+        )}
+      </div>
       <div className="mt-1 text-xs text-muted-foreground mb-6">
         Row {selected.row_position + 1} · Col {selected.column_position + 1} · Facing {selected.facing_direction}
-        {selected.is_corner ? " · Corner" : ""}
+      </div>
+
+      <div className="space-y-3">
+        <div className="text-[10px] uppercase text-muted-foreground font-mono">Quick Actions</div>
+        <Button
+          variant={selected.is_corner ? "default" : "outline"}
+          className={cn(
+            "w-full justify-start",
+            selected.is_corner && "bg-gold/20 text-gold border-gold/40 hover:bg-gold/30",
+          )}
+          onClick={() => onUpdate({ is_corner: !selected.is_corner })}
+        >
+          {selected.is_corner ? "★ Remove Premium Status" : "☆ Mark as Corner (Premium)"}
+        </Button>
+        <div className="grid grid-cols-2 gap-2">
+          <Button
+            variant="outline"
+            className="text-xs border-panel-border bg-panel"
+            onClick={() => onUpdate({ facing_direction: "north" })}
+          >
+            <ArrowUp className="size-3 mr-1" /> Face North
+          </Button>
+          <Button
+            variant="outline"
+            className="text-xs border-panel-border bg-panel"
+            onClick={() => onUpdate({ facing_direction: "south" })}
+          >
+            <ArrowDown className="size-3 mr-1" /> Face South
+          </Button>
+          <Button
+            variant="outline"
+            className="text-xs border-panel-border bg-panel"
+            onClick={() => onUpdate({ facing_direction: "east" })}
+          >
+            <ArrowRight className="size-3 mr-1" /> Face East
+          </Button>
+          <Button
+            variant="outline"
+            className="text-xs border-panel-border bg-panel"
+            onClick={() => onUpdate({ facing_direction: "west" })}
+          >
+            <ArrowLeft className="size-3 mr-1" /> Face West
+          </Button>
+        </div>
       </div>
 
       <button
@@ -701,6 +823,7 @@ function InspectorPanel({ selected, onDelete }: { selected: any; onDelete: () =>
   );
 }
 
+// Dialogs ...
 function AddSectionDialog({
   open,
   onOpenChange,
@@ -1007,147 +1130,208 @@ function BulkAreaDialog({ open, onOpenChange, cells, section, orgId, onDone }: a
   );
 }
 
+// New: Target Bulk Generates Seats directly into selected empty cells
 function BulkSeatDialog({
-  sectionId,
-  orgId,
+  open,
+  onOpenChange,
+  cells,
+  existingSeats,
+  existingObjs,
+  section,
   libraryId,
+  orgId,
   onDone,
-}: {
-  sectionId: string;
-  orgId: string;
-  libraryId: string;
-  onDone: () => void;
-}) {
-  const [open, setOpen] = useState(false);
+}: any) {
   const [prefix, setPrefix] = useState("A");
   const [start, setStart] = useState(1);
-  const [end, setEnd] = useState(20);
-  const [startRow, setStartRow] = useState(0);
-  const [startCol, setStartCol] = useState(0);
-  const [perRow, setPerRow] = useState(10);
   const [facing, setFacing] = useState<"north" | "south" | "east" | "west">("north");
+  const [isCorner, setIsCorner] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Filter to only true empty cells
+  const emptyCells = useMemo(() => {
+    return cells
+      .filter((c: any) => {
+        const hasSeat = existingSeats.some((s: any) => s.row_position === c.r && s.column_position === c.c);
+        const hasObj = existingObjs.some((o: any) => o.row_position === c.r && o.column_position === c.c);
+        return !hasSeat && !hasObj;
+      })
+      .sort((a: any, b: any) => (a.r === b.r ? a.c - b.c : a.r - b.r)); // Sort Left-to-Right, Top-to-Bottom
+  }, [cells, existingSeats, existingObjs]);
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button size="sm" variant="outline" className="border-panel-border bg-panel">
-          Bulk generate
-        </Button>
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="glass-strong border-panel-border">
         <DialogHeader>
-          <DialogTitle>Bulk generate seats</DialogTitle>
+          <DialogTitle>Generate Seats in Selection</DialogTitle>
         </DialogHeader>
-        <form
-          onSubmit={async (e) => {
-            e.preventDefault();
-            setLoading(true);
-            const rows: any[] = [];
-            for (let n = start, i = 0; n <= end; n++, i++) {
-              const r = startRow + Math.floor(i / perRow);
-              const c = startCol + (i % perRow);
-              rows.push({
-                section_id: sectionId,
+        {emptyCells.length === 0 ? (
+          <div className="py-6 text-center text-sm text-muted-foreground">
+            No empty cells in your selection to generate seats.
+          </div>
+        ) : (
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setLoading(true);
+              const rows = emptyCells.map((pos: any, i: number) => ({
+                section_id: section.id,
                 library_id: libraryId,
                 org_id: orgId,
-                seat_number: `${prefix}${String(n).padStart(2, "0")}`,
-                row_position: r,
-                column_position: c,
+                seat_number: `${prefix}${String(start + i).padStart(2, "0")}`,
+                row_position: pos.r,
+                column_position: pos.c,
                 facing_direction: facing,
-                is_corner: false,
-              });
-            }
-            const { error } = await supabase.from("seats").insert(rows);
-            setLoading(false);
-            if (error) {
-              toast.error(error.message);
-              return;
-            }
-            toast.success(`${rows.length} seats generated`);
-            setOpen(false);
-            onDone();
-          }}
-          className="grid grid-cols-2 gap-3"
-        >
-          <div className="col-span-2 space-y-2">
-            <Label>Prefix</Label>
-            <Input
-              required
-              value={prefix}
-              onChange={(e) => setPrefix(e.target.value)}
-              className="bg-panel border-panel-border"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Start #</Label>
-            <Input
-              type="number"
-              min={1}
-              value={start}
-              onChange={(e) => setStart(Number(e.target.value))}
-              className="bg-panel border-panel-border"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>End #</Label>
-            <Input
-              type="number"
-              min={1}
-              value={end}
-              onChange={(e) => setEnd(Number(e.target.value))}
-              className="bg-panel border-panel-border"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Start row</Label>
-            <Input
-              type="number"
-              min={0}
-              value={startRow}
-              onChange={(e) => setStartRow(Number(e.target.value))}
-              className="bg-panel border-panel-border"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Start col</Label>
-            <Input
-              type="number"
-              min={0}
-              value={startCol}
-              onChange={(e) => setStartCol(Number(e.target.value))}
-              className="bg-panel border-panel-border"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Seats per row</Label>
-            <Input
-              type="number"
-              min={1}
-              value={perRow}
-              onChange={(e) => setPerRow(Number(e.target.value))}
-              className="bg-panel border-panel-border"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Facing</Label>
-            <Select value={facing} onValueChange={(v: any) => setFacing(v)}>
-              <SelectTrigger className="bg-panel border-panel-border">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="north">North</SelectItem>
-                <SelectItem value="south">South</SelectItem>
-                <SelectItem value="east">East</SelectItem>
-                <SelectItem value="west">West</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="col-span-2">
-            <Button disabled={loading} type="submit" className="w-full bg-white text-slate-900 hover:bg-white/90">
-              {loading ? "Generating…" : "Generate"}
+                is_corner: isCorner,
+              }));
+              const { error } = await supabase.from("seats").insert(rows);
+              setLoading(false);
+              if (error) {
+                toast.error(error.message);
+                return;
+              }
+              toast.success(`${rows.length} seats generated`);
+              onOpenChange(false);
+              onDone();
+            }}
+            className="space-y-4"
+          >
+            <div className="rounded-lg bg-emerald/10 border border-emerald/30 p-3 text-sm text-emerald text-center">
+              Generating <b>{emptyCells.length}</b> seats ({prefix}
+              {String(start).padStart(2, "0")} to {prefix}
+              {String(start + emptyCells.length - 1).padStart(2, "0")})
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Prefix</Label>
+                <Input
+                  required
+                  value={prefix}
+                  onChange={(e) => setPrefix(e.target.value)}
+                  className="bg-panel border-panel-border"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Start #</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={start}
+                  onChange={(e) => setStart(Number(e.target.value))}
+                  className="bg-panel border-panel-border"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Facing</Label>
+                <Select value={facing} onValueChange={(v: any) => setFacing(v)}>
+                  <SelectTrigger className="bg-panel border-panel-border">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="north">North</SelectItem>
+                    <SelectItem value="south">South</SelectItem>
+                    <SelectItem value="east">East</SelectItem>
+                    <SelectItem value="west">West</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={isCorner} onChange={(e) => setIsCorner(e.target.checked)} /> Mark all as
+              Corner (Premium)
+            </label>
+            <Button disabled={loading} type="submit" className="w-full bg-emerald text-emerald-950 hover:bg-emerald/90">
+              {loading ? "Generating…" : "Generate Seats"}
             </Button>
-          </div>
-        </form>
+          </form>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// New: Target Bulk Edit Seats
+function BulkEditSeatsDialog({ open, onOpenChange, cells, existingSeats, onDone }: any) {
+  const [facing, setFacing] = useState<string>("no_change");
+  const [isCorner, setIsCorner] = useState<string>("no_change");
+  const [loading, setLoading] = useState(false);
+
+  // Find actual seats inside the selection
+  const selectedSeatIds = useMemo(() => {
+    return existingSeats
+      .filter((s: any) => cells.some((c: any) => c.r === s.row_position && c.c === s.column_position))
+      .map((s: any) => s.id);
+  }, [cells, existingSeats]);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="glass-strong border-panel-border">
+        <DialogHeader>
+          <DialogTitle>Edit {selectedSeatIds.length} Selected Seats</DialogTitle>
+        </DialogHeader>
+        {selectedSeatIds.length === 0 ? (
+          <div className="py-6 text-center text-sm text-muted-foreground">No seats found in your selection.</div>
+        ) : (
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setLoading(true);
+              const updates: any = {};
+              if (facing !== "no_change") updates.facing_direction = facing;
+              if (isCorner !== "no_change") updates.is_corner = isCorner === "true";
+
+              if (Object.keys(updates).length > 0) {
+                const { error } = await supabase.from("seats").update(updates).in("id", selectedSeatIds);
+                if (error) {
+                  toast.error(error.message);
+                  setLoading(false);
+                  return;
+                }
+              }
+              setLoading(false);
+              toast.success(`Updated ${selectedSeatIds.length} seats`);
+              onOpenChange(false);
+              onDone();
+            }}
+            className="space-y-4"
+          >
+            <div className="space-y-2">
+              <Label>Change Direction To</Label>
+              <Select value={facing} onValueChange={setFacing}>
+                <SelectTrigger className="bg-panel border-panel-border">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="no_change">-- Do not change --</SelectItem>
+                  <SelectItem value="north">North</SelectItem>
+                  <SelectItem value="south">South</SelectItem>
+                  <SelectItem value="east">East</SelectItem>
+                  <SelectItem value="west">West</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Premium / Corner Status</Label>
+              <Select value={isCorner} onValueChange={setIsCorner}>
+                <SelectTrigger className="bg-panel border-panel-border">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="no_change">-- Do not change --</SelectItem>
+                  <SelectItem value="true">Make all Premium (Corner)</SelectItem>
+                  <SelectItem value="false">Make all Standard</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              disabled={loading || (facing === "no_change" && isCorner === "no_change")}
+              type="submit"
+              className="w-full bg-amber-500 text-amber-950 hover:bg-amber-400"
+            >
+              {loading ? "Updating…" : "Apply Changes"}
+            </Button>
+          </form>
+        )}
       </DialogContent>
     </Dialog>
   );
