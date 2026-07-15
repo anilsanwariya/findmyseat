@@ -5,8 +5,8 @@ import { z } from "zod";
 const StudentEmailDomain = "students.lexicon.local";
 const emailFromMobile = (m: string) => `${m}@${StudentEmailDomain}`;
 
-// HIDDEN SUFFIX: This bypasses the strong password requirement behind the scenes.
-const PIN_SUFFIX = "-Lexicon1!";
+// HIDDEN SUFFIX: This now perfectly matches the one in student-login.tsx
+const PIN_SUFFIX = "_Lx!9aZ*qW2#vP7$Lex26";
 
 const CreateStudentSchema = z.object({
   full_name: z.string().trim().min(2).max(120),
