@@ -8,6 +8,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { studentEmailFromMobile } from "@/lib/student-utils";
 import { toast } from "sonner";
 
+// HIDDEN SUFFIX: Must exactly match the suffix in students.functions.ts
+const PIN_SUFFIX = "-Lexicon1!";
+
 export const Route = createFileRoute("/student-login")({
   component: StudentLogin,
 });
@@ -22,9 +25,18 @@ function StudentLogin() {
     e.preventDefault();
     setLoading(true);
     const email = studentEmailFromMobile(mobile);
-    const { error } = await supabase.auth.signInWithPassword({ email, password: credential });
+
+    // Append the hidden suffix here so it matches the backend policy
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password: credential + PIN_SUFFIX,
+    });
+
     setLoading(false);
-    if (error) { toast.error("Wrong mobile or PIN/DOB"); return; }
+    if (error) {
+      toast.error("Wrong mobile or PIN/DOB");
+      return;
+    }
     toast.success("Signed in");
     navigate({ to: "/dispatch" });
   }
@@ -35,7 +47,9 @@ function StudentLogin() {
       <div className="relative z-10 flex min-h-screen items-center justify-center px-4">
         <div className="w-full max-w-md">
           <Link to="/" className="mb-6 flex items-center justify-center gap-2">
-            <div className="grid size-8 place-items-center rounded-lg bg-gradient-to-br from-violet to-cyan font-black">L</div>
+            <div className="grid size-8 place-items-center rounded-lg bg-gradient-to-br from-violet to-cyan font-black">
+              L
+            </div>
             <span className="text-lg font-extrabold tracking-tight">LEXICON</span>
           </Link>
           <GlassPanel className="p-6">
@@ -46,23 +60,47 @@ function StudentLogin() {
             <form onSubmit={submit} className="mt-6 space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="m">Mobile number</Label>
-                <Input id="m" required inputMode="numeric" pattern="[0-9]{10}" maxLength={10} value={mobile}
+                <Input
+                  id="m"
+                  required
+                  inputMode="numeric"
+                  pattern="[0-9]{10}"
+                  maxLength={10}
+                  value={mobile}
                   onChange={(e) => setMobile(e.target.value.replace(/\D/g, ""))}
-                  className="bg-panel border-panel-border font-mono" placeholder="10-digit mobile" />
+                  className="bg-panel border-panel-border font-mono"
+                  placeholder="10-digit mobile"
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="c">PIN or DOB (DDMMYY)</Label>
-                <Input id="c" type="password" required inputMode="numeric" minLength={6} maxLength={6}
-                  value={credential} onChange={(e) => setCredential(e.target.value.replace(/\D/g, ""))}
-                  className="bg-panel border-panel-border font-mono tracking-widest" placeholder="6 digits" />
+                <Input
+                  id="c"
+                  type="password"
+                  required
+                  inputMode="numeric"
+                  minLength={6}
+                  maxLength={6}
+                  value={credential}
+                  onChange={(e) => setCredential(e.target.value.replace(/\D/g, ""))}
+                  className="bg-panel border-panel-border font-mono tracking-widest"
+                  placeholder="6 digits"
+                />
               </div>
-              <Button disabled={loading} className="w-full bg-white text-slate-900 hover:bg-white/90">{loading ? "…" : "Sign in"}</Button>
+              <Button disabled={loading} className="w-full bg-white text-slate-900 hover:bg-white/90">
+                {loading ? "…" : "Sign in"}
+              </Button>
             </form>
             <div className="mt-4 text-center">
-              <Link to="/forgot-pin" className="text-xs text-violet hover:underline">Forgot PIN?</Link>
+              <Link to="/forgot-pin" className="text-xs text-violet hover:underline">
+                Forgot PIN?
+              </Link>
             </div>
             <p className="mt-6 text-center text-xs text-muted-foreground">
-              Library owner? <Link to="/auth" className="text-violet hover:underline">Owner sign in</Link>
+              Library owner?{" "}
+              <Link to="/auth" className="text-violet hover:underline">
+                Owner sign in
+              </Link>
             </p>
           </GlassPanel>
         </div>
