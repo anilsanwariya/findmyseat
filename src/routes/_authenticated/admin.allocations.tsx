@@ -118,7 +118,7 @@ function AllocationsPage() {
         title="Allocations & Floor Plan"
         hint="Assign seats visually or view the standard allocations list."
         right={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Select
               value={currentLibId ?? ""}
               onValueChange={(v) => {
@@ -126,7 +126,7 @@ function AllocationsPage() {
                 setSectionId(undefined);
               }}
             >
-              <SelectTrigger className="w-32 md:w-48 bg-panel border-panel-border">
+              <SelectTrigger className="w-[140px] sm:w-48 bg-panel border-panel-border">
                 <SelectValue placeholder="Branch" />
               </SelectTrigger>
               <SelectContent>
@@ -138,7 +138,7 @@ function AllocationsPage() {
               </SelectContent>
             </Select>
             <Select value={currentSectionId ?? ""} onValueChange={(v) => setSectionId(v)}>
-              <SelectTrigger className="w-32 md:w-48 bg-panel border-panel-border">
+              <SelectTrigger className="w-[140px] sm:w-48 bg-panel border-panel-border">
                 <SelectValue placeholder="Section" />
               </SelectTrigger>
               <SelectContent>
@@ -149,7 +149,10 @@ function AllocationsPage() {
                 ))}
               </SelectContent>
             </Select>
-            <Button onClick={() => setOpenNewAlloc(true)} className="bg-white text-slate-900 hover:bg-white/90">
+            <Button
+              onClick={() => setOpenNewAlloc(true)}
+              className="w-full sm:w-auto bg-white text-slate-900 hover:bg-white/90"
+            >
               <Plus className="mr-1 size-4" /> Manual alloc
             </Button>
           </div>
@@ -159,8 +162,8 @@ function AllocationsPage() {
       {/* VISUAL SEAT MAP */}
       {currentSection && (
         <GlassPanel className="p-4 flex flex-col min-w-0">
-          <div className="mb-4 flex items-center justify-between px-2">
-            <div className="flex items-center gap-4 text-xs font-mono text-muted-foreground uppercase tracking-widest">
+          <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-2">
+            <div className="flex flex-wrap items-center gap-4 text-xs font-mono text-muted-foreground uppercase tracking-widest">
               <span className="flex items-center gap-1.5">
                 <span className="size-2.5 rounded-full bg-emerald shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span> Vacant
               </span>
@@ -171,7 +174,7 @@ function AllocationsPage() {
             <div className="text-xs text-muted-foreground">Click a seat to manage</div>
           </div>
 
-          <div className="relative w-full overflow-auto rounded-lg bg-black/30 p-6 ring-1 ring-panel-border touch-pan-x touch-pan-y custom-scrollbar">
+          <div className="relative w-full overflow-auto rounded-lg bg-black/30 p-4 md:p-6 ring-1 ring-panel-border touch-pan-x touch-pan-y custom-scrollbar">
             <div
               className="grid gap-2 min-w-max mx-auto"
               style={{
@@ -227,31 +230,34 @@ function AllocationsPage() {
 
       {/* DATA TABLE */}
       <GlassPanel className="p-4">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+        <div className="w-full overflow-x-auto pb-4 custom-scrollbar">
+          <table className="w-full text-left text-sm min-w-[700px]">
             <thead>
-              <tr className="border-b border-panel-border text-[10px] uppercase tracking-widest text-muted-foreground">
-                <th className="py-2 font-normal">Student</th>
-                <th className="py-2 font-normal">Seat</th>
-                <th className="py-2 font-normal">Branch</th>
-                <th className="py-2 font-normal">Shift</th>
-                <th className="py-2 font-normal">Fee</th>
-                <th className="py-2 font-normal">Next due</th>
-                <th className="py-2 font-normal">Status</th>
+              <tr className="border-b border-panel-border text-[10px] uppercase tracking-widest text-muted-foreground whitespace-nowrap">
+                <th className="py-3 px-2 font-normal">Student</th>
+                <th className="py-3 px-2 font-normal">Seat</th>
+                <th className="py-3 px-2 font-normal">Branch</th>
+                <th className="py-3 px-2 font-normal">Shift</th>
+                <th className="py-3 px-2 font-normal">Fee</th>
+                <th className="py-3 px-2 font-normal">Next due</th>
+                <th className="py-3 px-2 font-normal">Status</th>
               </tr>
             </thead>
             <tbody>
               {(allocations.data ?? []).map((a: any) => (
-                <tr key={a.id} className="border-b border-panel-border/50">
-                  <td className="py-3 font-medium">{a.students?.full_name}</td>
-                  <td className="py-3 font-mono text-cyan">{a.seats?.seat_number}</td>
-                  <td className="py-3 text-muted-foreground">{a.libraries?.name}</td>
-                  <td className="py-3 text-muted-foreground">{a.shifts?.name ?? "Full day"}</td>
-                  <td className="py-3 font-mono">{inr(a.monthly_fee)}</td>
-                  <td className="py-3 font-mono">{fmtDate(a.next_due_date)}</td>
-                  <td className="py-3">
+                <tr
+                  key={a.id}
+                  className="border-b border-panel-border/50 hover:bg-white/[0.02] transition-colors whitespace-nowrap"
+                >
+                  <td className="py-3 px-2 font-medium">{a.students?.full_name}</td>
+                  <td className="py-3 px-2 font-mono text-cyan">{a.seats?.seat_number}</td>
+                  <td className="py-3 px-2 text-muted-foreground">{a.libraries?.name}</td>
+                  <td className="py-3 px-2 text-muted-foreground">{a.shifts?.name ?? "Full day"}</td>
+                  <td className="py-3 px-2 font-mono">{inr(a.monthly_fee)}</td>
+                  <td className="py-3 px-2 font-mono">{fmtDate(a.next_due_date)}</td>
+                  <td className="py-3 px-2">
                     <span
-                      className={`rounded px-2 py-0.5 text-[10px] ${a.status === "paid" ? "bg-emerald/10 text-emerald" : a.status === "overdue" ? "bg-rose/10 text-rose" : "bg-amber-500/10 text-amber-400"}`}
+                      className={`rounded px-2 py-1 text-[10px] ${a.status === "paid" ? "bg-emerald/10 text-emerald" : a.status === "overdue" ? "bg-rose/10 text-rose" : "bg-amber-500/10 text-amber-400"}`}
                     >
                       {a.status.toUpperCase()}
                     </span>
@@ -296,7 +302,7 @@ function AllocationsPage() {
 
       {/* Occupied Seat Clicked -> Management Dialog */}
       <Dialog open={!!selectedOccupiedSeat} onOpenChange={(open) => !open && setSelectedOccupiedSeat(null)}>
-        <DialogContent className="glass-strong border-panel-border">
+        <DialogContent className="glass-strong border-panel-border w-[95vw] max-w-lg max-h-[90vh] overflow-y-auto p-4 md:p-6">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               Seat {selectedOccupiedSeat?.seat_number}{" "}
@@ -423,12 +429,12 @@ function NewAllocDialog({
   });
 
   return (
-    <DialogContent className="glass-strong border-panel-border">
+    <DialogContent className="glass-strong border-panel-border w-[95vw] max-w-lg max-h-[90vh] overflow-y-auto">
       <DialogHeader>
         <DialogTitle>{initialSeatId ? "Assign Student to Seat" : "New allocation"}</DialogTitle>
       </DialogHeader>
       <form
-        className="space-y-3"
+        className="space-y-4"
         onSubmit={async (e) => {
           e.preventDefault();
           setLoading(true);
@@ -453,37 +459,39 @@ function NewAllocDialog({
           onDone();
         }}
       >
-        <div className="space-y-2">
-          <Label>Branch</Label>
-          <Select value={libraryId} onValueChange={setLibraryId} disabled={!!initialLibraryId}>
-            <SelectTrigger className="bg-panel border-panel-border">
-              <SelectValue placeholder="Branch" />
-            </SelectTrigger>
-            <SelectContent>
-              {(libs ?? []).map((l) => (
-                <SelectItem key={l.id} value={l.id}>
-                  {l.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="space-y-2">
+            <Label>Branch</Label>
+            <Select value={libraryId} onValueChange={setLibraryId} disabled={!!initialLibraryId}>
+              <SelectTrigger className="bg-panel border-panel-border">
+                <SelectValue placeholder="Branch" />
+              </SelectTrigger>
+              <SelectContent>
+                {(libs ?? []).map((l) => (
+                  <SelectItem key={l.id} value={l.id}>
+                    {l.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-        <div className="space-y-2">
-          <Label>Seat (vacant only)</Label>
-          <Select value={seatId} onValueChange={setSeatId} disabled={!!initialSeatId}>
-            <SelectTrigger className="bg-panel border-panel-border">
-              <SelectValue placeholder="Choose seat" />
-            </SelectTrigger>
-            <SelectContent>
-              {(seats.data ?? []).map((s: any) => (
-                <SelectItem key={s.id} value={s.id}>
-                  {s.seat_number}
-                  {s.is_corner ? " ★" : ""}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="space-y-2">
+            <Label>Seat (vacant only)</Label>
+            <Select value={seatId} onValueChange={setSeatId} disabled={!!initialSeatId}>
+              <SelectTrigger className="bg-panel border-panel-border">
+                <SelectValue placeholder="Choose seat" />
+              </SelectTrigger>
+              <SelectContent>
+                {(seats.data ?? []).map((s: any) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.seat_number}
+                    {s.is_corner ? " ★" : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         <div className="space-y-2">
@@ -502,7 +510,7 @@ function NewAllocDialog({
           </Select>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-2">
             <Label>Shift (optional)</Label>
             <Select value={shiftId} onValueChange={setShiftId}>
@@ -544,7 +552,7 @@ function NewAllocDialog({
         <Button
           disabled={loading || !seatId || !studentId}
           type="submit"
-          className="w-full bg-white text-slate-900 hover:bg-white/90"
+          className="w-full mt-2 bg-white text-slate-900 hover:bg-white/90"
         >
           {loading ? "…" : "Confirm Assignment"}
         </Button>
