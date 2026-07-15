@@ -10,17 +10,37 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight, DoorOpen, Droplets, Waves, Plus } from "lucide-react";
+import {
+  ArrowUp,
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
+  DoorOpen,
+  Droplets,
+  Waves,
+  Plus,
+  Minus,
+  UserPlus,
+  UserMinus,
+  Trash2,
+} from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/layout-builder")({
   component: LayoutBuilderPage,
 });
 
 type Cell =
-  | { kind: "seat"; id: string; seat_number: string; facing: "north" | "south" | "east" | "west"; is_corner: boolean; occupied?: boolean; alloc?: any }
+  | {
+      kind: "seat";
+      id: string;
+      seat_number: string;
+      facing: "north" | "south" | "east" | "west";
+      is_corner: boolean;
+      occupied?: boolean;
+      alloc?: any;
+    }
   | { kind: "object"; id: string; object_type: string }
   | { kind: "empty" };
 
@@ -45,7 +65,6 @@ function LayoutBuilderPage() {
   const [addSeatPos, setAddSeatPos] = useState<{ row: number; col: number } | null>(null);
   const qc = useQueryClient();
 
-  // Auto-pick first library / section
   const currentLibId = libraryId ?? libs?.[0]?.id;
 
   const sectionsQ = useQuery({
@@ -66,9 +85,27 @@ function LayoutBuilderPage() {
       const [seats, objs, allocs] = await Promise.all([
         supabase.from("seats").select("*").eq("section_id", currentSectionId!),
         supabase.from("layout_objects").select("*").eq("section_id", currentSectionId!),
-        supabase.from("allocations").select("id, seat_id, student_id, next_due_date, status, monthly_fee, students(full_name, mobile_number), shifts(name)").eq("is_active", true),
+        supabase
+          .from("allocations")
+          .select(
+            "id, seat_id, student_id, next_due_date, status, monthly_fee, students(full_name, mobile_number), shifts(name)",
+          )
+          .eq("is_active", true),
       ]);
       return { seats: seats.data ?? [], objs: objs.data ?? [], allocs: allocs.data ?? [] };
+    },
+  });
+
+  const studentsQ = useQuery({
+    queryKey: ["active_students", orgId],
+    enabled: !!orgId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("students")
+        .select("id, full_name, mobile_number")
+        .eq("org_id", orgId!)
+        .order("full_name");
+      return data ?? [];
     },
   });
 
@@ -76,16 +113,25 @@ function LayoutBuilderPage() {
     if (!currentSection) return null;
     const rows = currentSection.grid_rows;
     const cols = currentSection.grid_cols;
-    const g: Cell[][] = Array.from({ length: rows }, () => Array.from({ length: cols }, () => ({ kind: "empty" } as Cell)));
+    const g: Cell[][] = Array.from({ length: rows }, () =>
+      Array.from({ length: cols }, () => ({ kind: "empty" }) as Cell),
+    );
     for (const s of seatsQ.data?.seats ?? []) {
       const alloc = (seatsQ.data?.allocs ?? []).find((a: any) => a.seat_id === s.id);
-      g[s.row_position]?.[s.column_position] && (g[s.row_position][s.column_position] = {
-        kind: "seat", id: s.id, seat_number: s.seat_number, facing: s.facing_direction, is_corner: s.is_corner,
-        occupied: !!alloc, alloc,
-      });
+      g[s.row_position]?.[s.column_position] &&
+        (g[s.row_position][s.column_position] = {
+          kind: "seat",
+          id: s.id,
+          seat_number: s.seat_number,
+          facing: s.facing_direction,
+          is_corner: s.is_corner,
+          occupied: !!alloc,
+          alloc,
+        });
     }
     for (const o of seatsQ.data?.objs ?? []) {
-      g[o.row_position]?.[o.column_position] && (g[o.row_position][o.column_position] = { kind: "object", id: o.id, object_type: o.object_type });
+      g[o.row_position]?.[o.column_position] &&
+        (g[o.row_position][o.column_position] = { kind: "object", id: o.id, object_type: o.object_type });
     }
     return g;
   }, [currentSection, seatsQ.data]);
@@ -101,7 +147,10 @@ function LayoutBuilderPage() {
   async function handleCellClick(row: number, col: number) {
     if (!grid) return;
     const cell = grid[row][col];
-    if (cell.kind === "seat") { setSelectedSeat(cell.id); return; }
+    if (cell.kind === "seat") {
+      setSelectedSeat(cell.id);
+      return;
+    }
     if (cell.kind === "object") return;
     setAddSeatPos({ row, col });
     setAddSeatOpen(true);
@@ -115,27 +164,98 @@ function LayoutBuilderPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["seats", currentSectionId] }),
   });
 
+  // --- DYNAMIC ROWS & COLUMNS MUTATION ---
+  const updateDimensions = useMutation({
+    mutationFn: async ({ rows, cols }: { rows: number; cols: number }) => {
+      const { error } = await supabase
+        .from("sections")
+        .update({ grid_rows: rows, grid_cols: cols })
+        .eq("id", currentSectionId);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["sections", currentLibId] }),
+  });
+
+  const handleAddRow = () =>
+    updateDimensions.mutate({ rows: currentSection.grid_rows + 1, cols: currentSection.grid_cols });
+  const handleAddCol = () =>
+    updateDimensions.mutate({ rows: currentSection.grid_rows, cols: currentSection.grid_cols + 1 });
+
+  const handleRemoveRow = () => {
+    if (!grid) return;
+    const lastRowIdx = currentSection.grid_rows - 1;
+    const hasItems = grid[lastRowIdx].some((c) => c.kind !== "empty");
+    if (hasItems) {
+      toast.error("Warning: Cannot remove the bottom row because it contains active seats or objects.");
+      return;
+    }
+    updateDimensions.mutate({ rows: lastRowIdx, cols: currentSection.grid_cols });
+  };
+
+  const handleRemoveCol = () => {
+    if (!grid) return;
+    const lastColIdx = currentSection.grid_cols - 1;
+    const hasItems = grid.some((row) => row[lastColIdx].kind !== "empty");
+    if (hasItems) {
+      toast.error("Warning: Cannot remove the rightmost column because it contains active seats or objects.");
+      return;
+    }
+    updateDimensions.mutate({ rows: currentSection.grid_rows, cols: lastColIdx });
+  };
+
   return (
     <div className="space-y-6">
       <SectionHeader
-        title="Layout builder"
-        hint="Click empty cells to place seats or objects. Click a seat to inspect."
+        title="Layout & Allocation"
+        hint="Build your floor plan and click seats to assign students directly from the map."
         right={
           <div className="flex flex-wrap items-center gap-2">
-            <Select value={currentLibId ?? ""} onValueChange={(v) => { setLibraryId(v); setSectionId(undefined); setSelectedSeat(null); }}>
-              <SelectTrigger className="w-52 bg-panel border-panel-border"><SelectValue placeholder="Branch" /></SelectTrigger>
-              <SelectContent>{(libs ?? []).map((l) => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}</SelectContent>
+            <Select
+              value={currentLibId ?? ""}
+              onValueChange={(v) => {
+                setLibraryId(v);
+                setSectionId(undefined);
+                setSelectedSeat(null);
+              }}
+            >
+              <SelectTrigger className="w-40 md:w-52 bg-panel border-panel-border">
+                <SelectValue placeholder="Branch" />
+              </SelectTrigger>
+              <SelectContent>
+                {(libs ?? []).map((l) => (
+                  <SelectItem key={l.id} value={l.id}>
+                    {l.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
             </Select>
-            <Select value={currentSectionId ?? ""} onValueChange={(v) => { setSectionId(v); setSelectedSeat(null); }}>
-              <SelectTrigger className="w-52 bg-panel border-panel-border"><SelectValue placeholder="Section" /></SelectTrigger>
-              <SelectContent>{(sectionsQ.data ?? []).map((s: any) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+            <Select
+              value={currentSectionId ?? ""}
+              onValueChange={(v) => {
+                setSectionId(v);
+                setSelectedSeat(null);
+              }}
+            >
+              <SelectTrigger className="w-40 md:w-52 bg-panel border-panel-border">
+                <SelectValue placeholder="Section" />
+              </SelectTrigger>
+              <SelectContent>
+                {(sectionsQ.data ?? []).map((s: any) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
             </Select>
             <AddSectionDialog
               open={addSectionOpen}
               onOpenChange={setAddSectionOpen}
               libraryId={currentLibId}
               orgId={orgId}
-              onCreated={(id) => { qc.invalidateQueries({ queryKey: ["sections", currentLibId] }); setSectionId(id); }}
+              onCreated={(id) => {
+                qc.invalidateQueries({ queryKey: ["sections", currentLibId] });
+                setSectionId(id);
+              }}
             />
           </div>
         }
@@ -143,31 +263,110 @@ function LayoutBuilderPage() {
 
       {!libs?.length ? (
         <GlassPanel className="p-10 text-center">
-          <p className="text-sm text-muted-foreground">Create a branch first in <span className="text-foreground">Settings</span>.</p>
+          <p className="text-sm text-muted-foreground">
+            Create a branch first in <span className="text-foreground">Settings</span>.
+          </p>
         </GlassPanel>
       ) : !currentSectionId ? (
         <GlassPanel className="p-10 text-center">
           <p className="text-sm text-muted-foreground">No sections yet.</p>
-          <Button onClick={() => setAddSectionOpen(true)} className="mt-4 bg-white text-slate-900 hover:bg-white/90"><Plus className="mr-1 size-4" /> New section</Button>
+          <Button onClick={() => setAddSectionOpen(true)} className="mt-4 bg-white text-slate-900 hover:bg-white/90">
+            <Plus className="mr-1 size-4" /> New section
+          </Button>
         </GlassPanel>
       ) : (
         <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-          <GlassPanel className="p-4">
+          <GlassPanel className="p-4 flex flex-col min-w-0">
             <div className="mb-3 flex items-center justify-between px-2">
               <div>
                 <div className="text-sm font-bold">{currentSection?.name}</div>
                 <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                  {currentSection?.grid_rows} × {currentSection?.grid_cols} · {seatsQ.data?.seats.length ?? 0} seats · {seatsQ.data?.allocs.filter((a: any) => (seatsQ.data?.seats ?? []).some((s: any) => s.id === a.seat_id)).length ?? 0} occupied
+                  {currentSection?.grid_rows} × {currentSection?.grid_cols} · {seatsQ.data?.seats.length ?? 0} seats ·{" "}
+                  {seatsQ.data?.allocs.filter((a: any) =>
+                    (seatsQ.data?.seats ?? []).some((s: any) => s.id === a.seat_id),
+                  ).length ?? 0}{" "}
+                  occupied
                 </div>
               </div>
-              <BulkSeatDialog sectionId={currentSectionId} orgId={orgId!} libraryId={currentLibId!} onDone={() => qc.invalidateQueries({ queryKey: ["seats", currentSectionId] })} />
+              <BulkSeatDialog
+                sectionId={currentSectionId}
+                orgId={orgId!}
+                libraryId={currentLibId!}
+                onDone={() => qc.invalidateQueries({ queryKey: ["seats", currentSectionId] })}
+              />
             </div>
-            <div className="max-h-[70vh] overflow-auto rounded-lg bg-black/30 p-4 ring-1 ring-panel-border">
+
+            {/* INTERACTIVE RESPONSIVE GRID WRAPPER */}
+            <div className="relative w-full overflow-auto rounded-lg bg-black/30 p-4 ring-1 ring-panel-border touch-pan-x touch-pan-y custom-scrollbar">
               {grid && (
-                <div className="mx-auto grid gap-1.5" style={{ gridTemplateColumns: `repeat(${currentSection?.grid_cols ?? 15}, minmax(0, 1fr))`, maxWidth: "min(100%, 900px)" }}>
-                  {grid.map((row, r) => row.map((cell, c) => (
-                    <CellView key={`${r}-${c}`} row={r} col={c} cell={cell} onClick={() => handleCellClick(r, c)} onDeleteObject={(id) => deleteObject.mutate(id)} />
-                  )))}
+                <div className="flex flex-col min-w-max">
+                  <div className="flex">
+                    {/* The Grid */}
+                    <div
+                      className="grid gap-1.5"
+                      style={{ gridTemplateColumns: `repeat(${currentSection?.grid_cols ?? 15}, minmax(40px, 1fr))` }}
+                    >
+                      {grid.map((row, r) =>
+                        row.map((cell, c) => (
+                          <CellView
+                            key={`${r}-${c}`}
+                            row={r}
+                            col={c}
+                            cell={cell}
+                            onClick={() => handleCellClick(r, c)}
+                            onDeleteObject={(id) => deleteObject.mutate(id)}
+                          />
+                        )),
+                      )}
+                    </div>
+                    {/* Column Controls */}
+                    <div className="flex flex-col items-center justify-center gap-2 ml-4 border-l border-panel-border/30 pl-4">
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        onClick={handleAddCol}
+                        title="Add Column"
+                        className="size-8 rounded-full bg-panel hover:bg-panel-strong"
+                      >
+                        <Plus className="size-4" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        onClick={handleRemoveCol}
+                        title="Remove Column"
+                        className="size-8 rounded-full bg-panel hover:bg-rose/20 hover:text-rose hover:border-rose/30"
+                      >
+                        <Minus className="size-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  {/* Row Controls */}
+                  <div
+                    className="flex items-center justify-center gap-2 mt-4 border-t border-panel-border/30 pt-4"
+                    style={{
+                      maxWidth: `calc(${currentSection?.grid_cols * 40}px + ${(currentSection?.grid_cols - 1) * 6}px)`,
+                    }}
+                  >
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      onClick={handleAddRow}
+                      title="Add Row"
+                      className="size-8 rounded-full bg-panel hover:bg-panel-strong"
+                    >
+                      <Plus className="size-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      onClick={handleRemoveRow}
+                      title="Remove Row"
+                      className="size-8 rounded-full bg-panel hover:bg-rose/20 hover:text-rose hover:border-rose/30"
+                    >
+                      <Minus className="size-4" />
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>
@@ -175,10 +374,16 @@ function LayoutBuilderPage() {
 
           <InspectorPanel
             selected={selectedSeatObj}
+            students={studentsQ.data}
+            orgId={orgId!}
+            onRefresh={() => qc.invalidateQueries({ queryKey: ["seats", currentSectionId] })}
             onDelete={async () => {
               if (!selectedSeatObj) return;
               const { error } = await supabase.from("seats").delete().eq("id", selectedSeatObj.seat.id);
-              if (error) { toast.error(error.message); return; }
+              if (error) {
+                toast.error(error.message);
+                return;
+              }
               toast.success("Seat removed");
               setSelectedSeat(null);
               qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
@@ -188,17 +393,31 @@ function LayoutBuilderPage() {
       )}
 
       <AddSeatDialog
-        open={addSeatOpen} onOpenChange={setAddSeatOpen}
+        open={addSeatOpen}
+        onOpenChange={setAddSeatOpen}
         pos={addSeatPos}
         section={currentSection}
-        orgId={orgId!} libraryId={currentLibId!}
+        orgId={orgId!}
+        libraryId={currentLibId!}
         onDone={() => qc.invalidateQueries({ queryKey: ["seats", currentSectionId] })}
       />
     </div>
   );
 }
 
-function CellView({ row, col, cell, onClick, onDeleteObject }: { row: number; col: number; cell: Cell; onClick: () => void; onDeleteObject: (id: string) => void }) {
+function CellView({
+  row,
+  col,
+  cell,
+  onClick,
+  onDeleteObject,
+}: {
+  row: number;
+  col: number;
+  cell: Cell;
+  onClick: () => void;
+  onDeleteObject: (id: string) => void;
+}) {
   if (cell.kind === "seat") {
     const Icon = DIR_ICON[cell.facing];
     const occ = cell.occupied;
@@ -207,12 +426,12 @@ function CellView({ row, col, cell, onClick, onDeleteObject }: { row: number; co
         onClick={onClick}
         title={`Seat ${cell.seat_number}${occ ? " · occupied" : " · vacant"}`}
         className={cn(
-          "group flex aspect-square min-w-0 flex-col items-center justify-center rounded border text-[9px] font-mono transition-all hover:scale-[1.06]",
-          cell.is_corner
-            ? "border-2 border-gold/60 bg-gold/10 text-gold glow-gold"
-            : occ
-              ? "border border-rose/30 bg-rose/15 text-rose"
-              : "border border-panel-border bg-panel text-muted-foreground hover:border-cyan/40 hover:text-cyan",
+          "group flex size-10 min-w-0 flex-col items-center justify-center rounded border text-[9px] font-mono transition-all hover:scale-[1.06]",
+          occ
+            ? "border border-rose/50 bg-rose/20 text-rose shadow-[0_0_10px_rgba(244,63,94,0.3)]" // Red/Blue Occupied
+            : cell.is_corner
+              ? "border-2 border-gold/60 bg-gold/10 text-gold glow-gold"
+              : "border border-emerald/50 bg-emerald/10 text-emerald shadow-[0_0_10px_rgba(16,185,129,0.1)] hover:border-emerald hover:bg-emerald/20", // Green Vacant
         )}
       >
         <Icon className="mb-0.5 size-2.5 opacity-70" />
@@ -227,7 +446,10 @@ function CellView({ row, col, cell, onClick, onDeleteObject }: { row: number; co
       <button
         onClick={() => onDeleteObject(cell.id)}
         title={`${meta.label} (click to remove)`}
-        className={cn("flex aspect-square min-w-0 flex-col items-center justify-center rounded border text-[8px] font-mono", meta.color)}
+        className={cn(
+          "flex size-10 min-w-0 flex-col items-center justify-center rounded border text-[8px] font-mono",
+          meta.color,
+        )}
       >
         {Icon && <Icon className="size-3" />}
         <span className="mt-0.5 truncate">{meta.label}</span>
@@ -238,47 +460,182 @@ function CellView({ row, col, cell, onClick, onDeleteObject }: { row: number; co
     <button
       onClick={onClick}
       title={`Row ${row + 1}, Col ${col + 1}`}
-      className="aspect-square min-w-0 rounded border border-panel-border/30 bg-white/[0.02] transition-colors hover:border-panel-border hover:bg-panel"
+      className="size-10 min-w-0 rounded border border-panel-border/30 bg-white/[0.02] transition-colors hover:border-panel-border hover:bg-panel"
     />
   );
 }
 
-function InspectorPanel({ selected, onDelete }: { selected: any; onDelete: () => void }) {
+// --- VISUAL SEAT ALLOCATION (INSPECTOR UPGRADE) ---
+function InspectorPanel({
+  selected,
+  students,
+  orgId,
+  onRefresh,
+  onDelete,
+}: {
+  selected: any;
+  students: any[];
+  orgId: string;
+  onRefresh: () => void;
+  onDelete: () => void;
+}) {
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState("");
+  const [fee, setFee] = useState("");
+
   if (!selected) {
     return (
-      <GlassPanel className="p-5">
-        <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Inspector</div>
-        <p className="mt-4 text-sm text-muted-foreground">Click a seat to see details, or click an empty cell to add.</p>
-        <div className="mt-6 space-y-2 text-xs text-muted-foreground">
-          <div className="flex items-center gap-2"><span className="inline-block size-3 rounded border-2 border-gold/60 bg-gold/10" /> Corner (premium)</div>
-          <div className="flex items-center gap-2"><span className="inline-block size-3 rounded border border-rose/30 bg-rose/15" /> Occupied</div>
-          <div className="flex items-center gap-2"><span className="inline-block size-3 rounded border border-panel-border bg-panel" /> Vacant</div>
+      <GlassPanel className="p-5 flex flex-col h-full">
+        <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+          Allocation & Inspector
+        </div>
+        <p className="mt-4 text-sm text-muted-foreground">
+          Click a <span className="text-emerald">Green (Vacant)</span> seat to assign a student.
+        </p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Click a <span className="text-rose">Red (Occupied)</span> seat to view details or remove.
+        </p>
+
+        <div className="mt-8 space-y-3 text-xs text-muted-foreground border-t border-panel-border/50 pt-6">
+          <div className="flex items-center gap-2">
+            <span className="inline-block size-3 rounded border border-emerald/50 bg-emerald/10" /> Vacant (Available)
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="inline-block size-3 rounded border border-rose/50 bg-rose/20" /> Occupied (Assigned)
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="inline-block size-3 rounded border-2 border-gold/60 bg-gold/10" /> Corner Seat (Premium)
+          </div>
         </div>
       </GlassPanel>
     );
   }
   const s = selected.seat;
   const a = selected.alloc;
+
+  const handleAssign = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedStudent || !fee) return;
+    const { error } = await supabase.from("allocations").insert({
+      seat_id: s.id,
+      student_id: selectedStudent,
+      org_id: orgId,
+      monthly_fee: Number(fee),
+      status: "active",
+      next_due_date: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().split("T")[0], // Default to 1 month from now
+    });
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Student assigned successfully");
+    setAssignOpen(false);
+    onRefresh();
+  };
+
+  const handleUnassign = async () => {
+    if (!confirm("Are you sure you want to remove this student from the seat?")) return;
+    const { error } = await supabase
+      .from("allocations")
+      .update({ is_active: false, status: "completed" })
+      .eq("id", a.id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Seat vacated");
+    onRefresh();
+  };
+
   return (
-    <GlassPanel className="p-5">
+    <GlassPanel className="p-5 flex flex-col h-full">
       <div className="font-mono text-[10px] uppercase tracking-widest text-cyan">Selected seat</div>
       <div className="mt-1 text-2xl font-extrabold">{s.seat_number}</div>
-      <div className="mt-1 text-xs text-muted-foreground">Row {s.row_position + 1} · Col {s.column_position + 1} · Facing {s.facing_direction}{s.is_corner ? " · Corner" : ""}</div>
+      <div className="mt-1 text-xs text-muted-foreground">
+        Row {s.row_position + 1} · Col {s.column_position + 1} · Facing {s.facing_direction}
+        {s.is_corner ? " · Corner" : ""}
+      </div>
+
       {a ? (
-        <div className="mt-5 space-y-3">
+        <div className="mt-5 space-y-3 flex-1">
+          <div className="rounded-lg border border-rose/30 bg-rose/10 p-3 mb-4 text-xs font-semibold text-rose flex items-center justify-center gap-2">
+            Currently Occupied
+          </div>
           <InfoRow label="Student" value={a.students?.full_name ?? "—"} />
           <InfoRow label="Mobile" value={a.students?.mobile_number ?? "—"} mono />
-          <InfoRow label="Shift" value={a.shifts?.name ?? "Full day"} />
           <InfoRow label="Fee / month" value={`₹${a.monthly_fee}`} mono />
           <InfoRow label="Next due" value={a.next_due_date} mono />
+
+          <Button
+            onClick={handleUnassign}
+            variant="outline"
+            className="w-full mt-4 border-rose/30 text-rose hover:bg-rose/10 hover:text-rose"
+          >
+            <UserMinus className="mr-2 size-4" /> Vacate Seat
+          </Button>
         </div>
       ) : (
-        <p className="mt-6 text-sm text-muted-foreground">Vacant seat.</p>
+        <div className="mt-6 flex-1 flex flex-col">
+          <div className="rounded-lg border border-emerald/30 bg-emerald/10 p-3 mb-6 text-xs font-semibold text-emerald flex items-center justify-center gap-2">
+            Seat is Vacant
+          </div>
+
+          <Dialog open={assignOpen} onOpenChange={setAssignOpen}>
+            <DialogTrigger asChild>
+              <Button className="w-full bg-emerald text-emerald-950 hover:bg-emerald/90">
+                <UserPlus className="mr-2 size-4" /> Assign Student
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="glass-strong border-panel-border">
+              <DialogHeader>
+                <DialogTitle>Assign Seat {s.seat_number}</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleAssign} className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Select Student</Label>
+                  <Select value={selectedStudent} onValueChange={setSelectedStudent}>
+                    <SelectTrigger className="bg-panel border-panel-border">
+                      <SelectValue placeholder="Choose student..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {students.map((st: any) => (
+                        <SelectItem key={st.id} value={st.id}>
+                          {st.full_name} ({st.mobile_number})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Monthly Fee (₹)</Label>
+                  <Input
+                    required
+                    type="number"
+                    value={fee}
+                    onChange={(e) => setFee(e.target.value)}
+                    className="bg-panel border-panel-border"
+                    placeholder="e.g. 1000"
+                  />
+                </div>
+                <Button type="submit" className="w-full bg-white text-slate-900 hover:bg-white/90">
+                  Confirm Assignment
+                </Button>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
       )}
-      <button onClick={onDelete} className="mt-6 w-full rounded-md border border-panel-border py-2 text-xs text-muted-foreground hover:bg-panel">Remove seat</button>
+
+      <button
+        onClick={onDelete}
+        className="mt-auto pt-6 w-full text-xs text-muted-foreground hover:text-rose transition-colors flex justify-center items-center gap-1"
+      >
+        <Trash2 className="size-3" /> Remove seat physically
+      </button>
     </GlassPanel>
   );
 }
+
 function InfoRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div className="rounded-lg bg-panel p-3">
@@ -288,7 +645,19 @@ function InfoRow({ label, value, mono }: { label: string; value: string; mono?: 
   );
 }
 
-function AddSectionDialog({ open, onOpenChange, libraryId, orgId, onCreated }: { open: boolean; onOpenChange: (v: boolean) => void; libraryId?: string; orgId?: string | null; onCreated: (id: string) => void }) {
+function AddSectionDialog({
+  open,
+  onOpenChange,
+  libraryId,
+  orgId,
+  onCreated,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  libraryId?: string;
+  orgId?: string | null;
+  onCreated: (id: string) => void;
+}) {
   const [name, setName] = useState("");
   const [rows, setRows] = useState(15);
   const [cols, setCols] = useState(15);
@@ -296,17 +665,36 @@ function AddSectionDialog({ open, onOpenChange, libraryId, orgId, onCreated }: {
   const [isPremium, setIsPremium] = useState(false);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogTrigger asChild><Button variant="outline" size="sm" className="border-panel-border bg-panel"><Plus className="mr-1 size-4" /> Section</Button></DialogTrigger>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm" className="border-panel-border bg-panel">
+          <Plus className="mr-1 size-4" /> Section
+        </Button>
+      </DialogTrigger>
       <DialogContent className="glass-strong border-panel-border">
-        <DialogHeader><DialogTitle>New section</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle>New section</DialogTitle>
+        </DialogHeader>
         <form
           onSubmit={async (e) => {
             e.preventDefault();
             if (!libraryId || !orgId) return;
-            const { data, error } = await supabase.from("sections").insert({
-              library_id: libraryId, org_id: orgId, name, grid_rows: rows, grid_cols: cols, has_shifts: hasShifts, is_premium_section: isPremium,
-            }).select("id").single();
-            if (error) { toast.error(error.message); return; }
+            const { data, error } = await supabase
+              .from("sections")
+              .insert({
+                library_id: libraryId,
+                org_id: orgId,
+                name,
+                grid_rows: rows,
+                grid_cols: cols,
+                has_shifts: hasShifts,
+                is_premium_section: isPremium,
+              })
+              .select("id")
+              .single();
+            if (error) {
+              toast.error(error.message);
+              return;
+            }
             toast.success("Section created");
             onCreated(data.id);
             onOpenChange(false);
@@ -314,16 +702,50 @@ function AddSectionDialog({ open, onOpenChange, libraryId, orgId, onCreated }: {
           }}
           className="space-y-4"
         >
-          <div className="space-y-2"><Label>Name</Label><Input required value={name} onChange={(e) => setName(e.target.value)} className="bg-panel border-panel-border" /></div>
+          <div className="space-y-2">
+            <Label>Name</Label>
+            <Input
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="bg-panel border-panel-border"
+            />
+          </div>
           <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2"><Label>Grid rows</Label><Input type="number" min={5} max={30} value={rows} onChange={(e) => setRows(Number(e.target.value))} className="bg-panel border-panel-border" /></div>
-            <div className="space-y-2"><Label>Grid cols</Label><Input type="number" min={5} max={30} value={cols} onChange={(e) => setCols(Number(e.target.value))} className="bg-panel border-panel-border" /></div>
+            <div className="space-y-2">
+              <Label>Grid rows</Label>
+              <Input
+                type="number"
+                min={5}
+                max={50}
+                value={rows}
+                onChange={(e) => setRows(Number(e.target.value))}
+                className="bg-panel border-panel-border"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Grid cols</Label>
+              <Input
+                type="number"
+                min={5}
+                max={50}
+                value={cols}
+                onChange={(e) => setCols(Number(e.target.value))}
+                className="bg-panel border-panel-border"
+              />
+            </div>
           </div>
           <div className="flex gap-4 text-sm">
-            <label className="flex items-center gap-2"><input type="checkbox" checked={hasShifts} onChange={(e) => setHasShifts(e.target.checked)} /> Has shifts</label>
-            <label className="flex items-center gap-2"><input type="checkbox" checked={isPremium} onChange={(e) => setIsPremium(e.target.checked)} /> Premium</label>
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={hasShifts} onChange={(e) => setHasShifts(e.target.checked)} /> Has shifts
+            </label>
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={isPremium} onChange={(e) => setIsPremium(e.target.checked)} /> Premium
+            </label>
           </div>
-          <Button type="submit" className="w-full bg-white text-slate-900 hover:bg-white/90">Create section</Button>
+          <Button type="submit" className="w-full bg-white text-slate-900 hover:bg-white/90">
+            Create section
+          </Button>
         </form>
       </DialogContent>
     </Dialog>
@@ -339,10 +761,28 @@ function AddSeatDialog({ open, onOpenChange, pos, section, orgId, libraryId, onD
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="glass-strong border-panel-border">
-        <DialogHeader><DialogTitle>Place at Row {pos?.row + 1}, Col {pos?.col + 1}</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle>
+            Place at Row {pos?.row + 1}, Col {pos?.col + 1}
+          </DialogTitle>
+        </DialogHeader>
         <div className="flex gap-2">
-          <Button size="sm" variant={mode === "seat" ? "default" : "outline"} onClick={() => setMode("seat")} className={cn(mode === "seat" && "bg-white text-slate-900")}>Seat</Button>
-          <Button size="sm" variant={mode === "object" ? "default" : "outline"} onClick={() => setMode("object")} className={cn(mode === "object" && "bg-white text-slate-900")}>Object</Button>
+          <Button
+            size="sm"
+            variant={mode === "seat" ? "default" : "outline"}
+            onClick={() => setMode("seat")}
+            className={cn(mode === "seat" && "bg-white text-slate-900")}
+          >
+            Seat
+          </Button>
+          <Button
+            size="sm"
+            variant={mode === "object" ? "default" : "outline"}
+            onClick={() => setMode("object")}
+            className={cn(mode === "object" && "bg-white text-slate-900")}
+          >
+            Object
+          </Button>
         </div>
         {mode === "seat" ? (
           <form
@@ -350,21 +790,43 @@ function AddSeatDialog({ open, onOpenChange, pos, section, orgId, libraryId, onD
               e.preventDefault();
               if (!pos || !section) return;
               const { error } = await supabase.from("seats").insert({
-                section_id: section.id, library_id: libraryId, org_id: orgId,
-                seat_number: seatNumber, row_position: pos.row, column_position: pos.col,
-                facing_direction: facing, is_corner: isCorner,
+                section_id: section.id,
+                library_id: libraryId,
+                org_id: orgId,
+                seat_number: seatNumber,
+                row_position: pos.row,
+                column_position: pos.col,
+                facing_direction: facing,
+                is_corner: isCorner,
               });
-              if (error) { toast.error(error.message); return; }
+              if (error) {
+                toast.error(error.message);
+                return;
+              }
               toast.success("Seat added");
-              onOpenChange(false); onDone(); setSeatNumber("");
+              onOpenChange(false);
+              onDone();
+              setSeatNumber("");
             }}
             className="space-y-3"
           >
-            <div className="space-y-2"><Label>Seat number</Label><Input required autoFocus value={seatNumber} onChange={(e) => setSeatNumber(e.target.value)} className="bg-panel border-panel-border font-mono" placeholder="A01" /></div>
+            <div className="space-y-2">
+              <Label>Seat number</Label>
+              <Input
+                required
+                autoFocus
+                value={seatNumber}
+                onChange={(e) => setSeatNumber(e.target.value)}
+                className="bg-panel border-panel-border font-mono"
+                placeholder="A01"
+              />
+            </div>
             <div className="space-y-2">
               <Label>Facing</Label>
               <Select value={facing} onValueChange={(v: any) => setFacing(v)}>
-                <SelectTrigger className="bg-panel border-panel-border"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="bg-panel border-panel-border">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="north">North ↑</SelectItem>
                   <SelectItem value="south">South ↓</SelectItem>
@@ -373,8 +835,13 @@ function AddSeatDialog({ open, onOpenChange, pos, section, orgId, libraryId, onD
                 </SelectContent>
               </Select>
             </div>
-            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={isCorner} onChange={(e) => setIsCorner(e.target.checked)} /> Corner seat (premium)</label>
-            <Button type="submit" className="w-full bg-white text-slate-900 hover:bg-white/90">Add seat</Button>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={isCorner} onChange={(e) => setIsCorner(e.target.checked)} /> Corner seat
+              (premium)
+            </label>
+            <Button type="submit" className="w-full bg-white text-slate-900 hover:bg-white/90">
+              Add seat
+            </Button>
           </form>
         ) : (
           <form
@@ -382,18 +849,28 @@ function AddSeatDialog({ open, onOpenChange, pos, section, orgId, libraryId, onD
               e.preventDefault();
               if (!pos || !section) return;
               const { error } = await supabase.from("layout_objects").insert({
-                section_id: section.id, org_id: orgId, object_type: objectType, row_position: pos.row, column_position: pos.col,
+                section_id: section.id,
+                org_id: orgId,
+                object_type: objectType,
+                row_position: pos.row,
+                column_position: pos.col,
               });
-              if (error) { toast.error(error.message); return; }
+              if (error) {
+                toast.error(error.message);
+                return;
+              }
               toast.success("Object placed");
-              onOpenChange(false); onDone();
+              onOpenChange(false);
+              onDone();
             }}
             className="space-y-3"
           >
             <div className="space-y-2">
               <Label>Object type</Label>
               <Select value={objectType} onValueChange={setObjectType}>
-                <SelectTrigger className="bg-panel border-panel-border"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="bg-panel border-panel-border">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="aisle">Aisle</SelectItem>
                   <SelectItem value="entry_gate">Entry gate</SelectItem>
@@ -403,7 +880,9 @@ function AddSeatDialog({ open, onOpenChange, pos, section, orgId, libraryId, onD
                 </SelectContent>
               </Select>
             </div>
-            <Button type="submit" className="w-full bg-white text-slate-900 hover:bg-white/90">Place</Button>
+            <Button type="submit" className="w-full bg-white text-slate-900 hover:bg-white/90">
+              Place
+            </Button>
           </form>
         )}
       </DialogContent>
@@ -411,7 +890,17 @@ function AddSeatDialog({ open, onOpenChange, pos, section, orgId, libraryId, onD
   );
 }
 
-function BulkSeatDialog({ sectionId, orgId, libraryId, onDone }: { sectionId: string; orgId: string; libraryId: string; onDone: () => void }) {
+function BulkSeatDialog({
+  sectionId,
+  orgId,
+  libraryId,
+  onDone,
+}: {
+  sectionId: string;
+  orgId: string;
+  libraryId: string;
+  onDone: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const [prefix, setPrefix] = useState("A");
   const [start, setStart] = useState(1);
@@ -423,9 +912,15 @@ function BulkSeatDialog({ sectionId, orgId, libraryId, onDone }: { sectionId: st
   const [loading, setLoading] = useState(false);
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild><Button size="sm" variant="outline" className="border-panel-border bg-panel">Bulk generate</Button></DialogTrigger>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline" className="border-panel-border bg-panel">
+          Bulk generate
+        </Button>
+      </DialogTrigger>
       <DialogContent className="glass-strong border-panel-border">
-        <DialogHeader><DialogTitle>Bulk generate seats</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle>Bulk generate seats</DialogTitle>
+        </DialogHeader>
         <form
           onSubmit={async (e) => {
             e.preventDefault();
@@ -435,30 +930,93 @@ function BulkSeatDialog({ sectionId, orgId, libraryId, onDone }: { sectionId: st
               const r = startRow + Math.floor(i / perRow);
               const c = startCol + (i % perRow);
               rows.push({
-                section_id: sectionId, library_id: libraryId, org_id: orgId,
+                section_id: sectionId,
+                library_id: libraryId,
+                org_id: orgId,
                 seat_number: `${prefix}${String(n).padStart(2, "0")}`,
-                row_position: r, column_position: c,
-                facing_direction: facing, is_corner: false,
+                row_position: r,
+                column_position: c,
+                facing_direction: facing,
+                is_corner: false,
               });
             }
             const { error } = await supabase.from("seats").insert(rows);
             setLoading(false);
-            if (error) { toast.error(error.message); return; }
+            if (error) {
+              toast.error(error.message);
+              return;
+            }
             toast.success(`${rows.length} seats generated`);
-            setOpen(false); onDone();
+            setOpen(false);
+            onDone();
           }}
           className="grid grid-cols-2 gap-3"
         >
-          <div className="col-span-2 space-y-2"><Label>Prefix</Label><Input required value={prefix} onChange={(e) => setPrefix(e.target.value)} className="bg-panel border-panel-border" /></div>
-          <div className="space-y-2"><Label>Start #</Label><Input type="number" min={1} value={start} onChange={(e) => setStart(Number(e.target.value))} className="bg-panel border-panel-border" /></div>
-          <div className="space-y-2"><Label>End #</Label><Input type="number" min={1} value={end} onChange={(e) => setEnd(Number(e.target.value))} className="bg-panel border-panel-border" /></div>
-          <div className="space-y-2"><Label>Start row</Label><Input type="number" min={0} value={startRow} onChange={(e) => setStartRow(Number(e.target.value))} className="bg-panel border-panel-border" /></div>
-          <div className="space-y-2"><Label>Start col</Label><Input type="number" min={0} value={startCol} onChange={(e) => setStartCol(Number(e.target.value))} className="bg-panel border-panel-border" /></div>
-          <div className="space-y-2"><Label>Seats per row</Label><Input type="number" min={1} value={perRow} onChange={(e) => setPerRow(Number(e.target.value))} className="bg-panel border-panel-border" /></div>
+          <div className="col-span-2 space-y-2">
+            <Label>Prefix</Label>
+            <Input
+              required
+              value={prefix}
+              onChange={(e) => setPrefix(e.target.value)}
+              className="bg-panel border-panel-border"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Start #</Label>
+            <Input
+              type="number"
+              min={1}
+              value={start}
+              onChange={(e) => setStart(Number(e.target.value))}
+              className="bg-panel border-panel-border"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>End #</Label>
+            <Input
+              type="number"
+              min={1}
+              value={end}
+              onChange={(e) => setEnd(Number(e.target.value))}
+              className="bg-panel border-panel-border"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Start row</Label>
+            <Input
+              type="number"
+              min={0}
+              value={startRow}
+              onChange={(e) => setStartRow(Number(e.target.value))}
+              className="bg-panel border-panel-border"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Start col</Label>
+            <Input
+              type="number"
+              min={0}
+              value={startCol}
+              onChange={(e) => setStartCol(Number(e.target.value))}
+              className="bg-panel border-panel-border"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Seats per row</Label>
+            <Input
+              type="number"
+              min={1}
+              value={perRow}
+              onChange={(e) => setPerRow(Number(e.target.value))}
+              className="bg-panel border-panel-border"
+            />
+          </div>
           <div className="space-y-2">
             <Label>Facing</Label>
             <Select value={facing} onValueChange={(v: any) => setFacing(v)}>
-              <SelectTrigger className="bg-panel border-panel-border"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="bg-panel border-panel-border">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="north">North</SelectItem>
                 <SelectItem value="south">South</SelectItem>
@@ -467,7 +1025,11 @@ function BulkSeatDialog({ sectionId, orgId, libraryId, onDone }: { sectionId: st
               </SelectContent>
             </Select>
           </div>
-          <div className="col-span-2"><Button disabled={loading} type="submit" className="w-full bg-white text-slate-900 hover:bg-white/90">{loading ? "Generating…" : "Generate"}</Button></div>
+          <div className="col-span-2">
+            <Button disabled={loading} type="submit" className="w-full bg-white text-slate-900 hover:bg-white/90">
+              {loading ? "Generating…" : "Generate"}
+            </Button>
+          </div>
         </form>
       </DialogContent>
     </Dialog>
