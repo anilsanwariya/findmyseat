@@ -58,6 +58,9 @@ function StudentLogin() {
               </div>
               <Button disabled={loading} className="w-full bg-white text-slate-900 hover:bg-white/90">{loading ? "…" : "Sign in"}</Button>
             </form>
+            <div className="mt-4 text-center">
+              <Link to="/forgot-pin" className="text-xs text-violet hover:underline">Forgot PIN?</Link>
+            </div>
             <p className="mt-6 text-center text-xs text-muted-foreground">
               Library owner? <Link to="/auth" className="text-violet hover:underline">Owner sign in</Link>
             </p>
