@@ -15,6 +15,7 @@ import { Route as DispatchRouteImport } from './routes/dispatch'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedSuperAdminRouteImport } from './routes/_authenticated/super-admin'
 import { Route as AuthenticatedStudentRouteImport } from './routes/_authenticated/student'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin.index'
@@ -56,6 +57,11 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedSuperAdminRoute = AuthenticatedSuperAdminRouteImport.update({
+  id: '/super-admin',
+  path: '/super-admin',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedStudentRoute = AuthenticatedStudentRouteImport.update({
   id: '/student',
@@ -134,6 +140,7 @@ export interface FileRoutesByFullPath {
   '/student-login': typeof StudentLoginRoute
   '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/student': typeof AuthenticatedStudentRoute
+  '/super-admin': typeof AuthenticatedSuperAdminRoute
   '/admin/allocations': typeof AuthenticatedAdminAllocationsRoute
   '/admin/expenses': typeof AuthenticatedAdminExpensesRoute
   '/admin/layout-builder': typeof AuthenticatedAdminLayoutBuilderRoute
@@ -152,6 +159,7 @@ export interface FileRoutesByTo {
   '/onboarding': typeof OnboardingRoute
   '/student-login': typeof StudentLoginRoute
   '/student': typeof AuthenticatedStudentRoute
+  '/super-admin': typeof AuthenticatedSuperAdminRoute
   '/admin/allocations': typeof AuthenticatedAdminAllocationsRoute
   '/admin/expenses': typeof AuthenticatedAdminExpensesRoute
   '/admin/layout-builder': typeof AuthenticatedAdminLayoutBuilderRoute
@@ -173,6 +181,7 @@ export interface FileRoutesById {
   '/student-login': typeof StudentLoginRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/_authenticated/student': typeof AuthenticatedStudentRoute
+  '/_authenticated/super-admin': typeof AuthenticatedSuperAdminRoute
   '/_authenticated/admin/allocations': typeof AuthenticatedAdminAllocationsRoute
   '/_authenticated/admin/expenses': typeof AuthenticatedAdminExpensesRoute
   '/_authenticated/admin/layout-builder': typeof AuthenticatedAdminLayoutBuilderRoute
@@ -194,6 +203,7 @@ export interface FileRouteTypes {
     | '/student-login'
     | '/admin'
     | '/student'
+    | '/super-admin'
     | '/admin/allocations'
     | '/admin/expenses'
     | '/admin/layout-builder'
@@ -212,6 +222,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/student-login'
     | '/student'
+    | '/super-admin'
     | '/admin/allocations'
     | '/admin/expenses'
     | '/admin/layout-builder'
@@ -232,6 +243,7 @@ export interface FileRouteTypes {
     | '/student-login'
     | '/_authenticated/admin'
     | '/_authenticated/student'
+    | '/_authenticated/super-admin'
     | '/_authenticated/admin/allocations'
     | '/_authenticated/admin/expenses'
     | '/_authenticated/admin/layout-builder'
@@ -296,6 +308,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/super-admin': {
+      id: '/_authenticated/super-admin'
+      path: '/super-admin'
+      fullPath: '/super-admin'
+      preLoaderRoute: typeof AuthenticatedSuperAdminRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/student': {
       id: '/_authenticated/student'
@@ -416,11 +435,13 @@ const AuthenticatedAdminRouteWithChildren =
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren
   AuthenticatedStudentRoute: typeof AuthenticatedStudentRoute
+  AuthenticatedSuperAdminRoute: typeof AuthenticatedSuperAdminRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRouteWithChildren,
   AuthenticatedStudentRoute: AuthenticatedStudentRoute,
+  AuthenticatedSuperAdminRoute: AuthenticatedSuperAdminRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

@@ -1,5 +1,5 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
-import { LayoutDashboard, Grid3x3, Users, Ticket, IndianRupee, ReceiptText, Megaphone, LifeBuoy, Settings, LogOut, Sparkles } from "lucide-react";
+import { LayoutDashboard, Grid3x3, Users, Ticket, IndianRupee, ReceiptText, Megaphone, LifeBuoy, Settings, LogOut, Sparkles, ShieldCheck } from "lucide-react";
 import { AuroraBackground, GlassPanel } from "@/components/glass";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -65,6 +65,16 @@ export function AdminShell({ children }: { children: ReactNode }) {
                 </Link>
               );
             })}
+            {session?.role === "super_admin" && (
+              <Link to="/super-admin"
+                className={cn(
+                  "mt-4 flex items-center gap-3 rounded-lg border border-gold/30 bg-gradient-to-r from-gold/10 to-magenta/10 px-3 py-2 text-sm text-gold shadow-[0_0_20px_-8px_rgba(236,72,153,0.5)] transition-colors hover:from-gold/20 hover:to-magenta/20",
+                )}
+              >
+                <ShieldCheck className="size-4" />
+                <span className="font-semibold">Master Admin</span>
+              </Link>
+            )}
           </nav>
           <div className="border-t border-panel-border p-4">
             <div className="flex items-center gap-3">
