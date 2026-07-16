@@ -20,6 +20,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useSession } from "@/lib/auth";
 import type { ReactNode } from "react";
 
 type NavItem = { to: string; label: string; icon: typeof LayoutDashboard; exact?: boolean };
@@ -42,12 +43,16 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const qc = useQueryClient();
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  // FIX: Fetch the session data so we can display the email in the sidebar
+  const { data: session } = useSession();
+
   async function signOut() {
     await qc.cancelQueries();
     qc.clear();
     await supabase.auth.signOut();
     toast.success("Signed out");
-    navigate({ to: "/auth", replace: true });
+    // Redirect to the new dedicated owner login page instead of the generic auth
+    navigate({ to: "/owner-login", replace: true });
   }
 
   function NavList({ onClick }: { onClick?: () => void }) {
@@ -87,7 +92,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
               <div className="grid size-8 place-items-center rounded-lg bg-gradient-to-br from-violet to-cyan font-black">
                 L
               </div>
-              <span className="text-lg font-extrabold tracking-tight">LibraryBandhu</span>
+              <span className="text-lg font-medium tracking-tight">LibraryBandhu</span>
             </Link>
             <div className="mt-8 inline-flex items-center gap-2 rounded-full border border-panel-border bg-panel px-2.5 py-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
               <span className="size-1.5 rounded-full bg-emerald" /> Owner workspace
@@ -124,7 +129,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
                   <div className="grid size-8 place-items-center rounded-lg bg-gradient-to-br from-violet to-cyan font-black">
                     L
                   </div>
-                  <span className="text-lg font-extrabold tracking-tight">LibraryBandhu</span>
+                  <span className="text-lg font-medium tracking-tight">LibraryBandhu</span>
                 </Link>
                 <button
                   onClick={() => setMobileOpen(false)}
