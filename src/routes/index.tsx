@@ -82,11 +82,12 @@ function Marketplace() {
   const examsFn = useServerFn(listPublicExams);
   const zonesFn = useServerFn(listPublicZones);
 
-  const exams = useQuery({ queryKey: ["public-exams"], queryFn: () => examsFn() });
-  const zones = useQuery({ queryKey: ["public-zones"], queryFn: () => zonesFn() });
+  const exams = useQuery({ queryKey: ["public-exams"], queryFn: () => examsFn(), staleTime: 10 * 60_000 });
+  const zones = useQuery({ queryKey: ["public-zones"], queryFn: () => zonesFn(), staleTime: 10 * 60_000 });
   const results = useQuery({
     queryKey: ["marketplace", query, zone, examId],
     queryFn: () => search({ data: { query: query || null, zone: zone || null, exam_id: examId || null } }),
+    staleTime: 30_000,
   });
 
   const libs = results.data?.libraries ?? [];
