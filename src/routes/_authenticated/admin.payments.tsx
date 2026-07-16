@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/lib/auth";
@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { inr, fmtDate, addMonths, toISODate } from "@/lib/format";
+import { inr, fmtDate } from "@/lib/format";
 import { Plus } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/payments")({
@@ -88,7 +88,7 @@ function PaymentsPage() {
                   <td className="py-3 px-2">
                     <span className="rounded bg-panel px-2 py-1 text-[10px] uppercase tracking-wider">{p.method}</span>
                   </td>
-                  <td className="py-3 px-2 font-mono">{fmtDate(p.covers_until)}</td>
+                  <td className="py-3 px-2 font-mono text-emerald">{fmtDate(p.covers_until)}</td>
                   <td className="py-3 px-2 text-muted-foreground">{p.reference_note ?? "—"}</td>
                 </tr>
               ))}
@@ -110,8 +110,12 @@ function PaymentsPage() {
 function LogPaymentDialog({ onDone }: { onDone: () => void }) {
   const { data: session } = useSession();
   const orgId = session?.orgId;
+
   const [allocId, setAllocId] = useState("");
+  const [paymentMode, setPaymentMode] = useState<"full" | "prorated" | "custom">("full");
   const [amount, setAmount] = useState<number | "">("");
+  const [startDate, setStartDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [endDate, setEndDate] = useState("");
   const [method, setMethod] = useState<"upi" | "cash" | "card" | "bank_transfer">("upi");
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(false);
@@ -123,12 +127,55 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
       (
         await supabase
           .from("allocations")
-          .select("id, monthly_fee, next_due_date, students(full_name), seats(seat_number), library_id, student_id")
+          .select(
+            "id, monthly_fee, next_due_date, students(full_name), seats(seat_number), library_id, student_id, reservation_type",
+          )
           .eq("org_id", orgId!)
           .eq("is_active", true)
       ).data ?? [],
   });
+
   const chosen = active.data?.find((a: any) => a.id === allocId);
+
+  // Sync initial data when a student allocation is selected
+  useEffect(() => {
+    if (chosen) {
+      setAmount(chosen.monthly_fee);
+      setPaymentMode("full");
+
+      // Default the coverage start date to their current due date (if exists) so time isn't lost
+      if (chosen.next_due_date) {
+        setStartDate(chosen.next_due_date.split("T")[0]);
+      } else {
+        setStartDate(new Date().toISOString().split("T")[0]);
+      }
+    } else {
+      setAmount("");
+      setEndDate("");
+    }
+  }, [chosen]);
+
+  // Auto-calculate the New Due Date (End Date) whenever dependencies change
+  useEffect(() => {
+    if (!chosen || paymentMode === "custom" || !startDate) return;
+
+    const baseFee = Number(chosen.monthly_fee) || 1; // Prevent division by zero
+    const amt = Number(amount) || 0;
+    const d = new Date(startDate);
+
+    if (isNaN(d.getTime())) return;
+
+    if (paymentMode === "full") {
+      // Fully Paid: Always add exactly 1 month, regardless of discount given in 'amount'
+      d.setMonth(d.getMonth() + 1);
+    } else if (paymentMode === "prorated") {
+      // Pro-rated: Calculate exact days (Amount Paid / Monthly Fee * 30 days)
+      const days = Math.round((amt / baseFee) * 30);
+      d.setDate(d.getDate() + days);
+    }
+
+    setEndDate(d.toISOString().split("T")[0]);
+  }, [startDate, amount, paymentMode, chosen]);
 
   return (
     <DialogContent className="glass-strong border-panel-border w-[95vw] max-w-lg max-h-[90vh] overflow-y-auto p-4 md:p-6">
@@ -139,9 +186,10 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
         className="space-y-4"
         onSubmit={async (e) => {
           e.preventDefault();
-          if (!chosen) return;
+          if (!chosen || !endDate) return;
           setLoading(true);
-          const covers = toISODate(addMonths(new Date(chosen.next_due_date), 1));
+
+          // Log the payment
           const { error } = await supabase.from("payments").insert({
             org_id: orgId!,
             library_id: chosen.library_id,
@@ -150,55 +198,111 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
             amount_paid: Number(amount || 0),
             method,
             reference_note: note || null,
-            covers_until: covers,
+            covers_until: endDate,
           });
+
+          // Extend their subscription in the allocations table
           if (!error) {
-            await supabase.from("allocations").update({ next_due_date: covers, status: "paid" }).eq("id", chosen.id);
+            await supabase.from("allocations").update({ next_due_date: endDate, status: "paid" }).eq("id", chosen.id);
           }
+
           setLoading(false);
           if (error) {
             toast.error(error.message);
             return;
           }
-          toast.success("Payment logged");
+          toast.success("Payment logged successfully.");
           onDone();
         }}
       >
         <div className="space-y-2">
-          <Label>Allocation</Label>
-          <Select
-            value={allocId}
-            onValueChange={(v) => {
-              setAllocId(v);
-              const a = active.data?.find((x: any) => x.id === v);
-              if (a) setAmount(Number(a.monthly_fee));
-            }}
-          >
+          <Label>Allocation / Student</Label>
+          <Select value={allocId} onValueChange={setAllocId}>
             <SelectTrigger className="bg-panel border-panel-border">
-              <SelectValue placeholder="Choose allocation" />
+              <SelectValue placeholder="Search / Choose allocation" />
             </SelectTrigger>
             <SelectContent>
               {(active.data ?? []).map((a: any) => (
                 <SelectItem key={a.id} value={a.id}>
-                  {a.students?.full_name} · Seat {a.seats?.seat_number}
+                  {a.students?.full_name} ·{" "}
+                  {a.reservation_type === "unreserved" ? "Unreserved" : `Seat ${a.seats?.seat_number ?? "—"}`}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
+
+        {chosen && (
+          <div className="p-4 border border-panel-border rounded-lg bg-black/10 space-y-4">
+            <div className="flex justify-between items-center bg-panel p-2 rounded-md border border-panel-border/50">
+              <Label className="text-xs uppercase tracking-widest text-muted-foreground">Standard Monthly Fee</Label>
+              <span className="font-mono font-bold text-cyan">{inr(chosen.monthly_fee)}</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Payment Strategy</Label>
+                <Select value={paymentMode} onValueChange={(v: any) => setPaymentMode(v)}>
+                  <SelectTrigger className="bg-panel border-panel-border">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="full">Fully Paid (1 Month)</SelectItem>
+                    <SelectItem value="prorated">Pro-rated (Auto Days)</SelectItem>
+                    <SelectItem value="custom">Custom Date</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label>Amount Paid (₹)</Label>
+                  {paymentMode === "full" && Number(amount) < chosen.monthly_fee && (
+                    <span className="text-[10px] text-emerald">Discounted</span>
+                  )}
+                </div>
+                <Input
+                  required
+                  type="number"
+                  value={amount}
+                  onChange={(e) => setAmount(Number(e.target.value))}
+                  className="bg-panel border-panel-border font-mono w-full"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Coverage Start Date</Label>
+                <Input
+                  required
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="bg-panel border-panel-border text-sm block w-full"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>New Due Date</Label>
+                <Input
+                  required
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  disabled={paymentMode !== "custom"}
+                  className={`text-sm block w-full ${
+                    paymentMode !== "custom"
+                      ? "bg-black/20 border-transparent text-emerald font-semibold"
+                      : "bg-panel border-panel-border"
+                  }`}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-2">
-            <Label>Amount (₹)</Label>
-            <Input
-              required
-              type="number"
-              value={amount}
-              onChange={(e) => setAmount(Number(e.target.value))}
-              className="bg-panel border-panel-border font-mono w-full"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Method</Label>
+            <Label>Payment Method</Label>
             <Select value={method} onValueChange={(v: any) => setMethod(v)}>
               <SelectTrigger className="bg-panel border-panel-border">
                 <SelectValue />
@@ -211,21 +315,23 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
               </SelectContent>
             </Select>
           </div>
+          <div className="space-y-2">
+            <Label>Note (optional)</Label>
+            <Input
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="e.g. Google Pay ID"
+              className="bg-panel border-panel-border w-full"
+            />
+          </div>
         </div>
-        <div className="space-y-2">
-          <Label>Note (optional)</Label>
-          <Input
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            className="bg-panel border-panel-border w-full"
-          />
-        </div>
+
         <Button
-          disabled={loading || !allocId}
+          disabled={loading || !allocId || !endDate}
           type="submit"
           className="w-full mt-2 bg-white text-slate-900 hover:bg-white/90"
         >
-          {loading ? "…" : "Log payment"}
+          {loading ? "Processing…" : "Log Payment & Extend Due Date"}
         </Button>
       </form>
     </DialogContent>
