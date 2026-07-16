@@ -112,7 +112,6 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
   const orgId = session?.orgId;
 
   const [allocId, setAllocId] = useState("");
-  const [paymentMode, setPaymentMode] = useState<"full" | "prorated" | "custom">("full");
   const [amount, setAmount] = useState<number | "">("");
   const [startDate, setStartDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [endDate, setEndDate] = useState("");
@@ -141,9 +140,8 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
   useEffect(() => {
     if (chosen) {
       setAmount(chosen.monthly_fee);
-      setPaymentMode("full");
 
-      // Default the coverage start date to their current due date (if exists) so time isn't lost
+      // Lock the coverage start date to their current due date (or today if none exists)
       if (chosen.next_due_date) {
         setStartDate(chosen.next_due_date.split("T")[0]);
       } else {
@@ -155,9 +153,9 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
     }
   }, [chosen]);
 
-  // Auto-calculate the New Due Date (End Date) whenever dependencies change
+  // Auto-calculate the New Due Date (End Date) strictly on a pro-rated basis
   useEffect(() => {
-    if (!chosen || paymentMode === "custom" || !startDate) return;
+    if (!chosen || !startDate) return;
 
     const baseFee = Number(chosen.monthly_fee) || 1; // Prevent division by zero
     const amt = Number(amount) || 0;
@@ -165,17 +163,12 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
 
     if (isNaN(d.getTime())) return;
 
-    if (paymentMode === "full") {
-      // Fully Paid: Always add exactly 1 month, regardless of discount given in 'amount'
-      d.setMonth(d.getMonth() + 1);
-    } else if (paymentMode === "prorated") {
-      // Pro-rated: Calculate exact days (Amount Paid / Monthly Fee * 30 days)
-      const days = Math.round((amt / baseFee) * 30);
-      d.setDate(d.getDate() + days);
-    }
+    // Pro-rated: Calculate exact days (Amount Paid / Monthly Fee * 30 days)
+    const days = Math.round((amt / baseFee) * 30);
+    d.setDate(d.getDate() + days);
 
     setEndDate(d.toISOString().split("T")[0]);
-  }, [startDate, amount, paymentMode, chosen]);
+  }, [startDate, amount, chosen]);
 
   return (
     <DialogContent className="glass-strong border-panel-border w-[95vw] max-w-lg max-h-[90vh] overflow-y-auto p-4 md:p-6">
@@ -241,25 +234,7 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label>Payment Strategy</Label>
-                <Select value={paymentMode} onValueChange={(v: any) => setPaymentMode(v)}>
-                  <SelectTrigger className="bg-panel border-panel-border">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="full">Fully Paid (1 Month)</SelectItem>
-                    <SelectItem value="prorated">Pro-rated (Auto Days)</SelectItem>
-                    <SelectItem value="custom">Custom Date</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label>Amount Paid (₹)</Label>
-                  {paymentMode === "full" && Number(amount) < chosen.monthly_fee && (
-                    <span className="text-[10px] text-emerald">Discounted</span>
-                  )}
-                </div>
+                <Label>Amount Paid (₹)</Label>
                 <Input
                   required
                   type="number"
@@ -268,34 +243,30 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
                   className="bg-panel border-panel-border font-mono w-full"
                 />
               </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>Coverage Start Date</Label>
                 <Input
                   required
                   type="date"
                   value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="bg-panel border-panel-border text-sm block w-full"
+                  disabled
+                  className="bg-black/20 border-transparent text-muted-foreground text-sm block w-full opacity-70 cursor-not-allowed"
                 />
               </div>
-              <div className="space-y-2">
-                <Label>New Due Date</Label>
-                <Input
-                  required
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  disabled={paymentMode !== "custom"}
-                  className={`text-sm block w-full ${
-                    paymentMode !== "custom"
-                      ? "bg-black/20 border-transparent text-emerald font-semibold"
-                      : "bg-panel border-panel-border"
-                  }`}
-                />
-              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Calculated New Due Date</Label>
+              <Input
+                required
+                type="date"
+                value={endDate}
+                disabled
+                className="bg-black/20 border-transparent text-emerald font-semibold text-sm block w-full opacity-90 cursor-not-allowed"
+              />
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Pro-rated automatically based on the amount paid vs the standard monthly fee (1 month = 30 days).
+              </p>
             </div>
           </div>
         )}
