@@ -32,13 +32,13 @@ import { marketplaceSearch, listPublicExams, listPublicZones, submitSeatRequest 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Find your study space — LEXICON Marketplace" },
+      { title: "Find your study space — LibraryBandhu Marketplace" },
       {
         name: "description",
         content:
           "Discover libraries and study spaces near you by zone or target exam. Reserve a seat with a single request.",
       },
-      { property: "og:title", content: "LEXICON — Find your study space" },
+      { property: "og:title", content: "LibraryBandhu — Find your study space" },
       {
         property: "og:description",
         content: "Discover libraries by zone or target exam and request a seat instantly.",
@@ -101,7 +101,7 @@ function Marketplace() {
             <div className="grid size-8 place-items-center rounded-lg bg-gradient-to-br from-violet to-cyan font-black">
               L
             </div>
-            <span className="text-lg font-extrabold tracking-tight">LEXICON</span>
+            <span className="text-lg font-extrabold tracking-tight">LibraryBandhu</span>
           </Link>
           <nav className="flex items-center gap-2">
             <Link to="/student-login">
@@ -110,7 +110,10 @@ function Marketplace() {
               </Button>
             </Link>
             <Link to="/owners">
-              <Button size="sm" className="bg-gradient-to-r from-gold to-magenta text-slate-950 hover:opacity-90 shadow-[0_0_24px_-6px_rgba(236,72,153,0.6)]">
+              <Button
+                size="sm"
+                className="bg-gradient-to-r from-gold to-magenta text-slate-950 hover:opacity-90 shadow-[0_0_24px_-6px_rgba(236,72,153,0.6)]"
+              >
                 Partner with Us
               </Button>
             </Link>
@@ -334,8 +337,12 @@ function LibraryDetailsDialog({
   const amenities = lib.amenities || {};
   const activeAmenities = Object.keys(AMENITIES_DICT).filter((key) => amenities[key]);
   const gallery = photos.data ?? [];
-  const fallback = lib.cover_photo_url ? [{ id: "cover", image_url: lib.cover_photo_url, section_name: "Overview" }] : [];
-  const slides: Array<{ id: string; image_url: string; section_name: string }> = gallery.length ? (gallery as any) : fallback;
+  const fallback = lib.cover_photo_url
+    ? [{ id: "cover", image_url: lib.cover_photo_url, section_name: "Overview" }]
+    : [];
+  const slides: Array<{ id: string; image_url: string; section_name: string }> = gallery.length
+    ? (gallery as any)
+    : fallback;
 
   return (
     <Dialog open={!!lib} onOpenChange={(o) => !o && onClose()}>
