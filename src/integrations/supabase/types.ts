@@ -152,6 +152,41 @@ export type Database = {
           },
         ]
       }
+      email_verification_otps: {
+        Row: {
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          otp_code: string
+          student_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          expires_at: string
+          id?: string
+          otp_code: string
+          student_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          otp_code?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_verification_otps_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       expenditures: {
         Row: {
           amount: number
@@ -250,14 +285,18 @@ export type Database = {
           address: string | null
           amenities: Json
           city: string | null
+          closed_on: string | null
           contact_phone: string | null
           cover_photo_url: string | null
           created_at: string
           description: string | null
+          google_maps_url: string | null
           id: string
           is_active: boolean
           name: string
+          opening_hours: string | null
           org_id: string
+          shifts: string | null
           show_public_availability: boolean
           targeted_exam_ids: string[]
           updated_at: string
@@ -267,14 +306,18 @@ export type Database = {
           address?: string | null
           amenities?: Json
           city?: string | null
+          closed_on?: string | null
           contact_phone?: string | null
           cover_photo_url?: string | null
           created_at?: string
           description?: string | null
+          google_maps_url?: string | null
           id?: string
           is_active?: boolean
           name: string
+          opening_hours?: string | null
           org_id: string
+          shifts?: string | null
           show_public_availability?: boolean
           targeted_exam_ids?: string[]
           updated_at?: string
@@ -284,14 +327,18 @@ export type Database = {
           address?: string | null
           amenities?: Json
           city?: string | null
+          closed_on?: string | null
           contact_phone?: string | null
           cover_photo_url?: string | null
           created_at?: string
           description?: string | null
+          google_maps_url?: string | null
           id?: string
           is_active?: boolean
           name?: string
+          opening_hours?: string | null
           org_id?: string
+          shifts?: string | null
           show_public_availability?: boolean
           targeted_exam_ids?: string[]
           updated_at?: string
