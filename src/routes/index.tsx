@@ -314,10 +314,26 @@ function LibraryDetailsDialog({
   onRequestSeat: () => void;
 }) {
   const [lang, setLang] = useState<"en" | "hi">("en");
+  const photos = useQuery({
+    queryKey: ["library-photos", lib?.id],
+    enabled: !!lib?.id,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("library_photos")
+        .select("id, image_url, section_name, display_order")
+        .eq("library_id", lib!.id)
+        .order("display_order", { ascending: true });
+      return data ?? [];
+    },
+  });
 
   if (!lib) return null;
   const amenities = lib.amenities || {};
   const activeAmenities = Object.keys(AMENITIES_DICT).filter((key) => amenities[key]);
+  const gallery = photos.data ?? [];
+  const fallback = lib.cover_photo_url ? [{ id: "cover", image_url: lib.cover_photo_url, section_name: "Overview" }] : [];
+  const slides: Array<{ id: string; image_url: string; section_name: string }> = gallery.length ? (gallery as any) : fallback;
 
   return (
     <Dialog open={!!lib} onOpenChange={(o) => !o && onClose()}>
@@ -325,13 +341,27 @@ function LibraryDetailsDialog({
         <DialogTitle className="sr-only">Library Details: {lib.name}</DialogTitle>
         <DialogDescription className="sr-only">Details, schedule, and amenities for {lib.name}</DialogDescription>
 
-        {/* Cover Photo */}
+        {/* Swipeable Photo Gallery */}
         <div className="w-full h-48 sm:h-64 relative bg-gradient-to-br from-violet/20 via-cyan/10 to-magenta/20 flex-shrink-0">
-          {lib.cover_photo_url ? (
-            <img src={lib.cover_photo_url} alt={lib.name} className="size-full object-cover" />
+          {slides.length ? (
+            <div className="flex h-full w-full snap-x snap-mandatory overflow-x-auto scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {slides.map((p) => (
+                <div key={p.id} className="relative h-full w-full flex-shrink-0 snap-center">
+                  <img src={p.image_url} alt={p.section_name} className="size-full object-cover" loading="lazy" />
+                  <div className="absolute left-3 bottom-3 inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-black/50 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur">
+                    {p.section_name}
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : (
             <div className="grid size-full place-items-center">
               <BookOpen className="size-12 text-white/30" />
+            </div>
+          )}
+          {slides.length > 1 && (
+            <div className="absolute right-3 top-3 rounded-full bg-black/50 px-2 py-0.5 text-[10px] font-mono text-white backdrop-blur">
+              {slides.length} photos · swipe →
             </div>
           )}
         </div>
