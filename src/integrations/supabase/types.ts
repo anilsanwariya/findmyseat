@@ -152,6 +152,36 @@ export type Database = {
           },
         ]
       }
+      discount_coupons: {
+        Row: {
+          code: string
+          created_at: string
+          discount_pct: number
+          id: string
+          is_active: boolean
+          updated_at: string
+          valid_until: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          discount_pct: number
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+          valid_until?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          discount_pct?: number
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+          valid_until?: string | null
+        }
+        Relationships: []
+      }
       email_verification_otps: {
         Row: {
           created_at: string
@@ -350,6 +380,44 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      library_photos: {
+        Row: {
+          created_at: string
+          display_order: number
+          id: string
+          image_url: string
+          library_id: string
+          section_name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          image_url: string
+          library_id: string
+          section_name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          image_url?: string
+          library_id?: string
+          section_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "library_photos_library_id_fkey"
+            columns: ["library_id"]
+            isOneToOne: false
+            referencedRelation: "libraries"
             referencedColumns: ["id"]
           },
         ]
@@ -904,6 +972,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      subscription_plans: {
+        Row: {
+          created_at: string
+          features: Json
+          id: string
+          is_active: boolean
+          name: string
+          price: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          features?: Json
+          id?: string
+          is_active?: boolean
+          name: string
+          price?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          features?: Json
+          id?: string
+          is_active?: boolean
+          name?: string
+          price?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       tickets: {
         Row: {

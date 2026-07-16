@@ -1,28 +1,20 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
-import { LayoutDashboard, Grid3x3, Users, Ticket, IndianRupee, ReceiptText, Megaphone, LifeBuoy, Settings, LogOut, Sparkles, Menu, X } from "lucide-react";
-import { AuroraBackground, GlassPanel } from "@/components/glass";
+import { useState, type ReactNode } from "react";
+import { LayoutDashboard, Building2, CreditCard, LogOut, ShieldCheck, Menu, X } from "lucide-react";
+import { AuroraBackground } from "@/components/glass";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import type { ReactNode } from "react";
 
 type NavItem = { to: string; label: string; icon: typeof LayoutDashboard; exact?: boolean };
 const NAV: NavItem[] = [
-  { to: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
-  { to: "/admin/layout-builder", label: "Layout Builder", icon: Grid3x3 },
-  { to: "/admin/students", label: "Students", icon: Users },
-  { to: "/admin/allocations", label: "Allocations", icon: Ticket },
-  { to: "/admin/payments", label: "Payments", icon: IndianRupee },
-  { to: "/admin/expenses", label: "Expenses", icon: ReceiptText },
-  { to: "/admin/leads", label: "Leads", icon: Sparkles },
-  { to: "/admin/notices", label: "Notices", icon: Megaphone },
-  { to: "/admin/tickets", label: "Tickets", icon: LifeBuoy },
-  { to: "/admin/settings", label: "Settings", icon: Settings },
+  { to: "/super-admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
+  { to: "/super-admin/organizations", label: "Organizations", icon: Building2 },
+  { to: "/super-admin/billing", label: "Billing & Plans", icon: CreditCard },
 ];
 
-export function AdminShell({ children }: { children: ReactNode }) {
+export function SuperAdminShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -45,7 +37,9 @@ export function AdminShell({ children }: { children: ReactNode }) {
             <Link key={n.to} to={n.to} onClick={onClick}
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
-                active ? "bg-panel-strong text-foreground" : "text-muted-foreground hover:bg-panel hover:text-foreground",
+                active
+                  ? "bg-gradient-to-r from-gold/20 to-magenta/10 text-gold border border-gold/30"
+                  : "text-muted-foreground hover:bg-panel hover:text-foreground",
               )}
             >
               <n.icon className="size-4" />
@@ -62,40 +56,37 @@ export function AdminShell({ children }: { children: ReactNode }) {
       <AuroraBackground />
       <div className="relative z-10 flex min-h-screen">
         {/* Desktop sidebar */}
-        <aside className="hidden w-64 shrink-0 border-r border-panel-border bg-panel/60 backdrop-blur-xl md:flex md:flex-col">
+        <aside className="hidden w-64 shrink-0 border-r border-panel-border bg-gradient-to-b from-background/80 via-panel/40 to-background/80 backdrop-blur-xl md:flex md:flex-col">
           <div className="p-6">
-            <Link to="/admin" className="flex items-center gap-2">
-              <div className="grid size-8 place-items-center rounded-lg bg-gradient-to-br from-violet to-cyan font-black">L</div>
-              <span className="text-lg font-extrabold tracking-tight">LEXICON</span>
+            <Link to="/super-admin" className="flex items-center gap-2">
+              <div className="grid size-9 place-items-center rounded-xl bg-gradient-to-br from-gold to-magenta shadow-[0_0_24px_-4px_rgba(236,72,153,0.6)]">
+                <ShieldCheck className="size-4 text-slate-950" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-black tracking-tight">LEXICON</p>
+                <p className="font-mono text-[9px] uppercase tracking-[0.25em] text-gold">Master Control</p>
+              </div>
             </Link>
-            <div className="mt-8 inline-flex items-center gap-2 rounded-full border border-panel-border bg-panel px-2.5 py-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-              <span className="size-1.5 rounded-full bg-emerald" /> Owner workspace
+            <div className="mt-8 inline-flex items-center gap-2 rounded-full border border-gold/30 bg-gold/10 px-2.5 py-1 font-mono text-[10px] uppercase tracking-widest text-gold">
+              <span className="size-1.5 rounded-full bg-gold animate-pulse" /> Platform admin
             </div>
           </div>
           <nav className="flex-1 space-y-1 px-3"><NavList /></nav>
           <div className="border-t border-panel-border p-4">
-            <div className="flex items-center gap-3">
-              <div className="size-8 shrink-0 rounded-full bg-gradient-to-br from-violet/40 to-cyan/40 ring-1 ring-panel-border" />
-              <div className="min-w-0 flex-1 text-xs">
-                <p className="truncate font-bold">{session?.email ?? "—"}</p>
-                <p className="truncate text-muted-foreground">Organization admin</p>
-              </div>
-              <button onClick={signOut} className="rounded-md p-1.5 text-muted-foreground hover:bg-panel hover:text-foreground" title="Sign out">
-                <LogOut className="size-4" />
-              </button>
-            </div>
+            <button onClick={signOut} className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs text-muted-foreground hover:bg-panel hover:text-foreground">
+              <LogOut className="size-4" /> Sign out
+            </button>
           </div>
         </aside>
 
-        {/* Mobile drawer */}
         {mobileOpen && (
           <div className="fixed inset-0 z-40 md:hidden">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
             <aside className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col border-r border-panel-border bg-background/95 backdrop-blur-xl">
               <div className="flex items-center justify-between p-5">
-                <Link to="/admin" onClick={() => setMobileOpen(false)} className="flex items-center gap-2">
-                  <div className="grid size-8 place-items-center rounded-lg bg-gradient-to-br from-violet to-cyan font-black">L</div>
-                  <span className="text-lg font-extrabold tracking-tight">LEXICON</span>
+                <Link to="/super-admin" onClick={() => setMobileOpen(false)} className="flex items-center gap-2">
+                  <div className="grid size-8 place-items-center rounded-lg bg-gradient-to-br from-gold to-magenta"><ShieldCheck className="size-4 text-slate-950" /></div>
+                  <span className="text-sm font-extrabold">Master Control</span>
                 </Link>
                 <button onClick={() => setMobileOpen(false)} className="rounded-md p-1.5 text-muted-foreground hover:bg-panel"><X className="size-4" /></button>
               </div>
@@ -112,9 +103,9 @@ export function AdminShell({ children }: { children: ReactNode }) {
             <button onClick={() => setMobileOpen(true)} className="rounded-md p-1.5 text-muted-foreground hover:bg-panel" aria-label="Open menu">
               <Menu className="size-5" />
             </button>
-            <Link to="/admin" className="flex items-center gap-2">
-              <div className="grid size-7 place-items-center rounded-lg bg-gradient-to-br from-violet to-cyan text-xs font-black">L</div>
-              <span className="text-sm font-extrabold">LEXICON</span>
+            <Link to="/super-admin" className="flex items-center gap-2">
+              <div className="grid size-7 place-items-center rounded-lg bg-gradient-to-br from-gold to-magenta"><ShieldCheck className="size-3.5 text-slate-950" /></div>
+              <span className="text-sm font-extrabold">Master Control</span>
             </Link>
             <button onClick={signOut} className="text-xs text-muted-foreground">Sign out</button>
           </header>
@@ -122,15 +113,5 @@ export function AdminShell({ children }: { children: ReactNode }) {
         </main>
       </div>
     </div>
-  );
-}
-
-export function EmptyState({ title, hint, action }: { title: string; hint?: string; action?: ReactNode }) {
-  return (
-    <GlassPanel className="p-10 text-center">
-      <h3 className="text-base font-semibold">{title}</h3>
-      {hint && <p className="mt-1 text-sm text-muted-foreground">{hint}</p>}
-      {action && <div className="mt-4">{action}</div>}
-    </GlassPanel>
   );
 }

@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
 import { AuroraBackground, GlassPanel } from "@/components/glass";
 import { Button } from "@/components/ui/button";
@@ -81,11 +82,12 @@ function Marketplace() {
   const examsFn = useServerFn(listPublicExams);
   const zonesFn = useServerFn(listPublicZones);
 
-  const exams = useQuery({ queryKey: ["public-exams"], queryFn: () => examsFn() });
-  const zones = useQuery({ queryKey: ["public-zones"], queryFn: () => zonesFn() });
+  const exams = useQuery({ queryKey: ["public-exams"], queryFn: () => examsFn(), staleTime: 10 * 60_000 });
+  const zones = useQuery({ queryKey: ["public-zones"], queryFn: () => zonesFn(), staleTime: 10 * 60_000 });
   const results = useQuery({
     queryKey: ["marketplace", query, zone, examId],
     queryFn: () => search({ data: { query: query || null, zone: zone || null, exam_id: examId || null } }),
+    staleTime: 30_000,
   });
 
   const libs = results.data?.libraries ?? [];
@@ -107,9 +109,9 @@ function Marketplace() {
                 Student sign in
               </Button>
             </Link>
-            <Link to="/auth">
-              <Button size="sm" className="bg-white text-slate-900 hover:bg-white/90">
-                Owner
+            <Link to="/owners">
+              <Button size="sm" className="bg-gradient-to-r from-gold to-magenta text-slate-950 hover:opacity-90 shadow-[0_0_24px_-6px_rgba(236,72,153,0.6)]">
+                Partner with Us
               </Button>
             </Link>
           </nav>
@@ -314,10 +316,26 @@ function LibraryDetailsDialog({
   onRequestSeat: () => void;
 }) {
   const [lang, setLang] = useState<"en" | "hi">("en");
+  const photos = useQuery({
+    queryKey: ["library-photos", lib?.id],
+    enabled: !!lib?.id,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("library_photos")
+        .select("id, image_url, section_name, display_order")
+        .eq("library_id", lib!.id)
+        .order("display_order", { ascending: true });
+      return data ?? [];
+    },
+  });
 
   if (!lib) return null;
   const amenities = lib.amenities || {};
   const activeAmenities = Object.keys(AMENITIES_DICT).filter((key) => amenities[key]);
+  const gallery = photos.data ?? [];
+  const fallback = lib.cover_photo_url ? [{ id: "cover", image_url: lib.cover_photo_url, section_name: "Overview" }] : [];
+  const slides: Array<{ id: string; image_url: string; section_name: string }> = gallery.length ? (gallery as any) : fallback;
 
   return (
     <Dialog open={!!lib} onOpenChange={(o) => !o && onClose()}>
@@ -325,13 +343,27 @@ function LibraryDetailsDialog({
         <DialogTitle className="sr-only">Library Details: {lib.name}</DialogTitle>
         <DialogDescription className="sr-only">Details, schedule, and amenities for {lib.name}</DialogDescription>
 
-        {/* Cover Photo */}
+        {/* Swipeable Photo Gallery */}
         <div className="w-full h-48 sm:h-64 relative bg-gradient-to-br from-violet/20 via-cyan/10 to-magenta/20 flex-shrink-0">
-          {lib.cover_photo_url ? (
-            <img src={lib.cover_photo_url} alt={lib.name} className="size-full object-cover" />
+          {slides.length ? (
+            <div className="flex h-full w-full snap-x snap-mandatory overflow-x-auto scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {slides.map((p) => (
+                <div key={p.id} className="relative h-full w-full flex-shrink-0 snap-center">
+                  <img src={p.image_url} alt={p.section_name} className="size-full object-cover" loading="lazy" />
+                  <div className="absolute left-3 bottom-3 inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-black/50 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur">
+                    {p.section_name}
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : (
             <div className="grid size-full place-items-center">
               <BookOpen className="size-12 text-white/30" />
+            </div>
+          )}
+          {slides.length > 1 && (
+            <div className="absolute right-3 top-3 rounded-full bg-black/50 px-2 py-0.5 text-[10px] font-mono text-white backdrop-blur">
+              {slides.length} photos · swipe →
             </div>
           )}
         </div>
