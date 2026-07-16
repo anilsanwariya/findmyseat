@@ -1,6 +1,20 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { LayoutDashboard, Grid3x3, Users, Ticket, IndianRupee, ReceiptText, Megaphone, LifeBuoy, Settings, LogOut, Sparkles, Menu, X } from "lucide-react";
+import {
+  LayoutDashboard,
+  Grid3x3,
+  Users,
+  Ticket,
+  IndianRupee,
+  ReceiptText,
+  Megaphone,
+  LifeBuoy,
+  Settings,
+  LogOut,
+  Sparkles,
+  Menu,
+  X,
+} from "lucide-react";
 import { AuroraBackground, GlassPanel } from "@/components/glass";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -42,10 +56,15 @@ export function AdminShell({ children }: { children: ReactNode }) {
         {NAV.map((n) => {
           const active = n.exact ? pathname === n.to : pathname === n.to || pathname.startsWith(n.to + "/");
           return (
-            <Link key={n.to} to={n.to} onClick={onClick}
+            <Link
+              key={n.to}
+              to={n.to}
+              onClick={onClick}
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
-                active ? "bg-panel-strong text-foreground" : "text-muted-foreground hover:bg-panel hover:text-foreground",
+                active
+                  ? "bg-panel-strong text-foreground"
+                  : "text-muted-foreground hover:bg-panel hover:text-foreground",
               )}
             >
               <n.icon className="size-4" />
@@ -65,14 +84,18 @@ export function AdminShell({ children }: { children: ReactNode }) {
         <aside className="hidden w-64 shrink-0 border-r border-panel-border bg-panel/60 backdrop-blur-xl md:flex md:flex-col">
           <div className="p-6">
             <Link to="/admin" className="flex items-center gap-2">
-              <div className="grid size-8 place-items-center rounded-lg bg-gradient-to-br from-violet to-cyan font-black">L</div>
-              <span className="text-lg font-extrabold tracking-tight">LEXICON</span>
+              <div className="grid size-8 place-items-center rounded-lg bg-gradient-to-br from-violet to-cyan font-black">
+                L
+              </div>
+              <span className="text-lg font-extrabold tracking-tight">LibraryBandhu</span>
             </Link>
             <div className="mt-8 inline-flex items-center gap-2 rounded-full border border-panel-border bg-panel px-2.5 py-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
               <span className="size-1.5 rounded-full bg-emerald" /> Owner workspace
             </div>
           </div>
-          <nav className="flex-1 space-y-1 px-3"><NavList /></nav>
+          <nav className="flex-1 space-y-1 px-3">
+            <NavList />
+          </nav>
           <div className="border-t border-panel-border p-4">
             <div className="flex items-center gap-3">
               <div className="size-8 shrink-0 rounded-full bg-gradient-to-br from-violet/40 to-cyan/40 ring-1 ring-panel-border" />
@@ -80,7 +103,11 @@ export function AdminShell({ children }: { children: ReactNode }) {
                 <p className="truncate font-bold">{session?.email ?? "—"}</p>
                 <p className="truncate text-muted-foreground">Organization admin</p>
               </div>
-              <button onClick={signOut} className="rounded-md p-1.5 text-muted-foreground hover:bg-panel hover:text-foreground" title="Sign out">
+              <button
+                onClick={signOut}
+                className="rounded-md p-1.5 text-muted-foreground hover:bg-panel hover:text-foreground"
+                title="Sign out"
+              >
                 <LogOut className="size-4" />
               </button>
             </div>
@@ -94,13 +121,25 @@ export function AdminShell({ children }: { children: ReactNode }) {
             <aside className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col border-r border-panel-border bg-background/95 backdrop-blur-xl">
               <div className="flex items-center justify-between p-5">
                 <Link to="/admin" onClick={() => setMobileOpen(false)} className="flex items-center gap-2">
-                  <div className="grid size-8 place-items-center rounded-lg bg-gradient-to-br from-violet to-cyan font-black">L</div>
+                  <div className="grid size-8 place-items-center rounded-lg bg-gradient-to-br from-violet to-cyan font-black">
+                    L
+                  </div>
                   <span className="text-lg font-extrabold tracking-tight">LEXICON</span>
                 </Link>
-                <button onClick={() => setMobileOpen(false)} className="rounded-md p-1.5 text-muted-foreground hover:bg-panel"><X className="size-4" /></button>
+                <button
+                  onClick={() => setMobileOpen(false)}
+                  className="rounded-md p-1.5 text-muted-foreground hover:bg-panel"
+                >
+                  <X className="size-4" />
+                </button>
               </div>
-              <nav className="flex-1 space-y-1 overflow-y-auto px-3 pb-4"><NavList onClick={() => setMobileOpen(false)} /></nav>
-              <button onClick={signOut} className="flex items-center gap-2 border-t border-panel-border px-5 py-3 text-sm text-muted-foreground hover:text-foreground">
+              <nav className="flex-1 space-y-1 overflow-y-auto px-3 pb-4">
+                <NavList onClick={() => setMobileOpen(false)} />
+              </nav>
+              <button
+                onClick={signOut}
+                className="flex items-center gap-2 border-t border-panel-border px-5 py-3 text-sm text-muted-foreground hover:text-foreground"
+              >
                 <LogOut className="size-4" /> Sign out
               </button>
             </aside>
@@ -109,14 +148,22 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
         <main className="min-w-0 flex-1">
           <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-panel-border bg-background/70 px-4 backdrop-blur-xl md:hidden">
-            <button onClick={() => setMobileOpen(true)} className="rounded-md p-1.5 text-muted-foreground hover:bg-panel" aria-label="Open menu">
+            <button
+              onClick={() => setMobileOpen(true)}
+              className="rounded-md p-1.5 text-muted-foreground hover:bg-panel"
+              aria-label="Open menu"
+            >
               <Menu className="size-5" />
             </button>
             <Link to="/admin" className="flex items-center gap-2">
-              <div className="grid size-7 place-items-center rounded-lg bg-gradient-to-br from-violet to-cyan text-xs font-black">L</div>
+              <div className="grid size-7 place-items-center rounded-lg bg-gradient-to-br from-violet to-cyan text-xs font-black">
+                L
+              </div>
               <span className="text-sm font-extrabold">LEXICON</span>
             </Link>
-            <button onClick={signOut} className="text-xs text-muted-foreground">Sign out</button>
+            <button onClick={signOut} className="text-xs text-muted-foreground">
+              Sign out
+            </button>
           </header>
           <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 md:py-8">{children}</div>
         </main>
