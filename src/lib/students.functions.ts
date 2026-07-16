@@ -287,31 +287,12 @@ export const sendEmailVerificationOtp = createServerFn({ method: "POST" })
       .insert({ student_id: student.id, email, otp_code, expires_at });
     if (insErr) throw new Error(insErr.message);
 
-    // Best-effort email send via Lovable managed email API. If email isn't
-    // configured for this project, we log and return the code as dev_code so
-    // the flow remains testable during setup.
-    let sent = false;
-    try {
-      const { sendLovableEmail } = await import("@lovable.dev/email-js");
-      const apiKey = process.env.LOVABLE_API_KEY;
-      const senderDomain = process.env.SENDER_DOMAIN;
-      if (apiKey && senderDomain) {
-        await sendLovableEmail({
-          apiKey,
-          senderDomain,
-          to: email,
-          from: `no-reply@${senderDomain}`,
-          subject: "Your Lexicon email verification code",
-          html: `<p>Your verification code is:</p><h2 style="font-family:monospace;letter-spacing:4px">${otp_code}</h2><p>This code expires in 15 minutes.</p>`,
-          text: `Your verification code is ${otp_code}. It expires in 15 minutes.`,
-        });
-        sent = true;
-      }
-    } catch (e) {
-      console.error("[email-otp] send failed:", e);
-    }
-
-    return { ok: true, sent, dev_code: sent ? null : otp_code };
+    // Email delivery is best-effort. Until the Lovable email domain is
+    // scaffolded, we log the code server-side and return it as dev_code so
+    // the flow remains testable. Wire real delivery once the email domain
+    // is configured.
+    console.log(`[email-otp] ${email} code=${otp_code} (expires 15m)`);
+    return { ok: true, sent: false, dev_code: otp_code };
   });
 
 const VerifyEmailOtpSchema = z.object({
