@@ -34,7 +34,10 @@ export function SuperAdminShell({ children }: { children: ReactNode }) {
         {NAV.map((n) => {
           const active = n.exact ? pathname === n.to : pathname === n.to || pathname.startsWith(n.to + "/");
           return (
-            <Link key={n.to} to={n.to} onClick={onClick}
+            <Link
+              key={n.to}
+              to={n.to}
+              onClick={onClick}
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
                 active
@@ -63,7 +66,7 @@ export function SuperAdminShell({ children }: { children: ReactNode }) {
                 <ShieldCheck className="size-4 text-slate-950" />
               </div>
               <div className="min-w-0">
-                <p className="text-sm font-black tracking-tight">LEXICON</p>
+                <p className="text-sm font-black tracking-tight">LibraryBandhu</p>
                 <p className="font-mono text-[9px] uppercase tracking-[0.25em] text-gold">Master Control</p>
               </div>
             </Link>
@@ -71,9 +74,14 @@ export function SuperAdminShell({ children }: { children: ReactNode }) {
               <span className="size-1.5 rounded-full bg-gold animate-pulse" /> Platform admin
             </div>
           </div>
-          <nav className="flex-1 space-y-1 px-3"><NavList /></nav>
+          <nav className="flex-1 space-y-1 px-3">
+            <NavList />
+          </nav>
           <div className="border-t border-panel-border p-4">
-            <button onClick={signOut} className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs text-muted-foreground hover:bg-panel hover:text-foreground">
+            <button
+              onClick={signOut}
+              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs text-muted-foreground hover:bg-panel hover:text-foreground"
+            >
               <LogOut className="size-4" /> Sign out
             </button>
           </div>
@@ -85,13 +93,25 @@ export function SuperAdminShell({ children }: { children: ReactNode }) {
             <aside className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col border-r border-panel-border bg-background/95 backdrop-blur-xl">
               <div className="flex items-center justify-between p-5">
                 <Link to="/super-admin" onClick={() => setMobileOpen(false)} className="flex items-center gap-2">
-                  <div className="grid size-8 place-items-center rounded-lg bg-gradient-to-br from-gold to-magenta"><ShieldCheck className="size-4 text-slate-950" /></div>
+                  <div className="grid size-8 place-items-center rounded-lg bg-gradient-to-br from-gold to-magenta">
+                    <ShieldCheck className="size-4 text-slate-950" />
+                  </div>
                   <span className="text-sm font-extrabold">Master Control</span>
                 </Link>
-                <button onClick={() => setMobileOpen(false)} className="rounded-md p-1.5 text-muted-foreground hover:bg-panel"><X className="size-4" /></button>
+                <button
+                  onClick={() => setMobileOpen(false)}
+                  className="rounded-md p-1.5 text-muted-foreground hover:bg-panel"
+                >
+                  <X className="size-4" />
+                </button>
               </div>
-              <nav className="flex-1 space-y-1 overflow-y-auto px-3 pb-4"><NavList onClick={() => setMobileOpen(false)} /></nav>
-              <button onClick={signOut} className="flex items-center gap-2 border-t border-panel-border px-5 py-3 text-sm text-muted-foreground hover:text-foreground">
+              <nav className="flex-1 space-y-1 overflow-y-auto px-3 pb-4">
+                <NavList onClick={() => setMobileOpen(false)} />
+              </nav>
+              <button
+                onClick={signOut}
+                className="flex items-center gap-2 border-t border-panel-border px-5 py-3 text-sm text-muted-foreground hover:text-foreground"
+              >
                 <LogOut className="size-4" /> Sign out
               </button>
             </aside>
@@ -100,14 +120,22 @@ export function SuperAdminShell({ children }: { children: ReactNode }) {
 
         <main className="min-w-0 flex-1">
           <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-panel-border bg-background/70 px-4 backdrop-blur-xl md:hidden">
-            <button onClick={() => setMobileOpen(true)} className="rounded-md p-1.5 text-muted-foreground hover:bg-panel" aria-label="Open menu">
+            <button
+              onClick={() => setMobileOpen(true)}
+              className="rounded-md p-1.5 text-muted-foreground hover:bg-panel"
+              aria-label="Open menu"
+            >
               <Menu className="size-5" />
             </button>
             <Link to="/super-admin" className="flex items-center gap-2">
-              <div className="grid size-7 place-items-center rounded-lg bg-gradient-to-br from-gold to-magenta"><ShieldCheck className="size-3.5 text-slate-950" /></div>
+              <div className="grid size-7 place-items-center rounded-lg bg-gradient-to-br from-gold to-magenta">
+                <ShieldCheck className="size-3.5 text-slate-950" />
+              </div>
               <span className="text-sm font-extrabold">Master Control</span>
             </Link>
-            <button onClick={signOut} className="text-xs text-muted-foreground">Sign out</button>
+            <button onClick={signOut} className="text-xs text-muted-foreground">
+              Sign out
+            </button>
           </header>
           <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 md:py-8">{children}</div>
         </main>
