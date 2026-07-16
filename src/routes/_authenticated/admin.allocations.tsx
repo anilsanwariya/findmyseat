@@ -91,7 +91,7 @@ function AllocationsPage() {
       const { data } = await supabase
         .from("allocations")
         .select(
-          "id, monthly_fee, next_due_date, status, reservation_type, is_active, library_id, seat_id, shift_id, students(full_name, mobile_number), seats(id, seat_number), libraries(name), shifts(name)",
+          "id, monthly_fee, next_due_date, status, reservation_type, is_active, library_id, seat_id, shift_id, students(full_name, mobile_number), seats(id, seat_number, section_id), libraries(name), shifts(name)",
         )
         .eq("org_id", orgId!)
         .eq("library_id", currentLibId!)
@@ -565,6 +565,7 @@ function EditAllocationDialog({
   onDone: () => void;
 }) {
   const [reservationType, setReservationType] = useState<"reserved" | "unreserved">("reserved");
+  const [sectionId, setSectionId] = useState<string>("");
   const [seatId, setSeatId] = useState<string>("");
   const [shiftId, setShiftId] = useState<string>("");
   const [fee, setFee] = useState<number | "">("");
@@ -574,25 +575,38 @@ function EditAllocationDialog({
   useEffect(() => {
     if (alloc) {
       setReservationType(alloc.reservation_type || "reserved");
+      setSectionId(alloc.seats?.section_id || "");
       setSeatId(alloc.seat_id || "");
       setShiftId(alloc.shift_id || "none");
       setFee(alloc.monthly_fee || 0);
     }
   }, [alloc]);
 
+  const sections = useQuery({
+    queryKey: ["sections-for-edit", alloc?.library_id],
+    enabled: !!alloc?.library_id,
+    queryFn: async () =>
+      (await supabase.from("sections").select("id, name").eq("library_id", alloc.library_id)).data ?? [],
+  });
+
   const seats = useQuery({
-    queryKey: ["seats-for-edit", alloc?.library_id],
+    queryKey: ["seats-for-edit", alloc?.library_id, sectionId],
     enabled: !!alloc?.library_id,
     queryFn: async () => {
+      let query = supabase
+        .from("seats")
+        .select("id, seat_number, is_corner")
+        .eq("library_id", alloc.library_id)
+        .eq("is_active", true)
+        .order("seat_number");
+
+      if (sectionId) query = query.eq("section_id", sectionId);
+
       const [seatsRes, allocRes] = await Promise.all([
-        supabase
-          .from("seats")
-          .select("id, seat_number, is_corner")
-          .eq("library_id", alloc.library_id)
-          .eq("is_active", true)
-          .order("seat_number"),
+        query,
         supabase.from("allocations").select("seat_id").eq("library_id", alloc.library_id).eq("is_active", true),
       ]);
+
       const taken = new Set((allocRes.data ?? []).map((a) => a.seat_id));
       // Include the currently assigned seat so they can keep it, filter out all other taken seats
       return (seatsRes.data ?? []).filter((s) => !taken.has(s.id) || s.id === alloc.seat_id);
@@ -614,6 +628,18 @@ function EditAllocationDialog({
         <DialogHeader>
           <DialogTitle>Edit Allocation Details</DialogTitle>
         </DialogHeader>
+
+        <div className="mb-4 rounded-lg border border-panel-border bg-black/10 p-3">
+          <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Student</div>
+          <div className="font-semibold text-sm">{alloc.students?.full_name}</div>
+          <div className="mt-1 text-xs text-muted-foreground flex items-center gap-2">
+            <span>Current Seat:</span>
+            <span className="font-mono text-cyan">
+              {alloc.reservation_type === "unreserved" ? "Unreserved" : (alloc.seats?.seat_number ?? "—")}
+            </span>
+          </div>
+        </div>
+
         <form
           className="space-y-4"
           onSubmit={async (e) => {
@@ -660,21 +686,38 @@ function EditAllocationDialog({
             </div>
 
             <div className="space-y-2">
-              <Label>New Seat {reservationType === "unreserved" ? "(Not Required)" : ""}</Label>
-              <Select value={seatId} onValueChange={setSeatId} disabled={reservationType === "unreserved"}>
+              <Label>Section Filter</Label>
+              <Select value={sectionId} onValueChange={setSectionId} disabled={reservationType === "unreserved"}>
                 <SelectTrigger className="bg-panel border-panel-border">
-                  <SelectValue placeholder={reservationType === "unreserved" ? "—" : "Choose vacant seat"} />
+                  <SelectValue placeholder="All Sections" />
                 </SelectTrigger>
                 <SelectContent>
-                  {(seats.data ?? []).map((s: any) => (
+                  <SelectItem value="all_sections">All Sections</SelectItem>
+                  {(sections.data ?? []).map((s: any) => (
                     <SelectItem key={s.id} value={s.id}>
-                      {s.seat_number}
-                      {s.is_corner ? " ★" : ""}
+                      {s.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>New Seat {reservationType === "unreserved" ? "(Not Required)" : ""}</Label>
+            <Select value={seatId} onValueChange={setSeatId} disabled={reservationType === "unreserved"}>
+              <SelectTrigger className="bg-panel border-panel-border">
+                <SelectValue placeholder={reservationType === "unreserved" ? "—" : "Choose vacant seat"} />
+              </SelectTrigger>
+              <SelectContent>
+                {(seats.data ?? []).map((s: any) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.seat_number}
+                    {s.is_corner ? " ★" : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -738,6 +781,7 @@ function NewAllocDialog({
 
   const [libraryId, setLibraryId] = useState(initialLibraryId || "");
   const [studentId, setStudentId] = useState("");
+  const [sectionId, setSectionId] = useState<string>("");
   const [seatId, setSeatId] = useState(initialSeatId || "");
   const [shiftId, setShiftId] = useState<string>("");
   const [fee, setFee] = useState<number | "">(1500);
@@ -755,24 +799,36 @@ function NewAllocDialog({
     queryFn: async () => {
       const { data } = await supabase
         .from("students")
-        .select("id, full_name, mobile_number")
+        .select("id, full_name, mobile_number, allocations(status, next_due_date, is_active)")
         .eq("org_id", orgId!)
         .eq("library_id", libraryId);
       return data ?? [];
     },
   });
 
+  const sections = useQuery({
+    queryKey: ["sections-for-alloc", libraryId],
+    enabled: !!libraryId,
+    queryFn: async () => (await supabase.from("sections").select("id, name").eq("library_id", libraryId)).data ?? [],
+  });
+
   const seats = useQuery({
-    queryKey: ["seats-for-alloc", libraryId],
+    queryKey: ["seats-for-alloc", libraryId, sectionId],
     enabled: !!libraryId,
     queryFn: async () => {
+      let query = supabase
+        .from("seats")
+        .select("id, seat_number, is_corner")
+        .eq("library_id", libraryId)
+        .eq("is_active", true)
+        .order("seat_number");
+
+      if (sectionId && sectionId !== "all_sections") {
+        query = query.eq("section_id", sectionId);
+      }
+
       const [seatsRes, allocRes] = await Promise.all([
-        supabase
-          .from("seats")
-          .select("id, seat_number, is_corner")
-          .eq("library_id", libraryId)
-          .eq("is_active", true)
-          .order("seat_number"),
+        query,
         supabase.from("allocations").select("seat_id").eq("library_id", libraryId).eq("is_active", true),
       ]);
       const taken = new Set((allocRes.data ?? []).map((a) => a.seat_id));
@@ -785,6 +841,10 @@ function NewAllocDialog({
     enabled: !!libraryId,
     queryFn: async () => (await supabase.from("shifts").select("id, name").eq("library_id", libraryId)).data ?? [],
   });
+
+  // Calculate selected student context
+  const selectedStudent = students.data?.find((s: any) => s.id === studentId);
+  const activeAlloc = selectedStudent?.allocations?.find((a: any) => a.is_active);
 
   return (
     <DialogContent className="glass-strong border-panel-border w-[95vw] max-w-lg max-h-[90vh] overflow-y-auto">
@@ -868,9 +928,50 @@ function NewAllocDialog({
               ))}
             </SelectContent>
           </Select>
+
+          {activeAlloc && (
+            <div className="flex items-center gap-4 rounded-md border border-panel-border bg-black/10 px-3 py-2 mt-2 text-xs">
+              <div>
+                <span className="text-muted-foreground mr-1">Status:</span>
+                <span
+                  className={
+                    activeAlloc.status === "paid"
+                      ? "text-emerald"
+                      : activeAlloc.status === "overdue"
+                        ? "text-rose"
+                        : "text-amber-400"
+                  }
+                >
+                  {activeAlloc.status.toUpperCase()}
+                </span>
+              </div>
+              <div>
+                <span className="text-muted-foreground mr-1">Due Date:</span>
+                <span className="font-mono text-cyan">
+                  {activeAlloc.next_due_date ? fmtDate(activeAlloc.next_due_date) : "—"}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="space-y-2">
+            <Label>Section Filter</Label>
+            <Select value={sectionId} onValueChange={setSectionId} disabled={reservationType === "unreserved"}>
+              <SelectTrigger className="bg-panel border-panel-border">
+                <SelectValue placeholder="All Sections" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all_sections">All Sections</SelectItem>
+                {(sections.data ?? []).map((s: any) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <div className="space-y-2">
             <Label>Seat {reservationType === "unreserved" ? "(Not Required)" : "(Vacant Only)"}</Label>
             <Select
@@ -891,6 +992,9 @@ function NewAllocDialog({
               </SelectContent>
             </Select>
           </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-2">
             <Label>Shift</Label>
             <Select value={shiftId} onValueChange={setShiftId}>
@@ -907,17 +1011,17 @@ function NewAllocDialog({
               </SelectContent>
             </Select>
           </div>
-        </div>
 
-        <div className="space-y-2">
-          <Label>Monthly fee (₹)</Label>
-          <Input
-            required
-            type="number"
-            value={fee}
-            onChange={(e) => setFee(Number(e.target.value))}
-            className="bg-panel border-panel-border font-mono"
-          />
+          <div className="space-y-2">
+            <Label>Monthly fee (₹)</Label>
+            <Input
+              required
+              type="number"
+              value={fee}
+              onChange={(e) => setFee(Number(e.target.value))}
+              className="bg-panel border-panel-border font-mono"
+            />
+          </div>
         </div>
 
         <div className="rounded-lg border border-panel-border bg-panel p-3 text-xs text-muted-foreground leading-relaxed mt-2">
