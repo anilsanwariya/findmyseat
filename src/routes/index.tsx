@@ -104,7 +104,7 @@ function Marketplace() {
               <div className="grid size-7 sm:size-8 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-violet to-cyan font-black text-sm sm:text-base">
                 L
               </div>
-              <span className="text-base sm:text-lg font-medium tracking-tight truncate">LibraryBandhu</span>
+              <span className="text-base sm:text-lg font-extrabold tracking-tight truncate">LibraryBandhu</span>
             </Link>
 
             <nav className="flex items-center gap-1.5 sm:gap-2 shrink-0">
