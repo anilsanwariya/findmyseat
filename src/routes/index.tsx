@@ -38,10 +38,10 @@ export const Route = createFileRoute("/")({
         content:
           "Discover libraries and study spaces near you by zone or target exam. Reserve a seat with a single request.",
       },
-      { property: "og:title", content: "LibraryBandhu — Find your study space" },
+      { property: "og:title", content: "Find your study space — LibraryBandhu Marketplace" },
       {
         property: "og:description",
-        content: "Discover libraries by zone or target exam and request a seat instantly.",
+        content: "Discover libraries and study spaces near you by zone or target exam. Reserve a seat with a single request.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
