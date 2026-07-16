@@ -66,8 +66,6 @@ export const createStudent = createServerFn({ method: "POST" })
         target_exam_id: data.target_exam_id ?? null,
         email: data.email ?? null,
         requires_pin_change: true,
-        subscription_start: data.subscription_start ?? null,
-        subscription_end: data.subscription_end ?? null,
       })
       .select("id")
       .single();

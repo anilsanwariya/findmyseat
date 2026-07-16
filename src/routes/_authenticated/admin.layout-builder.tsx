@@ -192,6 +192,7 @@ function LayoutBuilderPage() {
 
   const updateDimensions = useMutation({
     mutationFn: async ({ rows, cols }: { rows: number; cols: number }) => {
+      if (!currentSectionId) throw new Error("No section selected");
       const { error } = await supabase
         .from("sections")
         .update({ grid_rows: rows, grid_cols: cols })
@@ -217,7 +218,7 @@ function LayoutBuilderPage() {
   }
 
   const handleAddTop = async () => {
-    if (!currentSection) return;
+    if (!currentSection || !currentSectionId) return;
     setIsShifting(true);
     toast.loading("Expanding map upwards...", { id: "shift" });
     await supabase
@@ -232,7 +233,7 @@ function LayoutBuilderPage() {
   };
 
   const handleRemoveTop = async () => {
-    if (!grid || !currentSection) return;
+    if (!grid || !currentSection || !currentSectionId) return;
     if (grid[0].some((c) => c.kind !== "empty")) {
       toast.error("Cannot remove top row: It contains active seats or objects.");
       return;
@@ -251,7 +252,7 @@ function LayoutBuilderPage() {
   };
 
   const handleAddLeft = async () => {
-    if (!currentSection) return;
+    if (!currentSection || !currentSectionId) return;
     setIsShifting(true);
     toast.loading("Expanding map leftwards...", { id: "shift" });
     await supabase
@@ -266,7 +267,7 @@ function LayoutBuilderPage() {
   };
 
   const handleRemoveLeft = async () => {
-    if (!grid || !currentSection) return;
+    if (!grid || !currentSection || !currentSectionId) return;
     if (grid.some((row) => row[0].kind !== "empty")) {
       toast.error("Cannot remove left column: It contains active seats or objects.");
       return;
@@ -284,13 +285,17 @@ function LayoutBuilderPage() {
     setIsShifting(false);
   };
 
-  const handleAddBottom = () =>
+  const handleAddBottom = () => {
+    if (!currentSection) return;
     updateDimensions.mutate({ rows: currentSection.grid_rows + 1, cols: currentSection.grid_cols });
-  const handleAddRight = () =>
+  };
+  const handleAddRight = () => {
+    if (!currentSection) return;
     updateDimensions.mutate({ rows: currentSection.grid_rows, cols: currentSection.grid_cols + 1 });
+  };
 
   const handleRemoveBottom = () => {
-    if (!grid) return;
+    if (!grid || !currentSection) return;
     if (grid[currentSection.grid_rows - 1].some((c) => c.kind !== "empty")) {
       toast.error("Cannot remove bottom row: It contains active seats or objects.");
       return;
@@ -298,7 +303,7 @@ function LayoutBuilderPage() {
     updateDimensions.mutate({ rows: currentSection.grid_rows - 1, cols: currentSection.grid_cols });
   };
   const handleRemoveRight = () => {
-    if (!grid) return;
+    if (!grid || !currentSection) return;
     if (grid.some((row) => row[currentSection.grid_cols - 1].kind !== "empty")) {
       toast.error("Cannot remove rightmost column: It contains active seats or objects.");
       return;
