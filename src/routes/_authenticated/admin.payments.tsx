@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/lib/auth";
@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { inr, fmtDate } from "@/lib/format";
-import { Plus } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/payments")({
   component: PaymentsPage,
@@ -21,6 +21,7 @@ function PaymentsPage() {
   const { data: session } = useSession();
   const orgId = session?.orgId;
   const [open, setOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const qc = useQueryClient();
 
   const payments = useQuery({
@@ -38,6 +39,19 @@ function PaymentsPage() {
           .limit(200)
       ).data ?? [],
   });
+
+  // Filter the payments for the data table based on search
+  const filteredPayments = useMemo(() => {
+    if (!payments.data) return [];
+    if (!searchQuery) return payments.data;
+
+    const q = searchQuery.toLowerCase();
+    return payments.data.filter((p: any) => {
+      const nameMatch = p.students?.full_name?.toLowerCase().includes(q);
+      const mobileMatch = p.students?.mobile_number?.includes(q);
+      return nameMatch || mobileMatch;
+    });
+  }, [payments.data, searchQuery]);
 
   return (
     <div className="space-y-6">
@@ -62,6 +76,17 @@ function PaymentsPage() {
         }
       />
       <GlassPanel className="p-4 overflow-hidden">
+        {/* Search Bar for Payments Table */}
+        <div className="mb-4 relative w-full sm:w-80">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by student name or mobile..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9 bg-panel border-panel-border"
+          />
+        </div>
+
         <div className="w-full overflow-x-auto pb-4 custom-scrollbar">
           <table className="w-full text-left text-sm min-w-[700px]">
             <thead>
@@ -76,13 +101,16 @@ function PaymentsPage() {
               </tr>
             </thead>
             <tbody>
-              {(payments.data ?? []).map((p: any) => (
+              {filteredPayments.map((p: any) => (
                 <tr
                   key={p.id}
                   className="border-b border-panel-border/50 hover:bg-white/[0.02] transition-colors whitespace-nowrap"
                 >
                   <td className="py-3 px-2 font-mono">{fmtDate(p.payment_date)}</td>
-                  <td className="py-3 px-2 font-medium">{p.students?.full_name}</td>
+                  <td className="py-3 px-2 font-medium">
+                    {p.students?.full_name}
+                    <span className="text-muted-foreground text-xs font-mono ml-2">({p.students?.mobile_number})</span>
+                  </td>
                   <td className="py-3 px-2 text-muted-foreground">{p.libraries?.name ?? "—"}</td>
                   <td className="py-3 px-2 font-mono">{inr(p.amount_paid)}</td>
                   <td className="py-3 px-2">
@@ -92,10 +120,10 @@ function PaymentsPage() {
                   <td className="py-3 px-2 text-muted-foreground">{p.reference_note ?? "—"}</td>
                 </tr>
               ))}
-              {(payments.data ?? []).length === 0 && (
+              {filteredPayments.length === 0 && (
                 <tr>
                   <td colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
-                    No payments logged.
+                    No matching payments found.
                   </td>
                 </tr>
               )}
@@ -111,6 +139,7 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
   const { data: session } = useSession();
   const orgId = session?.orgId;
 
+  const [studentSearch, setStudentSearch] = useState("");
   const [allocId, setAllocId] = useState("");
   const [amount, setAmount] = useState<number | "">("");
   const [startDate, setStartDate] = useState(() => new Date().toISOString().split("T")[0]);
@@ -127,7 +156,7 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
         await supabase
           .from("allocations")
           .select(
-            "id, monthly_fee, next_due_date, students(full_name), seats(seat_number), library_id, student_id, reservation_type",
+            "id, monthly_fee, next_due_date, students(full_name, mobile_number), seats(seat_number), library_id, student_id, reservation_type",
           )
           .eq("org_id", orgId!)
           .eq("is_active", true)
@@ -135,6 +164,16 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
   });
 
   const chosen = active.data?.find((a: any) => a.id === allocId);
+
+  // Filter allocations for the dropdown based on search input
+  const filteredAllocations = useMemo(() => {
+    if (!active.data) return [];
+    if (!studentSearch) return active.data;
+    const q = studentSearch.toLowerCase();
+    return active.data.filter(
+      (a: any) => a.students?.full_name?.toLowerCase().includes(q) || a.students?.mobile_number?.includes(q),
+    );
+  }, [active.data, studentSearch]);
 
   // Sync initial data when a student allocation is selected
   useEffect(() => {
@@ -209,18 +248,30 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
         }}
       >
         <div className="space-y-2">
-          <Label>Allocation / Student</Label>
+          <Label>Find Active Allocation</Label>
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground z-10" />
+            <Input
+              placeholder="Search name or mobile..."
+              value={studentSearch}
+              onChange={(e) => setStudentSearch(e.target.value)}
+              className="pl-9 mb-2 bg-black/20 border-panel-border focus-visible:ring-1 focus-visible:ring-cyan/50"
+            />
+          </div>
           <Select value={allocId} onValueChange={setAllocId}>
             <SelectTrigger className="bg-panel border-panel-border">
-              <SelectValue placeholder="Search / Choose allocation" />
+              <SelectValue placeholder="Select student & seat" />
             </SelectTrigger>
             <SelectContent>
-              {(active.data ?? []).map((a: any) => (
+              {filteredAllocations.map((a: any) => (
                 <SelectItem key={a.id} value={a.id}>
-                  {a.students?.full_name} ·{" "}
+                  {a.students?.full_name} ({a.students?.mobile_number}) ·{" "}
                   {a.reservation_type === "unreserved" ? "Unreserved" : `Seat ${a.seats?.seat_number ?? "—"}`}
                 </SelectItem>
               ))}
+              {filteredAllocations.length === 0 && (
+                <div className="p-3 text-xs text-muted-foreground text-center">No matches found.</div>
+              )}
             </SelectContent>
           </Select>
         </div>
