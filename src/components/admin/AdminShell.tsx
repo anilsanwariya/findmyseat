@@ -4,7 +4,6 @@ import { LayoutDashboard, Grid3x3, Users, Ticket, IndianRupee, ReceiptText, Mega
 import { AuroraBackground, GlassPanel } from "@/components/glass";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-import { useSession } from "@/lib/auth";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { ReactNode } from "react";
@@ -27,7 +26,6 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const { data: session } = useSession();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   async function signOut() {
