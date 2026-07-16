@@ -41,7 +41,8 @@ export const Route = createFileRoute("/")({
       { property: "og:title", content: "Find your study space — LibraryBandhu Marketplace" },
       {
         property: "og:description",
-        content: "Discover libraries and study spaces near you by zone or target exam. Reserve a seat with a single request.",
+        content:
+          "Discover libraries and study spaces near you by zone or target exam. Reserve a seat with a single request.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -101,7 +102,7 @@ function Marketplace() {
             <div className="grid size-8 place-items-center rounded-lg bg-gradient-to-br from-violet to-cyan font-black">
               L
             </div>
-            <span className="text-lg font-extrabold tracking-tight">LibraryBandhu</span>
+            <span className="text-lg font-medium tracking-tight">LibraryBandhu</span>
           </Link>
           <nav className="flex items-center gap-2">
             <Link to="/student-login">
