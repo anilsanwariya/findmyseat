@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
-const StudentEmailDomain = "students.lexicon.local";
+const StudentEmailDomain = "students.librarybandhu.local";
 const emailFromMobile = (m: string) => `${m}@${StudentEmailDomain}`;
 
 // HIDDEN SUFFIX: This now perfectly matches the one in student-login.tsx
@@ -342,18 +342,15 @@ export const verifyEmailOtp = createServerFn({ method: "POST" })
     }
 
     // 1) Update student profile email.
-    const { error: sErr } = await supabaseAdmin
-      .from("students")
-      .update({ email })
-      .eq("id", student.id);
+    const { error: sErr } = await supabaseAdmin.from("students").update({ email }).eq("id", student.id);
     if (sErr) throw new Error(sErr.message);
 
     // 2) Update auth.users email if student has an auth account.
     if (student.user_id) {
-      const { error: aErr } = await supabaseAdmin.auth.admin.updateUserById(
-        student.user_id,
-        { email, email_confirm: true },
-      );
+      const { error: aErr } = await supabaseAdmin.auth.admin.updateUserById(student.user_id, {
+        email,
+        email_confirm: true,
+      });
       // Non-fatal: auth login for students uses synthetic mobile email; we
       // still want profile email to succeed even if auth update fails.
       if (aErr) console.warn("[email-otp] auth update failed:", aErr.message);
