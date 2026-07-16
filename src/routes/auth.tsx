@@ -26,7 +26,10 @@ function AuthPage() {
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
     toast.success("Welcome back");
     navigate({ to: "/dispatch" });
   }
@@ -34,11 +37,15 @@ function AuthPage() {
   async function signUp(email: string, password: string) {
     setLoading(true);
     const { data, error } = await supabase.auth.signUp({
-      email, password,
+      email,
+      password,
       options: { emailRedirectTo: `${window.location.origin}/onboarding` },
     });
     setLoading(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
     if (data.session) {
       toast.success("Account created");
       navigate({ to: "/onboarding" });
@@ -53,8 +60,10 @@ function AuthPage() {
       <div className="relative z-10 flex min-h-screen items-center justify-center px-4">
         <div className="w-full max-w-md">
           <Link to="/" className="mb-6 flex items-center justify-center gap-2">
-            <div className="grid size-8 place-items-center rounded-lg bg-gradient-to-br from-violet to-cyan font-black">L</div>
-            <span className="text-lg font-extrabold tracking-tight">LEXICON</span>
+            <div className="grid size-8 place-items-center rounded-lg bg-gradient-to-br from-violet to-cyan font-black">
+              L
+            </div>
+            <span className="text-lg font-extrabold tracking-tight">LibraryBandhu</span>
           </Link>
           <GlassPanel className="p-6">
             <h1 className="text-xl font-bold">Library owner access</h1>
@@ -64,11 +73,18 @@ function AuthPage() {
                 <TabsTrigger value="signin">Sign in</TabsTrigger>
                 <TabsTrigger value="signup">Create workspace</TabsTrigger>
               </TabsList>
-              <TabsContent value="signin"><AuthForm loading={loading} onSubmit={signIn} submitLabel="Sign in" /></TabsContent>
-              <TabsContent value="signup"><AuthForm loading={loading} onSubmit={signUp} submitLabel="Create account" /></TabsContent>
+              <TabsContent value="signin">
+                <AuthForm loading={loading} onSubmit={signIn} submitLabel="Sign in" />
+              </TabsContent>
+              <TabsContent value="signup">
+                <AuthForm loading={loading} onSubmit={signUp} submitLabel="Create account" />
+              </TabsContent>
             </Tabs>
             <p className="mt-6 text-center text-xs text-muted-foreground">
-              Are you a student? <Link to="/student-login" className="text-violet hover:underline">Sign in with mobile</Link>
+              Are you a student?{" "}
+              <Link to="/student-login" className="text-violet hover:underline">
+                Sign in with mobile
+              </Link>
             </p>
           </GlassPanel>
         </div>
@@ -78,24 +94,52 @@ function AuthPage() {
 }
 
 function AuthForm({
-  onSubmit, submitLabel, loading,
-}: { onSubmit: (email: string, pw: string) => Promise<void>; submitLabel: string; loading: boolean }) {
+  onSubmit,
+  submitLabel,
+  loading,
+}: {
+  onSubmit: (email: string, pw: string) => Promise<void>;
+  submitLabel: string;
+  loading: boolean;
+}) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   return (
     <form
-      onSubmit={(e) => { e.preventDefault(); onSubmit(email, password); }}
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSubmit(email, password);
+      }}
       className="mt-4 space-y-4"
     >
       <div className="space-y-2">
         <Label htmlFor="email">Email</Label>
-        <Input id="email" type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className="bg-panel border-panel-border" />
+        <Input
+          id="email"
+          type="email"
+          required
+          autoComplete="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="bg-panel border-panel-border"
+        />
       </div>
       <div className="space-y-2">
         <Label htmlFor="pw">Password</Label>
-        <Input id="pw" type="password" required minLength={6} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} className="bg-panel border-panel-border" />
+        <Input
+          id="pw"
+          type="password"
+          required
+          minLength={6}
+          autoComplete="current-password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className="bg-panel border-panel-border"
+        />
       </div>
-      <Button disabled={loading} type="submit" className="w-full bg-white text-slate-900 hover:bg-white/90">{loading ? "…" : submitLabel}</Button>
+      <Button disabled={loading} type="submit" className="w-full bg-white text-slate-900 hover:bg-white/90">
+        {loading ? "…" : submitLabel}
+      </Button>
     </form>
   );
 }
