@@ -245,3 +245,143 @@ export const verifyPinReset = createServerFn({ method: "POST" })
     await supabaseAdmin.from("pin_reset_otps").update({ consumed_at: new Date().toISOString() }).eq("id", otp.id);
     return { ok: true };
   });
+
+// ============ Email Verification (link/change student email) ============
+
+const SendEmailOtpSchema = z.object({
+  student_id: z.string().uuid(),
+  email: z.string().trim().email().max(255),
+});
+export const sendEmailVerificationOtp = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => SendEmailOtpSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    // Caller must be the student themselves OR an org admin owning the student.
+    const { data: student } = await context.supabase
+      .from("students")
+      .select("id, user_id, org_id")
+      .eq("id", data.student_id)
+      .maybeSingle();
+    if (!student) throw new Error("Student not found");
+
+    const isSelf = student.user_id === context.userId;
+    let allowed = isSelf;
+    if (!allowed) {
+      const { data: adminRow } = await context.supabase
+        .from("user_roles")
+        .select("org_id")
+        .eq("user_id", context.userId)
+        .eq("role", "org_admin")
+        .maybeSingle();
+      allowed = !!adminRow && adminRow.org_id === student.org_id;
+    }
+    if (!allowed) throw new Error("Not authorized for this student");
+
+    const email = data.email.toLowerCase();
+    const otp_code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expires_at = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error: insErr } = await supabaseAdmin
+      .from("email_verification_otps")
+      .insert({ student_id: student.id, email, otp_code, expires_at });
+    if (insErr) throw new Error(insErr.message);
+
+    // Best-effort email send via Lovable managed email API. If email isn't
+    // configured for this project, we log and return the code as dev_code so
+    // the flow remains testable during setup.
+    let sent = false;
+    try {
+      const { sendLovableEmail } = await import("@lovable.dev/email-js");
+      const apiKey = process.env.LOVABLE_API_KEY;
+      const senderDomain = process.env.SENDER_DOMAIN;
+      if (apiKey && senderDomain) {
+        await sendLovableEmail({
+          apiKey,
+          senderDomain,
+          to: email,
+          from: `no-reply@${senderDomain}`,
+          subject: "Your Lexicon email verification code",
+          html: `<p>Your verification code is:</p><h2 style="font-family:monospace;letter-spacing:4px">${otp_code}</h2><p>This code expires in 15 minutes.</p>`,
+          text: `Your verification code is ${otp_code}. It expires in 15 minutes.`,
+        });
+        sent = true;
+      }
+    } catch (e) {
+      console.error("[email-otp] send failed:", e);
+    }
+
+    return { ok: true, sent, dev_code: sent ? null : otp_code };
+  });
+
+const VerifyEmailOtpSchema = z.object({
+  student_id: z.string().uuid(),
+  email: z.string().trim().email().max(255),
+  otp: z.string().regex(/^[0-9]{6}$/, "6-digit code"),
+});
+export const verifyEmailOtp = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => VerifyEmailOtpSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    const email = data.email.toLowerCase();
+
+    const { data: student } = await context.supabase
+      .from("students")
+      .select("id, user_id, org_id")
+      .eq("id", data.student_id)
+      .maybeSingle();
+    if (!student) throw new Error("Student not found");
+
+    const isSelf = student.user_id === context.userId;
+    let allowed = isSelf;
+    if (!allowed) {
+      const { data: adminRow } = await context.supabase
+        .from("user_roles")
+        .select("org_id")
+        .eq("user_id", context.userId)
+        .eq("role", "org_admin")
+        .maybeSingle();
+      allowed = !!adminRow && adminRow.org_id === student.org_id;
+    }
+    if (!allowed) throw new Error("Not authorized for this student");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: otp } = await supabaseAdmin
+      .from("email_verification_otps")
+      .select("id, expires_at")
+      .eq("student_id", student.id)
+      .eq("email", email)
+      .eq("otp_code", data.otp)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!otp) throw new Error("Invalid or expired OTP");
+    if (new Date(otp.expires_at).getTime() < Date.now()) {
+      throw new Error("Invalid or expired OTP");
+    }
+
+    // 1) Update student profile email.
+    const { error: sErr } = await supabaseAdmin
+      .from("students")
+      .update({ email })
+      .eq("id", student.id);
+    if (sErr) throw new Error(sErr.message);
+
+    // 2) Update auth.users email if student has an auth account.
+    if (student.user_id) {
+      const { error: aErr } = await supabaseAdmin.auth.admin.updateUserById(
+        student.user_id,
+        { email, email_confirm: true },
+      );
+      // Non-fatal: auth login for students uses synthetic mobile email; we
+      // still want profile email to succeed even if auth update fails.
+      if (aErr) console.warn("[email-otp] auth update failed:", aErr.message);
+    }
+
+    // 3) Consume the OTP.
+    await supabaseAdmin.from("email_verification_otps").delete().eq("id", otp.id);
+
+    return { ok: true };
+  });
