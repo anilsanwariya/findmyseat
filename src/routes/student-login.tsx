@@ -59,7 +59,7 @@ function StudentLogin() {
             <div className="grid size-8 place-items-center rounded-lg bg-gradient-to-br from-violet to-cyan font-black">
               L
             </div>
-            <span className="text-lg font-extrabold tracking-tight">LEXICON</span>
+            <span className="text-lg font-extrabold tracking-tight">LibraryBandhu</span>
           </Link>
           <GlassPanel className="p-6">
             <h1 className="text-xl font-bold">Student sign in</h1>
