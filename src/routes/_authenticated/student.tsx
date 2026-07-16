@@ -363,6 +363,8 @@ function EmailVerificationGate({ profile }: { profile: any }) {
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
   const qc = useQueryClient();
+  const sendOtp = useServerFn(sendEmailVerificationOtp);
+  const verifyOtp = useServerFn(verifyEmailOtp);
 
   return (
     <Dialog open modal>
