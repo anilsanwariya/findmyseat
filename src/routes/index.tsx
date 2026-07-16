@@ -102,7 +102,7 @@ function Marketplace() {
             <div className="grid size-8 place-items-center rounded-lg bg-gradient-to-br from-violet to-cyan font-black">
               L
             </div>
-            <span className="text-lg font-medium tracking-tight">LibraryBandhu</span>
+            <span className="text-lg font-extrabold tracking-tight">LibraryBandhu</span>
           </Link>
           <nav className="flex items-center gap-2">
             <Link to="/student-login">
@@ -115,7 +115,7 @@ function Marketplace() {
                 size="sm"
                 className="bg-gradient-to-r from-gold to-magenta text-slate-950 hover:opacity-90 shadow-[0_0_24px_-6px_rgba(236,72,153,0.6)]"
               >
-                Partner with Us
+                Partner
               </Button>
             </Link>
           </nav>
