@@ -420,11 +420,7 @@ function EmailVerificationGate({ profile }: { profile: any }) {
               e.preventDefault();
               setLoading(true);
               try {
-                // 2. Verify OTP via custom edge function
-                const { error } = await supabase.functions.invoke("verify-email-otp", {
-                  body: { email, otp, student_id: profile.id },
-                });
-                if (error) throw error;
+                await verifyOtp({ data: { email, otp, student_id: profile.id } });
                 toast.success("Email successfully verified!");
                 qc.invalidateQueries({ queryKey: ["student-profile"] });
               } catch (err: any) {
