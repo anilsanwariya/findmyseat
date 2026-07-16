@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as StudentLoginRouteImport } from './routes/student-login'
 import { Route as OwnersRouteImport } from './routes/owners'
+import { Route as OwnerLoginRouteImport } from './routes/owner-login'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as ForgotPinRouteImport } from './routes/forgot-pin'
 import { Route as DispatchRouteImport } from './routes/dispatch'
@@ -39,6 +40,11 @@ const StudentLoginRoute = StudentLoginRouteImport.update({
 const OwnersRoute = OwnersRouteImport.update({
   id: '/owners',
   path: '/owners',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OwnerLoginRoute = OwnerLoginRouteImport.update({
+  id: '/owner-login',
+  path: '/owner-login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OnboardingRoute = OnboardingRouteImport.update({
@@ -150,6 +156,7 @@ export interface FileRoutesByFullPath {
   '/dispatch': typeof DispatchRoute
   '/forgot-pin': typeof ForgotPinRoute
   '/onboarding': typeof OnboardingRoute
+  '/owner-login': typeof OwnerLoginRoute
   '/owners': typeof OwnersRoute
   '/student-login': typeof StudentLoginRoute
   '/admin': typeof AuthenticatedAdminRouteWithChildren
@@ -172,6 +179,7 @@ export interface FileRoutesByTo {
   '/dispatch': typeof DispatchRoute
   '/forgot-pin': typeof ForgotPinRoute
   '/onboarding': typeof OnboardingRoute
+  '/owner-login': typeof OwnerLoginRoute
   '/owners': typeof OwnersRoute
   '/student-login': typeof StudentLoginRoute
   '/student': typeof AuthenticatedStudentRoute
@@ -195,6 +203,7 @@ export interface FileRoutesById {
   '/dispatch': typeof DispatchRoute
   '/forgot-pin': typeof ForgotPinRoute
   '/onboarding': typeof OnboardingRoute
+  '/owner-login': typeof OwnerLoginRoute
   '/owners': typeof OwnersRoute
   '/student-login': typeof StudentLoginRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
@@ -219,6 +228,7 @@ export interface FileRouteTypes {
     | '/dispatch'
     | '/forgot-pin'
     | '/onboarding'
+    | '/owner-login'
     | '/owners'
     | '/student-login'
     | '/admin'
@@ -241,6 +251,7 @@ export interface FileRouteTypes {
     | '/dispatch'
     | '/forgot-pin'
     | '/onboarding'
+    | '/owner-login'
     | '/owners'
     | '/student-login'
     | '/student'
@@ -263,6 +274,7 @@ export interface FileRouteTypes {
     | '/dispatch'
     | '/forgot-pin'
     | '/onboarding'
+    | '/owner-login'
     | '/owners'
     | '/student-login'
     | '/_authenticated/admin'
@@ -287,6 +299,7 @@ export interface RootRouteChildren {
   DispatchRoute: typeof DispatchRoute
   ForgotPinRoute: typeof ForgotPinRoute
   OnboardingRoute: typeof OnboardingRoute
+  OwnerLoginRoute: typeof OwnerLoginRoute
   OwnersRoute: typeof OwnersRoute
   StudentLoginRoute: typeof StudentLoginRoute
 }
@@ -305,6 +318,13 @@ declare module '@tanstack/react-router' {
       path: '/owners'
       fullPath: '/owners'
       preLoaderRoute: typeof OwnersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/owner-login': {
+      id: '/owner-login'
+      path: '/owner-login'
+      fullPath: '/owner-login'
+      preLoaderRoute: typeof OwnerLoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/onboarding': {
@@ -494,6 +514,7 @@ const rootRouteChildren: RootRouteChildren = {
   DispatchRoute: DispatchRoute,
   ForgotPinRoute: ForgotPinRoute,
   OnboardingRoute: OnboardingRoute,
+  OwnerLoginRoute: OwnerLoginRoute,
   OwnersRoute: OwnersRoute,
   StudentLoginRoute: StudentLoginRoute,
 }
