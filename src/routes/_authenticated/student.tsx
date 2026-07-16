@@ -384,12 +384,13 @@ function EmailVerificationGate({ profile }: { profile: any }) {
               setLoading(true);
               try {
                 // 1. Request Email Update OTP via custom edge function
-                const { error } = await supabase.functions.invoke("send-email-verification-otp", {
-                  body: { email, student_id: profile.id },
-                });
-                if (error) throw error;
+                const res = await sendOtp({ data: { email, student_id: profile.id } });
+                if ((res as any)?.dev_code) {
+                  toast.success(`OTP sent. Dev code: ${(res as any).dev_code}`);
+                } else {
+                  toast.success("OTP sent to your email!");
+                }
                 setOtpSent(true);
-                toast.success("OTP sent to your email!");
               } catch (err: any) {
                 toast.error(err.message || "Failed to send OTP. Ensure your email is correct.");
               } finally {
