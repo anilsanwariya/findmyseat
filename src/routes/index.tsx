@@ -97,28 +97,34 @@ function Marketplace() {
     <div className="relative min-h-screen text-foreground">
       <AuroraBackground />
       <div className="relative z-10">
-        <header className="mx-auto flex max-w-7xl items-center justify-between px-4 py-5 sm:px-6">
-          <Link to="/" className="flex items-center gap-2">
-            <div className="grid size-8 place-items-center rounded-lg bg-gradient-to-br from-violet to-cyan font-black">
-              L
-            </div>
-            <span className="text-lg font-medium tracking-tight">LibraryBandhu</span>
-          </Link>
-          <nav className="flex items-center gap-2">
-            <Link to="/student-login">
-              <Button variant="ghost" size="sm">
-                Student sign in
-              </Button>
+        {/* Sticky, Glassmorphic, and Mobile-Responsive Header */}
+        <header className="sticky top-0 z-50 border-b border-panel-border/50 bg-black/40 backdrop-blur-md">
+          <div className="mx-auto flex max-w-7xl items-center justify-between px-3 py-3 sm:px-6 sm:py-4 gap-2">
+            <Link to="/" className="flex items-center gap-2 shrink-0 min-w-0">
+              <div className="grid size-7 sm:size-8 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-violet to-cyan font-black text-sm sm:text-base">
+                L
+              </div>
+              <span className="text-base sm:text-lg font-medium tracking-tight truncate">LibraryBandhu</span>
             </Link>
-            <Link to="/owners">
-              <Button
-                size="sm"
-                className="bg-gradient-to-r from-gold to-magenta text-slate-950 hover:opacity-90 shadow-[0_0_24px_-6px_rgba(236,72,153,0.6)]"
-              >
-                Partner with Us
-              </Button>
-            </Link>
-          </nav>
+
+            <nav className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+              <Link to="/student-login">
+                <Button variant="ghost" size="sm" className="h-8 px-2 text-xs sm:h-9 sm:px-4 sm:text-sm">
+                  <span className="hidden sm:inline">Student sign in</span>
+                  <span className="sm:hidden">Sign in</span>
+                </Button>
+              </Link>
+              <Link to="/owners">
+                <Button
+                  size="sm"
+                  className="h-8 px-2.5 text-xs sm:h-9 sm:px-4 sm:text-sm bg-gradient-to-r from-gold to-magenta text-slate-950 hover:opacity-90 shadow-[0_0_24px_-6px_rgba(236,72,153,0.6)]"
+                >
+                  <span className="hidden sm:inline">Partner with Us</span>
+                  <span className="sm:hidden">Partner</span>
+                </Button>
+              </Link>
+            </nav>
+          </div>
         </header>
 
         <section className="mx-auto max-w-5xl px-4 pt-6 pb-4 text-center sm:px-6 sm:pt-12">
