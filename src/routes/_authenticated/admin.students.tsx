@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
@@ -163,26 +163,9 @@ function NewStudentDialog({ onDone }: { onDone: () => void }) {
   const [dob, setDob] = useState("");
   const [libraryId, setLibraryId] = useState("");
   const [examId, setExamId] = useState<string>("");
-
-  // Subscription Duration State
-  const [duration, setDuration] = useState("1");
-  const [startDate, setStartDate] = useState(() => new Date().toISOString().split("T")[0]);
-  const [customEndDate, setCustomEndDate] = useState("");
-
   const [loading, setLoading] = useState(false);
+
   const create = useServerFn(createStudent);
-
-  // Auto-calculate End Date based on Duration mode
-  const calculatedEndDate = useMemo(() => {
-    if (!startDate) return "";
-    if (duration === "custom") return customEndDate;
-
-    const d = new Date(startDate);
-    if (duration === "1") d.setMonth(d.getMonth() + 1);
-    if (duration === "3") d.setMonth(d.getMonth() + 3);
-    if (duration === "6") d.setMonth(d.getMonth() + 6);
-    return d.toISOString().split("T")[0];
-  }, [duration, startDate, customEndDate]);
 
   return (
     <DialogContent className="glass-strong border-panel-border w-[95vw] max-w-lg max-h-[90vh] overflow-y-auto p-4 md:p-6">
@@ -202,8 +185,6 @@ function NewStudentDialog({ onDone }: { onDone: () => void }) {
                 dob,
                 library_id: libraryId,
                 target_exam_id: examId || null,
-                subscription_start: startDate || null,
-                subscription_end: calculatedEndDate || null,
               },
             });
             toast.success("Student onboarded");
@@ -281,54 +262,6 @@ function NewStudentDialog({ onDone }: { onDone: () => void }) {
                 ))}
               </SelectContent>
             </Select>
-          </div>
-        </div>
-
-        {/* Subscription Duration Section */}
-        <div className="p-3 border border-panel-border rounded-lg bg-black/10 space-y-3">
-          <div className="space-y-2">
-            <Label>Subscription Duration</Label>
-            <Select value={duration} onValueChange={setDuration}>
-              <SelectTrigger className="bg-panel border-panel-border">
-                <SelectValue placeholder="Select duration" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="1">1 Month</SelectItem>
-                <SelectItem value="3">Quarterly (3 Months)</SelectItem>
-                <SelectItem value="6">6 Months</SelectItem>
-                <SelectItem value="custom">Custom Date-to-Date</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label>Start Date</Label>
-              <Input
-                type="date"
-                required
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="bg-panel border-panel-border text-sm block w-full"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>End Date</Label>
-              {duration === "custom" ? (
-                <Input
-                  type="date"
-                  required
-                  value={customEndDate}
-                  onChange={(e) => setCustomEndDate(e.target.value)}
-                  className="bg-panel border-panel-border text-sm block w-full"
-                />
-              ) : (
-                <div className="h-10 flex items-center px-3 rounded-md border border-panel-border bg-panel text-sm text-muted-foreground overflow-hidden whitespace-nowrap text-ellipsis">
-                  {calculatedEndDate ? fmtDate(calculatedEndDate) : "—"}
-                </div>
-              )}
-            </div>
           </div>
         </div>
 
