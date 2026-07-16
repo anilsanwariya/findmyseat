@@ -94,10 +94,10 @@ function Marketplace() {
   const libs = results.data?.libraries ?? [];
 
   return (
-    <div className="relative min-h-screen text-foreground">
+    <div className="relative min-h-screen text-foreground flex flex-col">
       <AuroraBackground />
-      <div className="relative z-10">
-        <header className="mx-auto flex max-w-7xl items-center justify-between px-4 py-5 sm:px-6">
+      <div className="relative z-10 flex-1 flex flex-col">
+        <header className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-5 sm:px-6">
           <Link to="/" className="flex items-center gap-2">
             <div className="grid size-8 place-items-center rounded-lg bg-gradient-to-br from-violet to-cyan font-black">
               L
@@ -121,7 +121,7 @@ function Marketplace() {
           </nav>
         </header>
 
-        <section className="mx-auto max-w-5xl px-4 pt-6 pb-4 text-center sm:px-6 sm:pt-12">
+        <section className="mx-auto w-full max-w-5xl px-4 pt-6 pb-4 text-center sm:px-6 sm:pt-12">
           <div className="inline-flex items-center gap-2 rounded-full border border-panel-border bg-panel px-3 py-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
             <BookOpen className="size-3 text-gold" /> Discovery Marketplace
           </div>
@@ -172,7 +172,7 @@ function Marketplace() {
           </GlassPanel>
         </section>
 
-        <section className="mx-auto max-w-7xl px-4 pb-16 pt-6 sm:px-6">
+        <section className="mx-auto w-full max-w-7xl px-4 pb-16 pt-6 sm:px-6 flex-1">
           {results.isLoading ? (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {Array.from({ length: 6 }).map((_, i) => (
@@ -198,6 +198,26 @@ function Marketplace() {
             </div>
           )}
         </section>
+
+        <footer className="mt-auto border-t border-panel-border/50 bg-black/40 backdrop-blur-md">
+          <div className="mx-auto flex max-w-7xl flex-col items-center justify-center gap-4 px-5 py-8 text-center text-xs text-muted-foreground">
+            <p className="font-semibold uppercase tracking-widest opacity-70">
+              <span className="block">© 2026 FLASHGYAN EDTECH LLP.</span>
+              <span className="mt-1 block">ALL RIGHTS RESERVED.</span>
+            </p>
+            <nav className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 font-medium">
+              <Link to="/privacy-policy" className="transition-colors hover:text-cyan">
+                Privacy Policy
+              </Link>
+              <Link to="/terms" className="transition-colors hover:text-cyan">
+                Terms of Service
+              </Link>
+              <a href="mailto:flashgyanedtech@gmail.com" className="transition-colors hover:text-cyan">
+                Contact Support
+              </a>
+            </nav>
+          </div>
+        </footer>
       </div>
 
       <LibraryDetailsDialog

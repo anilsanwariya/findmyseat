@@ -9,7 +9,9 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as StudentLoginRouteImport } from './routes/student-login'
+import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
 import { Route as OwnersRouteImport } from './routes/owners'
 import { Route as OwnerLoginRouteImport } from './routes/owner-login'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
@@ -35,9 +37,19 @@ import { Route as AuthenticatedAdminLayoutBuilderRouteImport } from './routes/_a
 import { Route as AuthenticatedAdminExpensesRouteImport } from './routes/_authenticated/admin.expenses'
 import { Route as AuthenticatedAdminAllocationsRouteImport } from './routes/_authenticated/admin.allocations'
 
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const StudentLoginRoute = StudentLoginRouteImport.update({
   id: '/student-login',
   path: '/student-login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyPolicyRoute = PrivacyPolicyRouteImport.update({
+  id: '/privacy-policy',
+  path: '/privacy-policy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OwnersRoute = OwnersRouteImport.update({
@@ -179,7 +191,9 @@ export interface FileRoutesByFullPath {
   '/onboarding': typeof OnboardingRoute
   '/owner-login': typeof OwnerLoginRoute
   '/owners': typeof OwnersRoute
+  '/privacy-policy': typeof PrivacyPolicyRoute
   '/student-login': typeof StudentLoginRoute
+  '/terms': typeof TermsRoute
   '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/student': typeof AuthenticatedStudentRoute
   '/super-admin': typeof AuthenticatedSuperAdminRouteWithChildren
@@ -205,7 +219,9 @@ export interface FileRoutesByTo {
   '/onboarding': typeof OnboardingRoute
   '/owner-login': typeof OwnerLoginRoute
   '/owners': typeof OwnersRoute
+  '/privacy-policy': typeof PrivacyPolicyRoute
   '/student-login': typeof StudentLoginRoute
+  '/terms': typeof TermsRoute
   '/student': typeof AuthenticatedStudentRoute
   '/admin/allocations': typeof AuthenticatedAdminAllocationsRoute
   '/admin/expenses': typeof AuthenticatedAdminExpensesRoute
@@ -231,7 +247,9 @@ export interface FileRoutesById {
   '/onboarding': typeof OnboardingRoute
   '/owner-login': typeof OwnerLoginRoute
   '/owners': typeof OwnersRoute
+  '/privacy-policy': typeof PrivacyPolicyRoute
   '/student-login': typeof StudentLoginRoute
+  '/terms': typeof TermsRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/_authenticated/student': typeof AuthenticatedStudentRoute
   '/_authenticated/super-admin': typeof AuthenticatedSuperAdminRouteWithChildren
@@ -259,7 +277,9 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/owner-login'
     | '/owners'
+    | '/privacy-policy'
     | '/student-login'
+    | '/terms'
     | '/admin'
     | '/student'
     | '/super-admin'
@@ -285,7 +305,9 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/owner-login'
     | '/owners'
+    | '/privacy-policy'
     | '/student-login'
+    | '/terms'
     | '/student'
     | '/admin/allocations'
     | '/admin/expenses'
@@ -310,7 +332,9 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/owner-login'
     | '/owners'
+    | '/privacy-policy'
     | '/student-login'
+    | '/terms'
     | '/_authenticated/admin'
     | '/_authenticated/student'
     | '/_authenticated/super-admin'
@@ -338,16 +362,32 @@ export interface RootRouteChildren {
   OnboardingRoute: typeof OnboardingRoute
   OwnerLoginRoute: typeof OwnerLoginRoute
   OwnersRoute: typeof OwnersRoute
+  PrivacyPolicyRoute: typeof PrivacyPolicyRoute
   StudentLoginRoute: typeof StudentLoginRoute
+  TermsRoute: typeof TermsRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/student-login': {
       id: '/student-login'
       path: '/student-login'
       fullPath: '/student-login'
       preLoaderRoute: typeof StudentLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy-policy': {
+      id: '/privacy-policy'
+      path: '/privacy-policy'
+      fullPath: '/privacy-policy'
+      preLoaderRoute: typeof PrivacyPolicyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/owners': {
@@ -593,8 +633,20 @@ const rootRouteChildren: RootRouteChildren = {
   OnboardingRoute: OnboardingRoute,
   OwnerLoginRoute: OwnerLoginRoute,
   OwnersRoute: OwnersRoute,
+  PrivacyPolicyRoute: PrivacyPolicyRoute,
   StudentLoginRoute: StudentLoginRoute,
+  TermsRoute: TermsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
