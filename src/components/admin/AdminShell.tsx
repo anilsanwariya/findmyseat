@@ -124,7 +124,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
                   <div className="grid size-8 place-items-center rounded-lg bg-gradient-to-br from-violet to-cyan font-black">
                     L
                   </div>
-                  <span className="text-lg font-extrabold tracking-tight">LEXICON</span>
+                  <span className="text-lg font-extrabold tracking-tight">LibraryBandhu</span>
                 </Link>
                 <button
                   onClick={() => setMobileOpen(false)}
@@ -159,7 +159,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
               <div className="grid size-7 place-items-center rounded-lg bg-gradient-to-br from-violet to-cyan text-xs font-black">
                 L
               </div>
-              <span className="text-sm font-extrabold">LEXICON</span>
+              <span className="text-sm font-extrabold">LibraryBandhu</span>
             </Link>
             <button onClick={signOut} className="text-xs text-muted-foreground">
               Sign out
