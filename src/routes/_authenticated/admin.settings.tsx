@@ -327,7 +327,7 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="bg-panel border-panel-border"
-                placeholder="e.g. Lexicon Main Branch"
+                placeholder="e.g. LibraryBandhu Main Branch"
               />
             </div>
             <div className="space-y-2">
