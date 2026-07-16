@@ -47,17 +47,32 @@ export const AMENITIES_DICT: Record<string, { en: string; hi: string }> = {
 };
 
 function SettingsPage() {
-  const { data: session } = useSession();
-  const orgId = session?.orgId;
+  const { data: session, isLoading } = useSession();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
+
+  // Safely extract orgId
+  const orgId = session?.orgId;
 
   const org = useQuery({
     queryKey: ["org", orgId],
     enabled: !!orgId,
     queryFn: async () => (await supabase.from("organizations").select("*").eq("id", orgId!).maybeSingle()).data,
   });
+
   const { data: libs } = useLibraries();
+
+  // STRICT SAFETY CHECK: Do not render the page until the session has loaded the orgId
+  if (isLoading) {
+    return <div className="p-10 text-center text-muted-foreground animate-pulse">Loading settings...</div>;
+  }
+  if (!orgId) {
+    return (
+      <div className="p-10 text-center text-rose">
+        Error: Organization context missing. Please refresh or sign in again.
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -96,7 +111,7 @@ function SettingsPage() {
             </Button>
           </DialogTrigger>
           <LibraryFormDialog
-            orgId={orgId!}
+            orgId={orgId}
             onDone={() => {
               qc.invalidateQueries({ queryKey: ["libraries"] });
               setOpen(false);
@@ -111,7 +126,7 @@ function SettingsPage() {
             key={l.id}
             lib={l}
             onChanged={() => qc.invalidateQueries({ queryKey: ["libraries"] })}
-            orgId={orgId!}
+            orgId={orgId}
           />
         ))}
         {(libs ?? []).length === 0 && (
@@ -259,6 +274,13 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
         className="space-y-6"
         onSubmit={async (e) => {
           e.preventDefault();
+
+          // Double check to ensure orgId exists before processing
+          if (!orgId) {
+            toast.error("Security error: Organization ID missing. Please refresh.");
+            return;
+          }
+
           setLoading(true);
           const payload = {
             org_id: orgId,
@@ -465,12 +487,11 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
   );
 }
 
-// New OTP Deletion Component
+// OTP Deletion Component
 function DeleteBranchDialog({ lib, onDone }: { lib: any; onDone: () => void }) {
   const [step, setStep] = useState<"warning" | "otp">("warning");
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
-  const { data: session } = useSession();
 
   const handleRequestOtp = async () => {
     setLoading(true);
