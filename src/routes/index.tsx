@@ -107,9 +107,9 @@ function Marketplace() {
                 Student sign in
               </Button>
             </Link>
-            <Link to="/auth">
-              <Button size="sm" className="bg-white text-slate-900 hover:bg-white/90">
-                Owner
+            <Link to="/owners">
+              <Button size="sm" className="bg-gradient-to-r from-gold to-magenta text-slate-950 hover:opacity-90 shadow-[0_0_24px_-6px_rgba(236,72,153,0.6)]">
+                Partner with Us
               </Button>
             </Link>
           </nav>
