@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { inr, fmtDate } from "@/lib/format";
-import { changeMyPin } from "@/lib/students.functions";
+import { changeMyPin, sendEmailVerificationOtp, verifyEmailOtp } from "@/lib/students.functions";
 import { cn } from "@/lib/utils";
 import {
   LogOut,
@@ -363,6 +363,8 @@ function EmailVerificationGate({ profile }: { profile: any }) {
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
   const qc = useQueryClient();
+  const sendOtp = useServerFn(sendEmailVerificationOtp);
+  const verifyOtp = useServerFn(verifyEmailOtp);
 
   return (
     <Dialog open modal>
@@ -382,12 +384,13 @@ function EmailVerificationGate({ profile }: { profile: any }) {
               setLoading(true);
               try {
                 // 1. Request Email Update OTP via custom edge function
-                const { error } = await supabase.functions.invoke("send-email-verification-otp", {
-                  body: { email, student_id: profile.id },
-                });
-                if (error) throw error;
+                const res = await sendOtp({ data: { email, student_id: profile.id } });
+                if ((res as any)?.dev_code) {
+                  toast.success(`OTP sent. Dev code: ${(res as any).dev_code}`);
+                } else {
+                  toast.success("OTP sent to your email!");
+                }
                 setOtpSent(true);
-                toast.success("OTP sent to your email!");
               } catch (err: any) {
                 toast.error(err.message || "Failed to send OTP. Ensure your email is correct.");
               } finally {
@@ -417,11 +420,7 @@ function EmailVerificationGate({ profile }: { profile: any }) {
               e.preventDefault();
               setLoading(true);
               try {
-                // 2. Verify OTP via custom edge function
-                const { error } = await supabase.functions.invoke("verify-email-otp", {
-                  body: { email, otp, student_id: profile.id },
-                });
-                if (error) throw error;
+                await verifyOtp({ data: { email, otp, student_id: profile.id } });
                 toast.success("Email successfully verified!");
                 qc.invalidateQueries({ queryKey: ["student-profile"] });
               } catch (err: any) {
