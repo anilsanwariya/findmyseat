@@ -504,7 +504,7 @@ function AllocationsPage() {
                   if (!confirm("Are you sure you want to remove this student and vacate the seat?")) return;
                   const { error } = await supabase
                     .from("allocations")
-                    .update({ is_active: false, status: "completed" })
+                    .update({ is_active: false })
                     .eq("id", selectedOccupiedSeat.allocation.id);
                   if (error) {
                     toast.error(error.message);

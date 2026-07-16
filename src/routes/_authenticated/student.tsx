@@ -487,8 +487,8 @@ function StudentSeatMapDialog({ libraryId }: { libraryId: string }) {
         supabase.from("layout_objects").select("*").eq("section_id", currentSectionId!),
         supabase
           .from("allocations")
-          .select("seat_id, shifts(name)")
-          .eq("section_id", currentSectionId!)
+          .select("seat_id, shifts(name), seats!inner(section_id)")
+          .eq("seats.section_id", currentSectionId!)
           .eq("is_active", true),
       ]);
       return { seats: seats.data ?? [], objs: objs.data ?? [], allocs: allocs.data ?? [] };
