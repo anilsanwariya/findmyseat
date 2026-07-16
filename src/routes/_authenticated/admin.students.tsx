@@ -35,11 +35,13 @@ function StudentsPage() {
       let query = supabase
         .from("students")
         .select(
-          "id, full_name, mobile_number, dob, requires_pin_change, is_active, created_at, subscription_end, libraries(name), master_exams(name)",
+          "id, full_name, mobile_number, dob, requires_pin_change, is_active, created_at, libraries(name), master_exams(name), allocations(is_active)",
         )
         .eq("org_id", orgId!)
         .order("created_at", { ascending: false });
+
       if (q) query = query.or(`full_name.ilike.%${q}%,mobile_number.ilike.%${q}%`);
+
       const { data } = await query;
       return data ?? [];
     },
@@ -48,7 +50,7 @@ function StudentsPage() {
   return (
     <div className="space-y-6">
       <SectionHeader
-        title="Students"
+        title="Student Directory"
         hint="Onboard students, reset their PIN, and manage profiles."
         right={
           <Dialog open={open} onOpenChange={setOpen}>
@@ -58,8 +60,8 @@ function StudentsPage() {
               </Button>
             </DialogTrigger>
             <NewStudentDialog
-              onDone={() => {
-                qc.invalidateQueries({ queryKey: ["students"] });
+              onDone={async () => {
+                await qc.invalidateQueries({ queryKey: ["students"] });
                 setOpen(false);
               }}
             />
@@ -83,67 +85,70 @@ function StudentsPage() {
                 <th className="py-3 px-2 font-normal">Student</th>
                 <th className="py-3 px-2 font-normal">Mobile</th>
                 <th className="py-3 px-2 font-normal">Branch</th>
-                <th className="py-3 px-2 font-normal">Valid Till</th>
+                <th className="py-3 px-2 font-normal">Seat Status</th>
                 <th className="py-3 px-2 font-normal">PIN</th>
                 <th className="py-3 px-2 font-normal">Onboarded</th>
                 <th className="py-3 px-2 font-normal text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {(students.data ?? []).map((s: any) => (
-                <tr
-                  key={s.id}
-                  className="border-b border-panel-border/50 hover:bg-white/[0.02] transition-colors whitespace-nowrap"
-                >
-                  <td className="py-3 px-2 font-medium">{s.full_name}</td>
-                  <td className="py-3 px-2 font-mono">{s.mobile_number}</td>
-                  <td className="py-3 px-2 text-muted-foreground">{s.libraries?.name ?? "—"}</td>
-                  <td className="py-3 px-2">
-                    {s.subscription_end ? (
-                      <span
-                        className={`px-2 py-0.5 rounded text-[10px] ${new Date(s.subscription_end) < new Date() ? "bg-red-500/10 text-red-500" : "bg-emerald/10 text-emerald"}`}
+              {(students.data ?? []).map((s: any) => {
+                // Check if the student has any currently active seat allocations
+                const hasActiveSeat = s.allocations?.some((a: any) => a.is_active);
+
+                return (
+                  <tr
+                    key={s.id}
+                    className="border-b border-panel-border/50 hover:bg-white/[0.02] transition-colors whitespace-nowrap"
+                  >
+                    <td className="py-3 px-2 font-medium">{s.full_name}</td>
+                    <td className="py-3 px-2 font-mono">{s.mobile_number}</td>
+                    <td className="py-3 px-2 text-muted-foreground">{s.libraries?.name ?? "—"}</td>
+                    <td className="py-3 px-2">
+                      {hasActiveSeat ? (
+                        <span className="rounded bg-emerald/10 px-2 py-0.5 text-[10px] text-emerald">Assigned</span>
+                      ) : (
+                        <span className="rounded bg-panel px-2 py-0.5 text-[10px] text-muted-foreground">
+                          Unassigned
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-3 px-2">
+                      {s.requires_pin_change ? (
+                        <span className="rounded bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-400">
+                          Default (DOB)
+                        </span>
+                      ) : (
+                        <span className="rounded bg-emerald/10 px-2 py-0.5 text-[10px] text-emerald">Set</span>
+                      )}
+                    </td>
+                    <td className="py-3 px-2 text-muted-foreground">{fmtDate(s.created_at)}</td>
+                    <td className="py-3 px-2 text-right">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-muted-foreground hover:text-foreground"
+                        onClick={async () => {
+                          if (!confirm(`Reset PIN for ${s.full_name}? Their credential goes back to DOB.`)) return;
+                          try {
+                            await resetPin({ data: { student_id: s.id } });
+                            toast.success("PIN reset to DOB");
+                            qc.invalidateQueries({ queryKey: ["students"] });
+                          } catch (e: any) {
+                            toast.error(e.message);
+                          }
+                        }}
                       >
-                        {fmtDate(s.subscription_end)}
-                      </span>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                  <td className="py-3 px-2">
-                    {s.requires_pin_change ? (
-                      <span className="rounded bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-400">
-                        Default (DOB)
-                      </span>
-                    ) : (
-                      <span className="rounded bg-emerald/10 px-2 py-0.5 text-[10px] text-emerald">Set</span>
-                    )}
-                  </td>
-                  <td className="py-3 px-2 text-muted-foreground">{fmtDate(s.created_at)}</td>
-                  <td className="py-3 px-2 text-right">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="text-muted-foreground hover:text-foreground"
-                      onClick={async () => {
-                        if (!confirm(`Reset PIN for ${s.full_name}? Their credential goes back to DOB.`)) return;
-                        try {
-                          await resetPin({ data: { student_id: s.id } });
-                          toast.success("PIN reset to DOB");
-                          qc.invalidateQueries({ queryKey: ["students"] });
-                        } catch (e: any) {
-                          toast.error(e.message);
-                        }
-                      }}
-                    >
-                      <KeyRound className="mr-1 size-3" /> Reset PIN
-                    </Button>
-                  </td>
-                </tr>
-              ))}
+                        <KeyRound className="mr-1 size-3" /> Reset PIN
+                      </Button>
+                    </td>
+                  </tr>
+                );
+              })}
               {(students.data ?? []).length === 0 && (
                 <tr>
                   <td colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
-                    No students yet.
+                    No students found.
                   </td>
                 </tr>
               )}
@@ -187,7 +192,7 @@ function NewStudentDialog({ onDone }: { onDone: () => void }) {
                 target_exam_id: examId || null,
               },
             });
-            toast.success("Student onboarded");
+            toast.success("Student onboarded successfully.");
             onDone();
           } catch (err: any) {
             toast.error(err.message);
