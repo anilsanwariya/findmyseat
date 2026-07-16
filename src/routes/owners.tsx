@@ -6,10 +6,17 @@ import { Grid3x3, Sparkles, Megaphone, ReceiptText, ArrowRight, Building2, Check
 export const Route = createFileRoute("/owners")({
   head: () => ({
     meta: [
-      { title: "Partner with LEXICON — Library & Study Space SaaS" },
-      { name: "description", content: "Fill every desk and automate your library operations. Visual layout builder, lead generation, notice board, and expense ledger — built for library owners." },
-      { property: "og:title", content: "Partner with LEXICON — Library & Study Space SaaS" },
-      { property: "og:description", content: "Fill every desk and automate your library operations. Built for library owners." },
+      { title: "Partner with LibraryBandhu — Library & Study Space SaaS" },
+      {
+        name: "description",
+        content:
+          "Fill every desk and automate your library operations. Visual layout builder, lead generation, notice board, and expense ledger — built for library owners.",
+      },
+      { property: "og:title", content: "Partner with LibraryBandhu — Library & Study Space SaaS" },
+      {
+        property: "og:description",
+        content: "Fill every desk and automate your library operations. Built for library owners.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -27,7 +34,7 @@ const FEATURES = [
   {
     icon: Sparkles,
     title: "Automated Lead Generation",
-    desc: "Get discovered on the LEXICON student marketplace. Seat requests flow straight to your dashboard with contact details.",
+    desc: "Get discovered on the LibraryBandhu student marketplace. Seat requests flow straight to your dashboard with contact details.",
     tone: "from-gold/30 to-magenta/10",
   },
   {
@@ -51,16 +58,24 @@ function OwnersLandingPage() {
       <div className="relative z-10">
         <header className="mx-auto flex max-w-7xl items-center justify-between px-4 py-5 sm:px-6">
           <Link to="/" className="flex items-center gap-2">
-            <div className="grid size-8 place-items-center rounded-lg bg-gradient-to-br from-violet to-cyan font-black">L</div>
-            <span className="text-lg font-extrabold tracking-tight">LEXICON</span>
-            <span className="hidden sm:inline text-xs font-mono uppercase tracking-widest text-muted-foreground ml-2">for Owners</span>
+            <div className="grid size-8 place-items-center rounded-lg bg-gradient-to-br from-violet to-cyan font-black">
+              L
+            </div>
+            <span className="text-lg font-extrabold tracking-tight">LibraryBandhu</span>
+            <span className="hidden sm:inline text-xs font-mono uppercase tracking-widest text-muted-foreground ml-2">
+              for Owners
+            </span>
           </Link>
           <nav className="flex items-center gap-2">
             <Link to="/">
-              <Button variant="ghost" size="sm">Student site</Button>
+              <Button variant="ghost" size="sm">
+                Student site
+              </Button>
             </Link>
             <Link to="/owner-login">
-              <Button size="sm" className="bg-white text-slate-900 hover:bg-white/90">Sign in</Button>
+              <Button size="sm" className="bg-white text-slate-900 hover:bg-white/90">
+                Sign in
+              </Button>
             </Link>
           </nav>
         </header>
@@ -76,12 +91,15 @@ function OwnersLandingPage() {
             <span className="text-gradient-violet-cyan">Automate Your Library.</span>
           </h1>
           <p className="mx-auto mt-5 max-w-2xl text-base text-muted-foreground sm:text-lg">
-            LEXICON is the all-in-one management platform for library and study-space owners. Manage branches, seats, students,
-            allocations, and payments — while a built-in marketplace sends new students your way.
+            LibraryBandhu is the all-in-one management platform for library and study-space owners. Manage branches,
+            seats, students, allocations, and payments — while a built-in marketplace sends new students your way.
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link to="/owner-login">
-              <Button size="lg" className="h-12 px-6 bg-gradient-to-r from-gold to-magenta text-slate-950 hover:opacity-90 shadow-[0_0_30px_-6px_rgba(236,72,153,0.6)]">
+              <Button
+                size="lg"
+                className="h-12 px-6 bg-gradient-to-r from-gold to-magenta text-slate-950 hover:opacity-90 shadow-[0_0_30px_-6px_rgba(236,72,153,0.6)]"
+              >
                 Register Your Library <ArrowRight className="ml-2 size-4" />
               </Button>
             </Link>
@@ -94,7 +112,9 @@ function OwnersLandingPage() {
 
           <div className="mt-10 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-muted-foreground">
             {["Free 14-day trial", "No credit card required", "Cancel anytime"].map((t) => (
-              <span key={t} className="inline-flex items-center gap-1.5"><CheckCircle2 className="size-3.5 text-emerald" /> {t}</span>
+              <span key={t} className="inline-flex items-center gap-1.5">
+                <CheckCircle2 className="size-3.5 text-emerald" /> {t}
+              </span>
             ))}
           </div>
         </section>
@@ -102,13 +122,17 @@ function OwnersLandingPage() {
         {/* Feature Grid */}
         <section className="mx-auto max-w-7xl px-4 pb-16 sm:px-6">
           <div className="mb-8 text-center">
-            <h2 className="text-2xl font-extrabold tracking-tight sm:text-3xl">Everything you need. Nothing you don't.</h2>
+            <h2 className="text-2xl font-extrabold tracking-tight sm:text-3xl">
+              Everything you need. Nothing you don't.
+            </h2>
             <p className="mt-2 text-sm text-muted-foreground">Purpose-built for library owners who want to grow.</p>
           </div>
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {FEATURES.map((f) => (
               <GlassPanel key={f.title} className="group p-6 transition-transform hover:-translate-y-1">
-                <div className={`mb-4 inline-grid size-11 place-items-center rounded-xl bg-gradient-to-br ${f.tone} ring-1 ring-panel-border`}>
+                <div
+                  className={`mb-4 inline-grid size-11 place-items-center rounded-xl bg-gradient-to-br ${f.tone} ring-1 ring-panel-border`}
+                >
                   <f.icon className="size-5" />
                 </div>
                 <h3 className="text-base font-bold">{f.title}</h3>
@@ -125,7 +149,8 @@ function OwnersLandingPage() {
             <div className="relative">
               <h2 className="text-3xl font-black tracking-tight sm:text-4xl">Ready to digitalize your space?</h2>
               <p className="mx-auto mt-3 max-w-xl text-sm text-muted-foreground sm:text-base">
-                Join hundreds of library owners already using LEXICON to run their business — and get free student leads from day one.
+                Join hundreds of library owners already using LibraryBandhu to run their business — and get free student
+                leads from day one.
               </p>
               <Link to="/owner-login" className="mt-6 inline-block">
                 <Button size="lg" className="h-12 px-8 bg-white text-slate-900 hover:bg-white/90">
@@ -137,7 +162,7 @@ function OwnersLandingPage() {
         </section>
 
         <footer className="border-t border-panel-border/50 px-4 py-8 text-center text-xs text-muted-foreground">
-          © {new Date().getFullYear()} LEXICON · Built for library owners
+          © {new Date().getFullYear()} LibraryBandhu · Built for library owners
         </footer>
       </div>
     </div>
