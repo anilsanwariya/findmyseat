@@ -12,8 +12,11 @@ import { Building2 } from "lucide-react";
 export const Route = createFileRoute("/owner-login")({
   head: () => ({
     meta: [
-      { title: "Library Owner Sign in — LEXICON" },
-      { name: "description", content: "Sign in or register your library on LEXICON — the all-in-one library management SaaS." },
+      { title: "Library Owner Sign in — LibraryBandhu" },
+      {
+        name: "description",
+        content: "Sign in or register your library on LibraryBandhu — the all-in-one library management SaaS.",
+      },
     ],
   }),
   component: OwnerLoginPage,
@@ -33,7 +36,10 @@ function OwnerLoginPage() {
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
     toast.success("Welcome back");
     navigate({ to: "/dispatch" });
   }
@@ -41,11 +47,15 @@ function OwnerLoginPage() {
   async function signUp(email: string, password: string) {
     setLoading(true);
     const { data, error } = await supabase.auth.signUp({
-      email, password,
+      email,
+      password,
       options: { emailRedirectTo: `${window.location.origin}/onboarding` },
     });
     setLoading(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
     if (data.session) {
       toast.success("Account created");
       navigate({ to: "/onboarding" });
@@ -63,7 +73,9 @@ function OwnerLoginPage() {
             <div className="grid size-9 place-items-center rounded-xl bg-gradient-to-br from-gold to-magenta shadow-[0_0_24px_-6px_rgba(236,72,153,0.6)]">
               <Building2 className="size-4 text-slate-950" />
             </div>
-            <span className="text-lg font-extrabold tracking-tight">LEXICON <span className="text-muted-foreground font-normal">for Owners</span></span>
+            <span className="text-lg font-extrabold tracking-tight">
+              LibraryBandhu <span className="text-muted-foreground font-normal">for Owners</span>
+            </span>
           </Link>
           <GlassPanel className="p-6">
             <h1 className="text-xl font-bold">Business Account</h1>
@@ -73,15 +85,25 @@ function OwnerLoginPage() {
                 <TabsTrigger value="signin">Sign in</TabsTrigger>
                 <TabsTrigger value="signup">Register library</TabsTrigger>
               </TabsList>
-              <TabsContent value="signin"><AuthForm loading={loading} onSubmit={signIn} submitLabel="Sign in" /></TabsContent>
-              <TabsContent value="signup"><AuthForm loading={loading} onSubmit={signUp} submitLabel="Create account" /></TabsContent>
+              <TabsContent value="signin">
+                <AuthForm loading={loading} onSubmit={signIn} submitLabel="Sign in" />
+              </TabsContent>
+              <TabsContent value="signup">
+                <AuthForm loading={loading} onSubmit={signUp} submitLabel="Create account" />
+              </TabsContent>
             </Tabs>
             <p className="mt-6 text-center text-xs text-muted-foreground">
-              Are you a student? <Link to="/student-login" className="text-violet hover:underline">Sign in with mobile</Link>
+              Are you a student?{" "}
+              <Link to="/student-login" className="text-violet hover:underline">
+                Sign in with mobile
+              </Link>
             </p>
           </GlassPanel>
           <p className="mt-4 text-center text-xs text-muted-foreground">
-            New here? <Link to="/owners" className="text-cyan hover:underline">Learn how LEXICON grows your library →</Link>
+            New here?{" "}
+            <Link to="/owners" className="text-cyan hover:underline">
+              Learn how LibraryBandhu grows your library →
+            </Link>
           </p>
         </div>
       </div>
@@ -89,20 +111,53 @@ function OwnerLoginPage() {
   );
 }
 
-function AuthForm({ onSubmit, submitLabel, loading }: { onSubmit: (email: string, pw: string) => Promise<void>; submitLabel: string; loading: boolean }) {
+function AuthForm({
+  onSubmit,
+  submitLabel,
+  loading,
+}: {
+  onSubmit: (email: string, pw: string) => Promise<void>;
+  submitLabel: string;
+  loading: boolean;
+}) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   return (
-    <form onSubmit={(e) => { e.preventDefault(); onSubmit(email, password); }} className="mt-4 space-y-4">
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSubmit(email, password);
+      }}
+      className="mt-4 space-y-4"
+    >
       <div className="space-y-2">
         <Label htmlFor="email">Business email</Label>
-        <Input id="email" type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className="bg-panel border-panel-border" />
+        <Input
+          id="email"
+          type="email"
+          required
+          autoComplete="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="bg-panel border-panel-border"
+        />
       </div>
       <div className="space-y-2">
         <Label htmlFor="pw">Password</Label>
-        <Input id="pw" type="password" required minLength={6} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} className="bg-panel border-panel-border" />
+        <Input
+          id="pw"
+          type="password"
+          required
+          minLength={6}
+          autoComplete="current-password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className="bg-panel border-panel-border"
+        />
       </div>
-      <Button disabled={loading} type="submit" className="w-full bg-white text-slate-900 hover:bg-white/90">{loading ? "…" : submitLabel}</Button>
+      <Button disabled={loading} type="submit" className="w-full bg-white text-slate-900 hover:bg-white/90">
+        {loading ? "…" : submitLabel}
+      </Button>
     </form>
   );
 }
