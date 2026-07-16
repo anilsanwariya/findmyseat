@@ -81,10 +81,10 @@ function AllocationsPage() {
   const currentSectionId = sectionId ?? sectionsQ.data?.[0]?.id;
   const currentSection = sectionsQ.data?.find((s: any) => s.id === currentSectionId);
 
-  // Fetch all allocations for the data table
+  // Fetch allocations specifically filtered by the current selected library branch
   const allocations = useQuery({
-    queryKey: ["allocations", orgId],
-    enabled: !!orgId,
+    queryKey: ["allocations", orgId, currentLibId],
+    enabled: !!orgId && !!currentLibId,
     queryFn: async () => {
       const { data } = await supabase
         .from("allocations")
@@ -92,6 +92,7 @@ function AllocationsPage() {
           "id, monthly_fee, next_due_date, status, reservation_type, is_active, students(full_name, mobile_number), seats(id, seat_number), libraries(name), shifts(name)",
         )
         .eq("org_id", orgId!)
+        .eq("library_id", currentLibId!)
         .eq("is_active", true)
         .order("created_at", { ascending: false });
       return data ?? [];
@@ -414,7 +415,9 @@ function AllocationsPage() {
                   className="border-b border-panel-border/50 hover:bg-white/[0.02] transition-colors whitespace-nowrap"
                 >
                   <td className="py-3 px-2 font-medium">{a.students?.full_name}</td>
-                  <td className="py-3 px-2 font-mono text-cyan">{a.seats?.seat_number}</td>
+                  <td className="py-3 px-2 font-mono text-cyan">
+                    {a.reservation_type === "unreserved" ? "Unreserved" : (a.seats?.seat_number ?? "—")}
+                  </td>
                   <td className="py-3 px-2 text-muted-foreground">{a.libraries?.name}</td>
                   <td className="py-3 px-2 text-muted-foreground">{a.shifts?.name ?? "Full day"}</td>
                   <td className="py-3 px-2 font-mono">{inr(a.monthly_fee)}</td>
@@ -431,7 +434,7 @@ function AllocationsPage() {
               {(allocations.data ?? []).length === 0 && (
                 <tr>
                   <td colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
-                    No active allocations.
+                    No active allocations found for this branch.
                   </td>
                 </tr>
               )}
@@ -548,11 +551,28 @@ function NewAllocDialog({
   const [reservationType, setReservationType] = useState<"reserved" | "unreserved">("reserved");
   const [loading, setLoading] = useState(false);
 
+  // Subscription Duration State
+  const [duration, setDuration] = useState("1");
+  const [startDate, setStartDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [customEndDate, setCustomEndDate] = useState("");
+
   // Sync state if props change (useful when modal is opened via map click)
   useEffect(() => {
     if (initialLibraryId) setLibraryId(initialLibraryId);
     if (initialSeatId) setSeatId(initialSeatId);
   }, [initialLibraryId, initialSeatId]);
+
+  // Auto-calculate End Date based on Duration mode
+  const calculatedEndDate = useMemo(() => {
+    if (!startDate) return "";
+    if (duration === "custom") return customEndDate;
+
+    const d = new Date(startDate);
+    if (duration === "1") d.setMonth(d.getMonth() + 1);
+    if (duration === "3") d.setMonth(d.getMonth() + 3);
+    if (duration === "6") d.setMonth(d.getMonth() + 6);
+    return d.toISOString().split("T")[0];
+  }, [duration, startDate, customEndDate]);
 
   const students = useQuery({
     queryKey: ["students-for-alloc", orgId, libraryId],
@@ -602,18 +622,20 @@ function NewAllocDialog({
         onSubmit={async (e) => {
           e.preventDefault();
           setLoading(true);
-          const next_due = toISODate(addMonths(new Date(), 1));
+
           const { error } = await supabase.from("allocations").insert({
             org_id: orgId!,
             library_id: libraryId,
             student_id: studentId,
-            seat_id: seatId,
-            shift_id: shiftId || null,
+            seat_id: reservationType === "unreserved" ? null : seatId,
+            shift_id: shiftId === "none" || !shiftId ? null : shiftId,
             monthly_fee: Number(fee || 0),
-            next_due_date: next_due,
+            start_date: startDate || null,
+            next_due_date: calculatedEndDate || null,
             reservation_type: reservationType,
             status: "pending",
           });
+
           setLoading(false);
           if (error) {
             toast.error(error.message);
@@ -641,18 +663,20 @@ function NewAllocDialog({
           </div>
 
           <div className="space-y-2">
-            <Label>Seat (vacant only)</Label>
-            <Select value={seatId} onValueChange={setSeatId} disabled={!!initialSeatId}>
+            <Label>Type</Label>
+            <Select
+              value={reservationType}
+              onValueChange={(v: any) => {
+                setReservationType(v);
+                if (v === "unreserved") setSeatId("");
+              }}
+            >
               <SelectTrigger className="bg-panel border-panel-border">
-                <SelectValue placeholder="Choose seat" />
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {(seats.data ?? []).map((s: any) => (
-                  <SelectItem key={s.id} value={s.id}>
-                    {s.seat_number}
-                    {s.is_corner ? " ★" : ""}
-                  </SelectItem>
-                ))}
+                <SelectItem value="reserved">Reserved</SelectItem>
+                <SelectItem value="unreserved">Unreserved</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -676,12 +700,33 @@ function NewAllocDialog({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-2">
-            <Label>Shift (optional)</Label>
+            <Label>Seat {reservationType === "unreserved" ? "(Not Required)" : "(Vacant Only)"}</Label>
+            <Select
+              value={seatId}
+              onValueChange={setSeatId}
+              disabled={!!initialSeatId || reservationType === "unreserved"}
+            >
+              <SelectTrigger className="bg-panel border-panel-border">
+                <SelectValue placeholder={reservationType === "unreserved" ? "—" : "Choose seat"} />
+              </SelectTrigger>
+              <SelectContent>
+                {(seats.data ?? []).map((s: any) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.seat_number}
+                    {s.is_corner ? " ★" : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Shift</Label>
             <Select value={shiftId} onValueChange={setShiftId}>
               <SelectTrigger className="bg-panel border-panel-border">
                 <SelectValue placeholder="Full day" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="none">Full day</SelectItem>
                 {(shifts.data ?? []).map((s: any) => (
                   <SelectItem key={s.id} value={s.id}>
                     {s.name}
@@ -690,19 +735,56 @@ function NewAllocDialog({
               </SelectContent>
             </Select>
           </div>
+        </div>
+
+        {/* Subscription Duration Section */}
+        <div className="p-3 border border-panel-border rounded-lg bg-black/10 space-y-3">
           <div className="space-y-2">
-            <Label>Type</Label>
-            <Select value={reservationType} onValueChange={(v: any) => setReservationType(v)}>
+            <Label>Subscription Duration</Label>
+            <Select value={duration} onValueChange={setDuration}>
               <SelectTrigger className="bg-panel border-panel-border">
-                <SelectValue />
+                <SelectValue placeholder="Select duration" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="reserved">Reserved</SelectItem>
-                <SelectItem value="unreserved">Unreserved</SelectItem>
+                <SelectItem value="1">1 Month</SelectItem>
+                <SelectItem value="3">Quarterly (3 Months)</SelectItem>
+                <SelectItem value="6">6 Months</SelectItem>
+                <SelectItem value="custom">Custom Date-to-Date</SelectItem>
               </SelectContent>
             </Select>
           </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label>Start Date</Label>
+              <Input
+                type="date"
+                required
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="bg-panel border-panel-border text-sm block w-full"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>End Date / Next Due</Label>
+              {duration === "custom" ? (
+                <Input
+                  type="date"
+                  required
+                  value={customEndDate}
+                  onChange={(e) => setCustomEndDate(e.target.value)}
+                  className="bg-panel border-panel-border text-sm block w-full"
+                />
+              ) : (
+                <div className="h-10 flex items-center px-3 rounded-md border border-panel-border bg-panel text-sm text-muted-foreground overflow-hidden whitespace-nowrap text-ellipsis">
+                  {calculatedEndDate ? fmtDate(calculatedEndDate) : "—"}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
+
         <div className="space-y-2">
           <Label>Monthly fee (₹)</Label>
           <Input
@@ -714,7 +796,7 @@ function NewAllocDialog({
           />
         </div>
         <Button
-          disabled={loading || !seatId || !studentId}
+          disabled={loading || (reservationType === "reserved" && !seatId) || !studentId}
           type="submit"
           className="w-full mt-2 bg-white text-slate-900 hover:bg-white/90"
         >
