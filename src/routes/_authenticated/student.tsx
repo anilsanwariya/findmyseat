@@ -150,7 +150,7 @@ function StudentApp() {
   }
 
   const showPinGate = session.requiresPinChange;
-  const isDefaultEmail = !profile.data?.email || profile.data.email.endsWith("@students.lexicon.local");
+  const isDefaultEmail = !profile.data?.email || profile.data.email.endsWith("@students.librarybandhu.local");
   const showEmailGate = !showPinGate && isDefaultEmail;
 
   return (
@@ -166,7 +166,7 @@ function StudentApp() {
             <div className="grid size-8 place-items-center rounded-lg bg-gradient-to-br from-violet to-cyan font-black">
               L
             </div>
-            <span className="text-lg font-extrabold tracking-tight">LEXICON</span>
+            <span className="text-lg font-extrabold tracking-tight">LibraryBandhu</span>
           </div>
           <button
             onClick={signOut}
