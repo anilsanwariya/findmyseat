@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { inr, fmtDate, addMonths, toISODate } from "@/lib/format";
+import { inr, fmtDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import {
   Plus,
@@ -23,7 +23,6 @@ import {
   Droplets,
   Waves,
   UserMinus,
-  UserPlus,
   Image as ImageIcon,
   Navigation,
   MessageSquare,
@@ -234,7 +233,7 @@ function AllocationsPage() {
               onClick={() => setOpenNewAlloc(true)}
               className="w-full sm:w-auto bg-white text-slate-900 hover:bg-white/90"
             >
-              <Plus className="mr-1 size-4" /> Manual alloc
+              <Plus className="mr-1 size-4" /> New Allocation
             </Button>
           </div>
         }
@@ -600,7 +599,9 @@ function EditAllocationDialog({
         .eq("is_active", true)
         .order("seat_number");
 
-      if (sectionId) query = query.eq("section_id", sectionId);
+      if (sectionId && sectionId !== "all_sections") {
+        query = query.eq("section_id", sectionId);
+      }
 
       const [seatsRes, allocRes] = await Promise.all([
         query,
@@ -786,12 +787,35 @@ function NewAllocDialog({
   const [shiftId, setShiftId] = useState<string>("");
   const [fee, setFee] = useState<number | "">(1500);
   const [reservationType, setReservationType] = useState<"reserved" | "unreserved">("reserved");
+
+  // Payment States
+  const [amountPaid, setAmountPaid] = useState<number | "">(1500);
+  const [paymentMethod, setPaymentMethod] = useState<string>("upi");
+  const [endDate, setEndDate] = useState<string>("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (initialLibraryId) setLibraryId(initialLibraryId);
     if (initialSeatId) setSeatId(initialSeatId);
   }, [initialLibraryId, initialSeatId]);
+
+  // Sync Amount Paid default value to Base Fee
+  useEffect(() => {
+    if (fee !== "") setAmountPaid(fee);
+  }, [fee]);
+
+  // Auto-calculate exact due date based on payment amount prorated to 30 days
+  useEffect(() => {
+    const base = Number(fee) || 1;
+    const paid = Number(amountPaid) || 0;
+
+    // Start date is exactly today since it's a brand new allocation
+    const d = new Date();
+    const days = Math.round((paid / base) * 30);
+
+    d.setDate(d.getDate() + days);
+    setEndDate(d.toISOString().split("T")[0]);
+  }, [fee, amountPaid]);
 
   const students = useQuery({
     queryKey: ["students-for-alloc", orgId, libraryId],
@@ -849,7 +873,7 @@ function NewAllocDialog({
   return (
     <DialogContent className="glass-strong border-panel-border w-[95vw] max-w-lg max-h-[90vh] overflow-y-auto">
       <DialogHeader>
-        <DialogTitle>{initialSeatId ? "Assign Student to Seat" : "New allocation"}</DialogTitle>
+        <DialogTitle>{initialSeatId ? "Assign & Log Payment" : "New Allocation & Payment"}</DialogTitle>
       </DialogHeader>
       <form
         className="space-y-4"
@@ -857,26 +881,53 @@ function NewAllocDialog({
           e.preventDefault();
           setLoading(true);
 
-          const { error } = await supabase.from("allocations").insert({
-            org_id: orgId!,
-            library_id: libraryId,
-            student_id: studentId,
-            seat_id: reservationType === "unreserved" ? null : seatId,
-            shift_id: shiftId === "none" || !shiftId ? null : shiftId,
-            monthly_fee: Number(fee || 0),
-            reservation_type: reservationType,
-            status: "pending",
-          });
+          try {
+            const today = new Date().toISOString().split("T")[0];
 
-          setLoading(false);
-          if (error) {
-            toast.error(error.message);
-            return;
+            // 1. Create the Allocation (already marked paid and dates set)
+            const { data: allocData, error: allocError } = await supabase
+              .from("allocations")
+              .insert({
+                org_id: orgId!,
+                library_id: libraryId,
+                student_id: studentId,
+                seat_id: reservationType === "unreserved" ? null : seatId,
+                shift_id: shiftId === "none" || !shiftId ? null : shiftId,
+                monthly_fee: Number(fee || 0),
+                reservation_type: reservationType,
+                status: "paid",
+                start_date: today,
+                next_due_date: endDate,
+              })
+              .select()
+              .single();
+
+            if (allocError) throw allocError;
+
+            // 2. Create the Payment Receipt linked to this allocation
+            const { error: paymentError } = await supabase.from("payments").insert({
+              org_id: orgId!,
+              library_id: libraryId,
+              student_id: studentId,
+              allocation_id: allocData.id,
+              amount_paid: Number(amountPaid || 0),
+              method: paymentMethod,
+              covers_until: endDate,
+              payment_date: today,
+            });
+
+            if (paymentError) throw paymentError;
+
+            toast.success("Seat assigned and payment logged successfully.");
+            onDone();
+          } catch (err: any) {
+            toast.error(err.message);
+          } finally {
+            setLoading(false);
           }
-          toast.success("Allocation created. Set dates in Payments view.");
-          onDone();
         }}
       >
+        {/* --- Allocation Details Section --- */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-2">
             <Label>Branch</Label>
@@ -1013,7 +1064,7 @@ function NewAllocDialog({
           </div>
 
           <div className="space-y-2">
-            <Label>Monthly fee (₹)</Label>
+            <Label>Base Monthly fee (₹)</Label>
             <Input
               required
               type="number"
@@ -1024,17 +1075,50 @@ function NewAllocDialog({
           </div>
         </div>
 
-        <div className="rounded-lg border border-panel-border bg-panel p-3 text-xs text-muted-foreground leading-relaxed mt-2">
-          Note: This only assigns the seat. You must log the initial payment on the Payments page to activate their
-          access.
+        {/* --- Initial Payment Section --- */}
+        <div className="p-4 border border-panel-border rounded-lg bg-black/20 space-y-4 mt-2">
+          <h4 className="text-xs uppercase tracking-widest text-muted-foreground font-semibold">Initial Payment</h4>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label className="text-cyan">Amount Paid Now (₹)</Label>
+              <Input
+                required
+                type="number"
+                value={amountPaid}
+                onChange={(e) => setAmountPaid(Number(e.target.value))}
+                className="bg-panel border-cyan/30 focus-visible:ring-cyan/50 font-mono w-full"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Payment Method</Label>
+              <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                <SelectTrigger className="bg-panel border-panel-border">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="upi">UPI</SelectItem>
+                  <SelectItem value="cash">Cash</SelectItem>
+                  <SelectItem value="card">Card</SelectItem>
+                  <SelectItem value="bank_transfer">Bank transfer</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="bg-panel p-2 rounded flex items-center justify-between border border-panel-border/50 text-sm">
+            <span className="text-muted-foreground">Calculated Due Date:</span>
+            <span className="font-mono font-bold text-emerald">{endDate ? fmtDate(endDate) : "—"}</span>
+          </div>
         </div>
 
         <Button
-          disabled={loading || (reservationType === "reserved" && !seatId) || !studentId}
+          disabled={loading || (reservationType === "reserved" && !seatId) || !studentId || !amountPaid}
           type="submit"
           className="w-full mt-2 bg-white text-slate-900 hover:bg-white/90"
         >
-          {loading ? "…" : "Confirm Assignment"}
+          {loading ? "Processing…" : "Assign Seat & Log Payment"}
         </Button>
       </form>
     </DialogContent>
