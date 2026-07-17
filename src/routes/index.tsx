@@ -80,6 +80,9 @@ function Marketplace() {
   const [examId, setExamId] = useState<string>("");
   const [requestLib, setRequestLib] = useState<any | null>(null);
   const [detailsLib, setDetailsLib] = useState<any | null>(null);
+  const [nearCoords, setNearCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [radiusKm, setRadiusKm] = useState<number>(5);
+  const [geoLoading, setGeoLoading] = useState(false);
 
   const search = useServerFn(marketplaceSearch);
   const examsFn = useServerFn(listPublicExams);
@@ -88,12 +91,42 @@ function Marketplace() {
   const exams = useQuery({ queryKey: ["public-exams"], queryFn: () => examsFn(), staleTime: 10 * 60_000 });
   const zones = useQuery({ queryKey: ["public-zones"], queryFn: () => zonesFn(), staleTime: 10 * 60_000 });
   const results = useQuery({
-    queryKey: ["marketplace", query, zone, examId],
-    queryFn: () => search({ data: { query: query || null, zone: zone || null, exam_id: examId || null } }),
+    queryKey: ["marketplace", query, zone, examId, nearCoords?.lat ?? null, nearCoords?.lng ?? null, nearCoords ? radiusKm : null],
+    queryFn: () =>
+      search({
+        data: {
+          query: query || null,
+          zone: zone || null,
+          exam_id: examId || null,
+          near_lat: nearCoords?.lat ?? null,
+          near_lng: nearCoords?.lng ?? null,
+          radius_km: nearCoords ? radiusKm : null,
+        },
+      }),
     staleTime: 30_000,
   });
 
   const libs = results.data?.libraries ?? [];
+
+  function requestNearby() {
+    if (!("geolocation" in navigator)) {
+      toast.error("Geolocation not supported on this device");
+      return;
+    }
+    setGeoLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setNearCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setGeoLoading(false);
+        toast.success("Showing libraries near you");
+      },
+      (err) => {
+        setGeoLoading(false);
+        toast.error(err.message || "Could not get your location");
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 },
+    );
+  }
 
   return (
     <div className="relative min-h-screen text-foreground flex flex-col">
