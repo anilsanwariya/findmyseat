@@ -19,7 +19,9 @@ import {
 } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Plus, Building2, Globe, Languages, Edit2, Trash2, Mail, AlertTriangle } from "lucide-react";
+import { Plus, Building2, Globe, Languages, Edit2, Trash2, Mail, AlertTriangle, Image as ImageIcon, X as XIcon, Upload } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { uploadLibraryPhoto, deleteLibraryPhoto } from "@/lib/libraries.functions";
 
 export const Route = createFileRoute("/_authenticated/admin/settings")({
   component: SettingsPage,
