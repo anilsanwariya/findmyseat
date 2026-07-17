@@ -97,7 +97,7 @@ function AllocationsPage() {
       const { data } = await supabase
         .from("allocations")
         .select(
-          "id, monthly_fee, next_due_date, status, reservation_type, is_active, library_id, seat_id, shift_id, students(full_name, mobile_number), seats(id, seat_number, section_id), libraries(name), shifts(name)",
+          "id, monthly_fee, next_due_date, status, reservation_type, is_active, library_id, seat_id, shift_id, student_id, students(full_name, mobile_number), seats(id, seat_number, section_id), libraries(name), shifts(name)",
         )
         .eq("org_id", orgId!)
         .eq("library_id", currentLibId!)
