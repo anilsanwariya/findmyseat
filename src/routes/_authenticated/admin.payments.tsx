@@ -203,14 +203,7 @@ function PaymentsPage() {
 
       {detailId && <PaymentDetailDialog paymentId={detailId} onClose={() => setDetailId(null)} />}
       {historyStudent && (
-        <StudentHistoryDialog
-          student={historyStudent}
-          onClose={() => setHistoryStudent(null)}
-          onOpenPayment={(id) => {
-            setHistoryStudent(null);
-            setDetailId(id);
-          }}
-        />
+        <StudentPaymentHistoryDialog student={historyStudent} onClose={() => setHistoryStudent(null)} />
       )}
     </div>
   );
