@@ -382,37 +382,84 @@ function PhotoManagerDialog({ lib }: { lib: any }) {
         </div>
 
         <div>
-          <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-2">
-            Gallery ({photos.data?.length ?? 0})
+          <div className="mb-2 flex items-center justify-between">
+            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+              Gallery ({photos.data?.length ?? 0})
+            </div>
+            {(photos.data?.length ?? 0) > 1 && (
+              <div className="text-[10px] text-muted-foreground">First photo = cover on marketplace card</div>
+            )}
           </div>
           {photos.data && photos.data.length > 0 ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {photos.data.map((p: any) => (
-                <div key={p.id} className="group relative overflow-hidden rounded-lg border border-panel-border bg-panel">
-                  <img src={p.image_url} alt={p.section_name} className="aspect-[4/3] w-full object-cover" />
-                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2">
-                    <div className="text-[11px] font-medium truncate">{p.section_name}</div>
+              {photos.data.map((p: any, idx: number) => {
+                const isCover = idx === 0;
+                const isLast = idx === (photos.data?.length ?? 0) - 1;
+                return (
+                  <div key={p.id} className="group relative overflow-hidden rounded-lg border border-panel-border bg-panel">
+                    <img src={p.image_url} alt={p.section_name} className="aspect-[4/3] w-full object-cover" />
+                    {isCover && (
+                      <div className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full border border-gold/40 bg-black/70 px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-gold">
+                        <Star className="size-2.5 fill-gold" /> Cover
+                      </div>
+                    )}
+                    <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-gradient-to-t from-black/80 to-transparent p-2">
+                      <div className="min-w-0 text-[11px] font-medium truncate">{p.section_name}</div>
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          type="button"
+                          disabled={idx === 0}
+                          onClick={() => moveBy(idx, -1)}
+                          className="grid size-6 place-items-center rounded bg-black/70 text-white hover:bg-cyan/80 disabled:opacity-30"
+                          aria-label="Move earlier"
+                        >
+                          <ArrowUp className="size-3" />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isLast}
+                          onClick={() => moveBy(idx, 1)}
+                          className="grid size-6 place-items-center rounded bg-black/70 text-white hover:bg-cyan/80 disabled:opacity-30"
+                          aria-label="Move later"
+                        >
+                          <ArrowDown className="size-3" />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {!isCover && (
+                        <button
+                          type="button"
+                          onClick={() => setAsCover(idx)}
+                          className="grid size-7 place-items-center rounded-full bg-black/70 text-gold hover:bg-gold/20"
+                          aria-label="Set as cover"
+                          title="Set as cover"
+                        >
+                          <Star className="size-3.5" />
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (!confirm("Delete this photo?")) return;
+                          try {
+                            await deleteFn({ data: { photo_id: p.id } });
+                            toast.success("Photo removed");
+                            qc.invalidateQueries({ queryKey: ["library-photos-admin", lib.id] });
+                            qc.invalidateQueries({ queryKey: ["library-photos"] });
+                          } catch (e: any) {
+                            toast.error(e.message);
+                          }
+                        }}
+                        className="grid size-7 place-items-center rounded-full bg-black/70 text-white hover:bg-rose"
+                        aria-label="Delete photo"
+                      >
+                        <XIcon className="size-3.5" />
+                      </button>
+                    </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (!confirm("Delete this photo?")) return;
-                      try {
-                        await deleteFn({ data: { photo_id: p.id } });
-                        toast.success("Photo removed");
-                        qc.invalidateQueries({ queryKey: ["library-photos-admin", lib.id] });
-                        qc.invalidateQueries({ queryKey: ["library-photos"] });
-                      } catch (e: any) {
-                        toast.error(e.message);
-                      }
-                    }}
-                    className="absolute top-2 right-2 grid size-7 place-items-center rounded-full bg-black/70 text-white opacity-0 group-hover:opacity-100 hover:bg-rose transition-opacity"
-                    aria-label="Delete photo"
-                  >
-                    <XIcon className="size-3.5" />
-                  </button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div className="rounded-lg border border-dashed border-panel-border bg-panel/40 py-10 text-center text-xs text-muted-foreground">
