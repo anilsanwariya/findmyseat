@@ -38,7 +38,7 @@ export const marketplaceSearch = createServerFn({ method: "POST" })
     if (!libraries.length) return { libraries: [] as any[] };
 
     const libIds = libraries.map((l: any) => l.id);
-    const [seatsRes, allocsRes, examsRes] = await Promise.all([
+    const [seatsRes, allocsRes, examsRes, photosRes] = await Promise.all([
       supabaseAdmin.from("seats").select("id, library_id").in("library_id", libIds).eq("is_active", true),
       supabaseAdmin
         .from("allocations")
@@ -46,10 +46,20 @@ export const marketplaceSearch = createServerFn({ method: "POST" })
         .eq("is_active", true)
         .in("library_id", libIds),
       supabaseAdmin.from("master_exams").select("id, name"),
+      supabaseAdmin
+        .from("library_photos")
+        .select("library_id, image_url, display_order")
+        .in("library_id", libIds)
+        .order("display_order", { ascending: true }),
     ]);
     const seats = seatsRes.data ?? [];
     const allocs = allocsRes.data ?? [];
     const examMap = new Map((examsRes.data ?? []).map((e: any) => [e.id, e.name]));
+    const photos = photosRes.data ?? [];
+    const firstPhotoByLib = new Map<string, string>();
+    for (const p of photos) {
+      if (!firstPhotoByLib.has(p.library_id)) firstPhotoByLib.set(p.library_id, p.image_url);
+    }
 
     const studentIds = Array.from(new Set(allocs.map((a: any) => a.student_id)));
     let studentExam = new Map<string, string | null>();
@@ -95,7 +105,7 @@ export const marketplaceSearch = createServerFn({ method: "POST" })
           shifts: l.shifts,
           closed_on: l.closed_on,
           amenities: l.amenities ?? {},
-          cover_photo_url: l.cover_photo_url,
+          cover_photo_url: firstPhotoByLib.get(l.id) ?? l.cover_photo_url,
           description: l.description,
           show_public_availability: l.show_public_availability,
           vacant_count: l.show_public_availability ? vacant : null,

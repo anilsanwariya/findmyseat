@@ -19,9 +19,9 @@ import {
 } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Plus, Building2, Globe, Languages, Edit2, Trash2, Mail, AlertTriangle, Image as ImageIcon, X as XIcon, Upload } from "lucide-react";
+import { Plus, Building2, Globe, Languages, Edit2, Trash2, Mail, AlertTriangle, Image as ImageIcon, X as XIcon, Upload, ArrowUp, ArrowDown, Star } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
-import { uploadLibraryPhoto, deleteLibraryPhoto } from "@/lib/libraries.functions";
+import { uploadLibraryPhoto, deleteLibraryPhoto, reorderLibraryPhotos } from "@/lib/libraries.functions";
 
 export const Route = createFileRoute("/_authenticated/admin/settings")({
   component: SettingsPage,
@@ -253,6 +253,41 @@ function PhotoManagerDialog({ lib }: { lib: any }) {
   const [section, setSection] = useState("Overview");
   const uploadFn = useServerFn(uploadLibraryPhoto);
   const deleteFn = useServerFn(deleteLibraryPhoto);
+  const reorderFn = useServerFn(reorderLibraryPhotos);
+
+  async function moveBy(index: number, delta: number) {
+    const list = (photos.data ?? []).slice();
+    const target = index + delta;
+    if (target < 0 || target >= list.length) return;
+    [list[index], list[target]] = [list[target], list[index]];
+    const ids = list.map((p: any) => p.id);
+    // Optimistic update
+    qc.setQueryData(["library-photos-admin", lib.id], list.map((p: any, i: number) => ({ ...p, display_order: i })));
+    try {
+      await reorderFn({ data: { library_id: lib.id, photo_ids: ids } });
+      qc.invalidateQueries({ queryKey: ["library-photos"] });
+    } catch (e: any) {
+      toast.error(e.message || "Reorder failed");
+      qc.invalidateQueries({ queryKey: ["library-photos-admin", lib.id] });
+    }
+  }
+
+  async function setAsCover(index: number) {
+    if (index === 0) return;
+    const list = (photos.data ?? []).slice();
+    const [picked] = list.splice(index, 1);
+    list.unshift(picked);
+    const ids = list.map((p: any) => p.id);
+    qc.setQueryData(["library-photos-admin", lib.id], list.map((p: any, i: number) => ({ ...p, display_order: i })));
+    try {
+      await reorderFn({ data: { library_id: lib.id, photo_ids: ids } });
+      toast.success("Cover photo updated");
+      qc.invalidateQueries({ queryKey: ["library-photos"] });
+    } catch (e: any) {
+      toast.error(e.message || "Failed");
+      qc.invalidateQueries({ queryKey: ["library-photos-admin", lib.id] });
+    }
+  }
 
   const photos = useQuery({
     queryKey: ["library-photos-admin", lib.id],
@@ -308,8 +343,7 @@ function PhotoManagerDialog({ lib }: { lib: any }) {
           <ImageIcon className="size-4 text-cyan" /> Photos · {lib.name}
         </DialogTitle>
         <DialogDescription>
-          Photos appear in the marketplace gallery for students to swipe through. Max 5MB each. Recommended: bright, well-lit
-          shots of your seating area, reading zones, and amenities.
+          Photos appear in the marketplace gallery for students to swipe through. The first photo is used as the cover on your marketplace card — drag order or use the star to change it. Max 5MB each. Uploading a new photo puts the branch back into the super-admin approval queue.
         </DialogDescription>
       </DialogHeader>
 
@@ -347,37 +381,84 @@ function PhotoManagerDialog({ lib }: { lib: any }) {
         </div>
 
         <div>
-          <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-2">
-            Gallery ({photos.data?.length ?? 0})
+          <div className="mb-2 flex items-center justify-between">
+            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+              Gallery ({photos.data?.length ?? 0})
+            </div>
+            {(photos.data?.length ?? 0) > 1 && (
+              <div className="text-[10px] text-muted-foreground">First photo = cover on marketplace card</div>
+            )}
           </div>
           {photos.data && photos.data.length > 0 ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {photos.data.map((p: any) => (
-                <div key={p.id} className="group relative overflow-hidden rounded-lg border border-panel-border bg-panel">
-                  <img src={p.image_url} alt={p.section_name} className="aspect-[4/3] w-full object-cover" />
-                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2">
-                    <div className="text-[11px] font-medium truncate">{p.section_name}</div>
+              {photos.data.map((p: any, idx: number) => {
+                const isCover = idx === 0;
+                const isLast = idx === (photos.data?.length ?? 0) - 1;
+                return (
+                  <div key={p.id} className="group relative overflow-hidden rounded-lg border border-panel-border bg-panel">
+                    <img src={p.image_url} alt={p.section_name} className="aspect-[4/3] w-full object-cover" />
+                    {isCover && (
+                      <div className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full border border-gold/40 bg-black/70 px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-gold">
+                        <Star className="size-2.5 fill-gold" /> Cover
+                      </div>
+                    )}
+                    <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-gradient-to-t from-black/80 to-transparent p-2">
+                      <div className="min-w-0 text-[11px] font-medium truncate">{p.section_name}</div>
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          type="button"
+                          disabled={idx === 0}
+                          onClick={() => moveBy(idx, -1)}
+                          className="grid size-6 place-items-center rounded bg-black/70 text-white hover:bg-cyan/80 disabled:opacity-30"
+                          aria-label="Move earlier"
+                        >
+                          <ArrowUp className="size-3" />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isLast}
+                          onClick={() => moveBy(idx, 1)}
+                          className="grid size-6 place-items-center rounded bg-black/70 text-white hover:bg-cyan/80 disabled:opacity-30"
+                          aria-label="Move later"
+                        >
+                          <ArrowDown className="size-3" />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {!isCover && (
+                        <button
+                          type="button"
+                          onClick={() => setAsCover(idx)}
+                          className="grid size-7 place-items-center rounded-full bg-black/70 text-gold hover:bg-gold/20"
+                          aria-label="Set as cover"
+                          title="Set as cover"
+                        >
+                          <Star className="size-3.5" />
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (!confirm("Delete this photo?")) return;
+                          try {
+                            await deleteFn({ data: { photo_id: p.id } });
+                            toast.success("Photo removed");
+                            qc.invalidateQueries({ queryKey: ["library-photos-admin", lib.id] });
+                            qc.invalidateQueries({ queryKey: ["library-photos"] });
+                          } catch (e: any) {
+                            toast.error(e.message);
+                          }
+                        }}
+                        className="grid size-7 place-items-center rounded-full bg-black/70 text-white hover:bg-rose"
+                        aria-label="Delete photo"
+                      >
+                        <XIcon className="size-3.5" />
+                      </button>
+                    </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (!confirm("Delete this photo?")) return;
-                      try {
-                        await deleteFn({ data: { photo_id: p.id } });
-                        toast.success("Photo removed");
-                        qc.invalidateQueries({ queryKey: ["library-photos-admin", lib.id] });
-                        qc.invalidateQueries({ queryKey: ["library-photos"] });
-                      } catch (e: any) {
-                        toast.error(e.message);
-                      }
-                    }}
-                    className="absolute top-2 right-2 grid size-7 place-items-center rounded-full bg-black/70 text-white opacity-0 group-hover:opacity-100 hover:bg-rose transition-opacity"
-                    aria-label="Delete photo"
-                  >
-                    <XIcon className="size-3.5" />
-                  </button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div className="rounded-lg border border-dashed border-panel-border bg-panel/40 py-10 text-center text-xs text-muted-foreground">
