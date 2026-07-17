@@ -621,7 +621,7 @@ function StudentSeatMapDialog({ libraryId }: { libraryId: string }) {
                     }}
                   >
                     <div className="flex flex-col items-center justify-center opacity-80 gap-1 p-2 text-center">
-                      <Icon className={cn(isMultiCell ? "size-5" : "size-3.5")} />
+                      {Icon && <Icon className={cn(isMultiCell ? "size-5" : "size-3.5")} />}
                       {meta.label && (
                         <span
                           className={cn("truncate", isMultiCell ? "font-bold tracking-widest uppercase" : "mt-0.5")}

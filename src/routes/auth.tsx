@@ -4,17 +4,26 @@ import { AuroraBackground, GlassPanel } from "@/components/glass";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { ShieldCheck } from "lucide-react";
 
 export const Route = createFileRoute("/auth")({
-  component: AuthPage,
+  head: () => ({
+    meta: [
+      { title: "Master Admin sign in — LibraryBandhu" },
+      { name: "description", content: "Secure sign-in for LibraryBandhu platform administrators." },
+      { name: "robots", content: "noindex,nofollow" },
+    ],
+  }),
+  component: SuperAdminAuthPage,
 });
 
-function AuthPage() {
+function SuperAdminAuthPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -22,7 +31,8 @@ function AuthPage() {
     });
   }, [navigate]);
 
-  async function signIn(email: string, password: string) {
+  async function signIn(e: React.FormEvent) {
+    e.preventDefault();
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
@@ -34,112 +44,75 @@ function AuthPage() {
     navigate({ to: "/dispatch" });
   }
 
-  async function signUp(email: string, password: string) {
-    setLoading(true);
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { emailRedirectTo: `${window.location.origin}/onboarding` },
-    });
-    setLoading(false);
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-    if (data.session) {
-      toast.success("Account created");
-      navigate({ to: "/onboarding" });
-    } else {
-      toast.success("Check your email to confirm your account");
-    }
-  }
-
   return (
     <div className="relative min-h-screen text-foreground">
       <AuroraBackground />
-      <div className="relative z-10 flex min-h-screen items-center justify-center px-4">
-        <div className="w-full max-w-md">
-          <Link to="/" className="mb-6 flex items-center justify-center gap-2">
+      <div className="relative z-10 flex min-h-screen flex-col">
+        <header className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-5 sm:px-6">
+          <Link to="/" className="flex items-center gap-2">
             <div className="grid size-8 place-items-center rounded-lg bg-gradient-to-br from-violet to-cyan font-black">
               L
             </div>
             <span className="text-lg font-extrabold tracking-tight">LibraryBandhu</span>
           </Link>
-          <GlassPanel className="p-6">
-            <h1 className="text-xl font-bold">Library owner access</h1>
-            <p className="mt-1 text-sm text-muted-foreground">Sign in or create a new owner workspace.</p>
-            <Tabs defaultValue="signin" className="mt-6">
-              <TabsList className="grid w-full grid-cols-2 bg-panel">
-                <TabsTrigger value="signin">Sign in</TabsTrigger>
-                <TabsTrigger value="signup">Create workspace</TabsTrigger>
-              </TabsList>
-              <TabsContent value="signin">
-                <AuthForm loading={loading} onSubmit={signIn} submitLabel="Sign in" />
-              </TabsContent>
-              <TabsContent value="signup">
-                <AuthForm loading={loading} onSubmit={signUp} submitLabel="Create account" />
-              </TabsContent>
-            </Tabs>
-            <p className="mt-6 text-center text-xs text-muted-foreground">
-              Are you a student?{" "}
-              <Link to="/student-login" className="text-violet hover:underline">
-                Sign in with mobile
+        </header>
+        <div className="flex flex-1 items-center justify-center px-4 pb-16">
+          <div className="w-full max-w-md">
+            <GlassPanel className="p-6">
+              <div className="flex items-center gap-2">
+                <div className="grid size-9 place-items-center rounded-xl bg-gradient-to-br from-rose to-magenta shadow-[0_0_24px_-6px_rgba(244,63,94,0.6)]">
+                  <ShieldCheck className="size-4 text-slate-950" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold">Master Admin</h1>
+                  <p className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
+                    Restricted access
+                  </p>
+                </div>
+              </div>
+              <p className="mt-4 text-sm text-muted-foreground">
+                Platform administrators only. This portal is monitored.
+              </p>
+              <form onSubmit={signIn} className="mt-6 space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Admin email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    required
+                    autoComplete="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="bg-panel border-panel-border"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="pw">Password</Label>
+                  <Input
+                    id="pw"
+                    type="password"
+                    required
+                    minLength={6}
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="bg-panel border-panel-border"
+                  />
+                </div>
+                <Button disabled={loading} type="submit" className="w-full bg-white text-slate-900 hover:bg-white/90">
+                  {loading ? "…" : "Sign in"}
+                </Button>
+              </form>
+            </GlassPanel>
+            <p className="mt-4 text-center text-xs text-muted-foreground">
+              Not a platform admin?{" "}
+              <Link to="/" className="text-violet hover:underline">
+                Return to homepage
               </Link>
             </p>
-          </GlassPanel>
+          </div>
         </div>
       </div>
     </div>
-  );
-}
-
-function AuthForm({
-  onSubmit,
-  submitLabel,
-  loading,
-}: {
-  onSubmit: (email: string, pw: string) => Promise<void>;
-  submitLabel: string;
-  loading: boolean;
-}) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        onSubmit(email, password);
-      }}
-      className="mt-4 space-y-4"
-    >
-      <div className="space-y-2">
-        <Label htmlFor="email">Email</Label>
-        <Input
-          id="email"
-          type="email"
-          required
-          autoComplete="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="bg-panel border-panel-border"
-        />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="pw">Password</Label>
-        <Input
-          id="pw"
-          type="password"
-          required
-          minLength={6}
-          autoComplete="current-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="bg-panel border-panel-border"
-        />
-      </div>
-      <Button disabled={loading} type="submit" className="w-full bg-white text-slate-900 hover:bg-white/90">
-        {loading ? "…" : submitLabel}
-      </Button>
-    </form>
   );
 }

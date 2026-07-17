@@ -67,44 +67,51 @@ function OwnerLoginPage() {
   return (
     <div className="relative min-h-screen text-foreground">
       <AuroraBackground />
-      <div className="relative z-10 flex min-h-screen items-center justify-center px-4">
-        <div className="w-full max-w-md">
-          <Link to="/owners" className="mb-6 flex items-center justify-center gap-2">
-            <div className="grid size-9 place-items-center rounded-xl bg-gradient-to-br from-gold to-magenta shadow-[0_0_24px_-6px_rgba(236,72,153,0.6)]">
-              <Building2 className="size-4 text-slate-950" />
+      <div className="relative z-10 flex min-h-screen flex-col">
+        <header className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-5 sm:px-6">
+          <Link to="/" className="flex items-center gap-2">
+            <div className="grid size-8 place-items-center rounded-lg bg-gradient-to-br from-violet to-cyan font-black">
+              L
             </div>
-            <span className="text-lg font-extrabold tracking-tight">
-              LibraryBandhu <span className="text-muted-foreground font-normal">for Owners</span>
-            </span>
+            <span className="text-lg font-extrabold tracking-tight">LibraryBandhu</span>
           </Link>
-          <GlassPanel className="p-6">
-            <h1 className="text-xl font-bold">Business Account</h1>
-            <p className="mt-1 text-sm text-muted-foreground">Sign in or register your library workspace.</p>
-            <Tabs defaultValue="signin" className="mt-6">
-              <TabsList className="grid w-full grid-cols-2 bg-panel">
-                <TabsTrigger value="signin">Sign in</TabsTrigger>
-                <TabsTrigger value="signup">Register library</TabsTrigger>
-              </TabsList>
-              <TabsContent value="signin">
-                <AuthForm loading={loading} onSubmit={signIn} submitLabel="Sign in" />
-              </TabsContent>
-              <TabsContent value="signup">
-                <AuthForm loading={loading} onSubmit={signUp} submitLabel="Create account" />
-              </TabsContent>
-            </Tabs>
-            <p className="mt-6 text-center text-xs text-muted-foreground">
-              Are you a student?{" "}
-              <Link to="/student-login" className="text-violet hover:underline">
-                Sign in with mobile
+        </header>
+        <div className="flex flex-1 items-center justify-center px-4 pb-16">
+          <div className="w-full max-w-md">
+            <div className="mb-6 flex items-center justify-center gap-2">
+              <div className="grid size-9 place-items-center rounded-xl bg-gradient-to-br from-gold to-magenta shadow-[0_0_24px_-6px_rgba(236,72,153,0.6)]">
+                <Building2 className="size-4 text-slate-950" />
+              </div>
+              <span className="text-lg font-extrabold tracking-tight">
+                LibraryBandhu <span className="text-muted-foreground font-normal">for Owners</span>
+              </span>
+            </div>
+            <GlassPanel className="p-6">
+              <h1 className="text-xl font-bold">Business Account</h1>
+              <p className="mt-1 text-sm text-muted-foreground">Sign in or register your library workspace.</p>
+              <Tabs defaultValue="signin" className="mt-6">
+                <TabsList className="grid w-full grid-cols-2 bg-panel">
+                  <TabsTrigger value="signin">Sign in</TabsTrigger>
+                  <TabsTrigger value="signup">Register library</TabsTrigger>
+                </TabsList>
+                <TabsContent value="signin">
+                  <AuthForm loading={loading} onSubmit={signIn} submitLabel="Sign in" />
+                </TabsContent>
+                <TabsContent value="signup">
+                  <AuthForm loading={loading} onSubmit={signUp} submitLabel="Create account" />
+                </TabsContent>
+              </Tabs>
+              <p className="mt-6 text-center text-xs text-muted-foreground">
+                Manage your library workspace with confidence.
+              </p>
+            </GlassPanel>
+            <p className="mt-4 text-center text-xs text-muted-foreground">
+              New here?{" "}
+              <Link to="/owners" className="text-cyan hover:underline">
+                Learn how LibraryBandhu grows your library →
               </Link>
             </p>
-          </GlassPanel>
-          <p className="mt-4 text-center text-xs text-muted-foreground">
-            New here?{" "}
-            <Link to="/owners" className="text-cyan hover:underline">
-              Learn how LibraryBandhu grows your library →
-            </Link>
-          </p>
+          </div>
         </div>
       </div>
     </div>
