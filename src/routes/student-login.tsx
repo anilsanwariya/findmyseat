@@ -112,6 +112,7 @@ function StudentLogin() {
               New here? Ask your library owner to add you as a student.
             </p>
           </GlassPanel>
+          </div>
         </div>
       </div>
     </div>
