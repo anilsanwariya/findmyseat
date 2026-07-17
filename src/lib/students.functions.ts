@@ -351,9 +351,25 @@ export const verifyEmailOtp = createServerFn({ method: "POST" })
       throw new Error("Invalid or expired OTP");
     }
 
-    // 1) Update student profile email.
+    // 1) Ensure email is unique across students.
+    const { data: conflict } = await supabaseAdmin
+      .from("students")
+      .select("id")
+      .ilike("email", email)
+      .neq("id", student.id)
+      .maybeSingle();
+    if (conflict) {
+      throw new Error("This email is already linked to another student account.");
+    }
+
+    // Update student profile email.
     const { error: sErr } = await supabaseAdmin.from("students").update({ email }).eq("id", student.id);
-    if (sErr) throw new Error(sErr.message);
+    if (sErr) {
+      if (sErr.code === "23505" || /duplicate key/i.test(sErr.message)) {
+        throw new Error("This email is already linked to another student account.");
+      }
+      throw new Error(sErr.message);
+    }
 
     // 2) Update auth.users email if student has an auth account.
     if (student.user_id) {
