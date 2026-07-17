@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { toast } from "sonner";
 import { inr, fmtDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { StudentPaymentHistoryDialog } from "@/components/admin/StudentPaymentHistoryDialog";
 import {
   Plus,
   ArrowUp,
