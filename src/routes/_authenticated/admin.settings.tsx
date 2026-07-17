@@ -253,6 +253,41 @@ function PhotoManagerDialog({ lib }: { lib: any }) {
   const [section, setSection] = useState("Overview");
   const uploadFn = useServerFn(uploadLibraryPhoto);
   const deleteFn = useServerFn(deleteLibraryPhoto);
+  const reorderFn = useServerFn(reorderLibraryPhotos);
+
+  async function moveBy(index: number, delta: number) {
+    const list = (photos.data ?? []).slice();
+    const target = index + delta;
+    if (target < 0 || target >= list.length) return;
+    [list[index], list[target]] = [list[target], list[index]];
+    const ids = list.map((p: any) => p.id);
+    // Optimistic update
+    qc.setQueryData(["library-photos-admin", lib.id], list.map((p: any, i: number) => ({ ...p, display_order: i })));
+    try {
+      await reorderFn({ data: { library_id: lib.id, photo_ids: ids } });
+      qc.invalidateQueries({ queryKey: ["library-photos"] });
+    } catch (e: any) {
+      toast.error(e.message || "Reorder failed");
+      qc.invalidateQueries({ queryKey: ["library-photos-admin", lib.id] });
+    }
+  }
+
+  async function setAsCover(index: number) {
+    if (index === 0) return;
+    const list = (photos.data ?? []).slice();
+    const [picked] = list.splice(index, 1);
+    list.unshift(picked);
+    const ids = list.map((p: any) => p.id);
+    qc.setQueryData(["library-photos-admin", lib.id], list.map((p: any, i: number) => ({ ...p, display_order: i })));
+    try {
+      await reorderFn({ data: { library_id: lib.id, photo_ids: ids } });
+      toast.success("Cover photo updated");
+      qc.invalidateQueries({ queryKey: ["library-photos"] });
+    } catch (e: any) {
+      toast.error(e.message || "Failed");
+      qc.invalidateQueries({ queryKey: ["library-photos-admin", lib.id] });
+    }
+  }
 
   const photos = useQuery({
     queryKey: ["library-photos-admin", lib.id],
