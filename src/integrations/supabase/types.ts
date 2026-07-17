@@ -21,12 +21,12 @@ export type Database = {
           is_active: boolean
           library_id: string
           monthly_fee: number
-          next_due_date: string
+          next_due_date: string | null
           org_id: string
           reservation_type: Database["public"]["Enums"]["reservation_type"]
-          seat_id: string
+          seat_id: string | null
           shift_id: string | null
-          start_date: string
+          start_date: string | null
           status: Database["public"]["Enums"]["allocation_status"]
           student_id: string
           updated_at: string
@@ -37,12 +37,12 @@ export type Database = {
           is_active?: boolean
           library_id: string
           monthly_fee: number
-          next_due_date: string
+          next_due_date?: string | null
           org_id: string
           reservation_type?: Database["public"]["Enums"]["reservation_type"]
-          seat_id: string
+          seat_id?: string | null
           shift_id?: string | null
-          start_date?: string
+          start_date?: string | null
           status?: Database["public"]["Enums"]["allocation_status"]
           student_id: string
           updated_at?: string
@@ -53,12 +53,12 @@ export type Database = {
           is_active?: boolean
           library_id?: string
           monthly_fee?: number
-          next_due_date?: string
+          next_due_date?: string | null
           org_id?: string
           reservation_type?: Database["public"]["Enums"]["reservation_type"]
-          seat_id?: string
+          seat_id?: string | null
           shift_id?: string | null
-          start_date?: string
+          start_date?: string | null
           status?: Database["public"]["Enums"]["allocation_status"]
           student_id?: string
           updated_at?: string
@@ -845,7 +845,7 @@ export type Database = {
           library_id: string
           name: string
           org_id: string
-          section_id: string
+          section_id: string | null
           start_time: string | null
         }
         Insert: {
@@ -856,7 +856,7 @@ export type Database = {
           library_id: string
           name: string
           org_id: string
-          section_id: string
+          section_id?: string | null
           start_time?: string | null
         }
         Update: {
@@ -867,7 +867,7 @@ export type Database = {
           library_id?: string
           name?: string
           org_id?: string
-          section_id?: string
+          section_id?: string | null
           start_time?: string | null
         }
         Relationships: [
