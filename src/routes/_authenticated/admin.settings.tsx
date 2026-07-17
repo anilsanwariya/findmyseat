@@ -486,6 +486,11 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
   const [openingHours, setOpeningHours] = useState("");
   const [shifts, setShifts] = useState("");
   const [closedOn, setClosedOn] = useState("");
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
+  const [placeId, setPlaceId] = useState<string | null>(null);
+  const [locLoading, setLocLoading] = useState(false);
+  const geocodeFn = useServerFn(reverseGeocode);
 
   const { data: exams } = useMasterExams();
   const [selectedExams, setSelectedExams] = useState<Set<string>>(new Set());
@@ -505,8 +510,46 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
       setClosedOn(existingLib.closed_on || "");
       setSelectedExams(new Set(existingLib.targeted_exam_ids || []));
       setAmenities(existingLib.amenities || {});
+      setLatitude(existingLib.latitude ?? null);
+      setLongitude(existingLib.longitude ?? null);
+      setPlaceId(existingLib.location_place_id ?? null);
     }
   }, [existingLib]);
+
+  async function useCurrentLocation() {
+    if (!("geolocation" in navigator)) {
+      toast.error("Geolocation not supported on this device");
+      return;
+    }
+    setLocLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const { latitude: lat, longitude: lng } = pos.coords;
+          const res = await geocodeFn({ data: { lat, lng } });
+          setLatitude(lat);
+          setLongitude(lng);
+          setPlaceId(res.place_id);
+          setAddress(res.formatted_address);
+          if (res.area) setZone(res.area);
+          if (res.city) setCity(res.city);
+          if (!googleMapsUrl) {
+            setGoogleMapsUrl(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}&query_place_id=${res.place_id}`);
+          }
+          toast.success("Location captured — please verify the address");
+        } catch (err: any) {
+          toast.error(err?.message || "Could not resolve address");
+        } finally {
+          setLocLoading(false);
+        }
+      },
+      (err) => {
+        setLocLoading(false);
+        toast.error(err.message || "Location permission denied");
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
+    );
+  }
 
   const handleToggleAmenity = (key: string) => {
     setAmenities((prev) => ({ ...prev, [key]: !prev[key] }));
