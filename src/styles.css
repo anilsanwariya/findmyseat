@@ -111,11 +111,13 @@
   .glass {
     background: var(--panel);
     backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
     border: 1px solid var(--panel-border);
   }
   .glass-strong {
     background: var(--panel-strong);
     backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
     border: 1px solid var(--panel-border);
   }
   .font-mono { font-family: var(--font-mono); }
@@ -135,4 +137,20 @@
   66%  { transform: translate(-4%, 14%) scale(0.94); }
   100% { transform: translate(0, 0) scale(1); }
 }
-.animate-drift { animation: drift 24s ease-in-out infinite alternate; }
+.animate-drift { animation: drift 24s ease-in-out infinite alternate; will-change: transform; }
+
+/* Mobile perf: heavy backdrop-filter + massive blurred aurora blobs are the
+   biggest GPU cost. Reduce blur radius, shrink aurora, and stop the drift
+   animation on small screens and for reduced-motion users. */
+@media (max-width: 768px) {
+  .glass, .glass-strong {
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+  .animate-drift { animation: none; }
+  .aurora-blob { filter: blur(60px) !important; opacity: 0.5; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-drift { animation: none; }
+}
