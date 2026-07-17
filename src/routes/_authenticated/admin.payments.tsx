@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { toast } from "sonner";
 import { inr, fmtDate } from "@/lib/format";
 import { Plus, Search, Upload, FileImage, Calendar as CalendarIcon, X } from "lucide-react";
+import { StudentPaymentHistoryDialog } from "@/components/admin/StudentPaymentHistoryDialog";
 
 export const Route = createFileRoute("/_authenticated/admin/payments")({
   component: PaymentsPage,
