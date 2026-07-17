@@ -2,14 +2,13 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { GlassPanel, SectionHeader } from "@/components/glass";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { CheckCircle2, XCircle, MapPin, Phone, Building2 } from "lucide-react";
-import { reviewLibrary } from "@/lib/billing.functions";
+import { getPendingLibraries, reviewLibrary } from "@/lib/billing.functions";
 
 export const Route = createFileRoute("/_authenticated/super-admin/approvals")({
   component: ApprovalsPage,
@@ -18,19 +17,13 @@ export const Route = createFileRoute("/_authenticated/super-admin/approvals")({
 function ApprovalsPage() {
   const qc = useQueryClient();
   const review = useServerFn(reviewLibrary);
+  const fetchPendingLibraries = useServerFn(getPendingLibraries);
   const [rejectFor, setRejectFor] = useState<{ id: string; name: string } | null>(null);
   const [reason, setReason] = useState("");
 
   const pending = useQuery({
     queryKey: ["super-admin", "pending-libs"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("libraries")
-        .select("*, library_photos(url, sort_order)")
-        .eq("approval_status", "pending")
-        .order("updated_at", { ascending: false });
-      return data ?? [];
-    },
+    queryFn: () => fetchPendingLibraries(),
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
     staleTime: 0,

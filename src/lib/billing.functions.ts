@@ -182,6 +182,26 @@ export const cancelOwnerSubscription = createServerFn({ method: "POST" })
   });
 
 // -------- Approvals (super admin) ----------
+export const getPendingLibraries = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    const { data: isSuper, error: roleError } = await supabase.rpc("has_role", {
+      _user_id: userId,
+      _role: "super_admin",
+    });
+    if (roleError || !isSuper) throw new Error("Forbidden");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data, error } = await supabaseAdmin
+      .from("libraries")
+      .select("*, library_photos(url, sort_order)")
+      .eq("approval_status", "pending")
+      .order("updated_at", { ascending: false });
+    if (error) throw new Error(error.message);
+    return data ?? [];
+  });
+
 export const reviewLibrary = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({
