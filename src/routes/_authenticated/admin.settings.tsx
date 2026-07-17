@@ -585,6 +585,9 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
             closed_on: closedOn || null,
             targeted_exam_ids: Array.from(selectedExams),
             amenities: amenities,
+            latitude: latitude,
+            longitude: longitude,
+            location_place_id: placeId,
           };
 
           let error;
