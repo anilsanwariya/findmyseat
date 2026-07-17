@@ -243,14 +243,19 @@ export const verifyPinReset = createServerFn({ method: "POST" })
     }
     const { data: student } = await supabaseAdmin
       .from("students")
-      .select("id, user_id")
+      .select("id, user_id, mobile_number")
       .eq("id", otp.student_id)
       .maybeSingle();
     if (!student?.user_id) throw new Error("Student user missing");
 
+    // Repair: ensure auth email matches the synthetic mobile address used
+    // by student login. Earlier builds swapped it during email verification.
+    const syntheticEmail = emailFromMobile(student.mobile_number);
     const { error: uErr } = await supabaseAdmin.auth.admin.updateUserById(student.user_id, {
       password: data.new_pin + PIN_SUFFIX,
-    }); // Suffix appended here
+      email: syntheticEmail,
+      email_confirm: true,
+    });
     if (uErr) throw new Error(uErr.message);
     await supabaseAdmin.from("students").update({ requires_pin_change: false }).eq("id", student.id);
     await supabaseAdmin.from("pin_reset_otps").update({ consumed_at: new Date().toISOString() }).eq("id", otp.id);
