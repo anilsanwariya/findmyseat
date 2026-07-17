@@ -849,7 +849,8 @@ function NewAllocDialog({
         .from("students")
         .select("id, full_name, mobile_number, allocations(status, next_due_date, is_active)")
         .eq("org_id", orgId!)
-        .eq("library_id", libraryId);
+        .eq("library_id", libraryId)
+        .eq("is_active", true);
       return data ?? [];
     },
   });

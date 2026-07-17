@@ -9,12 +9,14 @@ import { GlassPanel, SectionHeader } from "@/components/glass";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { fmtDate } from "@/lib/format";
-import { createStudent, resetStudentPin } from "@/lib/students.functions";
-import { Plus, Search, KeyRound } from "lucide-react";
+import { createStudent, updateStudent, setStudentActive } from "@/lib/students.functions";
+import { Plus, Search, Pencil, UserX, UserCheck } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/students")({
   component: StudentsPage,
@@ -24,20 +26,23 @@ function StudentsPage() {
   const { data: session } = useSession();
   const orgId = session?.orgId;
   const [q, setQ] = useState("");
+  const [tab, setTab] = useState<"active" | "inactive">("active");
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<any | null>(null);
   const qc = useQueryClient();
-  const resetPin = useServerFn(resetStudentPin);
+  const setActive = useServerFn(setStudentActive);
 
   const students = useQuery({
-    queryKey: ["students", orgId, q],
+    queryKey: ["students", orgId, tab, q],
     enabled: !!orgId,
     queryFn: async () => {
       let query = supabase
         .from("students")
         .select(
-          "id, full_name, mobile_number, dob, requires_pin_change, is_active, created_at, libraries(name), master_exams(name), allocations(is_active)",
+          "id, full_name, mobile_number, dob, requires_pin_change, is_active, created_at, library_id, target_exam_id, address, notes, libraries(name), master_exams(name), allocations(is_active)",
         )
         .eq("org_id", orgId!)
+        .eq("is_active", tab === "active")
         .order("created_at", { ascending: false });
 
       if (q) query = query.or(`full_name.ilike.%${q}%,mobile_number.ilike.%${q}%`);
@@ -47,11 +52,13 @@ function StudentsPage() {
     },
   });
 
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["students"] });
+
   return (
     <div className="space-y-6">
       <SectionHeader
         title="Student Directory"
-        hint="Onboard students, reset their PIN, and manage profiles."
+        hint="Onboard, edit, and manage student profiles."
         right={
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
@@ -59,25 +66,35 @@ function StudentsPage() {
                 <Plus className="mr-1 size-4" /> New student
               </Button>
             </DialogTrigger>
-            <NewStudentDialog
+            <StudentFormDialog
               onDone={async () => {
-                await qc.invalidateQueries({ queryKey: ["students"] });
+                await invalidate();
                 setOpen(false);
               }}
             />
           </Dialog>
         }
       />
+
       <GlassPanel className="p-4 overflow-hidden">
-        <div className="mb-3 flex items-center gap-2">
-          <Search className="size-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by name or mobile…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            className="bg-panel border-panel-border"
-          />
+        <div className="mb-3 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+          <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
+            <TabsList className="bg-panel border border-panel-border">
+              <TabsTrigger value="active">Active</TabsTrigger>
+              <TabsTrigger value="inactive">Inactive</TabsTrigger>
+            </TabsList>
+          </Tabs>
+          <div className="flex items-center gap-2 flex-1 sm:max-w-xs">
+            <Search className="size-4 text-muted-foreground shrink-0" />
+            <Input
+              placeholder="Search by name or mobile…"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              className="bg-panel border-panel-border"
+            />
+          </div>
         </div>
+
         <div className="w-full overflow-x-auto pb-4 custom-scrollbar">
           <table className="w-full text-left text-sm min-w-[700px]">
             <thead>
@@ -85,17 +102,14 @@ function StudentsPage() {
                 <th className="py-3 px-2 font-normal">Student</th>
                 <th className="py-3 px-2 font-normal">Mobile</th>
                 <th className="py-3 px-2 font-normal">Branch</th>
-                <th className="py-3 px-2 font-normal">Seat Status</th>
-                <th className="py-3 px-2 font-normal">PIN</th>
+                {tab === "active" && <th className="py-3 px-2 font-normal">Seat Status</th>}
                 <th className="py-3 px-2 font-normal">Onboarded</th>
                 <th className="py-3 px-2 font-normal text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
               {(students.data ?? []).map((s: any) => {
-                // Check if the student has any currently active seat allocations
                 const hasActiveSeat = s.allocations?.some((a: any) => a.is_active);
-
                 return (
                   <tr
                     key={s.id}
@@ -104,51 +118,83 @@ function StudentsPage() {
                     <td className="py-3 px-2 font-medium">{s.full_name}</td>
                     <td className="py-3 px-2 font-mono">{s.mobile_number}</td>
                     <td className="py-3 px-2 text-muted-foreground">{s.libraries?.name ?? "—"}</td>
-                    <td className="py-3 px-2">
-                      {hasActiveSeat ? (
-                        <span className="rounded bg-emerald/10 px-2 py-0.5 text-[10px] text-emerald">Assigned</span>
-                      ) : (
-                        <span className="rounded bg-panel px-2 py-0.5 text-[10px] text-muted-foreground">
-                          Unassigned
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-3 px-2">
-                      {s.requires_pin_change ? (
-                        <span className="rounded bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-400">
-                          Default (DOB)
-                        </span>
-                      ) : (
-                        <span className="rounded bg-emerald/10 px-2 py-0.5 text-[10px] text-emerald">Set</span>
-                      )}
-                    </td>
+                    {tab === "active" && (
+                      <td className="py-3 px-2">
+                        {hasActiveSeat ? (
+                          <span className="rounded bg-emerald/10 px-2 py-0.5 text-[10px] text-emerald">Assigned</span>
+                        ) : (
+                          <span className="rounded bg-panel px-2 py-0.5 text-[10px] text-muted-foreground">
+                            Unassigned
+                          </span>
+                        )}
+                      </td>
+                    )}
                     <td className="py-3 px-2 text-muted-foreground">{fmtDate(s.created_at)}</td>
                     <td className="py-3 px-2 text-right">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-muted-foreground hover:text-foreground"
-                        onClick={async () => {
-                          if (!confirm(`Reset PIN for ${s.full_name}? Their credential goes back to DOB.`)) return;
-                          try {
-                            await resetPin({ data: { student_id: s.id } });
-                            toast.success("PIN reset to DOB");
-                            qc.invalidateQueries({ queryKey: ["students"] });
-                          } catch (e: any) {
-                            toast.error(e.message);
-                          }
-                        }}
-                      >
-                        <KeyRound className="mr-1 size-3" /> Reset PIN
-                      </Button>
+                      <div className="inline-flex items-center gap-1">
+                        {tab === "active" && (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-muted-foreground hover:text-cyan"
+                              onClick={() => setEditing(s)}
+                            >
+                              <Pencil className="mr-1 size-3" /> Edit
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-muted-foreground hover:text-rose"
+                              onClick={async () => {
+                                if (
+                                  !confirm(
+                                    `Deactivate ${s.full_name}? Their seat will be released and they will be moved to Inactive.`,
+                                  )
+                                )
+                                  return;
+                                try {
+                                  await setActive({ data: { student_id: s.id, is_active: false } });
+                                  toast.success("Student marked inactive");
+                                  invalidate();
+                                  qc.invalidateQueries({ queryKey: ["allocations"] });
+                                } catch (e: any) {
+                                  toast.error(e.message);
+                                }
+                              }}
+                            >
+                              <UserX className="mr-1 size-3" /> Deactivate
+                            </Button>
+                          </>
+                        )}
+                        {tab === "inactive" && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-muted-foreground hover:text-emerald"
+                            onClick={async () => {
+                              if (!confirm(`Reactivate ${s.full_name}?`)) return;
+                              try {
+                                await setActive({ data: { student_id: s.id, is_active: true } });
+                                toast.success("Student reactivated");
+                                invalidate();
+                              } catch (e: any) {
+                                toast.error(e.message);
+                              }
+                            }}
+                          >
+                            <UserCheck className="mr-1 size-3" /> Reactivate
+                          </Button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
               })}
               {(students.data ?? []).length === 0 && (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
-                    No students found.
+                  <td colSpan={tab === "active" ? 6 : 5} className="py-8 text-center text-sm text-muted-foreground">
+                    {tab === "inactive" ? "No inactive students." : "No students found."}
                   </td>
                 </tr>
               )}
@@ -156,26 +202,42 @@ function StudentsPage() {
           </table>
         </div>
       </GlassPanel>
+
+      <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
+        {editing && (
+          <StudentFormDialog
+            existing={editing}
+            onDone={async () => {
+              await invalidate();
+              setEditing(null);
+            }}
+          />
+        )}
+      </Dialog>
     </div>
   );
 }
 
-function NewStudentDialog({ onDone }: { onDone: () => void }) {
+function StudentFormDialog({ existing, onDone }: { existing?: any; onDone: () => void }) {
   const { data: libs } = useLibraries();
   const { data: exams } = useMasterExams();
-  const [name, setName] = useState("");
-  const [mobile, setMobile] = useState("");
-  const [dob, setDob] = useState("");
-  const [libraryId, setLibraryId] = useState("");
-  const [examId, setExamId] = useState<string>("");
+  const [name, setName] = useState(existing?.full_name ?? "");
+  const [mobile, setMobile] = useState(existing?.mobile_number ?? "");
+  const [dob, setDob] = useState(existing?.dob ?? "");
+  const [libraryId, setLibraryId] = useState(existing?.library_id ?? "");
+  const [examId, setExamId] = useState<string>(existing?.target_exam_id ?? "");
+  const [address, setAddress] = useState(existing?.address ?? "");
+  const [notes, setNotes] = useState(existing?.notes ?? "");
   const [loading, setLoading] = useState(false);
 
   const create = useServerFn(createStudent);
+  const update = useServerFn(updateStudent);
+  const isEdit = !!existing;
 
   return (
     <DialogContent className="glass-strong border-panel-border w-[95vw] max-w-lg max-h-[90vh] overflow-y-auto p-4 md:p-6">
       <DialogHeader>
-        <DialogTitle>New student</DialogTitle>
+        <DialogTitle>{isEdit ? "Edit student" : "New student"}</DialogTitle>
       </DialogHeader>
       <form
         className="space-y-4"
@@ -183,16 +245,32 @@ function NewStudentDialog({ onDone }: { onDone: () => void }) {
           e.preventDefault();
           setLoading(true);
           try {
-            await create({
-              data: {
-                full_name: name,
-                mobile_number: mobile,
-                dob,
-                library_id: libraryId,
-                target_exam_id: examId || null,
-              },
-            });
-            toast.success("Student onboarded successfully.");
+            if (isEdit) {
+              await update({
+                data: {
+                  student_id: existing.id,
+                  full_name: name,
+                  mobile_number: mobile,
+                  dob,
+                  library_id: libraryId,
+                  target_exam_id: examId || null,
+                  address: address || null,
+                  notes: notes || null,
+                },
+              });
+              toast.success("Student updated");
+            } else {
+              await create({
+                data: {
+                  full_name: name,
+                  mobile_number: mobile,
+                  dob,
+                  library_id: libraryId,
+                  target_exam_id: examId || null,
+                },
+              });
+              toast.success("Student onboarded");
+            }
             onDone();
           } catch (err: any) {
             toast.error(err.message);
@@ -236,7 +314,6 @@ function NewStudentDialog({ onDone }: { onDone: () => void }) {
           </div>
         </div>
 
-        {/* Branch & Exam Section */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-2">
             <Label>Branch</Label>
@@ -270,15 +347,40 @@ function NewStudentDialog({ onDone }: { onDone: () => void }) {
           </div>
         </div>
 
-        <div className="rounded-lg border border-panel-border bg-panel p-3 text-xs text-muted-foreground leading-relaxed">
-          Login credentials: mobile + DOB. Student will be forced to set a 6-digit PIN on first login.
-        </div>
+        {isEdit && (
+          <>
+            <div className="space-y-2">
+              <Label>Address (optional)</Label>
+              <Textarea
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                className="bg-panel border-panel-border min-h-[70px]"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Internal notes (optional)</Label>
+              <Textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                className="bg-panel border-panel-border min-h-[70px]"
+              />
+            </div>
+          </>
+        )}
+
+        {!isEdit && (
+          <div className="rounded-lg border border-panel-border bg-panel p-3 text-xs text-muted-foreground leading-relaxed">
+            Login credentials: mobile + DOB. Student sets their own 6-digit PIN on first login and manages it from their
+            app. Owners cannot reset a student's PIN once registered.
+          </div>
+        )}
+
         <Button
           disabled={loading || !libraryId}
           type="submit"
           className="w-full bg-white text-slate-900 hover:bg-white/90"
         >
-          {loading ? "Creating…" : "Onboard student"}
+          {loading ? "Saving…" : isEdit ? "Save changes" : "Onboard student"}
         </Button>
       </form>
     </DialogContent>
