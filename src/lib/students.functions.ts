@@ -196,7 +196,20 @@ export const requestPinReset = createServerFn({ method: "POST" })
       code_hash,
       expires_at,
     });
-    return { ok: true, dev_code: code };
+
+    let sent = false;
+    try {
+      const { sendTemplateEmail } = await import("@/lib/email-templates/send-email");
+      const result = await sendTemplateEmail("student-email-otp", email, {
+        templateData: { code, siteName: "LibraryBandhu" },
+        idempotencyKey: `pin-reset-otp-${student.id}-${code}`,
+      });
+      sent = result.sent === true;
+      if (!sent && "reason" in result) console.warn("[pin-reset-otp] not sent:", result.reason);
+    } catch (err) {
+      console.error("[pin-reset-otp] send failed:", err);
+    }
+    return { ok: true, dev_code: sent ? null : code };
   });
 
 const VerifyResetSchema = z.object({
