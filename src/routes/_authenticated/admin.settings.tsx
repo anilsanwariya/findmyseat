@@ -640,6 +640,34 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
           <h4 className="text-xs font-mono uppercase tracking-widest text-cyan border-b border-panel-border/50 pb-1">
             Location Details
           </h4>
+          <div className="rounded-lg border border-panel-border bg-panel/60 p-3 space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-xs">
+                <MapPin className="size-4 text-cyan" />
+                {latitude != null && longitude != null ? (
+                  <span className="font-mono text-emerald">
+                    Pinned: {latitude.toFixed(5)}, {longitude.toFixed(5)}
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground">No location pinned yet</span>
+                )}
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={useCurrentLocation}
+                disabled={locLoading}
+                className="border-cyan/40 text-cyan hover:bg-cyan/10"
+              >
+                {locLoading ? <Loader2 className="mr-1 size-4 animate-spin" /> : <MapPin className="mr-1 size-4" />}
+                {latitude != null ? "Re-capture location" : "Use current location"}
+              </Button>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Stand at the branch entrance and tap the button. We'll auto-fill the address, area and city from Google Maps — you can still edit any field below.
+            </p>
+          </div>
           <div className="space-y-2">
             <Label>Complete Address</Label>
             <Textarea
