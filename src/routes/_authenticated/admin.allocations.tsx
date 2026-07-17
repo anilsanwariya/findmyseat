@@ -697,7 +697,7 @@ function EditAllocationDialog({
             const { error } = await supabase
               .from("allocations")
               .update({
-                seat_id: reservationType === "unreserved" ? null : seatId,
+                seat_id: reservationType === "unreserved" ? null : seatId || null,
                 reservation_type: reservationType,
                 shift_id: shiftId === "none" || !shiftId ? null : shiftId,
                 monthly_fee: Number(fee || 0),
