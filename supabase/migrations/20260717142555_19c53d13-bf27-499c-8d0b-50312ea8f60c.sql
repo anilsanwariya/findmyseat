@@ -1,0 +1,1 @@
+DROP TRIGGER IF EXISTS libraries_reset_approval_on_update ON public.libraries;

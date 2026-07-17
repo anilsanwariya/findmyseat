@@ -195,7 +195,7 @@ export const getPendingLibraries = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data, error } = await supabaseAdmin
       .from("libraries")
-      .select("*, library_photos(url, sort_order)")
+      .select("*, library_photos(image_url, display_order)")
       .eq("approval_status", "pending")
       .order("updated_at", { ascending: false });
     if (error) throw new Error(error.message);

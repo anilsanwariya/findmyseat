@@ -48,7 +48,17 @@ function ApprovalsPage() {
         <GlassPanel className="p-10 text-center text-sm text-muted-foreground">Loading pending branches…</GlassPanel>
       )}
 
-      {!pending.isLoading && (pending.data ?? []).length === 0 && (
+      {pending.isError && (
+        <GlassPanel className="p-10 text-center">
+          <XCircle className="mx-auto size-8 text-rose" />
+          <p className="mt-3 text-sm text-rose">{pending.error?.message ?? "Unable to load pending branches."}</p>
+          <Button className="mt-4" size="sm" variant="outline" onClick={() => pending.refetch()}>
+            Try again
+          </Button>
+        </GlassPanel>
+      )}
+
+      {!pending.isLoading && !pending.isError && (pending.data ?? []).length === 0 && (
         <GlassPanel className="p-10 text-center">
           <CheckCircle2 className="mx-auto size-8 text-emerald" />
           <p className="mt-3 text-sm text-muted-foreground">No branches waiting for approval.</p>
@@ -57,11 +67,11 @@ function ApprovalsPage() {
 
       <div className="grid gap-4 md:grid-cols-2">
         {(pending.data ?? []).map((l: any) => {
-          const photos = (l.library_photos ?? []).sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+          const photos = (l.library_photos ?? []).sort((a: any, b: any) => (a.display_order ?? 0) - (b.display_order ?? 0));
           return (
             <GlassPanel key={l.id} className="overflow-hidden">
-              {photos[0]?.url ? (
-                <img src={photos[0].url} alt={l.name} className="h-40 w-full object-cover" />
+              {photos[0]?.image_url ? (
+                <img src={photos[0].image_url} alt={l.name} className="h-40 w-full object-cover" />
               ) : (
                 <div className="grid h-40 place-items-center bg-gradient-to-br from-violet/20 to-cyan/10">
                   <Building2 className="size-8 text-muted-foreground" />
