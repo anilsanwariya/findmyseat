@@ -165,7 +165,7 @@ export const setStudentActive = createServerFn({ method: "POST" })
     if (!data.is_active) {
       await supabaseAdmin
         .from("allocations")
-        .update({ is_active: false, status: "ended" })
+        .update({ is_active: false })
         .eq("student_id", s.id)
         .eq("is_active", true);
     }
