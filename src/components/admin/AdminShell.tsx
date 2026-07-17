@@ -14,6 +14,7 @@ import {
   Sparkles,
   Menu,
   X,
+  CreditCard,
 } from "lucide-react";
 import { AuroraBackground, GlassPanel } from "@/components/glass";
 import { supabase } from "@/integrations/supabase/client";
@@ -34,6 +35,7 @@ const NAV: NavItem[] = [
   { to: "/admin/leads", label: "Leads", icon: Sparkles },
   { to: "/admin/notices", label: "Notices", icon: Megaphone },
   { to: "/admin/tickets", label: "Tickets", icon: LifeBuoy },
+  { to: "/admin/subscription", label: "Subscription", icon: CreditCard },
   { to: "/admin/settings", label: "Settings", icon: Settings },
 ];
 

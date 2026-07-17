@@ -1,6 +1,6 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
-import { LayoutDashboard, Building2, CreditCard, LogOut, ShieldCheck, Menu, X } from "lucide-react";
+import { LayoutDashboard, Building2, CreditCard, LogOut, ShieldCheck, Menu, X, CheckSquare } from "lucide-react";
 import { AuroraBackground } from "@/components/glass";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -11,7 +11,9 @@ type NavItem = { to: string; label: string; icon: typeof LayoutDashboard; exact?
 const NAV: NavItem[] = [
   { to: "/super-admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { to: "/super-admin/organizations", label: "Organizations", icon: Building2 },
-  { to: "/super-admin/billing", label: "Billing & Plans", icon: CreditCard },
+  { to: "/super-admin/approvals", label: "Branch Approvals", icon: CheckSquare },
+  { to: "/super-admin/subscriptions", label: "Subscriptions", icon: CreditCard },
+  { to: "/super-admin/billing", label: "Legacy Plans", icon: CreditCard },
 ];
 
 export function SuperAdminShell({ children }: { children: ReactNode }) {
