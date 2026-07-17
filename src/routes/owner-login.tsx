@@ -93,10 +93,7 @@ function OwnerLoginPage() {
               </TabsContent>
             </Tabs>
             <p className="mt-6 text-center text-xs text-muted-foreground">
-              Are you a student?{" "}
-              <Link to="/student-login" className="text-violet hover:underline">
-                Sign in with mobile
-              </Link>
+              Manage your library workspace with confidence.
             </p>
           </GlassPanel>
           <p className="mt-4 text-center text-xs text-muted-foreground">
