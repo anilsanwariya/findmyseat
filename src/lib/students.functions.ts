@@ -285,12 +285,22 @@ export const sendEmailVerificationOtp = createServerFn({ method: "POST" })
       .insert({ student_id: student.id, email, otp_code, expires_at });
     if (insErr) throw new Error(insErr.message);
 
-    // Email delivery is best-effort. Until the Lovable email domain is
-    // scaffolded, we log the code server-side and return it as dev_code so
-    // the flow remains testable. Wire real delivery once the email domain
-    // is configured.
-    console.log(`[email-otp] ${email} code=${otp_code} (expires 15m)`);
-    return { ok: true, sent: false, dev_code: otp_code };
+    // Send via Lovable managed email (transactional template).
+    let sent = false;
+    try {
+      const { sendTemplateEmail } = await import("@/lib/email-templates/send-email");
+      const result = await sendTemplateEmail("student-email-otp", email, {
+        templateData: { code: otp_code, siteName: "LibraryBandhu" },
+        idempotencyKey: `student-email-otp-${student.id}-${otp_code}`,
+      });
+      sent = result.sent === true;
+      if (!sent) console.warn("[email-otp] not sent:", result.reason);
+    } catch (err) {
+      console.error("[email-otp] send failed:", err);
+    }
+    // Dev fallback: expose code only when not sent, so the UX still works
+    // during DNS verification or provider hiccups.
+    return { ok: true, sent, dev_code: sent ? null : otp_code };
   });
 
 const VerifyEmailOtpSchema = z.object({
