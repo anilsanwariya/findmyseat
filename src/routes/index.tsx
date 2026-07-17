@@ -353,11 +353,21 @@ function LibraryCard({
               </p>
             )}
           </div>
-          {lib.vacant_count !== null && (
-            <span className="shrink-0 rounded-full border border-emerald/30 bg-emerald/10 px-2 py-0.5 font-mono text-[10px] text-emerald">
-              {lib.vacant_count} seats
-            </span>
-          )}
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            {lib.vacant_count !== null && (
+              <span className="rounded-full border border-emerald/30 bg-emerald/10 px-2 py-0.5 font-mono text-[10px] text-emerald">
+                {lib.vacant_count} seats
+              </span>
+            )}
+            {typeof lib.distance_km === "number" && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-cyan/30 bg-cyan/10 px-2 py-0.5 font-mono text-[10px] text-cyan">
+                <LocateFixed className="size-2.5" />
+                {lib.distance_km < 1
+                  ? `${Math.round(lib.distance_km * 1000)} m`
+                  : `${lib.distance_km.toFixed(1)} km`}
+              </span>
+            )}
+          </div>
         </div>
 
         {lib.description && <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">{lib.description}</p>}
