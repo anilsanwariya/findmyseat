@@ -145,6 +145,7 @@ function SettingsPage() {
 function BranchCard({ lib, onChanged, orgId }: { lib: any; onChanged: () => void; orgId: string }) {
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [photosOpen, setPhotosOpen] = useState(false);
 
   return (
     <GlassPanel className="p-5 flex flex-col h-full">
