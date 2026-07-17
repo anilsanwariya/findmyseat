@@ -1,0 +1,1 @@
+DROP TRIGGER IF EXISTS trg_libs_reset_approval ON public.libraries;
