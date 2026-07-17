@@ -27,7 +27,8 @@ export const marketplaceSearch = createServerFn({ method: "POST" })
       .select(
         "id, org_id, name, zone_area, city, address, google_maps_url, opening_hours, shifts, closed_on, amenities, cover_photo_url, description, show_public_availability, targeted_exam_ids, is_active",
       )
-      .eq("is_active", true);
+      .eq("is_active", true)
+      .eq("approval_status", "approved");
 
     if (data.zone) q = q.ilike("zone_area", `%${data.zone}%`);
     if (data.query) q = q.or(`name.ilike.%${data.query}%,city.ilike.%${data.query}%,zone_area.ilike.%${data.query}%`);
@@ -121,6 +122,7 @@ export const listPublicZones = createServerFn({ method: "GET" }).handler(async (
     .from("libraries")
     .select("zone_area")
     .eq("is_active", true)
+    .eq("approval_status", "approved")
     .not("zone_area", "is", null);
   const zones = Array.from(new Set((data ?? []).map((r: any) => r.zone_area).filter(Boolean))).sort();
   return zones as string[];

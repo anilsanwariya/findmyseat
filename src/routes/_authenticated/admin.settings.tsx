@@ -163,6 +163,15 @@ function BranchCard({ lib, onChanged, orgId }: { lib: any; onChanged: () => void
           >
             {lib.is_active ? "Active" : "Off"}
           </span>
+          <span
+            className={`rounded px-2 py-0.5 font-mono text-[9px] uppercase tracking-widest ${
+              lib.approval_status === "approved" ? "bg-emerald/10 text-emerald" :
+              lib.approval_status === "rejected" ? "bg-rose/10 text-rose" :
+              "bg-gold/10 text-gold"
+            }`}
+          >
+            {lib.approval_status ?? "pending"}
+          </span>
           <div className="flex items-center gap-1">
             <Dialog open={editOpen} onOpenChange={setEditOpen}>
               <DialogTrigger asChild>
