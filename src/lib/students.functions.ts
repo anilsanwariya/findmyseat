@@ -196,7 +196,20 @@ export const requestPinReset = createServerFn({ method: "POST" })
       code_hash,
       expires_at,
     });
-    return { ok: true, dev_code: code };
+
+    let sent = false;
+    try {
+      const { sendTemplateEmail } = await import("@/lib/email-templates/send-email");
+      const result = await sendTemplateEmail("student-email-otp", email, {
+        templateData: { code, siteName: "LibraryBandhu" },
+        idempotencyKey: `pin-reset-otp-${student.id}-${code}`,
+      });
+      sent = result.sent === true;
+      if (!sent && "reason" in result) console.warn("[pin-reset-otp] not sent:", result.reason);
+    } catch (err) {
+      console.error("[pin-reset-otp] send failed:", err);
+    }
+    return { ok: true, dev_code: sent ? null : code };
   });
 
 const VerifyResetSchema = z.object({
@@ -230,14 +243,19 @@ export const verifyPinReset = createServerFn({ method: "POST" })
     }
     const { data: student } = await supabaseAdmin
       .from("students")
-      .select("id, user_id")
+      .select("id, user_id, mobile_number")
       .eq("id", otp.student_id)
       .maybeSingle();
     if (!student?.user_id) throw new Error("Student user missing");
 
+    // Repair: ensure auth email matches the synthetic mobile address used
+    // by student login. Earlier builds swapped it during email verification.
+    const syntheticEmail = emailFromMobile(student.mobile_number);
     const { error: uErr } = await supabaseAdmin.auth.admin.updateUserById(student.user_id, {
       password: data.new_pin + PIN_SUFFIX,
-    }); // Suffix appended here
+      email: syntheticEmail,
+      email_confirm: true,
+    });
     if (uErr) throw new Error(uErr.message);
     await supabaseAdmin.from("students").update({ requires_pin_change: false }).eq("id", student.id);
     await supabaseAdmin.from("pin_reset_otps").update({ consumed_at: new Date().toISOString() }).eq("id", otp.id);
@@ -371,16 +389,11 @@ export const verifyEmailOtp = createServerFn({ method: "POST" })
       throw new Error(sErr.message);
     }
 
-    // 2) Update auth.users email if student has an auth account.
-    if (student.user_id) {
-      const { error: aErr } = await supabaseAdmin.auth.admin.updateUserById(student.user_id, {
-        email,
-        email_confirm: true,
-      });
-      // Non-fatal: auth login for students uses synthetic mobile email; we
-      // still want profile email to succeed even if auth update fails.
-      if (aErr) console.warn("[email-otp] auth update failed:", aErr.message);
-    }
+    // NOTE: Do NOT update auth.users.email — student login uses the
+    // synthetic `<mobile>@students.librarybandhu.local` address. Changing
+    // it breaks PIN sign-in. The verified email lives only on the
+    // students profile row (used for OTP / notifications).
+
 
     // 3) Consume the OTP.
     await supabaseAdmin.from("email_verification_otps").delete().eq("id", otp.id);
