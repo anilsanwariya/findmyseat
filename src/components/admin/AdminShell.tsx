@@ -9,24 +9,28 @@ import {
   ReceiptText,
   Megaphone,
   LifeBuoy,
-  Settings,
+  Building2,
   LogOut,
   Sparkles,
   Menu,
   X,
   CreditCard,
+  Crown,
 } from "lucide-react";
 import { AuroraBackground, GlassPanel } from "@/components/glass";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { useSession } from "@/lib/auth";
+import { getOwnerBilling } from "@/lib/billing.functions";
 import type { ReactNode } from "react";
 
 type NavItem = { to: string; label: string; icon: typeof LayoutDashboard; exact?: boolean };
 const NAV: NavItem[] = [
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
+  { to: "/admin/settings", label: "Branches", icon: Building2 },
   { to: "/admin/layout-builder", label: "Layout Builder", icon: Grid3x3 },
   { to: "/admin/students", label: "Students", icon: Users },
   { to: "/admin/allocations", label: "Allocations", icon: Ticket },
@@ -35,8 +39,6 @@ const NAV: NavItem[] = [
   { to: "/admin/leads", label: "Leads", icon: Sparkles },
   { to: "/admin/notices", label: "Notices", icon: Megaphone },
   { to: "/admin/tickets", label: "Tickets", icon: LifeBuoy },
-  { to: "/admin/subscription", label: "Subscription", icon: CreditCard },
-  { to: "/admin/settings", label: "Settings", icon: Settings },
 ];
 
 export function AdminShell({ children }: { children: ReactNode }) {
