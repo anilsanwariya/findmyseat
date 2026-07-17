@@ -1,6 +1,16 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
+function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
+  const R = 6371;
+  const dLat = ((b.lat - a.lat) * Math.PI) / 180;
+  const dLng = ((b.lng - a.lng) * Math.PI) / 180;
+  const la1 = (a.lat * Math.PI) / 180;
+  const la2 = (b.lat * Math.PI) / 180;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(la1) * Math.cos(la2) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
 // Public marketplace: uses supabaseAdmin to aggregate safe, pre-filtered data.
 export const marketplaceSearch = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
@@ -9,6 +19,9 @@ export const marketplaceSearch = createServerFn({ method: "POST" })
         query: z.string().trim().max(120).optional().nullable(),
         zone: z.string().trim().max(120).optional().nullable(),
         exam_id: z.string().uuid().optional().nullable(),
+        near_lat: z.number().gte(-90).lte(90).optional().nullable(),
+        near_lng: z.number().gte(-180).lte(180).optional().nullable(),
+        radius_km: z.number().gt(0).lte(200).optional().nullable(),
       })
       .parse(d),
   )
