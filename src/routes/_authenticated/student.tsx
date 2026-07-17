@@ -384,7 +384,7 @@ function EmailVerificationGate({ profile }: { profile: any }) {
               setLoading(true);
               try {
                 // 1. Request Email Update OTP via custom edge function
-                const res = await sendOtp({ data: { email, student_id: profile.id } });
+                const res = await sendOtp({ data: { email: email.trim().toLowerCase(), student_id: profile.id } });
                 if ((res as any)?.dev_code) {
                   toast.success(`OTP sent. Dev code: ${(res as any).dev_code}`);
                 } else {
@@ -420,11 +420,11 @@ function EmailVerificationGate({ profile }: { profile: any }) {
               e.preventDefault();
               setLoading(true);
               try {
-                await verifyOtp({ data: { email, otp, student_id: profile.id } });
+                await verifyOtp({ data: { email: email.trim().toLowerCase(), otp: otp.trim(), student_id: profile.id } });
                 toast.success("Email successfully verified!");
                 qc.invalidateQueries({ queryKey: ["student-profile"] });
               } catch (err: any) {
-                toast.error("Invalid or expired OTP");
+                toast.error(err?.message || "Invalid or expired OTP");
               } finally {
                 setLoading(false);
               }

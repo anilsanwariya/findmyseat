@@ -277,7 +277,7 @@ export const sendEmailVerificationOtp = createServerFn({ method: "POST" })
 
     const email = data.email.toLowerCase();
     const otp_code = Math.floor(100000 + Math.random() * 900000).toString();
-    const expires_at = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+    const expires_at = new Date(Date.now() + 5 * 60 * 1000).toISOString();
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error: insErr } = await supabaseAdmin
