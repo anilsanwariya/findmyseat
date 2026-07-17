@@ -218,7 +218,18 @@ function BranchCard({ lib, onChanged, orgId }: { lib: any; onChanged: () => void
         </div>
       </div>
 
-      <div className="mt-auto pt-4">
+      <div className="mt-auto pt-4 space-y-2">
+        <Dialog open={photosOpen} onOpenChange={setPhotosOpen}>
+          <DialogTrigger asChild>
+            <Button
+              variant="outline"
+              className="w-full bg-panel border-panel-border hover:bg-cyan/10 hover:text-cyan text-xs"
+            >
+              <ImageIcon className="mr-2 size-3.5" /> Manage photos
+            </Button>
+          </DialogTrigger>
+          <PhotoManagerDialog lib={lib} />
+        </Dialog>
         <div className="flex items-center justify-between rounded-lg border border-panel-border bg-panel p-3">
           <div className="flex items-center gap-2 text-xs">
             <Globe className="size-3.5 text-cyan" /> Public availability
@@ -233,6 +244,149 @@ function BranchCard({ lib, onChanged, orgId }: { lib: any; onChanged: () => void
         </div>
       </div>
     </GlassPanel>
+  );
+}
+
+function PhotoManagerDialog({ lib }: { lib: any }) {
+  const qc = useQueryClient();
+  const [uploading, setUploading] = useState(false);
+  const [section, setSection] = useState("Overview");
+  const uploadFn = useServerFn(uploadLibraryPhoto);
+  const deleteFn = useServerFn(deleteLibraryPhoto);
+
+  const photos = useQuery({
+    queryKey: ["library-photos-admin", lib.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("library_photos")
+        .select("id, image_url, section_name, display_order")
+        .eq("library_id", lib.id)
+        .order("display_order", { ascending: true });
+      return data ?? [];
+    },
+  });
+
+  async function handleFile(file: File) {
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      toast.error("Only JPG, PNG or WebP images are allowed");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image must be under 5MB");
+      return;
+    }
+    setUploading(true);
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result as string);
+        r.onerror = () => reject(new Error("Read failed"));
+        r.readAsDataURL(file);
+      });
+      await uploadFn({
+        data: {
+          library_id: lib.id,
+          section_name: section.trim() || "Overview",
+          file_data_url: dataUrl,
+          content_type: file.type as "image/jpeg" | "image/png" | "image/webp",
+        },
+      });
+      toast.success("Photo uploaded");
+      await qc.invalidateQueries({ queryKey: ["library-photos-admin", lib.id] });
+      await qc.invalidateQueries({ queryKey: ["library-photos"] });
+    } catch (e: any) {
+      toast.error(e.message || "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <DialogContent className="glass-strong border-panel-border w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogHeader>
+        <DialogTitle className="flex items-center gap-2">
+          <ImageIcon className="size-4 text-cyan" /> Photos · {lib.name}
+        </DialogTitle>
+        <DialogDescription>
+          Photos appear in the marketplace gallery for students to swipe through. Max 5MB each. Recommended: bright, well-lit
+          shots of your seating area, reading zones, and amenities.
+        </DialogDescription>
+      </DialogHeader>
+
+      <div className="space-y-4">
+        <div className="rounded-lg border border-panel-border bg-panel p-4 space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Section / label</Label>
+              <Input
+                value={section}
+                onChange={(e) => setSection(e.target.value)}
+                placeholder="e.g. Reading Hall, Cabin, Entrance"
+                className="bg-background border-panel-border"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Upload photo</Label>
+              <label className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-panel-border bg-background/50 px-3 py-2 text-xs cursor-pointer hover:bg-cyan/5 hover:border-cyan/40 transition-colors">
+                <Upload className="size-3.5" />
+                {uploading ? "Uploading…" : "Choose image"}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  disabled={uploading}
+                  onChange={async (e) => {
+                    const f = e.target.files?.[0];
+                    if (f) await handleFile(f);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-2">
+            Gallery ({photos.data?.length ?? 0})
+          </div>
+          {photos.data && photos.data.length > 0 ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {photos.data.map((p: any) => (
+                <div key={p.id} className="group relative overflow-hidden rounded-lg border border-panel-border bg-panel">
+                  <img src={p.image_url} alt={p.section_name} className="aspect-[4/3] w-full object-cover" />
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2">
+                    <div className="text-[11px] font-medium truncate">{p.section_name}</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!confirm("Delete this photo?")) return;
+                      try {
+                        await deleteFn({ data: { photo_id: p.id } });
+                        toast.success("Photo removed");
+                        qc.invalidateQueries({ queryKey: ["library-photos-admin", lib.id] });
+                        qc.invalidateQueries({ queryKey: ["library-photos"] });
+                      } catch (e: any) {
+                        toast.error(e.message);
+                      }
+                    }}
+                    className="absolute top-2 right-2 grid size-7 place-items-center rounded-full bg-black/70 text-white opacity-0 group-hover:opacity-100 hover:bg-rose transition-opacity"
+                    aria-label="Delete photo"
+                  >
+                    <XIcon className="size-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-lg border border-dashed border-panel-border bg-panel/40 py-10 text-center text-xs text-muted-foreground">
+              No photos yet. Upload your first image above.
+            </div>
+          )}
+        </div>
+      </div>
+    </DialogContent>
   );
 }
 
