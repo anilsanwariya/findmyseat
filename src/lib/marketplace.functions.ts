@@ -38,7 +38,7 @@ export const marketplaceSearch = createServerFn({ method: "POST" })
     if (!libraries.length) return { libraries: [] as any[] };
 
     const libIds = libraries.map((l: any) => l.id);
-    const [seatsRes, allocsRes, examsRes] = await Promise.all([
+    const [seatsRes, allocsRes, examsRes, photosRes] = await Promise.all([
       supabaseAdmin.from("seats").select("id, library_id").in("library_id", libIds).eq("is_active", true),
       supabaseAdmin
         .from("allocations")
@@ -46,6 +46,11 @@ export const marketplaceSearch = createServerFn({ method: "POST" })
         .eq("is_active", true)
         .in("library_id", libIds),
       supabaseAdmin.from("master_exams").select("id, name"),
+      supabaseAdmin
+        .from("library_photos")
+        .select("library_id, image_url, display_order")
+        .in("library_id", libIds)
+        .order("display_order", { ascending: true }),
     ]);
     const seats = seatsRes.data ?? [];
     const allocs = allocsRes.data ?? [];
