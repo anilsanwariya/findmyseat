@@ -55,6 +55,11 @@ export const marketplaceSearch = createServerFn({ method: "POST" })
     const seats = seatsRes.data ?? [];
     const allocs = allocsRes.data ?? [];
     const examMap = new Map((examsRes.data ?? []).map((e: any) => [e.id, e.name]));
+    const photos = photosRes.data ?? [];
+    const firstPhotoByLib = new Map<string, string>();
+    for (const p of photos) {
+      if (!firstPhotoByLib.has(p.library_id)) firstPhotoByLib.set(p.library_id, p.image_url);
+    }
 
     const studentIds = Array.from(new Set(allocs.map((a: any) => a.student_id)));
     let studentExam = new Map<string, string | null>();
