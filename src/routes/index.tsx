@@ -205,7 +205,47 @@ function Marketplace() {
             </Select>
             <Button className="bg-white text-slate-900 hover:bg-white/90">Search</Button>
           </GlassPanel>
+
+          <div className="mx-auto mt-3 flex flex-wrap items-center justify-center gap-3 text-xs">
+            {!nearCoords ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={requestNearby}
+                disabled={geoLoading}
+                className="border-cyan/40 text-cyan hover:bg-cyan/10"
+              >
+                <LocateFixed className="mr-1.5 size-4" />
+                {geoLoading ? "Locating…" : "Near me"}
+              </Button>
+            ) : (
+              <div className="inline-flex items-center gap-3 rounded-full border border-emerald/40 bg-emerald/10 px-3 py-1.5 text-emerald">
+                <LocateFixed className="size-3.5" />
+                <span className="font-medium">Within {radiusKm} km</span>
+                <input
+                  type="range"
+                  min={1}
+                  max={50}
+                  step={1}
+                  value={radiusKm}
+                  onChange={(e) => setRadiusKm(Number(e.target.value))}
+                  className="h-1 w-32 cursor-pointer accent-cyan"
+                  aria-label="Search radius"
+                />
+                <button
+                  type="button"
+                  onClick={() => setNearCoords(null)}
+                  className="rounded-full p-0.5 hover:bg-emerald/20"
+                  aria-label="Clear near-me filter"
+                >
+                  <XIcon className="size-3.5" />
+                </button>
+              </div>
+            )}
+          </div>
         </section>
+
 
         <section className="mx-auto w-full max-w-7xl px-4 pb-16 pt-6 sm:px-6 flex-1">
           {results.isLoading ? (
