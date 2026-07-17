@@ -74,7 +74,41 @@ export const uploadLibraryPhoto = createServerFn({ method: "POST" })
       await supabaseAdmin.storage.from("library-photos").remove([path]).catch(() => {});
       throw new Error(insErr.message);
     }
+    // New photos require super-admin re-approval before appearing in the marketplace.
+    await supabaseAdmin
+      .from("libraries")
+      .update({ approval_status: "pending", rejection_reason: null, reviewed_at: null, reviewed_by: null })
+      .eq("id", data.library_id);
     return row;
+  });
+
+const ReorderPhotosSchema = z.object({
+  library_id: z.string().uuid(),
+  photo_ids: z.array(z.string().uuid()).min(1).max(50),
+});
+export const reorderLibraryPhotos = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => ReorderPhotosSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    await assertOrgAdminForLibrary(context, data.library_id);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: existing } = await supabaseAdmin
+      .from("library_photos")
+      .select("id")
+      .eq("library_id", data.library_id);
+    const existingIds = new Set((existing ?? []).map((r: any) => r.id));
+    if (data.photo_ids.length !== existingIds.size || !data.photo_ids.every((id) => existingIds.has(id))) {
+      throw new Error("Photo list mismatch");
+    }
+    for (let i = 0; i < data.photo_ids.length; i++) {
+      const { error } = await supabaseAdmin
+        .from("library_photos")
+        .update({ display_order: i })
+        .eq("id", data.photo_ids[i])
+        .eq("library_id", data.library_id);
+      if (error) throw new Error(error.message);
+    }
+    return { ok: true };
   });
 
 const DeletePhotoSchema = z.object({ photo_id: z.string().uuid() });
