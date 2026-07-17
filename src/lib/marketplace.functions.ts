@@ -81,7 +81,8 @@ export const marketplaceSearch = createServerFn({ method: "POST" })
       studentExam = new Map((st ?? []).map((s: any) => [s.id, s.target_exam_id]));
     }
 
-    return {
+
+
     const hasNear = typeof data.near_lat === "number" && typeof data.near_lng === "number";
     const nearOrigin = hasNear ? { lat: data.near_lat as number, lng: data.near_lng as number } : null;
     const radius = data.radius_km ?? null;
