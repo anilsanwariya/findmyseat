@@ -223,3 +223,49 @@ export const reviewLibrary = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+// -------- Change log (super admin + org admin for own branch) ----------
+export const getLibraryDetailWithLog = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ library_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { data: isSuper } = await supabase.rpc("has_role", { _user_id: userId, _role: "super_admin" });
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Fetch library + photos
+    const { data: lib, error: libErr } = await supabaseAdmin
+      .from("libraries")
+      .select("*, library_photos(id, image_url, section_name, display_order), organizations(company_name, owner_name, contact_email, contact_phone)")
+      .eq("id", data.library_id)
+      .single();
+    if (libErr || !lib) throw new Error(libErr?.message ?? "Branch not found");
+
+    // Authorize: super admin OR org admin of this branch
+    if (!isSuper) {
+      const { data: isOwner } = await supabase.rpc("is_org_admin", { _user_id: userId, _org_id: (lib as any).org_id });
+      if (!isOwner) throw new Error("Forbidden");
+    }
+
+    const { data: log, error: logErr } = await supabaseAdmin
+      .from("library_change_log")
+      .select("*")
+      .eq("library_id", data.library_id)
+      .order("changed_at", { ascending: false })
+      .limit(200);
+    if (logErr) throw new Error(logErr.message);
+
+    // Resolve actor names
+    const actorIds = Array.from(new Set((log ?? []).map((r: any) => r.changed_by).filter(Boolean)));
+    const actorMap: Record<string, string> = {};
+    if (actorIds.length) {
+      const { data: users } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 200 });
+      for (const u of users?.users ?? []) {
+        if (actorIds.includes(u.id)) actorMap[u.id] = u.email ?? u.id;
+      }
+    }
+    const enriched = (log ?? []).map((r: any) => ({ ...r, actor: r.changed_by ? (actorMap[r.changed_by] ?? "unknown") : "system" }));
+
+    return { library: lib, log: enriched };
+  });
+
