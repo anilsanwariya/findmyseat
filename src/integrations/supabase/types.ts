@@ -408,6 +408,50 @@ export type Database = {
           },
         ]
       }
+      library_change_log: {
+        Row: {
+          action: string
+          changed_at: string
+          changed_by: string | null
+          field: string | null
+          id: string
+          library_id: string
+          new_value: string | null
+          note: string | null
+          old_value: string | null
+        }
+        Insert: {
+          action: string
+          changed_at?: string
+          changed_by?: string | null
+          field?: string | null
+          id?: string
+          library_id: string
+          new_value?: string | null
+          note?: string | null
+          old_value?: string | null
+        }
+        Update: {
+          action?: string
+          changed_at?: string
+          changed_by?: string | null
+          field?: string | null
+          id?: string
+          library_id?: string
+          new_value?: string | null
+          note?: string | null
+          old_value?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "library_change_log_library_id_fkey"
+            columns: ["library_id"]
+            isOneToOne: false
+            referencedRelation: "libraries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       library_photos: {
         Row: {
           created_at: string
