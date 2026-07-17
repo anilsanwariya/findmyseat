@@ -105,7 +105,7 @@ export const marketplaceSearch = createServerFn({ method: "POST" })
           shifts: l.shifts,
           closed_on: l.closed_on,
           amenities: l.amenities ?? {},
-          cover_photo_url: l.cover_photo_url,
+          cover_photo_url: firstPhotoByLib.get(l.id) ?? l.cover_photo_url,
           description: l.description,
           show_public_availability: l.show_public_availability,
           vacant_count: l.show_public_availability ? vacant : null,
