@@ -156,27 +156,39 @@ export type Database = {
         Row: {
           code: string
           created_at: string
+          current_uses: number
           discount_pct: number
+          discount_type: Database["public"]["Enums"]["coupon_discount_type"]
+          discount_value: number | null
           id: string
           is_active: boolean
+          max_uses: number | null
           updated_at: string
           valid_until: string | null
         }
         Insert: {
           code: string
           created_at?: string
+          current_uses?: number
           discount_pct: number
+          discount_type?: Database["public"]["Enums"]["coupon_discount_type"]
+          discount_value?: number | null
           id?: string
           is_active?: boolean
+          max_uses?: number | null
           updated_at?: string
           valid_until?: string | null
         }
         Update: {
           code?: string
           created_at?: string
+          current_uses?: number
           discount_pct?: number
+          discount_type?: Database["public"]["Enums"]["coupon_discount_type"]
+          discount_value?: number | null
           id?: string
           is_active?: boolean
+          max_uses?: number | null
           updated_at?: string
           valid_until?: string | null
         }
@@ -314,6 +326,7 @@ export type Database = {
         Row: {
           address: string | null
           amenities: Json
+          approval_status: Database["public"]["Enums"]["library_approval_status"]
           city: string | null
           closed_on: string | null
           contact_phone: string | null
@@ -326,6 +339,9 @@ export type Database = {
           name: string
           opening_hours: string | null
           org_id: string
+          rejection_reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
           shifts: string | null
           show_public_availability: boolean
           targeted_exam_ids: string[]
@@ -335,6 +351,7 @@ export type Database = {
         Insert: {
           address?: string | null
           amenities?: Json
+          approval_status?: Database["public"]["Enums"]["library_approval_status"]
           city?: string | null
           closed_on?: string | null
           contact_phone?: string | null
@@ -347,6 +364,9 @@ export type Database = {
           name: string
           opening_hours?: string | null
           org_id: string
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           shifts?: string | null
           show_public_availability?: boolean
           targeted_exam_ids?: string[]
@@ -356,6 +376,7 @@ export type Database = {
         Update: {
           address?: string | null
           amenities?: Json
+          approval_status?: Database["public"]["Enums"]["library_approval_status"]
           city?: string | null
           closed_on?: string | null
           contact_phone?: string | null
@@ -368,6 +389,9 @@ export type Database = {
           name?: string
           opening_hours?: string | null
           org_id?: string
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           shifts?: string | null
           show_public_availability?: boolean
           targeted_exam_ids?: string[]
@@ -538,6 +562,73 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      owner_subscriptions: {
+        Row: {
+          billing_cycle: string
+          cancel_at_period_end: boolean
+          coupon_id: string | null
+          created_at: string
+          current_period_end: string | null
+          id: string
+          org_id: string
+          plan_id: string
+          razorpay_customer_id: string | null
+          razorpay_subscription_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          billing_cycle?: string
+          cancel_at_period_end?: boolean
+          coupon_id?: string | null
+          created_at?: string
+          current_period_end?: string | null
+          id?: string
+          org_id: string
+          plan_id: string
+          razorpay_customer_id?: string | null
+          razorpay_subscription_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          billing_cycle?: string
+          cancel_at_period_end?: boolean
+          coupon_id?: string | null
+          created_at?: string
+          current_period_end?: string | null
+          id?: string
+          org_id?: string
+          plan_id?: string
+          razorpay_customer_id?: string | null
+          razorpay_subscription_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "owner_subscriptions_coupon_id_fkey"
+            columns: ["coupon_id"]
+            isOneToOne: false
+            referencedRelation: "discount_coupons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "owner_subscriptions_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "owner_subscriptions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       payments: {
         Row: {
@@ -975,28 +1066,37 @@ export type Database = {
       }
       subscription_plans: {
         Row: {
+          annual_price: number
           created_at: string
+          description: string | null
           features: Json
           id: string
           is_active: boolean
+          monthly_price: number
           name: string
           price: number
           updated_at: string
         }
         Insert: {
+          annual_price?: number
           created_at?: string
+          description?: string | null
           features?: Json
           id?: string
           is_active?: boolean
+          monthly_price?: number
           name: string
           price?: number
           updated_at?: string
         }
         Update: {
+          annual_price?: number
           created_at?: string
+          description?: string | null
           features?: Json
           id?: string
           is_active?: boolean
+          monthly_price?: number
           name?: string
           price?: number
           updated_at?: string
@@ -1129,8 +1229,10 @@ export type Database = {
     Enums: {
       allocation_status: "paid" | "overdue" | "pending"
       app_role: "super_admin" | "org_admin" | "student"
+      coupon_discount_type: "percentage" | "flat"
       facing_direction: "north" | "south" | "east" | "west"
       lead_status: "pending" | "contacted" | "converted" | "lost"
+      library_approval_status: "pending" | "approved" | "rejected"
       notice_type: "announcement" | "holiday"
       payment_method: "upi" | "cash" | "card" | "bank_transfer"
       reservation_type: "reserved" | "unreserved"
@@ -1267,8 +1369,10 @@ export const Constants = {
     Enums: {
       allocation_status: ["paid", "overdue", "pending"],
       app_role: ["super_admin", "org_admin", "student"],
+      coupon_discount_type: ["percentage", "flat"],
       facing_direction: ["north", "south", "east", "west"],
       lead_status: ["pending", "contacted", "converted", "lost"],
+      library_approval_status: ["pending", "approved", "rejected"],
       notice_type: ["announcement", "holiday"],
       payment_method: ["upi", "cash", "card", "bank_transfer"],
       reservation_type: ["reserved", "unreserved"],
