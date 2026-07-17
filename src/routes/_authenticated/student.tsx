@@ -420,11 +420,11 @@ function EmailVerificationGate({ profile }: { profile: any }) {
               e.preventDefault();
               setLoading(true);
               try {
-                await verifyOtp({ data: { email, otp, student_id: profile.id } });
+                await verifyOtp({ data: { email: email.trim().toLowerCase(), otp: otp.trim(), student_id: profile.id } });
                 toast.success("Email successfully verified!");
                 qc.invalidateQueries({ queryKey: ["student-profile"] });
               } catch (err: any) {
-                toast.error("Invalid or expired OTP");
+                toast.error(err?.message || "Invalid or expired OTP");
               } finally {
                 setLoading(false);
               }
