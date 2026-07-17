@@ -53,14 +53,17 @@ function StudentLogin() {
   return (
     <div className="relative min-h-screen text-foreground">
       <AuroraBackground />
-      <div className="relative z-10 flex min-h-screen items-center justify-center px-4">
-        <div className="w-full max-w-md">
-          <Link to="/" className="mb-6 flex items-center justify-center gap-2">
+      <div className="relative z-10 flex min-h-screen flex-col">
+        <header className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-5 sm:px-6">
+          <Link to="/" className="flex items-center gap-2">
             <div className="grid size-8 place-items-center rounded-lg bg-gradient-to-br from-violet to-cyan font-black">
               L
             </div>
             <span className="text-lg font-extrabold tracking-tight">LibraryBandhu</span>
           </Link>
+        </header>
+        <div className="flex flex-1 items-center justify-center px-4 pb-16">
+          <div className="w-full max-w-md">
           <GlassPanel className="p-6">
             <h1 className="text-xl font-bold">Student sign in</h1>
             <p className="mt-1 text-sm text-muted-foreground">
