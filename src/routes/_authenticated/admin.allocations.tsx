@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { toast } from "sonner";
 import { inr, fmtDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { StudentPaymentHistoryDialog } from "@/components/admin/StudentPaymentHistoryDialog";
 import {
   Plus,
   ArrowUp,
@@ -71,6 +72,7 @@ function AllocationsPage() {
   // Table Filters
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [historyStudent, setHistoryStudent] = useState<{ id: string; library_id: string | null; name: string } | null>(null);
 
   const qc = useQueryClient();
   const currentLibId = libraryId ?? libs?.[0]?.id;
@@ -95,7 +97,7 @@ function AllocationsPage() {
       const { data } = await supabase
         .from("allocations")
         .select(
-          "id, monthly_fee, next_due_date, status, reservation_type, is_active, library_id, seat_id, shift_id, students(full_name, mobile_number), seats(id, seat_number, section_id), libraries(name), shifts(name)",
+          "id, monthly_fee, next_due_date, status, reservation_type, is_active, library_id, seat_id, shift_id, student_id, students(full_name, mobile_number), seats(id, seat_number, section_id), libraries(name), shifts(name)",
         )
         .eq("org_id", orgId!)
         .eq("library_id", currentLibId!)
@@ -444,7 +446,19 @@ function AllocationsPage() {
                   className="border-b border-panel-border/50 hover:bg-white/[0.02] transition-colors whitespace-nowrap"
                 >
                   <td className="py-3 px-2 font-medium">
-                    {a.students?.full_name}
+                    <button
+                      type="button"
+                      className="hover:text-cyan underline-offset-2 hover:underline"
+                      onClick={() =>
+                        setHistoryStudent({
+                          id: a.student_id,
+                          library_id: a.library_id,
+                          name: a.students?.full_name ?? "Student",
+                        })
+                      }
+                    >
+                      {a.students?.full_name}
+                    </button>
                     <span className="text-muted-foreground text-xs font-mono ml-2">({a.students?.mobile_number})</span>
                   </td>
                   <td className="py-3 px-2 font-mono text-cyan">
@@ -594,6 +608,10 @@ function AllocationsPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {historyStudent && (
+        <StudentPaymentHistoryDialog student={historyStudent} onClose={() => setHistoryStudent(null)} />
+      )}
     </div>
   );
 }

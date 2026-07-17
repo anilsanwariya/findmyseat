@@ -636,39 +636,51 @@ export type Database = {
           amount_paid: number
           covers_until: string | null
           created_at: string
+          created_by: string | null
           id: string
           library_id: string | null
+          logged_at: string
           method: Database["public"]["Enums"]["payment_method"]
           org_id: string
           payment_date: string
+          receipt_url: string | null
           reference_note: string | null
           student_id: string
+          transaction_reference: string | null
         }
         Insert: {
           allocation_id?: string | null
           amount_paid: number
           covers_until?: string | null
           created_at?: string
+          created_by?: string | null
           id?: string
           library_id?: string | null
+          logged_at?: string
           method?: Database["public"]["Enums"]["payment_method"]
           org_id: string
           payment_date?: string
+          receipt_url?: string | null
           reference_note?: string | null
           student_id: string
+          transaction_reference?: string | null
         }
         Update: {
           allocation_id?: string | null
           amount_paid?: number
           covers_until?: string | null
           created_at?: string
+          created_by?: string | null
           id?: string
           library_id?: string | null
+          logged_at?: string
           method?: Database["public"]["Enums"]["payment_method"]
           org_id?: string
           payment_date?: string
+          receipt_url?: string | null
           reference_note?: string | null
           student_id?: string
+          transaction_reference?: string | null
         }
         Relationships: [
           {
