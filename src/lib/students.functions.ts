@@ -76,6 +76,108 @@ export const createStudent = createServerFn({ method: "POST" })
     return { ok: true, student_id: student.id };
   });
 
+// ============ Update student (org admin) ============
+const UpdateStudentSchema = z.object({
+  student_id: z.string().uuid(),
+  full_name: z.string().trim().min(2).max(120),
+  mobile_number: z.string().regex(/^[0-9]{10}$/, "10-digit mobile"),
+  dob: z.string().regex(/^[0-9]{6}$/, "DOB must be DDMMYY"),
+  library_id: z.string().uuid(),
+  target_exam_id: z.string().uuid().optional().nullable(),
+  address: z.string().max(500).optional().nullable(),
+  notes: z.string().max(1000).optional().nullable(),
+});
+export const updateStudent = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => UpdateStudentSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    const orgId = await assertOrgAdmin(context);
+    const { data: s } = await context.supabase
+      .from("students")
+      .select("id, org_id, user_id, mobile_number")
+      .eq("id", data.student_id)
+      .maybeSingle();
+    if (!s || s.org_id !== orgId) throw new Error("Student not in your organization");
+    const { data: lib } = await context.supabase
+      .from("libraries")
+      .select("id, org_id")
+      .eq("id", data.library_id)
+      .maybeSingle();
+    if (!lib || lib.org_id !== orgId) throw new Error("Library not in your organization");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const mobileChanged = s.mobile_number !== data.mobile_number;
+
+    // If mobile changed, also update the synthetic auth email so student login continues to work.
+    if (mobileChanged && s.user_id) {
+      const newEmail = emailFromMobile(data.mobile_number);
+      const { error: uErr } = await supabaseAdmin.auth.admin.updateUserById(s.user_id, {
+        email: newEmail,
+        email_confirm: true,
+      });
+      if (uErr) {
+        if (/already/i.test(uErr.message) || /duplicate/i.test(uErr.message)) {
+          throw new Error("That mobile number is already registered.");
+        }
+        throw new Error(uErr.message);
+      }
+    }
+
+    const { error } = await supabaseAdmin
+      .from("students")
+      .update({
+        full_name: data.full_name,
+        mobile_number: data.mobile_number,
+        dob: data.dob,
+        library_id: data.library_id,
+        target_exam_id: data.target_exam_id ?? null,
+        address: data.address ?? null,
+        notes: data.notes ?? null,
+      })
+      .eq("id", s.id);
+    if (error) {
+      if (error.code === "23505") throw new Error("That mobile number is already registered in your organization.");
+      throw new Error(error.message);
+    }
+    return { ok: true };
+  });
+
+// ============ Activate / Deactivate student ============
+const SetActiveSchema = z.object({
+  student_id: z.string().uuid(),
+  is_active: z.boolean(),
+});
+export const setStudentActive = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => SetActiveSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    const orgId = await assertOrgAdmin(context);
+    const { data: s } = await context.supabase
+      .from("students")
+      .select("id, org_id")
+      .eq("id", data.student_id)
+      .maybeSingle();
+    if (!s || s.org_id !== orgId) throw new Error("Student not in your organization");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // If deactivating, auto-release any active seat allocations (seat becomes available).
+    if (!data.is_active) {
+      await supabaseAdmin
+        .from("allocations")
+        .update({ is_active: false, status: "ended" })
+        .eq("student_id", s.id)
+        .eq("is_active", true);
+    }
+
+    const { error } = await supabaseAdmin
+      .from("students")
+      .update({ is_active: data.is_active })
+      .eq("id", s.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 const ResetPinSchema = z.object({ student_id: z.string().uuid() });
 export const resetStudentPin = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
