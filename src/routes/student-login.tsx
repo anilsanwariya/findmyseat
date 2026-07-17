@@ -106,10 +106,7 @@ function StudentLogin() {
               </Link>
             </div>
             <p className="mt-6 text-center text-xs text-muted-foreground">
-              Library owner?{" "}
-              <Link to="/auth" className="text-violet hover:underline">
-                Owner sign in
-              </Link>
+              New here? Ask your library owner to add you as a student.
             </p>
           </GlassPanel>
         </div>
