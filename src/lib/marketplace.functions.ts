@@ -1,6 +1,16 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
+function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
+  const R = 6371;
+  const dLat = ((b.lat - a.lat) * Math.PI) / 180;
+  const dLng = ((b.lng - a.lng) * Math.PI) / 180;
+  const la1 = (a.lat * Math.PI) / 180;
+  const la2 = (b.lat * Math.PI) / 180;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(la1) * Math.cos(la2) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
 // Public marketplace: uses supabaseAdmin to aggregate safe, pre-filtered data.
 export const marketplaceSearch = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
@@ -9,6 +19,9 @@ export const marketplaceSearch = createServerFn({ method: "POST" })
         query: z.string().trim().max(120).optional().nullable(),
         zone: z.string().trim().max(120).optional().nullable(),
         exam_id: z.string().uuid().optional().nullable(),
+        near_lat: z.number().gte(-90).lte(90).optional().nullable(),
+        near_lng: z.number().gte(-180).lte(180).optional().nullable(),
+        radius_km: z.number().gt(0).lte(200).optional().nullable(),
       })
       .parse(d),
   )
@@ -25,7 +38,7 @@ export const marketplaceSearch = createServerFn({ method: "POST" })
       .from("libraries")
       // Added our new columns to the select query
       .select(
-        "id, org_id, name, zone_area, city, address, google_maps_url, opening_hours, shifts, closed_on, amenities, cover_photo_url, description, show_public_availability, targeted_exam_ids, is_active",
+        "id, org_id, name, zone_area, city, address, google_maps_url, opening_hours, shifts, closed_on, amenities, cover_photo_url, description, show_public_availability, targeted_exam_ids, is_active, latitude, longitude",
       )
       .eq("is_active", true)
       .eq("approval_status", "approved");
@@ -68,52 +81,73 @@ export const marketplaceSearch = createServerFn({ method: "POST" })
       studentExam = new Map((st ?? []).map((s: any) => [s.id, s.target_exam_id]));
     }
 
-    return {
-      libraries: libraries.map((l: any) => {
-        const libSeats = seats.filter((s: any) => s.library_id === l.id);
-        const libAllocs = allocs.filter((a: any) => a.library_id === l.id);
-        const total = libSeats.length;
-        const occupied = libAllocs.length;
-        const vacant = Math.max(0, total - occupied);
-        // Exam ratio among occupied seats
-        const examCounts = new Map<string, number>();
-        for (const a of libAllocs) {
-          const ex = studentExam.get(a.student_id);
-          if (ex) examCounts.set(ex, (examCounts.get(ex) ?? 0) + 1);
-        }
-        let socialProof: { exam_name: string; pct: number } | null = null;
-        if (occupied >= 5) {
-          for (const [ex, count] of examCounts) {
-            const pct = (count / occupied) * 100;
-            if (pct >= 40) {
-              const name = examMap.get(ex);
-              if (name) {
-                socialProof = { exam_name: name, pct: Math.round(pct) };
-                break;
-              }
+
+
+    const hasNear = typeof data.near_lat === "number" && typeof data.near_lng === "number";
+    const nearOrigin = hasNear ? { lat: data.near_lat as number, lng: data.near_lng as number } : null;
+    const radius = data.radius_km ?? null;
+
+    const mapped = libraries.map((l: any) => {
+      const libSeats = seats.filter((s: any) => s.library_id === l.id);
+      const libAllocs = allocs.filter((a: any) => a.library_id === l.id);
+      const total = libSeats.length;
+      const occupied = libAllocs.length;
+      const vacant = Math.max(0, total - occupied);
+      const examCounts = new Map<string, number>();
+      for (const a of libAllocs) {
+        const ex = studentExam.get(a.student_id);
+        if (ex) examCounts.set(ex, (examCounts.get(ex) ?? 0) + 1);
+      }
+      let socialProof: { exam_name: string; pct: number } | null = null;
+      if (occupied >= 5) {
+        for (const [ex, count] of examCounts) {
+          const pct = (count / occupied) * 100;
+          if (pct >= 40) {
+            const name = examMap.get(ex);
+            if (name) {
+              socialProof = { exam_name: name, pct: Math.round(pct) };
+              break;
             }
           }
         }
-        return {
-          id: l.id,
-          name: l.name,
-          zone_area: l.zone_area,
-          city: l.city,
-          address: l.address,
-          google_maps_url: l.google_maps_url,
-          opening_hours: l.opening_hours,
-          shifts: l.shifts,
-          closed_on: l.closed_on,
-          amenities: l.amenities ?? {},
-          cover_photo_url: firstPhotoByLib.get(l.id) ?? l.cover_photo_url,
-          description: l.description,
-          show_public_availability: l.show_public_availability,
-          vacant_count: l.show_public_availability ? vacant : null,
-          targeted_exam_names: (l.targeted_exam_ids ?? []).map((id: string) => examMap.get(id)).filter(Boolean),
-          social_proof: socialProof,
-        };
-      }),
-    };
+      }
+      let distance_km: number | null = null;
+      if (nearOrigin && typeof l.latitude === "number" && typeof l.longitude === "number") {
+        distance_km = haversineKm(nearOrigin, { lat: l.latitude, lng: l.longitude });
+      }
+      return {
+        id: l.id,
+        name: l.name,
+        zone_area: l.zone_area,
+        city: l.city,
+        address: l.address,
+        google_maps_url: l.google_maps_url,
+        opening_hours: l.opening_hours,
+        shifts: l.shifts,
+        closed_on: l.closed_on,
+        amenities: l.amenities ?? {},
+        cover_photo_url: firstPhotoByLib.get(l.id) ?? l.cover_photo_url,
+        description: l.description,
+        show_public_availability: l.show_public_availability,
+        vacant_count: l.show_public_availability ? vacant : null,
+        targeted_exam_names: (l.targeted_exam_ids ?? []).map((id: string) => examMap.get(id)).filter(Boolean),
+        social_proof: socialProof,
+        latitude: l.latitude ?? null,
+        longitude: l.longitude ?? null,
+        distance_km,
+      };
+    });
+
+    let final = mapped;
+    if (nearOrigin) {
+      if (radius) final = final.filter((l) => l.distance_km !== null && (l.distance_km as number) <= radius);
+      final = final.slice().sort((a, b) => {
+        const da = a.distance_km ?? Number.POSITIVE_INFINITY;
+        const db = b.distance_km ?? Number.POSITIVE_INFINITY;
+        return da - db;
+      });
+    }
+    return { libraries: final };
   });
 
 export const listPublicExams = createServerFn({ method: "GET" }).handler(async () => {

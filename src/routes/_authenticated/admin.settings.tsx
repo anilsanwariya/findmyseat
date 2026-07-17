@@ -19,9 +19,10 @@ import {
 } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Plus, Building2, Globe, Languages, Edit2, Trash2, Mail, AlertTriangle, Image as ImageIcon, X as XIcon, Upload, ArrowUp, ArrowDown, Star } from "lucide-react";
+import { Plus, Building2, Globe, Languages, Edit2, Trash2, Mail, AlertTriangle, Image as ImageIcon, X as XIcon, Upload, ArrowUp, ArrowDown, Star, MapPin, Loader2 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { uploadLibraryPhoto, deleteLibraryPhoto, reorderLibraryPhotos } from "@/lib/libraries.functions";
+import { reverseGeocode } from "@/lib/geocode.functions";
 
 export const Route = createFileRoute("/_authenticated/admin/settings")({
   component: SettingsPage,
@@ -485,6 +486,11 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
   const [openingHours, setOpeningHours] = useState("");
   const [shifts, setShifts] = useState("");
   const [closedOn, setClosedOn] = useState("");
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
+  const [placeId, setPlaceId] = useState<string | null>(null);
+  const [locLoading, setLocLoading] = useState(false);
+  const geocodeFn = useServerFn(reverseGeocode);
 
   const { data: exams } = useMasterExams();
   const [selectedExams, setSelectedExams] = useState<Set<string>>(new Set());
@@ -504,8 +510,46 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
       setClosedOn(existingLib.closed_on || "");
       setSelectedExams(new Set(existingLib.targeted_exam_ids || []));
       setAmenities(existingLib.amenities || {});
+      setLatitude(existingLib.latitude ?? null);
+      setLongitude(existingLib.longitude ?? null);
+      setPlaceId(existingLib.location_place_id ?? null);
     }
   }, [existingLib]);
+
+  async function useCurrentLocation() {
+    if (!("geolocation" in navigator)) {
+      toast.error("Geolocation not supported on this device");
+      return;
+    }
+    setLocLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const { latitude: lat, longitude: lng } = pos.coords;
+          const res = await geocodeFn({ data: { lat, lng } });
+          setLatitude(lat);
+          setLongitude(lng);
+          setPlaceId(res.place_id);
+          setAddress(res.formatted_address);
+          if (res.area) setZone(res.area);
+          if (res.city) setCity(res.city);
+          if (!googleMapsUrl) {
+            setGoogleMapsUrl(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}&query_place_id=${res.place_id}`);
+          }
+          toast.success("Location captured — please verify the address");
+        } catch (err: any) {
+          toast.error(err?.message || "Could not resolve address");
+        } finally {
+          setLocLoading(false);
+        }
+      },
+      (err) => {
+        setLocLoading(false);
+        toast.error(err.message || "Location permission denied");
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
+    );
+  }
 
   const handleToggleAmenity = (key: string) => {
     setAmenities((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -541,6 +585,9 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
             closed_on: closedOn || null,
             targeted_exam_ids: Array.from(selectedExams),
             amenities: amenities,
+            latitude: latitude,
+            longitude: longitude,
+            location_place_id: placeId,
           };
 
           let error;
@@ -593,6 +640,34 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
           <h4 className="text-xs font-mono uppercase tracking-widest text-cyan border-b border-panel-border/50 pb-1">
             Location Details
           </h4>
+          <div className="rounded-lg border border-panel-border bg-panel/60 p-3 space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-xs">
+                <MapPin className="size-4 text-cyan" />
+                {latitude != null && longitude != null ? (
+                  <span className="font-mono text-emerald">
+                    Pinned: {latitude.toFixed(5)}, {longitude.toFixed(5)}
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground">No location pinned yet</span>
+                )}
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={useCurrentLocation}
+                disabled={locLoading}
+                className="border-cyan/40 text-cyan hover:bg-cyan/10"
+              >
+                {locLoading ? <Loader2 className="mr-1 size-4 animate-spin" /> : <MapPin className="mr-1 size-4" />}
+                {latitude != null ? "Re-capture location" : "Use current location"}
+              </Button>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Stand at the branch entrance and tap the button. We'll auto-fill the address, area and city from Google Maps — you can still edit any field below.
+            </p>
+          </div>
           <div className="space-y-2">
             <Label>Complete Address</Label>
             <Textarea

@@ -26,6 +26,8 @@ import {
   CalendarX,
   CheckCircle2,
   ExternalLink,
+  LocateFixed,
+  X as XIcon,
 } from "lucide-react";
 import { marketplaceSearch, listPublicExams, listPublicZones, submitSeatRequest } from "@/lib/marketplace.functions";
 
@@ -78,6 +80,9 @@ function Marketplace() {
   const [examId, setExamId] = useState<string>("");
   const [requestLib, setRequestLib] = useState<any | null>(null);
   const [detailsLib, setDetailsLib] = useState<any | null>(null);
+  const [nearCoords, setNearCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [radiusKm, setRadiusKm] = useState<number>(5);
+  const [geoLoading, setGeoLoading] = useState(false);
 
   const search = useServerFn(marketplaceSearch);
   const examsFn = useServerFn(listPublicExams);
@@ -86,12 +91,42 @@ function Marketplace() {
   const exams = useQuery({ queryKey: ["public-exams"], queryFn: () => examsFn(), staleTime: 10 * 60_000 });
   const zones = useQuery({ queryKey: ["public-zones"], queryFn: () => zonesFn(), staleTime: 10 * 60_000 });
   const results = useQuery({
-    queryKey: ["marketplace", query, zone, examId],
-    queryFn: () => search({ data: { query: query || null, zone: zone || null, exam_id: examId || null } }),
+    queryKey: ["marketplace", query, zone, examId, nearCoords?.lat ?? null, nearCoords?.lng ?? null, nearCoords ? radiusKm : null],
+    queryFn: () =>
+      search({
+        data: {
+          query: query || null,
+          zone: zone || null,
+          exam_id: examId || null,
+          near_lat: nearCoords?.lat ?? null,
+          near_lng: nearCoords?.lng ?? null,
+          radius_km: nearCoords ? radiusKm : null,
+        },
+      }),
     staleTime: 30_000,
   });
 
   const libs = results.data?.libraries ?? [];
+
+  function requestNearby() {
+    if (!("geolocation" in navigator)) {
+      toast.error("Geolocation not supported on this device");
+      return;
+    }
+    setGeoLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setNearCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setGeoLoading(false);
+        toast.success("Showing libraries near you");
+      },
+      (err) => {
+        setGeoLoading(false);
+        toast.error(err.message || "Could not get your location");
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 },
+    );
+  }
 
   return (
     <div className="relative min-h-screen text-foreground flex flex-col">
@@ -170,7 +205,47 @@ function Marketplace() {
             </Select>
             <Button className="bg-white text-slate-900 hover:bg-white/90">Search</Button>
           </GlassPanel>
+
+          <div className="mx-auto mt-3 flex flex-wrap items-center justify-center gap-3 text-xs">
+            {!nearCoords ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={requestNearby}
+                disabled={geoLoading}
+                className="border-cyan/40 text-cyan hover:bg-cyan/10"
+              >
+                <LocateFixed className="mr-1.5 size-4" />
+                {geoLoading ? "Locating…" : "Near me"}
+              </Button>
+            ) : (
+              <div className="inline-flex items-center gap-3 rounded-full border border-emerald/40 bg-emerald/10 px-3 py-1.5 text-emerald">
+                <LocateFixed className="size-3.5" />
+                <span className="font-medium">Within {radiusKm} km</span>
+                <input
+                  type="range"
+                  min={1}
+                  max={50}
+                  step={1}
+                  value={radiusKm}
+                  onChange={(e) => setRadiusKm(Number(e.target.value))}
+                  className="h-1 w-32 cursor-pointer accent-cyan"
+                  aria-label="Search radius"
+                />
+                <button
+                  type="button"
+                  onClick={() => setNearCoords(null)}
+                  className="rounded-full p-0.5 hover:bg-emerald/20"
+                  aria-label="Clear near-me filter"
+                >
+                  <XIcon className="size-3.5" />
+                </button>
+              </div>
+            )}
+          </div>
         </section>
+
 
         <section className="mx-auto w-full max-w-7xl px-4 pb-16 pt-6 sm:px-6 flex-1">
           {results.isLoading ? (
@@ -278,11 +353,21 @@ function LibraryCard({
               </p>
             )}
           </div>
-          {lib.vacant_count !== null && (
-            <span className="shrink-0 rounded-full border border-emerald/30 bg-emerald/10 px-2 py-0.5 font-mono text-[10px] text-emerald">
-              {lib.vacant_count} seats
-            </span>
-          )}
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            {lib.vacant_count !== null && (
+              <span className="rounded-full border border-emerald/30 bg-emerald/10 px-2 py-0.5 font-mono text-[10px] text-emerald">
+                {lib.vacant_count} seats
+              </span>
+            )}
+            {typeof lib.distance_km === "number" && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-cyan/30 bg-cyan/10 px-2 py-0.5 font-mono text-[10px] text-cyan">
+                <LocateFixed className="size-2.5" />
+                {lib.distance_km < 1
+                  ? `${Math.round(lib.distance_km * 1000)} m`
+                  : `${lib.distance_km.toFixed(1)} km`}
+              </span>
+            )}
+          </div>
         </div>
 
         {lib.description && <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">{lib.description}</p>}

@@ -336,6 +336,9 @@ export type Database = {
           google_maps_url: string | null
           id: string
           is_active: boolean
+          latitude: number | null
+          location_place_id: string | null
+          longitude: number | null
           name: string
           opening_hours: string | null
           org_id: string
@@ -361,6 +364,9 @@ export type Database = {
           google_maps_url?: string | null
           id?: string
           is_active?: boolean
+          latitude?: number | null
+          location_place_id?: string | null
+          longitude?: number | null
           name: string
           opening_hours?: string | null
           org_id: string
@@ -386,6 +392,9 @@ export type Database = {
           google_maps_url?: string | null
           id?: string
           is_active?: boolean
+          latitude?: number | null
+          location_place_id?: string | null
+          longitude?: number | null
           name?: string
           opening_hours?: string | null
           org_id?: string
