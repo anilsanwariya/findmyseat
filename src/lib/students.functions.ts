@@ -384,16 +384,11 @@ export const verifyEmailOtp = createServerFn({ method: "POST" })
       throw new Error(sErr.message);
     }
 
-    // 2) Update auth.users email if student has an auth account.
-    if (student.user_id) {
-      const { error: aErr } = await supabaseAdmin.auth.admin.updateUserById(student.user_id, {
-        email,
-        email_confirm: true,
-      });
-      // Non-fatal: auth login for students uses synthetic mobile email; we
-      // still want profile email to succeed even if auth update fails.
-      if (aErr) console.warn("[email-otp] auth update failed:", aErr.message);
-    }
+    // NOTE: Do NOT update auth.users.email — student login uses the
+    // synthetic `<mobile>@students.librarybandhu.local` address. Changing
+    // it breaks PIN sign-in. The verified email lives only on the
+    // students profile row (used for OTP / notifications).
+
 
     // 3) Consume the OTP.
     await supabaseAdmin.from("email_verification_otps").delete().eq("id", otp.id);
