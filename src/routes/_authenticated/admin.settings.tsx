@@ -343,8 +343,7 @@ function PhotoManagerDialog({ lib }: { lib: any }) {
           <ImageIcon className="size-4 text-cyan" /> Photos · {lib.name}
         </DialogTitle>
         <DialogDescription>
-          Photos appear in the marketplace gallery for students to swipe through. Max 5MB each. Recommended: bright, well-lit
-          shots of your seating area, reading zones, and amenities.
+          Photos appear in the marketplace gallery for students to swipe through. The first photo is used as the cover on your marketplace card — drag order or use the star to change it. Max 5MB each. Uploading a new photo puts the branch back into the super-admin approval queue.
         </DialogDescription>
       </DialogHeader>
 
