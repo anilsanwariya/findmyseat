@@ -26,6 +26,8 @@ import {
   CalendarX,
   CheckCircle2,
   ExternalLink,
+  LocateFixed,
+  X as XIcon,
 } from "lucide-react";
 import { marketplaceSearch, listPublicExams, listPublicZones, submitSeatRequest } from "@/lib/marketplace.functions";
 
