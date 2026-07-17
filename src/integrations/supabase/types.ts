@@ -1064,6 +1064,60 @@ export type Database = {
           },
         ]
       }
+      subscription_invoices: {
+        Row: {
+          amount: number
+          created_at: string
+          currency: string
+          id: string
+          org_id: string
+          paid_at: string | null
+          razorpay_invoice_id: string | null
+          razorpay_payment_id: string | null
+          status: string
+          subscription_id: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          currency?: string
+          id?: string
+          org_id: string
+          paid_at?: string | null
+          razorpay_invoice_id?: string | null
+          razorpay_payment_id?: string | null
+          status?: string
+          subscription_id?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          org_id?: string
+          paid_at?: string | null
+          razorpay_invoice_id?: string | null
+          razorpay_payment_id?: string | null
+          status?: string
+          subscription_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscription_invoices_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscription_invoices_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "owner_subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscription_plans: {
         Row: {
           annual_price: number
