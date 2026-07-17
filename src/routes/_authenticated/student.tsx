@@ -384,7 +384,7 @@ function EmailVerificationGate({ profile }: { profile: any }) {
               setLoading(true);
               try {
                 // 1. Request Email Update OTP via custom edge function
-                const res = await sendOtp({ data: { email, student_id: profile.id } });
+                const res = await sendOtp({ data: { email: email.trim().toLowerCase(), student_id: profile.id } });
                 if ((res as any)?.dev_code) {
                   toast.success(`OTP sent. Dev code: ${(res as any).dev_code}`);
                 } else {
