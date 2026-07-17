@@ -28,9 +28,12 @@ function ApprovalsPage() {
         .from("libraries")
         .select("*, library_photos(url, sort_order)")
         .eq("approval_status", "pending")
-        .order("created_at", { ascending: true });
+        .order("updated_at", { ascending: false });
       return data ?? [];
     },
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 
   const mut = useMutation({
