@@ -608,6 +608,10 @@ function AllocationsPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {historyStudent && (
+        <StudentPaymentHistoryDialog student={historyStudent} onClose={() => setHistoryStudent(null)} />
+      )}
     </div>
   );
 }
