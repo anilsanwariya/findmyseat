@@ -4,9 +4,9 @@ import type { ReactNode, HTMLAttributes } from "react";
 export function AuroraBackground({ className }: { className?: string }) {
   return (
     <div className={cn("pointer-events-none fixed inset-0 z-0 overflow-hidden", className)} aria-hidden>
-      <div className="absolute -top-[15%] -left-[10%] h-[600px] w-[600px] rounded-full bg-violet/25 blur-[140px] animate-drift" />
-      <div className="absolute top-[10%] -right-[10%] h-[520px] w-[520px] rounded-full bg-cyan/20 blur-[130px] animate-drift [animation-delay:-8s]" />
-      <div className="absolute -bottom-[15%] left-[20%] h-[700px] w-[700px] rounded-full bg-magenta/15 blur-[160px] animate-drift [animation-delay:-14s]" />
+      <div className="aurora-blob absolute -top-[15%] -left-[10%] h-[600px] w-[600px] rounded-full bg-violet/25 blur-[140px] animate-drift" />
+      <div className="aurora-blob absolute top-[10%] -right-[10%] h-[520px] w-[520px] rounded-full bg-cyan/20 blur-[130px] animate-drift [animation-delay:-8s]" />
+      <div className="aurora-blob absolute -bottom-[15%] left-[20%] h-[700px] w-[700px] rounded-full bg-magenta/15 blur-[160px] animate-drift [animation-delay:-14s]" />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,transparent_0%,var(--background)_75%)]" />
     </div>
   );

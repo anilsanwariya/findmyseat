@@ -255,6 +255,7 @@ function LibraryCard({
             alt={lib.name}
             className="size-full object-cover transition-transform group-hover:scale-105"
             loading="lazy"
+            decoding="async"
           />
         ) : (
           <div className="grid size-full place-items-center">
