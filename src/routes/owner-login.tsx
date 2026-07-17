@@ -69,7 +69,7 @@ function OwnerLoginPage() {
       <AuroraBackground />
       <div className="relative z-10 flex min-h-screen items-center justify-center px-4">
         <div className="w-full max-w-md">
-          <Link to="/owners" className="mb-6 flex items-center justify-center gap-2">
+          <Link to="/" className="mb-6 flex items-center justify-center gap-2">
             <div className="grid size-9 place-items-center rounded-xl bg-gradient-to-br from-gold to-magenta shadow-[0_0_24px_-6px_rgba(236,72,153,0.6)]">
               <Building2 className="size-4 text-slate-950" />
             </div>
