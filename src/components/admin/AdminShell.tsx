@@ -9,24 +9,28 @@ import {
   ReceiptText,
   Megaphone,
   LifeBuoy,
-  Settings,
+  Building2,
   LogOut,
   Sparkles,
   Menu,
   X,
   CreditCard,
+  Crown,
 } from "lucide-react";
 import { AuroraBackground, GlassPanel } from "@/components/glass";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { useSession } from "@/lib/auth";
+import { getOwnerBilling } from "@/lib/billing.functions";
 import type { ReactNode } from "react";
 
 type NavItem = { to: string; label: string; icon: typeof LayoutDashboard; exact?: boolean };
 const NAV: NavItem[] = [
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
+  { to: "/admin/settings", label: "Branches", icon: Building2 },
   { to: "/admin/layout-builder", label: "Layout Builder", icon: Grid3x3 },
   { to: "/admin/students", label: "Students", icon: Users },
   { to: "/admin/allocations", label: "Allocations", icon: Ticket },
@@ -35,8 +39,6 @@ const NAV: NavItem[] = [
   { to: "/admin/leads", label: "Leads", icon: Sparkles },
   { to: "/admin/notices", label: "Notices", icon: Megaphone },
   { to: "/admin/tickets", label: "Tickets", icon: LifeBuoy },
-  { to: "/admin/subscription", label: "Subscription", icon: CreditCard },
-  { to: "/admin/settings", label: "Settings", icon: Settings },
 ];
 
 export function AdminShell({ children }: { children: ReactNode }) {
@@ -103,6 +105,9 @@ export function AdminShell({ children }: { children: ReactNode }) {
           <nav className="flex-1 space-y-1 px-3">
             <NavList />
           </nav>
+          <div className="px-3 pb-3">
+            <SubscriptionCard />
+          </div>
           <div className="border-t border-panel-border p-4">
             <div className="flex items-center gap-3">
               <div className="size-8 shrink-0 rounded-full bg-gradient-to-br from-violet/40 to-cyan/40 ring-1 ring-panel-border" />
@@ -142,6 +147,9 @@ export function AdminShell({ children }: { children: ReactNode }) {
               </div>
               <nav className="flex-1 space-y-1 overflow-y-auto px-3 pb-4">
                 <NavList onClick={() => setMobileOpen(false)} />
+                <div className="pt-3">
+                  <SubscriptionCard onClick={() => setMobileOpen(false)} />
+                </div>
               </nav>
               <button
                 onClick={signOut}
@@ -186,5 +194,62 @@ export function EmptyState({ title, hint, action }: { title: string; hint?: stri
       {hint && <p className="mt-1 text-sm text-muted-foreground">{hint}</p>}
       {action && <div className="mt-4">{action}</div>}
     </GlassPanel>
+  );
+}
+
+function SubscriptionCard({ onClick }: { onClick?: () => void }) {
+  const fetchBilling = useServerFn(getOwnerBilling);
+  const { data } = useQuery({
+    queryKey: ["owner-billing-sidebar"],
+    queryFn: () => fetchBilling({}),
+    staleTime: 60_000,
+  });
+
+  const sub = data?.subscription as any;
+  const plan = data?.plan as any;
+  const status = sub?.status as string | undefined;
+  const isActive = status === "active" || status === "authenticated";
+  const dueDate = sub?.current_period_end ? new Date(sub.current_period_end) : null;
+  const dueLabel = dueDate
+    ? dueDate.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" })
+    : null;
+
+  return (
+    <Link
+      to="/admin/subscription"
+      onClick={onClick}
+      className="group relative block overflow-hidden rounded-xl border border-amber-300/40 bg-gradient-to-br from-amber-400/20 via-yellow-500/10 to-amber-600/20 p-3 shadow-[0_0_24px_-6px_rgba(251,191,36,0.55)] transition-all hover:from-amber-400/30 hover:to-amber-600/30 hover:shadow-[0_0_32px_-4px_rgba(251,191,36,0.75)]"
+    >
+      <div className="pointer-events-none absolute -right-6 -top-6 size-20 rounded-full bg-amber-300/25 blur-2xl" />
+      <div className="relative flex items-center gap-2">
+        <div className="grid size-8 place-items-center rounded-lg bg-gradient-to-br from-amber-300 to-amber-600 text-black shadow-inner">
+          <Crown className="size-4" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-mono uppercase tracking-widest text-amber-200/80">Subscription</p>
+          <p className="truncate text-sm font-semibold text-amber-50">
+            {plan?.name ?? (sub ? "Active plan" : "No plan")}
+          </p>
+        </div>
+      </div>
+      <div className="relative mt-2 flex items-center justify-between text-[11px]">
+        <span
+          className={cn(
+            "inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium",
+            isActive
+              ? "bg-emerald/20 text-emerald-300 ring-1 ring-emerald-400/40"
+              : "bg-panel text-muted-foreground ring-1 ring-panel-border",
+          )}
+        >
+          <span className={cn("size-1.5 rounded-full", isActive ? "bg-emerald-300" : "bg-muted-foreground")} />
+          {status ? status.charAt(0).toUpperCase() + status.slice(1) : "Inactive"}
+        </span>
+        {dueLabel ? (
+          <span className="text-amber-100/90">Due {dueLabel}</span>
+        ) : (
+          <span className="text-amber-100/70 group-hover:text-amber-50">Upgrade →</span>
+        )}
+      </div>
+    </Link>
   );
 }
