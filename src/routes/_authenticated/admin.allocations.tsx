@@ -446,7 +446,19 @@ function AllocationsPage() {
                   className="border-b border-panel-border/50 hover:bg-white/[0.02] transition-colors whitespace-nowrap"
                 >
                   <td className="py-3 px-2 font-medium">
-                    {a.students?.full_name}
+                    <button
+                      type="button"
+                      className="hover:text-cyan underline-offset-2 hover:underline"
+                      onClick={() =>
+                        setHistoryStudent({
+                          id: a.student_id,
+                          library_id: a.library_id,
+                          name: a.students?.full_name ?? "Student",
+                        })
+                      }
+                    >
+                      {a.students?.full_name}
+                    </button>
                     <span className="text-muted-foreground text-xs font-mono ml-2">({a.students?.mobile_number})</span>
                   </td>
                   <td className="py-3 px-2 font-mono text-cyan">
