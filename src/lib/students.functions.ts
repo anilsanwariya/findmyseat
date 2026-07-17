@@ -294,7 +294,7 @@ export const sendEmailVerificationOtp = createServerFn({ method: "POST" })
         idempotencyKey: `student-email-otp-${student.id}-${otp_code}`,
       });
       sent = result.sent === true;
-      if (!sent) console.warn("[email-otp] not sent:", result.reason);
+      if (!sent && "reason" in result) console.warn("[email-otp] not sent:", result.reason);
     } catch (err) {
       console.error("[email-otp] send failed:", err);
     }
