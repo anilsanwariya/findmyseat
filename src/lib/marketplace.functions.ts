@@ -38,7 +38,7 @@ export const marketplaceSearch = createServerFn({ method: "POST" })
       .from("libraries")
       // Added our new columns to the select query
       .select(
-        "id, org_id, name, zone_area, city, address, google_maps_url, opening_hours, shifts, closed_on, amenities, cover_photo_url, description, show_public_availability, targeted_exam_ids, is_active",
+        "id, org_id, name, zone_area, city, address, google_maps_url, opening_hours, shifts, closed_on, amenities, cover_photo_url, description, show_public_availability, targeted_exam_ids, is_active, latitude, longitude",
       )
       .eq("is_active", true)
       .eq("approval_status", "approved");
