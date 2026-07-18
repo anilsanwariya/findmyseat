@@ -28,6 +28,7 @@ const addDaysISO = (base: string, days: number) => {
 function PaymentsPage() {
   const { data: session } = useSession();
   const orgId = session?.orgId;
+  const staffLibs = session?.staffLibraryIds;
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [fromDate, setFromDate] = useState<string>(addDaysISO(todayISO(), -30));
@@ -39,22 +40,26 @@ function PaymentsPage() {
   const qc = useQueryClient();
 
   const payments = useQuery({
-    queryKey: ["payments-list", orgId, fromDate, toDate],
+    queryKey: ["payments-list", orgId, fromDate, toDate, staffLibs],
     enabled: !!orgId,
-    queryFn: async () =>
-      (
-        await supabase
-          .from("payments")
-          .select(
-            "id, amount_paid, payment_date, method, reference_note, transaction_reference, receipt_url, covers_until, student_id, library_id, students(full_name, mobile_number), libraries(name)",
-          )
-          .eq("org_id", orgId!)
-          .gte("payment_date", fromDate)
-          .lte("payment_date", toDate)
-          .order("payment_date", { ascending: false })
-          .order("logged_at", { ascending: false })
-          .limit(500)
-      ).data ?? [],
+    queryFn: async () => {
+      let q = supabase
+        .from("payments")
+        .select(
+          "id, amount_paid, payment_date, method, reference_note, transaction_reference, receipt_url, covers_until, student_id, library_id, collected_by_staff_id, students(full_name, mobile_number), libraries(name), collector:staff_profiles!payments_collected_by_staff_id_fkey(full_name, employee_id)",
+        )
+        .eq("org_id", orgId!)
+        .gte("payment_date", fromDate)
+        .lte("payment_date", toDate)
+        .order("payment_date", { ascending: false })
+        .order("logged_at", { ascending: false })
+        .limit(500);
+      if (session?.isStaff) {
+        if (!staffLibs?.length) return [];
+        q = q.in("library_id", staffLibs);
+      }
+      return (await q).data ?? [];
+    },
   });
 
   const filteredPayments = useMemo(() => {
