@@ -132,6 +132,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
                 <p className="truncate text-muted-foreground">
                   {isStaff ? `Staff · ${session?.employeeId ?? ""}` : "Organization admin"}
                 </p>
+              </div>
               <button
                 onClick={signOut}
                 className="rounded-md p-1.5 text-muted-foreground hover:bg-panel hover:text-foreground"
