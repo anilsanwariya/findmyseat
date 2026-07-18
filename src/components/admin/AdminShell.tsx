@@ -68,10 +68,17 @@ export function AdminShell({ children }: { children: ReactNode }) {
     navigate({ to: "/owner-login", replace: true });
   }
 
+  const isStaff = !!session?.isStaff;
+  const visibleNav = NAV.filter((n) => {
+    if (n.ownerOnly && isStaff) return false;
+    if (n.perm && !hasPerm(session, n.perm)) return false;
+    return true;
+  });
+
   function NavList({ onClick }: { onClick?: () => void }) {
     return (
       <>
-        {NAV.map((n) => {
+        {visibleNav.map((n) => {
           const active = n.exact ? pathname === n.to : pathname === n.to || pathname.startsWith(n.to + "/");
           return (
             <Link
