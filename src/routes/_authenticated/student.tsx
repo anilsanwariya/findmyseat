@@ -247,6 +247,12 @@ function StudentApp() {
                     <div className="mt-0.5 font-mono text-sm">{fmtDate(alloc.data.next_due_date)}</div>
                   </div>
                 </div>
+                <button
+                  onClick={() => setRateOpen(true)}
+                  className="mt-3 w-full inline-flex items-center justify-center gap-1.5 rounded-lg border border-gold/40 bg-gradient-to-r from-gold/20 to-amber-400/10 px-3 py-2 text-xs font-semibold text-gold hover:from-gold/30 hover:to-amber-400/20 transition-colors"
+                >
+                  <Star className="size-3.5 fill-gold" /> Rate My Branch
+                </button>
               </div>
             ) : (
               <div className="flex-1 flex flex-col items-center justify-center text-center">
@@ -256,6 +262,7 @@ function StudentApp() {
               </div>
             )}
           </GlassPanel>
+
 
           <GlassPanel className="p-5">
             <div className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground mb-4">Security</div>
