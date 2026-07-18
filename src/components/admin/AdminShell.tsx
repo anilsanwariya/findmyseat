@@ -121,9 +121,12 @@ export function AdminShell({ children }: { children: ReactNode }) {
           <nav className="flex-1 space-y-1 px-3">
             <NavList />
           </nav>
-          <div className="px-3 pb-3">
-            <SubscriptionCard />
-          </div>
+          {!isStaff && (
+            <div className="px-3 pb-3">
+              <SubscriptionCard />
+            </div>
+          )}
+
           <div className="border-t border-panel-border p-4">
             <div className="flex items-center gap-3">
               <div className="size-8 shrink-0 rounded-full bg-gradient-to-br from-violet/40 to-cyan/40 ring-1 ring-panel-border" />
@@ -165,9 +168,12 @@ export function AdminShell({ children }: { children: ReactNode }) {
               </div>
               <nav className="flex-1 space-y-1 overflow-y-auto px-3 pb-4">
                 <NavList onClick={() => setMobileOpen(false)} />
-                <div className="pt-3">
-                  <SubscriptionCard onClick={() => setMobileOpen(false)} />
-                </div>
+                {!isStaff && (
+                  <div className="pt-3">
+                    <SubscriptionCard onClick={() => setMobileOpen(false)} />
+                  </div>
+                )}
+
               </nav>
               <button
                 onClick={signOut}

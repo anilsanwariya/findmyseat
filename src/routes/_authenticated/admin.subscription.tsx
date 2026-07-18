@@ -13,12 +13,31 @@ import { cn } from "@/lib/utils";
 import { getOwnerBilling, createOwnerSubscription, cancelOwnerSubscription, validateCoupon } from "@/lib/billing.functions";
 import { loadRazorpayScript } from "@/lib/razorpay";
 import { fmtDate } from "@/lib/format";
+import { useSession } from "@/lib/auth";
+
+
 
 export const Route = createFileRoute("/_authenticated/admin/subscription")({
   component: SubscriptionPage,
 });
 
 function SubscriptionPage() {
+  const session = useSession();
+  if (session.data?.isStaff) {
+    return (
+      <GlassPanel className="p-10 text-center">
+        <h2 className="text-lg font-semibold">Restricted</h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Subscription and billing are managed by the library owner. Please contact your organization owner for access.
+        </p>
+      </GlassPanel>
+    );
+  }
+  return <SubscriptionPageInner />;
+}
+
+function SubscriptionPageInner() {
+
   const qc = useQueryClient();
   const getBilling = useServerFn(getOwnerBilling);
   const createSub = useServerFn(createOwnerSubscription);

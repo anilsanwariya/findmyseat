@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as StudentLoginRouteImport } from './routes/student-login'
+import { Route as StaffLoginRouteImport } from './routes/staff-login'
 import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
 import { Route as OwnersRouteImport } from './routes/owners'
 import { Route as OwnerLoginRouteImport } from './routes/owner-login'
@@ -54,6 +55,11 @@ const TermsRoute = TermsRouteImport.update({
 const StudentLoginRoute = StudentLoginRouteImport.update({
   id: '/student-login',
   path: '/student-login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StaffLoginRoute = StaffLoginRouteImport.update({
+  id: '/staff-login',
+  path: '/staff-login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PrivacyPolicyRoute = PrivacyPolicyRouteImport.update({
@@ -252,6 +258,7 @@ export interface FileRoutesByFullPath {
   '/owner-login': typeof OwnerLoginRoute
   '/owners': typeof OwnersRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
+  '/staff-login': typeof StaffLoginRoute
   '/student-login': typeof StudentLoginRoute
   '/terms': typeof TermsRoute
   '/admin': typeof AuthenticatedAdminRouteWithChildren
@@ -289,6 +296,7 @@ export interface FileRoutesByTo {
   '/owner-login': typeof OwnerLoginRoute
   '/owners': typeof OwnersRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
+  '/staff-login': typeof StaffLoginRoute
   '/student-login': typeof StudentLoginRoute
   '/terms': typeof TermsRoute
   '/student': typeof AuthenticatedStudentRoute
@@ -326,6 +334,7 @@ export interface FileRoutesById {
   '/owner-login': typeof OwnerLoginRoute
   '/owners': typeof OwnersRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
+  '/staff-login': typeof StaffLoginRoute
   '/student-login': typeof StudentLoginRoute
   '/terms': typeof TermsRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
@@ -365,6 +374,7 @@ export interface FileRouteTypes {
     | '/owner-login'
     | '/owners'
     | '/privacy-policy'
+    | '/staff-login'
     | '/student-login'
     | '/terms'
     | '/admin'
@@ -402,6 +412,7 @@ export interface FileRouteTypes {
     | '/owner-login'
     | '/owners'
     | '/privacy-policy'
+    | '/staff-login'
     | '/student-login'
     | '/terms'
     | '/student'
@@ -438,6 +449,7 @@ export interface FileRouteTypes {
     | '/owner-login'
     | '/owners'
     | '/privacy-policy'
+    | '/staff-login'
     | '/student-login'
     | '/terms'
     | '/_authenticated/admin'
@@ -477,6 +489,7 @@ export interface RootRouteChildren {
   OwnerLoginRoute: typeof OwnerLoginRoute
   OwnersRoute: typeof OwnersRoute
   PrivacyPolicyRoute: typeof PrivacyPolicyRoute
+  StaffLoginRoute: typeof StaffLoginRoute
   StudentLoginRoute: typeof StudentLoginRoute
   TermsRoute: typeof TermsRoute
   ApiPublicRazorpayWebhookRoute: typeof ApiPublicRazorpayWebhookRoute
@@ -499,6 +512,13 @@ declare module '@tanstack/react-router' {
       path: '/student-login'
       fullPath: '/student-login'
       preLoaderRoute: typeof StudentLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/staff-login': {
+      id: '/staff-login'
+      path: '/staff-login'
+      fullPath: '/staff-login'
+      preLoaderRoute: typeof StaffLoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacy-policy': {
@@ -828,6 +848,7 @@ const rootRouteChildren: RootRouteChildren = {
   OwnerLoginRoute: OwnerLoginRoute,
   OwnersRoute: OwnersRoute,
   PrivacyPolicyRoute: PrivacyPolicyRoute,
+  StaffLoginRoute: StaffLoginRoute,
   StudentLoginRoute: StudentLoginRoute,
   TermsRoute: TermsRoute,
   ApiPublicRazorpayWebhookRoute: ApiPublicRazorpayWebhookRoute,
