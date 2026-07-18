@@ -1106,13 +1106,18 @@ function NewAllocDialog({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-2">
-            <Label>Shift</Label>
+            <Label>
+              Shift
+              {currentSection?.has_shifts ? " (required)" : currentSection ? " (Full day only)" : ""}
+            </Label>
             <Select value={shiftId} onValueChange={setShiftId}>
               <SelectTrigger className="bg-panel border-panel-border">
-                <SelectValue placeholder="Full day" />
+                <SelectValue placeholder={currentSection?.has_shifts ? "Choose shift" : "Full day"} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">Full day</SelectItem>
+                <SelectItem value="none" disabled={!!currentSection?.has_shifts}>
+                  Full day{currentSection?.has_shifts ? " (not available in this section)" : ""}
+                </SelectItem>
                 {(shifts.data ?? []).map((s: any) => (
                   <SelectItem key={s.id} value={s.id}>
                     {s.name}
