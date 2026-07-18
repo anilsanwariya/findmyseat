@@ -28,7 +28,11 @@ import {
   ExternalLink,
   LocateFixed,
   X as XIcon,
+  Star,
 } from "lucide-react";
+import { StarBar } from "@/components/RatingStars";
+
+
 import { marketplaceSearch, listPublicExams, listPublicZones, submitSeatRequest } from "@/lib/marketplace.functions";
 
 export const Route = createFileRoute("/")({
@@ -370,7 +374,18 @@ function LibraryCard({
           </div>
         </div>
 
+        {typeof lib.avg_rating === "number" && lib.rating_count > 0 && (
+          <div className="mt-2 inline-flex items-center gap-1.5 text-xs">
+            <Star className="size-3.5 fill-gold text-gold" />
+            <span className="font-bold text-gold">{lib.avg_rating.toFixed(1)}</span>
+            <span className="text-muted-foreground">
+              ({lib.rating_count} {lib.rating_count === 1 ? "review" : "reviews"})
+            </span>
+          </div>
+        )}
+
         {lib.description && <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">{lib.description}</p>}
+
 
         <div className="mt-3 flex flex-wrap gap-1.5 cursor-pointer" onClick={onViewDetails}>
           {amenities.ac && <Amenity icon={Snowflake} label="AC" />}
@@ -426,6 +441,8 @@ function LibraryDetailsDialog({
   onRequestSeat: () => void;
 }) {
   const [lang, setLang] = useState<"en" | "hi">("en");
+  const [showRatings, setShowRatings] = useState(false);
+
   const photos = useQuery({
     queryKey: ["library-photos", lib?.id],
     enabled: !!lib?.id,
@@ -452,7 +469,9 @@ function LibraryDetailsDialog({
     : fallback;
 
   return (
+    <>
     <Dialog open={!!lib} onOpenChange={(o) => !o && onClose()}>
+
       <DialogContent className="glass-strong border-panel-border max-w-2xl w-[95vw] max-h-[90vh] overflow-y-auto p-0 gap-0">
         <DialogTitle className="sr-only">Library Details: {lib.name}</DialogTitle>
         <DialogDescription className="sr-only">Details, schedule, and amenities for {lib.name}</DialogDescription>
@@ -500,7 +519,20 @@ function LibraryDetailsDialog({
                 <ExternalLink className="size-3" /> View on Google Maps
               </a>
             )}
+            {typeof lib.avg_rating === "number" && lib.rating_count > 0 && (
+              <button
+                onClick={() => setShowRatings(true)}
+                className="mt-3 ml-2 inline-flex items-center gap-1.5 rounded-full border border-gold/40 bg-gold/10 px-3 py-1.5 text-xs font-medium text-gold hover:bg-gold/20 transition-colors"
+              >
+                <Star className="size-3 fill-gold" />
+                <span className="font-bold">{lib.avg_rating.toFixed(1)}</span>
+                <span className="text-gold/80">
+                  ({lib.rating_count} {lib.rating_count === 1 ? "review" : "reviews"})
+                </span>
+              </button>
+            )}
           </div>
+
 
           {lib.description && (
             <div className="text-sm text-slate-300 leading-relaxed border-t border-panel-border/50 pt-4">
@@ -564,8 +596,63 @@ function LibraryDetailsDialog({
         </div>
       </DialogContent>
     </Dialog>
+    <RatingBreakdownDialog libraryId={lib.id} open={showRatings} onOpenChange={setShowRatings} />
+    </>
   );
 }
+
+function RatingBreakdownDialog({
+  libraryId,
+  open,
+  onOpenChange,
+}: {
+  libraryId: string;
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+}) {
+  const summary = useQuery({
+    queryKey: ["rating-summary", libraryId],
+    enabled: open && !!libraryId,
+    queryFn: async () => {
+      const { data } = await (supabase as any).rpc("get_library_rating_summary", { _library_id: libraryId });
+      return Array.isArray(data) ? data[0] : data;
+    },
+  });
+  const s = summary.data;
+  const rows = [
+    { label: "Peace & Quiet", value: Number(s?.avg_peace ?? 0) },
+    { label: "Seating Comfort", value: Number(s?.avg_comfort ?? 0) },
+    { label: "Internet & Power", value: Number(s?.avg_internet ?? 0) },
+    { label: "Cleanliness & Hygiene", value: Number(s?.avg_hygiene ?? 0) },
+    { label: "Amenities & Lighting", value: Number(s?.avg_amenities ?? 0) },
+  ];
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="glass-strong border-panel-border max-w-md w-[calc(100vw-2rem)]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Star className="size-4 fill-gold text-gold" /> Rating Breakdown
+          </DialogTitle>
+        </DialogHeader>
+        <div className="rounded-lg border border-gold/30 bg-gradient-to-br from-gold/10 to-transparent p-4 flex items-center justify-between">
+          <div>
+            <div className="text-4xl font-extrabold text-gold">{Number(s?.avg_overall ?? 0).toFixed(1)}</div>
+            <div className="text-xs text-muted-foreground">
+              Based on {s?.total_reviews ?? 0} {(s?.total_reviews ?? 0) === 1 ? "review" : "reviews"}
+            </div>
+          </div>
+          <Star className="size-12 fill-gold text-gold drop-shadow-[0_0_12px_rgba(251,191,36,0.4)]" />
+        </div>
+        <div className="mt-4 space-y-3">
+          {rows.map((r) => (
+            <StarBar key={r.label} label={r.label} value={r.value} />
+          ))}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 
 function RequestSeatDialog({ lib, onClose, exams }: { lib: any | null; onClose: () => void; exams: any[] }) {
   const submit = useServerFn(submitSeatRequest);

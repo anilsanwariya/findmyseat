@@ -53,7 +53,7 @@ export const marketplaceSearch = createServerFn({ method: "POST" })
     if (!libraries.length) return { libraries: [] as any[] };
 
     const libIds = libraries.map((l: any) => l.id);
-    const [seatsRes, allocsRes, examsRes, photosRes] = await Promise.all([
+    const [seatsRes, allocsRes, examsRes, photosRes, ratingsRes] = await Promise.all([
       supabaseAdmin.from("seats").select("id, library_id").in("library_id", libIds).eq("is_active", true),
       supabaseAdmin
         .from("allocations")
@@ -66,7 +66,9 @@ export const marketplaceSearch = createServerFn({ method: "POST" })
         .select("library_id, image_url, display_order")
         .in("library_id", libIds)
         .order("display_order", { ascending: true }),
+      supabaseAdmin.from("library_ratings").select("library_id, overall_rating").in("library_id", libIds),
     ]);
+
     const seats = seatsRes.data ?? [];
     const allocs = allocsRes.data ?? [];
     const examMap = new Map((examsRes.data ?? []).map((e: any) => [e.id, e.name]));
@@ -82,6 +84,16 @@ export const marketplaceSearch = createServerFn({ method: "POST" })
       const { data: st } = await supabaseAdmin.from("students").select("id, target_exam_id").in("id", studentIds);
       studentExam = new Map((st ?? []).map((s: any) => [s.id, s.target_exam_id]));
     }
+
+    const ratingsByLib = new Map<string, { sum: number; count: number }>();
+    for (const r of ratingsRes.data ?? []) {
+      const cur = ratingsByLib.get(r.library_id) ?? { sum: 0, count: 0 };
+      cur.sum += Number(r.overall_rating) || 0;
+      cur.count += 1;
+      ratingsByLib.set(r.library_id, cur);
+    }
+
+
 
 
 
@@ -117,6 +129,10 @@ export const marketplaceSearch = createServerFn({ method: "POST" })
       if (nearOrigin && typeof l.latitude === "number" && typeof l.longitude === "number") {
         distance_km = haversineKm(nearOrigin, { lat: l.latitude, lng: l.longitude });
       }
+      const ragg = ratingsByLib.get(l.id);
+      const avg_rating = ragg && ragg.count > 0 ? Math.round((ragg.sum / ragg.count) * 10) / 10 : null;
+      const rating_count = ragg?.count ?? 0;
+
       return {
         id: l.id,
         name: l.name,
@@ -137,8 +153,11 @@ export const marketplaceSearch = createServerFn({ method: "POST" })
         latitude: l.latitude ?? null,
         longitude: l.longitude ?? null,
         distance_km,
+        avg_rating,
+        rating_count,
       };
     });
+
 
     let final = mapped;
     if (nearOrigin) {
