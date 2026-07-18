@@ -963,6 +963,18 @@ function NewAllocDialog({
         className="space-y-4"
         onSubmit={async (e) => {
           e.preventDefault();
+          if (currentSection?.is_reserved_only && reservationType === "unreserved") {
+            toast.error("This section is fully reserved. Choose Reserved.");
+            return;
+          }
+          if (currentSection?.has_shifts && (!shiftId || shiftId === "none")) {
+            toast.error("This section requires a shift. Full-day is not allowed.");
+            return;
+          }
+          if (currentSection && !currentSection.has_shifts && shiftId && shiftId !== "none") {
+            toast.error("This section is Full-day only. Shifts are not allowed.");
+            return;
+          }
           setLoading(true);
 
           const { error } = await supabase.from("allocations").insert({
