@@ -513,7 +513,20 @@ function LibraryDetailsDialog({
                 <ExternalLink className="size-3" /> View on Google Maps
               </a>
             )}
+            {typeof lib.avg_rating === "number" && lib.rating_count > 0 && (
+              <button
+                onClick={() => setShowRatings(true)}
+                className="mt-3 ml-2 inline-flex items-center gap-1.5 rounded-full border border-gold/40 bg-gold/10 px-3 py-1.5 text-xs font-medium text-gold hover:bg-gold/20 transition-colors"
+              >
+                <Star className="size-3 fill-gold" />
+                <span className="font-bold">{lib.avg_rating.toFixed(1)}</span>
+                <span className="text-gold/80">
+                  ({lib.rating_count} {lib.rating_count === 1 ? "review" : "reviews"})
+                </span>
+              </button>
+            )}
           </div>
+
 
           {lib.description && (
             <div className="text-sm text-slate-300 leading-relaxed border-t border-panel-border/50 pt-4">
