@@ -476,7 +476,7 @@ function LibraryDetailsDialog({
             </div>
           )}
           {slides.length > 1 && (
-            <div className="absolute right-3 top-3 rounded-full bg-black/50 px-2 py-0.5 text-[10px] font-mono text-white backdrop-blur">
+            <div className="absolute bottom-3 right-3 rounded-full bg-black/60 px-2.5 py-1 text-[10px] font-mono text-white backdrop-blur border border-white/10">
               {slides.length} photos · swipe →
             </div>
           )}
