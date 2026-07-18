@@ -328,7 +328,8 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
                 transaction_reference: method === "cash" ? (txnRef.trim() || null) : txnRef.trim(),
                 reference_note: note || null,
                 covers_until: endDate,
-              })
+                collected_by_staff_id: session?.staffId ?? null,
+              } as any)
               .select("id")
               .single();
 
