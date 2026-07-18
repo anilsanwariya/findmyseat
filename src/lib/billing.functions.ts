@@ -44,6 +44,34 @@ export const getOwnerBilling = createServerFn({ method: "GET" })
     return { subscription: sub, invoices: invoices ?? [], plan };
   });
 
+// -------- Subscription/trial state for banner ----------
+export const getOrgSubscriptionState = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    // Resolve org via owner role first, staff fallback
+    let orgId: string | null = null;
+    const { data: ownerRow } = await supabase.from("user_roles").select("org_id").eq("user_id", userId).eq("role", "org_admin").maybeSingle();
+    orgId = ownerRow?.org_id ?? null;
+    if (!orgId) {
+      const { data: staff } = await supabase.from("staff_profiles").select("org_id").eq("user_id", userId).maybeSingle();
+      orgId = staff?.org_id ?? null;
+    }
+    if (!orgId) return { state: null as string | null, trial_ends_at: null as string | null, ref_end: null as string | null };
+
+    const [{ data: org }, { data: sub }, { data: stateRes }] = await Promise.all([
+      supabase.from("organizations").select("trial_ends_at").eq("id", orgId).maybeSingle(),
+      supabase.from("owner_subscriptions").select("current_period_end, status").eq("org_id", orgId).in("status", ["active", "trialing", "authenticated"]).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+      supabase.rpc("org_subscription_state", { _org_id: orgId }),
+    ]);
+    const state = (stateRes as unknown as string) ?? null;
+    return {
+      state,
+      trial_ends_at: (org as any)?.trial_ends_at ?? null,
+      ref_end: (sub as any)?.current_period_end ?? (org as any)?.trial_ends_at ?? null,
+    };
+  });
+
 // -------- Coupon validation ----------
 export const validateCoupon = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

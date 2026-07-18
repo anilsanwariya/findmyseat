@@ -25,7 +25,7 @@ import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { useSession, hasPerm, type StaffPermissions } from "@/lib/auth";
-import { getOwnerBilling } from "@/lib/billing.functions";
+import { getOwnerBilling, getOrgSubscriptionState } from "@/lib/billing.functions";
 import type { ReactNode } from "react";
 
 type NavItem = {
@@ -204,7 +204,10 @@ export function AdminShell({ children }: { children: ReactNode }) {
               Sign out
             </button>
           </header>
-          <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 md:py-8">{children}</div>
+          <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 md:py-8">
+            <TrialBanner />
+            {children}
+          </div>
         </main>
       </div>
     </div>
@@ -274,6 +277,60 @@ function SubscriptionCard({ onClick }: { onClick?: () => void }) {
           <span className="text-amber-100/70 group-hover:text-amber-50">Upgrade →</span>
         )}
       </div>
+    </Link>
+  );
+}
+
+function TrialBanner() {
+  const fetchState = useServerFn(getOrgSubscriptionState);
+  const { data } = useQuery({
+    queryKey: ["org-sub-state"],
+    queryFn: () => fetchState({}),
+    staleTime: 60_000,
+  });
+  if (!data?.state || data.state === "active") return null;
+
+  const now = Date.now();
+  const refEnd = data.ref_end ? new Date(data.ref_end).getTime() : null;
+  const trialEnd = data.trial_ends_at ? new Date(data.trial_ends_at).getTime() : null;
+
+  let tone = "border-cyan/40 bg-cyan/10 text-cyan-100";
+  let title = "";
+  let body = "";
+  let cta = "Choose a plan";
+
+  if (data.state === "trial") {
+    const end = trialEnd ?? now;
+    const daysLeft = Math.max(0, Math.ceil((end - now) / 86_400_000));
+    tone = "border-violet/40 bg-violet/10 text-violet-100";
+    title = `Free trial · ${daysLeft} day${daysLeft === 1 ? "" : "s"} left`;
+    body = "Full access to every feature. Subscribe before your trial ends to keep managing your library.";
+  } else if (data.state === "expired_grace") {
+    const graceEnd = refEnd ? refEnd + 7 * 86_400_000 : now;
+    const daysLeft = Math.max(0, Math.ceil((graceEnd - now) / 86_400_000));
+    tone = "border-amber-400/50 bg-amber-500/10 text-amber-100";
+    title = `Subscription expired · ${daysLeft} day${daysLeft === 1 ? "" : "s"} of grace left`;
+    body = "You can still view your data, but changes are locked. Your library will be delisted from the marketplace when the grace period ends.";
+    cta = "Renew subscription";
+  } else if (data.state === "expired_delisted") {
+    tone = "border-rose/50 bg-rose/10 text-rose-100";
+    title = "Library delisted";
+    body = "Your grace period is over. The library is hidden from the marketplace and all changes are blocked. Renew to restore access.";
+    cta = "Renew subscription";
+  }
+
+  return (
+    <Link
+      to="/admin/subscription"
+      className={cn("mb-6 flex flex-col gap-1 rounded-xl border px-4 py-3 text-sm backdrop-blur-md transition-opacity hover:opacity-90 sm:flex-row sm:items-center sm:justify-between", tone)}
+    >
+      <div className="min-w-0">
+        <p className="font-semibold">{title}</p>
+        <p className="text-xs opacity-80">{body}</p>
+      </div>
+      <span className="whitespace-nowrap rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-medium">
+        {cta} →
+      </span>
     </Link>
   );
 }

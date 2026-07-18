@@ -586,6 +586,7 @@ export type Database = {
           owner_user_id: string | null
           subscription_plan: Database["public"]["Enums"]["subscription_plan"]
           subscription_status: Database["public"]["Enums"]["subscription_status"]
+          trial_ends_at: string | null
           updated_at: string
         }
         Insert: {
@@ -599,6 +600,7 @@ export type Database = {
           owner_user_id?: string | null
           subscription_plan?: Database["public"]["Enums"]["subscription_plan"]
           subscription_status?: Database["public"]["Enums"]["subscription_status"]
+          trial_ends_at?: string | null
           updated_at?: string
         }
         Update: {
@@ -612,6 +614,7 @@ export type Database = {
           owner_user_id?: string | null
           subscription_plan?: Database["public"]["Enums"]["subscription_plan"]
           subscription_status?: Database["public"]["Enums"]["subscription_status"]
+          trial_ends_at?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -1457,6 +1460,7 @@ export type Database = {
         Args: { _org_id: string; _user_id: string }
         Returns: boolean
       }
+      org_subscription_state: { Args: { _org_id: string }; Returns: string }
     }
     Enums: {
       allocation_status: "paid" | "overdue" | "pending"
