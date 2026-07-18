@@ -687,6 +687,7 @@ export type Database = {
         Row: {
           allocation_id: string | null
           amount_paid: number
+          collected_by_staff_id: string | null
           covers_until: string | null
           created_at: string
           created_by: string | null
@@ -704,6 +705,7 @@ export type Database = {
         Insert: {
           allocation_id?: string | null
           amount_paid: number
+          collected_by_staff_id?: string | null
           covers_until?: string | null
           created_at?: string
           created_by?: string | null
@@ -721,6 +723,7 @@ export type Database = {
         Update: {
           allocation_id?: string | null
           amount_paid?: number
+          collected_by_staff_id?: string | null
           covers_until?: string | null
           created_at?: string
           created_by?: string | null
@@ -741,6 +744,13 @@ export type Database = {
             columns: ["allocation_id"]
             isOneToOne: false
             referencedRelation: "allocations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_collected_by_staff_id_fkey"
+            columns: ["collected_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_profiles"
             referencedColumns: ["id"]
           },
           {
@@ -1050,6 +1060,89 @@ export type Database = {
           },
         ]
       }
+      staff_branch_assignments: {
+        Row: {
+          created_at: string
+          id: string
+          library_id: string
+          staff_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          library_id: string
+          staff_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          library_id?: string
+          staff_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_branch_assignments_library_id_fkey"
+            columns: ["library_id"]
+            isOneToOne: false
+            referencedRelation: "libraries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_branch_assignments_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_profiles: {
+        Row: {
+          created_at: string
+          email: string
+          employee_id: string
+          full_name: string
+          id: string
+          is_active: boolean
+          org_id: string
+          permissions: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          employee_id: string
+          full_name: string
+          id?: string
+          is_active?: boolean
+          org_id: string
+          permissions?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          employee_id?: string
+          full_name?: string
+          id?: string
+          is_active?: boolean
+          org_id?: string
+          permissions?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_profiles_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       students: {
         Row: {
           address: string | null
@@ -1339,6 +1432,16 @@ export type Database = {
         Returns: string
       }
       current_user_org: { Args: never; Returns: string }
+      get_current_staff: {
+        Args: never
+        Returns: {
+          id: string
+          is_active: boolean
+          library_ids: string[]
+          org_id: string
+          permissions: Json
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
