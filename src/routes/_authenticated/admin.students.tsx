@@ -25,15 +25,17 @@ export const Route = createFileRoute("/_authenticated/admin/students")({
 function StudentsPage() {
   const { data: session } = useSession();
   const orgId = session?.orgId;
+  const { data: libs } = useLibraries();
   const [q, setQ] = useState("");
   const [tab, setTab] = useState<"active" | "inactive">("active");
+  const [libraryFilter, setLibraryFilter] = useState<string>("all");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
   const qc = useQueryClient();
   const setActive = useServerFn(setStudentActive);
 
   const students = useQuery({
-    queryKey: ["students", orgId, tab, q],
+    queryKey: ["students", orgId, tab, q, libraryFilter],
     enabled: !!orgId,
     queryFn: async () => {
       let query = supabase
