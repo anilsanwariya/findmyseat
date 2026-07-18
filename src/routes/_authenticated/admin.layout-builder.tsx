@@ -366,6 +366,25 @@ function LayoutBuilderPage() {
                 setSectionId(id);
               }}
             />
+            {currentSection && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-panel-border bg-panel"
+                  onClick={() => setEditSectionOpen(true)}
+                  title="Section settings"
+                >
+                  <Settings2 className="size-4" />
+                </Button>
+                <EditSectionDialog
+                  open={editSectionOpen}
+                  onOpenChange={setEditSectionOpen}
+                  section={currentSection}
+                  onSaved={() => qc.invalidateQueries({ queryKey: ["sections", currentLibId] })}
+                />
+              </>
+            )}
           </div>
         }
       />
