@@ -370,7 +370,18 @@ function LibraryCard({
           </div>
         </div>
 
+        {typeof lib.avg_rating === "number" && lib.rating_count > 0 && (
+          <div className="mt-2 inline-flex items-center gap-1.5 text-xs">
+            <Star className="size-3.5 fill-gold text-gold" />
+            <span className="font-bold text-gold">{lib.avg_rating.toFixed(1)}</span>
+            <span className="text-muted-foreground">
+              ({lib.rating_count} {lib.rating_count === 1 ? "review" : "reviews"})
+            </span>
+          </div>
+        )}
+
         {lib.description && <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">{lib.description}</p>}
+
 
         <div className="mt-3 flex flex-wrap gap-1.5 cursor-pointer" onClick={onViewDetails}>
           {amenities.ac && <Amenity icon={Snowflake} label="AC" />}
