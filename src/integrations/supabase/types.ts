@@ -499,6 +499,69 @@ export type Database = {
           },
         ]
       }
+      library_ratings: {
+        Row: {
+          created_at: string
+          id: string
+          is_anonymous: boolean
+          library_id: string
+          overall_rating: number
+          param_amenities: number
+          param_comfort: number
+          param_hygiene: number
+          param_internet: number
+          param_peace: number
+          review_text: string | null
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_anonymous?: boolean
+          library_id: string
+          overall_rating: number
+          param_amenities: number
+          param_comfort: number
+          param_hygiene: number
+          param_internet: number
+          param_peace: number
+          review_text?: string | null
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_anonymous?: boolean
+          library_id?: string
+          overall_rating?: number
+          param_amenities?: number
+          param_comfort?: number
+          param_hygiene?: number
+          param_internet?: number
+          param_peace?: number
+          review_text?: string | null
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "library_ratings_library_id_fkey"
+            columns: ["library_id"]
+            isOneToOne: false
+            referencedRelation: "libraries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "library_ratings_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       master_exams: {
         Row: {
           category: string | null
@@ -1443,6 +1506,18 @@ export type Database = {
           library_ids: string[]
           org_id: string
           permissions: Json
+        }[]
+      }
+      get_library_rating_summary: {
+        Args: { _library_id: string }
+        Returns: {
+          avg_amenities: number
+          avg_comfort: number
+          avg_hygiene: number
+          avg_internet: number
+          avg_overall: number
+          avg_peace: number
+          total_reviews: number
         }[]
       }
       has_role: {
