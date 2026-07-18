@@ -1036,7 +1036,7 @@ function EditSectionDialog({
   const [saving, setSaving] = useState(false);
 
   // Re-sync when a different section is opened.
-  useMemo(() => {
+  useEffect(() => {
     setName(section.name ?? "");
     setHasShifts(!!section.has_shifts);
     setIsReservedOnly(!!section.is_reserved_only);
