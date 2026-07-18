@@ -28,6 +28,7 @@ import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authentic
 import { Route as ApiPublicRazorpayWebhookRouteImport } from './routes/api/public/razorpay-webhook'
 import { Route as AuthenticatedSuperAdminSubscriptionsRouteImport } from './routes/_authenticated/super-admin.subscriptions'
 import { Route as AuthenticatedSuperAdminOrganizationsRouteImport } from './routes/_authenticated/super-admin.organizations'
+import { Route as AuthenticatedSuperAdminCategoriesRouteImport } from './routes/_authenticated/super-admin.categories'
 import { Route as AuthenticatedSuperAdminBillingRouteImport } from './routes/_authenticated/super-admin.billing'
 import { Route as AuthenticatedSuperAdminApprovalsRouteImport } from './routes/_authenticated/super-admin.approvals'
 import { Route as AuthenticatedAdminTicketsRouteImport } from './routes/_authenticated/admin.tickets'
@@ -140,6 +141,12 @@ const AuthenticatedSuperAdminOrganizationsRoute =
   AuthenticatedSuperAdminOrganizationsRouteImport.update({
     id: '/organizations',
     path: '/organizations',
+    getParentRoute: () => AuthenticatedSuperAdminRoute,
+  } as any)
+const AuthenticatedSuperAdminCategoriesRoute =
+  AuthenticatedSuperAdminCategoriesRouteImport.update({
+    id: '/categories',
+    path: '/categories',
     getParentRoute: () => AuthenticatedSuperAdminRoute,
   } as any)
 const AuthenticatedSuperAdminBillingRoute =
@@ -256,6 +263,7 @@ export interface FileRoutesByFullPath {
   '/admin/tickets': typeof AuthenticatedAdminTicketsRoute
   '/super-admin/approvals': typeof AuthenticatedSuperAdminApprovalsRoute
   '/super-admin/billing': typeof AuthenticatedSuperAdminBillingRoute
+  '/super-admin/categories': typeof AuthenticatedSuperAdminCategoriesRoute
   '/super-admin/organizations': typeof AuthenticatedSuperAdminOrganizationsRoute
   '/super-admin/subscriptions': typeof AuthenticatedSuperAdminSubscriptionsRoute
   '/api/public/razorpay-webhook': typeof ApiPublicRazorpayWebhookRoute
@@ -289,6 +297,7 @@ export interface FileRoutesByTo {
   '/admin/tickets': typeof AuthenticatedAdminTicketsRoute
   '/super-admin/approvals': typeof AuthenticatedSuperAdminApprovalsRoute
   '/super-admin/billing': typeof AuthenticatedSuperAdminBillingRoute
+  '/super-admin/categories': typeof AuthenticatedSuperAdminCategoriesRoute
   '/super-admin/organizations': typeof AuthenticatedSuperAdminOrganizationsRoute
   '/super-admin/subscriptions': typeof AuthenticatedSuperAdminSubscriptionsRoute
   '/api/public/razorpay-webhook': typeof ApiPublicRazorpayWebhookRoute
@@ -326,6 +335,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/tickets': typeof AuthenticatedAdminTicketsRoute
   '/_authenticated/super-admin/approvals': typeof AuthenticatedSuperAdminApprovalsRoute
   '/_authenticated/super-admin/billing': typeof AuthenticatedSuperAdminBillingRoute
+  '/_authenticated/super-admin/categories': typeof AuthenticatedSuperAdminCategoriesRoute
   '/_authenticated/super-admin/organizations': typeof AuthenticatedSuperAdminOrganizationsRoute
   '/_authenticated/super-admin/subscriptions': typeof AuthenticatedSuperAdminSubscriptionsRoute
   '/api/public/razorpay-webhook': typeof ApiPublicRazorpayWebhookRoute
@@ -363,6 +373,7 @@ export interface FileRouteTypes {
     | '/admin/tickets'
     | '/super-admin/approvals'
     | '/super-admin/billing'
+    | '/super-admin/categories'
     | '/super-admin/organizations'
     | '/super-admin/subscriptions'
     | '/api/public/razorpay-webhook'
@@ -396,6 +407,7 @@ export interface FileRouteTypes {
     | '/admin/tickets'
     | '/super-admin/approvals'
     | '/super-admin/billing'
+    | '/super-admin/categories'
     | '/super-admin/organizations'
     | '/super-admin/subscriptions'
     | '/api/public/razorpay-webhook'
@@ -432,6 +444,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/tickets'
     | '/_authenticated/super-admin/approvals'
     | '/_authenticated/super-admin/billing'
+    | '/_authenticated/super-admin/categories'
     | '/_authenticated/super-admin/organizations'
     | '/_authenticated/super-admin/subscriptions'
     | '/api/public/razorpay-webhook'
@@ -595,6 +608,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSuperAdminOrganizationsRouteImport
       parentRoute: typeof AuthenticatedSuperAdminRoute
     }
+    '/_authenticated/super-admin/categories': {
+      id: '/_authenticated/super-admin/categories'
+      path: '/categories'
+      fullPath: '/super-admin/categories'
+      preLoaderRoute: typeof AuthenticatedSuperAdminCategoriesRouteImport
+      parentRoute: typeof AuthenticatedSuperAdminRoute
+    }
     '/_authenticated/super-admin/billing': {
       id: '/_authenticated/super-admin/billing'
       path: '/billing'
@@ -737,6 +757,7 @@ const AuthenticatedAdminRouteWithChildren =
 interface AuthenticatedSuperAdminRouteChildren {
   AuthenticatedSuperAdminApprovalsRoute: typeof AuthenticatedSuperAdminApprovalsRoute
   AuthenticatedSuperAdminBillingRoute: typeof AuthenticatedSuperAdminBillingRoute
+  AuthenticatedSuperAdminCategoriesRoute: typeof AuthenticatedSuperAdminCategoriesRoute
   AuthenticatedSuperAdminOrganizationsRoute: typeof AuthenticatedSuperAdminOrganizationsRoute
   AuthenticatedSuperAdminSubscriptionsRoute: typeof AuthenticatedSuperAdminSubscriptionsRoute
   AuthenticatedSuperAdminIndexRoute: typeof AuthenticatedSuperAdminIndexRoute
@@ -747,6 +768,8 @@ const AuthenticatedSuperAdminRouteChildren: AuthenticatedSuperAdminRouteChildren
     AuthenticatedSuperAdminApprovalsRoute:
       AuthenticatedSuperAdminApprovalsRoute,
     AuthenticatedSuperAdminBillingRoute: AuthenticatedSuperAdminBillingRoute,
+    AuthenticatedSuperAdminCategoriesRoute:
+      AuthenticatedSuperAdminCategoriesRoute,
     AuthenticatedSuperAdminOrganizationsRoute:
       AuthenticatedSuperAdminOrganizationsRoute,
     AuthenticatedSuperAdminSubscriptionsRoute:
@@ -794,13 +817,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
