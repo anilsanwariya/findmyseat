@@ -28,7 +28,9 @@ import {
   ExternalLink,
   LocateFixed,
   X as XIcon,
+  Star,
 } from "lucide-react";
+
 import { marketplaceSearch, listPublicExams, listPublicZones, submitSeatRequest } from "@/lib/marketplace.functions";
 
 export const Route = createFileRoute("/")({
