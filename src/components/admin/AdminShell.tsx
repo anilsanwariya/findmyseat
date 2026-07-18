@@ -204,7 +204,10 @@ export function AdminShell({ children }: { children: ReactNode }) {
               Sign out
             </button>
           </header>
-          <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 md:py-8">{children}</div>
+          <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 md:py-8">
+            <TrialBanner />
+            {children}
+          </div>
         </main>
       </div>
     </div>
