@@ -87,14 +87,29 @@ function StudentsPage() {
               <TabsTrigger value="inactive">Inactive</TabsTrigger>
             </TabsList>
           </Tabs>
-          <div className="flex items-center gap-2 flex-1 sm:max-w-xs">
-            <Search className="size-4 text-muted-foreground shrink-0" />
-            <Input
-              placeholder="Search by name or mobile…"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              className="bg-panel border-panel-border"
-            />
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-1 sm:justify-end">
+            <Select value={libraryFilter} onValueChange={setLibraryFilter}>
+              <SelectTrigger className="bg-panel border-panel-border w-full sm:w-52">
+                <SelectValue placeholder="All branches" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All branches</SelectItem>
+                {(libs ?? []).map((l) => (
+                  <SelectItem key={l.id} value={l.id}>
+                    {l.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="flex items-center gap-2 flex-1 sm:max-w-xs">
+              <Search className="size-4 text-muted-foreground shrink-0" />
+              <Input
+                placeholder="Search by name or mobile…"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                className="bg-panel border-panel-border"
+              />
+            </div>
           </div>
         </div>
 
