@@ -362,9 +362,20 @@ function StudentApp() {
           </div>
         </div>
       </div>
+
+      {alloc.data?.library_id && session.studentId && (
+        <RateBranchDialog
+          open={rateOpen}
+          onOpenChange={setRateOpen}
+          libraryId={alloc.data.library_id}
+          libraryName={alloc.data.libraries?.name}
+          studentId={session.studentId}
+        />
+      )}
     </div>
   );
 }
+
 
 // ==========================================
 // COMPONENT: Email Verification Gate
