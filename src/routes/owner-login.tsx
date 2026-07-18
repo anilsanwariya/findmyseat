@@ -111,6 +111,13 @@ function OwnerLoginPage() {
                 Learn how LibraryBandhu grows your library →
               </Link>
             </p>
+            <p className="mt-2 text-center text-xs text-muted-foreground">
+              Are you an employee?{" "}
+              <Link to="/staff-login" className="text-cyan hover:underline">
+                Staff sign in →
+              </Link>
+            </p>
+
           </div>
         </div>
       </div>
