@@ -17,7 +17,9 @@ import {
   CreditCard,
   Crown,
   UserCog,
+  Star,
 } from "lucide-react";
+
 import { AuroraBackground, GlassPanel } from "@/components/glass";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
