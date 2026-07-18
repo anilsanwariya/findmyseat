@@ -30,6 +30,8 @@ import {
   X as XIcon,
   Star,
 } from "lucide-react";
+import { StarBar } from "@/components/RatingStars";
+
 
 import { marketplaceSearch, listPublicExams, listPublicZones, submitSeatRequest } from "@/lib/marketplace.functions";
 
