@@ -110,16 +110,16 @@ export const createStaff = createServerFn({ method: "POST" })
 
     // Insert staff profile
     const { data: profile, error: pErr } = await supabaseAdmin
-      .from("staff_profiles")
+      .from("staff_profiles" as any)
       .insert({
         user_id: userId,
         org_id: orgId,
         employee_id: data.employee_id,
         full_name: data.full_name,
         email: data.email,
-        permissions: data.permissions,
+        permissions: data.permissions as any,
         is_active: true,
-      })
+      } as any)
       .select("id")
       .single();
     if (pErr) {
