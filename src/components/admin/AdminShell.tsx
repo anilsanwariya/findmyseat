@@ -49,8 +49,10 @@ const NAV: NavItem[] = [
   { to: "/admin/leads", label: "Leads", icon: Sparkles, perm: "manage_leads" },
   { to: "/admin/notices", label: "Notices", icon: Megaphone, perm: "manage_notices" },
   { to: "/admin/tickets", label: "Tickets", icon: LifeBuoy, perm: "manage_tickets" },
+  { to: "/admin/reviews", label: "Reviews", icon: Star, ownerOnly: true },
   { to: "/admin/staff", label: "Team", icon: UserCog, ownerOnly: true },
 ];
+
 
 export function AdminShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
