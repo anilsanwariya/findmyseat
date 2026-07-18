@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
+import { enforceLoginPortal } from "@/lib/auth";
 import { toast } from "sonner";
 import { Building2 } from "lucide-react";
 
@@ -35,9 +36,15 @@ function OwnerLoginPage() {
   async function signIn(email: string, password: string) {
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
     if (error) {
+      setLoading(false);
       toast.error(error.message);
+      return;
+    }
+    const gate = await enforceLoginPortal("owner");
+    setLoading(false);
+    if (gate) {
+      toast.error(gate);
       return;
     }
     toast.success("Welcome back");
