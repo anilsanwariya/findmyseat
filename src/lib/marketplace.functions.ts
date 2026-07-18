@@ -85,6 +85,16 @@ export const marketplaceSearch = createServerFn({ method: "POST" })
       studentExam = new Map((st ?? []).map((s: any) => [s.id, s.target_exam_id]));
     }
 
+    const ratingsByLib = new Map<string, { sum: number; count: number }>();
+    for (const r of ratingsRes.data ?? []) {
+      const cur = ratingsByLib.get(r.library_id) ?? { sum: 0, count: 0 };
+      cur.sum += Number(r.overall_rating) || 0;
+      cur.count += 1;
+      ratingsByLib.set(r.library_id, cur);
+    }
+
+
+
 
 
     const hasNear = typeof data.near_lat === "number" && typeof data.near_lng === "number";
