@@ -876,8 +876,16 @@ function NewAllocDialog({
   const sections = useQuery({
     queryKey: ["sections-for-alloc", libraryId],
     enabled: !!libraryId,
-    queryFn: async () => (await supabase.from("sections").select("id, name").eq("library_id", libraryId)).data ?? [],
+    queryFn: async () =>
+      (
+        await supabase
+          .from("sections")
+          .select("id, name, has_shifts, is_reserved_only, full_day_fee, morning_fee, evening_fee")
+          .eq("library_id", libraryId)
+      ).data ?? [],
   });
+
+  const currentSection = sections.data?.find((s: any) => s.id === sectionId);
 
   const seats = useQuery({
     queryKey: ["seats-for-alloc", libraryId, sectionId],
@@ -904,10 +912,43 @@ function NewAllocDialog({
   });
 
   const shifts = useQuery({
-    queryKey: ["shifts-for-alloc", libraryId],
+    queryKey: ["shifts-for-alloc", libraryId, sectionId],
     enabled: !!libraryId,
-    queryFn: async () => (await supabase.from("shifts").select("id, name").eq("library_id", libraryId)).data ?? [],
+    queryFn: async () => {
+      let q = supabase.from("shifts").select("id, name, section_id, base_fee").eq("library_id", libraryId);
+      if (sectionId && sectionId !== "all_sections") q = q.or(`section_id.eq.${sectionId},section_id.is.null`);
+      return (await q).data ?? [];
+    },
   });
+
+  // Enforce section constraints
+  useEffect(() => {
+    if (!currentSection) return;
+    if (currentSection.is_reserved_only && reservationType === "unreserved") {
+      setReservationType("reserved");
+    }
+    if (!currentSection.has_shifts && shiftId && shiftId !== "none") {
+      setShiftId("none");
+    }
+    if (currentSection.has_shifts && (!shiftId || shiftId === "none")) {
+      // Force user to pick a shift; leave blank.
+      setShiftId("");
+    }
+  }, [currentSection?.id]);
+
+  // Auto-fill fee based on section + shift/full-day selection.
+  useEffect(() => {
+    if (!currentSection) return;
+    if (!currentSection.has_shifts || !shiftId || shiftId === "none") {
+      if (currentSection.full_day_fee != null) setFee(Number(currentSection.full_day_fee));
+      return;
+    }
+    const shift = shifts.data?.find((s: any) => s.id === shiftId);
+    const name = (shift?.name ?? "").toLowerCase();
+    if (name.includes("morning") && currentSection.morning_fee != null) setFee(Number(currentSection.morning_fee));
+    else if (name.includes("evening") && currentSection.evening_fee != null) setFee(Number(currentSection.evening_fee));
+    else if (shift?.base_fee != null) setFee(Number(shift.base_fee));
+  }, [currentSection?.id, shiftId, shifts.data]);
 
   // Calculate selected student context
   const selectedStudent = students.data?.find((s: any) => s.id === studentId);
