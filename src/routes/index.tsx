@@ -467,7 +467,9 @@ function LibraryDetailsDialog({
     : fallback;
 
   return (
+    <>
     <Dialog open={!!lib} onOpenChange={(o) => !o && onClose()}>
+
       <DialogContent className="glass-strong border-panel-border max-w-2xl w-[95vw] max-h-[90vh] overflow-y-auto p-0 gap-0">
         <DialogTitle className="sr-only">Library Details: {lib.name}</DialogTitle>
         <DialogDescription className="sr-only">Details, schedule, and amenities for {lib.name}</DialogDescription>
