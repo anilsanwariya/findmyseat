@@ -47,6 +47,7 @@ function StudentsPage() {
         .eq("is_active", tab === "active")
         .order("created_at", { ascending: false });
 
+      if (libraryFilter !== "all") query = query.eq("library_id", libraryFilter);
       if (q) query = query.or(`full_name.ilike.%${q}%,mobile_number.ilike.%${q}%`);
 
       const { data } = await query;
