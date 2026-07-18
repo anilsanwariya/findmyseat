@@ -655,7 +655,9 @@ function EditAllocationDialog({
       (
         await supabase
           .from("sections")
-          .select("id, name, has_shifts, is_reserved_only, full_day_fee, morning_fee, evening_fee")
+          .select(
+            "id, name, allow_full_day, allow_morning, allow_evening, allow_reserved, allow_unreserved, full_day_fee, morning_fee, evening_fee, reservation_fee",
+          )
           .eq("library_id", alloc.library_id)
       ).data ?? [],
   });
@@ -697,25 +699,39 @@ function EditAllocationDialog({
     },
   });
 
+  // Enforce new Type and Shift constraints based on checkboxes
   useEffect(() => {
     if (!currentSection) return;
-    if (currentSection.is_reserved_only && reservationType === "unreserved") setReservationType("reserved");
-    if (!currentSection.has_shifts && shiftId && shiftId !== "none") setShiftId("none");
-    if (currentSection.has_shifts && (!shiftId || shiftId === "none")) setShiftId("");
+    if (!currentSection.allow_unreserved && reservationType === "unreserved") setReservationType("reserved");
+    if (!currentSection.allow_reserved && reservationType === "reserved") setReservationType("unreserved");
+
+    if (!currentSection.allow_full_day && (!shiftId || shiftId === "none")) setShiftId("");
   }, [currentSection?.id]);
 
+  // Dynamic Fee Calculator (Base Fee + Reservation Fee)
   useEffect(() => {
     if (!currentSection) return;
-    if (!currentSection.has_shifts || !shiftId || shiftId === "none") {
-      if (currentSection.full_day_fee != null) setFee(Number(currentSection.full_day_fee));
-      return;
+
+    let calculatedFee = 0;
+
+    // Determine Base Fee
+    if (!shiftId || shiftId === "none") {
+      calculatedFee = Number(currentSection.full_day_fee || 0);
+    } else {
+      const shift = shifts.data?.find((s: any) => s.id === shiftId);
+      const name = (shift?.name ?? "").toLowerCase();
+      if (name.includes("morning")) calculatedFee = Number(currentSection.morning_fee || 0);
+      else if (name.includes("evening")) calculatedFee = Number(currentSection.evening_fee || 0);
+      else calculatedFee = Number(shift?.base_fee || 0);
     }
-    const shift = shifts.data?.find((s: any) => s.id === shiftId);
-    const name = (shift?.name ?? "").toLowerCase();
-    if (name.includes("morning") && currentSection.morning_fee != null) setFee(Number(currentSection.morning_fee));
-    else if (name.includes("evening") && currentSection.evening_fee != null) setFee(Number(currentSection.evening_fee));
-    else if (shift?.base_fee != null) setFee(Number(shift.base_fee));
-  }, [currentSection?.id, shiftId, shifts.data]);
+
+    // Add Reservation Extra Charge if type is reserved
+    if (reservationType === "reserved") {
+      calculatedFee += Number(currentSection.reservation_fee || 0);
+    }
+
+    setFee(calculatedFee);
+  }, [currentSection?.id, shiftId, shifts.data, reservationType]);
 
   if (!alloc) return null;
 
@@ -741,18 +757,21 @@ function EditAllocationDialog({
           className="space-y-4"
           onSubmit={async (e) => {
             e.preventDefault();
-            if (currentSection?.is_reserved_only && reservationType === "unreserved") {
-              toast.error("This section is fully reserved. Choose Reserved.");
+
+            // Final validation checks before submission
+            if (currentSection && !currentSection.allow_reserved && reservationType === "reserved") {
+              toast.error("Reserved seats are not allowed in this section.");
               return;
             }
-            if (currentSection?.has_shifts && (!shiftId || shiftId === "none")) {
-              toast.error("This section requires a shift. Full-day is not allowed.");
+            if (currentSection && !currentSection.allow_unreserved && reservationType === "unreserved") {
+              toast.error("Unreserved allocations are not allowed in this section.");
               return;
             }
-            if (currentSection && !currentSection.has_shifts && shiftId && shiftId !== "none") {
-              toast.error("This section is Full-day only. Shifts are not allowed.");
+            if (currentSection && !currentSection.allow_full_day && (!shiftId || shiftId === "none")) {
+              toast.error("Full-day allocations are not allowed in this section. Please select a shift.");
               return;
             }
+
             setLoading(true);
 
             const { error } = await supabase
@@ -805,9 +824,11 @@ function EditAllocationDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="reserved">Reserved</SelectItem>
-                  <SelectItem value="unreserved" disabled={!!currentSection?.is_reserved_only}>
-                    Unreserved{currentSection?.is_reserved_only ? " (section is fully reserved)" : ""}
+                  <SelectItem value="reserved" disabled={!!currentSection && !currentSection.allow_reserved}>
+                    Reserved{!currentSection?.allow_reserved ? " (Not allowed)" : ""}
+                  </SelectItem>
+                  <SelectItem value="unreserved" disabled={!!currentSection && !currentSection.allow_unreserved}>
+                    Unreserved{!currentSection?.allow_unreserved ? " (Not allowed)" : ""}
                   </SelectItem>
                 </SelectContent>
               </Select>
@@ -833,22 +854,29 @@ function EditAllocationDialog({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label>
-                Shift{currentSection?.has_shifts ? " (required)" : currentSection ? " (Full day only)" : ""}
-              </Label>
+              <Label>Shift</Label>
               <Select value={shiftId} onValueChange={setShiftId}>
                 <SelectTrigger className="bg-panel border-panel-border">
-                  <SelectValue placeholder={currentSection?.has_shifts ? "Choose shift" : "Full day"} />
+                  <SelectValue placeholder="Choose shift" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none" disabled={!!currentSection?.has_shifts}>
-                    Full day{currentSection?.has_shifts ? " (not available)" : ""}
+                  <SelectItem value="none" disabled={!!currentSection && !currentSection.allow_full_day}>
+                    Full day{!currentSection?.allow_full_day ? " (Not allowed)" : ""}
                   </SelectItem>
-                  {(shifts.data ?? []).map((s: any) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.name}
-                    </SelectItem>
-                  ))}
+                  {(shifts.data ?? []).map((s: any) => {
+                    const name = (s.name || "").toLowerCase();
+                    const isMorning = name.includes("morning");
+                    const isEvening = name.includes("evening");
+                    const isDisabled =
+                      (isMorning && currentSection && !currentSection.allow_morning) ||
+                      (isEvening && currentSection && !currentSection.allow_evening);
+
+                    return (
+                      <SelectItem key={s.id} value={s.id} disabled={isDisabled}>
+                        {s.name} {isDisabled ? "(Not allowed)" : ""}
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
@@ -929,7 +957,9 @@ function NewAllocDialog({
       (
         await supabase
           .from("sections")
-          .select("id, name, has_shifts, is_reserved_only, full_day_fee, morning_fee, evening_fee")
+          .select(
+            "id, name, allow_full_day, allow_morning, allow_evening, allow_reserved, allow_unreserved, full_day_fee, morning_fee, evening_fee, reservation_fee",
+          )
           .eq("library_id", libraryId)
       ).data ?? [],
   });
@@ -970,33 +1000,39 @@ function NewAllocDialog({
     },
   });
 
-  // Enforce section constraints
+  // Enforce new Type and Shift constraints based on checkboxes
   useEffect(() => {
     if (!currentSection) return;
-    if (currentSection.is_reserved_only && reservationType === "unreserved") {
-      setReservationType("reserved");
-    }
-    if (!currentSection.has_shifts && shiftId && shiftId !== "none") {
-      setShiftId("none");
-    }
-    if (currentSection.has_shifts && (!shiftId || shiftId === "none")) {
-      setShiftId("");
-    }
+    if (!currentSection.allow_unreserved && reservationType === "unreserved") setReservationType("reserved");
+    if (!currentSection.allow_reserved && reservationType === "reserved") setReservationType("unreserved");
+
+    if (!currentSection.allow_full_day && (!shiftId || shiftId === "none")) setShiftId("");
   }, [currentSection?.id]);
 
-  // Auto-fill fee based on section + shift/full-day selection.
+  // Dynamic Fee Calculator (Base Fee + Reservation Fee)
   useEffect(() => {
     if (!currentSection) return;
-    if (!currentSection.has_shifts || !shiftId || shiftId === "none") {
-      if (currentSection.full_day_fee != null) setFee(Number(currentSection.full_day_fee));
-      return;
+
+    let calculatedFee = 0;
+
+    // Determine Base Fee
+    if (!shiftId || shiftId === "none") {
+      calculatedFee = Number(currentSection.full_day_fee || 0);
+    } else {
+      const shift = shifts.data?.find((s: any) => s.id === shiftId);
+      const name = (shift?.name ?? "").toLowerCase();
+      if (name.includes("morning")) calculatedFee = Number(currentSection.morning_fee || 0);
+      else if (name.includes("evening")) calculatedFee = Number(currentSection.evening_fee || 0);
+      else calculatedFee = Number(shift?.base_fee || 0);
     }
-    const shift = shifts.data?.find((s: any) => s.id === shiftId);
-    const name = (shift?.name ?? "").toLowerCase();
-    if (name.includes("morning") && currentSection.morning_fee != null) setFee(Number(currentSection.morning_fee));
-    else if (name.includes("evening") && currentSection.evening_fee != null) setFee(Number(currentSection.evening_fee));
-    else if (shift?.base_fee != null) setFee(Number(shift.base_fee));
-  }, [currentSection?.id, shiftId, shifts.data]);
+
+    // Add Reservation Extra Charge if type is reserved
+    if (reservationType === "reserved") {
+      calculatedFee += Number(currentSection.reservation_fee || 0);
+    }
+
+    setFee(calculatedFee);
+  }, [currentSection?.id, shiftId, shifts.data, reservationType]);
 
   // Calculate selected student context
   const selectedStudent = students.data?.find((s: any) => s.id === studentId);
@@ -1011,19 +1047,21 @@ function NewAllocDialog({
         className="space-y-4"
         onSubmit={async (e) => {
           e.preventDefault();
-          if (currentSection?.is_reserved_only && reservationType === "unreserved") {
-            toast.error("This section is fully reserved. Choose Reserved.");
+
+          // Final validation checks before submission
+          if (currentSection && !currentSection.allow_reserved && reservationType === "reserved") {
+            toast.error("Reserved seats are not allowed in this section.");
             return;
           }
-          if (currentSection?.has_shifts && (!shiftId || shiftId === "none")) {
-            toast.error("This section requires a shift. Full-day is not allowed.");
+          if (currentSection && !currentSection.allow_unreserved && reservationType === "unreserved") {
+            toast.error("Unreserved allocations are not allowed in this section.");
             return;
           }
-          if (currentSection && !currentSection.has_shifts && shiftId && shiftId !== "none") {
-            toast.error("This section is Full-day only. Shifts are not allowed.");
+          if (currentSection && !currentSection.allow_full_day && (!shiftId || shiftId === "none")) {
+            toast.error("Full-day allocations are not allowed in this section. Please select a shift.");
             return;
           }
-          loading;
+
           setLoading(true);
 
           const { error } = await supabase.from("allocations").insert({
@@ -1136,9 +1174,11 @@ function NewAllocDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="reserved">Reserved</SelectItem>
-                <SelectItem value="unreserved" disabled={!!currentSection?.is_reserved_only}>
-                  Unreserved{currentSection?.is_reserved_only ? " (section is fully reserved)" : ""}
+                <SelectItem value="reserved" disabled={!!currentSection && !currentSection.allow_reserved}>
+                  Reserved{!currentSection?.allow_reserved ? " (Not allowed)" : ""}
+                </SelectItem>
+                <SelectItem value="unreserved" disabled={!!currentSection && !currentSection.allow_unreserved}>
+                  Unreserved{!currentSection?.allow_unreserved ? " (Not allowed)" : ""}
                 </SelectItem>
               </SelectContent>
             </Select>
@@ -1168,23 +1208,29 @@ function NewAllocDialog({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-2">
-            <Label>
-              Shift
-              {currentSection?.has_shifts ? " (required)" : currentSection ? " (Full day only)" : ""}
-            </Label>
+            <Label>Shift</Label>
             <Select value={shiftId} onValueChange={setShiftId}>
               <SelectTrigger className="bg-panel border-panel-border">
-                <SelectValue placeholder={currentSection?.has_shifts ? "Choose shift" : "Full day"} />
+                <SelectValue placeholder="Choose shift" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none" disabled={!!currentSection?.has_shifts}>
-                  Full day{currentSection?.has_shifts ? " (not available in this section)" : ""}
+                <SelectItem value="none" disabled={!!currentSection && !currentSection.allow_full_day}>
+                  Full day{!currentSection?.allow_full_day ? " (Not allowed)" : ""}
                 </SelectItem>
-                {(shifts.data ?? []).map((s: any) => (
-                  <SelectItem key={s.id} value={s.id}>
-                    {s.name}
-                  </SelectItem>
-                ))}
+                {(shifts.data ?? []).map((s: any) => {
+                  const name = (s.name || "").toLowerCase();
+                  const isMorning = name.includes("morning");
+                  const isEvening = name.includes("evening");
+                  const isDisabled =
+                    (isMorning && currentSection && !currentSection.allow_morning) ||
+                    (isEvening && currentSection && !currentSection.allow_evening);
+
+                  return (
+                    <SelectItem key={s.id} value={s.id} disabled={isDisabled}>
+                      {s.name} {isDisabled ? "(Not allowed)" : ""}
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           </div>
