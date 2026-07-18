@@ -592,8 +592,63 @@ function LibraryDetailsDialog({
         </div>
       </DialogContent>
     </Dialog>
+    <RatingBreakdownDialog libraryId={lib.id} open={showRatings} onOpenChange={setShowRatings} />
+    </>
   );
 }
+
+function RatingBreakdownDialog({
+  libraryId,
+  open,
+  onOpenChange,
+}: {
+  libraryId: string;
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+}) {
+  const summary = useQuery({
+    queryKey: ["rating-summary", libraryId],
+    enabled: open && !!libraryId,
+    queryFn: async () => {
+      const { data } = await (supabase as any).rpc("get_library_rating_summary", { _library_id: libraryId });
+      return Array.isArray(data) ? data[0] : data;
+    },
+  });
+  const s = summary.data;
+  const rows = [
+    { label: "Peace & Quiet", value: Number(s?.avg_peace ?? 0) },
+    { label: "Seating Comfort", value: Number(s?.avg_comfort ?? 0) },
+    { label: "Internet & Power", value: Number(s?.avg_internet ?? 0) },
+    { label: "Cleanliness & Hygiene", value: Number(s?.avg_hygiene ?? 0) },
+    { label: "Amenities & Lighting", value: Number(s?.avg_amenities ?? 0) },
+  ];
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="glass-strong border-panel-border max-w-md w-[calc(100vw-2rem)]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Star className="size-4 fill-gold text-gold" /> Rating Breakdown
+          </DialogTitle>
+        </DialogHeader>
+        <div className="rounded-lg border border-gold/30 bg-gradient-to-br from-gold/10 to-transparent p-4 flex items-center justify-between">
+          <div>
+            <div className="text-4xl font-extrabold text-gold">{Number(s?.avg_overall ?? 0).toFixed(1)}</div>
+            <div className="text-xs text-muted-foreground">
+              Based on {s?.total_reviews ?? 0} {(s?.total_reviews ?? 0) === 1 ? "review" : "reviews"}
+            </div>
+          </div>
+          <Star className="size-12 fill-gold text-gold drop-shadow-[0_0_12px_rgba(251,191,36,0.4)]" />
+        </div>
+        <div className="mt-4 space-y-3">
+          {rows.map((r) => (
+            <StarBar key={r.label} label={r.label} value={r.value} />
+          ))}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 
 function RequestSeatDialog({ lib, onClose, exams }: { lib: any | null; onClose: () => void; exams: any[] }) {
   const submit = useServerFn(submitSeatRequest);
