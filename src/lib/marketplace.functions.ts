@@ -153,8 +153,11 @@ export const marketplaceSearch = createServerFn({ method: "POST" })
         latitude: l.latitude ?? null,
         longitude: l.longitude ?? null,
         distance_km,
+        avg_rating,
+        rating_count,
       };
     });
+
 
     let final = mapped;
     if (nearOrigin) {
