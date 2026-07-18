@@ -67,6 +67,8 @@ function StudentApp() {
   const { data: session, isLoading } = useSession();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const [rateOpen, setRateOpen] = useState(false);
+
 
   useEffect(() => {
     if (isLoading) return;
