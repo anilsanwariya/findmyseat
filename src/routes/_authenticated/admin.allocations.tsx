@@ -1016,7 +1016,9 @@ function NewAllocDialog({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="reserved">Reserved</SelectItem>
-                <SelectItem value="unreserved">Unreserved</SelectItem>
+                <SelectItem value="unreserved" disabled={!!currentSection?.is_reserved_only}>
+                  Unreserved{currentSection?.is_reserved_only ? " (section is fully reserved)" : ""}
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
