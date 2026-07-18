@@ -28,11 +28,13 @@ export const marketplaceSearch = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    // Only include libraries whose owner org is active/trial (not suspended).
+    // Only include libraries whose owner org is active/trial/grace (not suspended, not delisted).
     const { data: orgs } = await supabaseAdmin.from("organizations").select("id, subscription_status");
-    const activeOrgIds = new Set(
-      (orgs ?? []).filter((o: any) => o.subscription_status !== "suspended").map((o: any) => o.id),
+    const orgIds = (orgs ?? []).filter((o: any) => o.subscription_status !== "suspended").map((o: any) => o.id);
+    const states = await Promise.all(
+      orgIds.map(async (id: string) => ({ id, state: (await supabaseAdmin.rpc("org_subscription_state", { _org_id: id })).data as string })),
     );
+    const activeOrgIds = new Set(states.filter((s) => s.state !== "expired_delisted").map((s) => s.id));
 
     let q = supabaseAdmin
       .from("libraries")
