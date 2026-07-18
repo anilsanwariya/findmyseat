@@ -157,3 +157,59 @@ export function visibleLibraryIds(session: SessionInfo | undefined | null): stri
 }
 
 export const OWNER_PERMISSIONS = OWNER_PERMS;
+
+export type LoginCategory = "super_admin" | "owner" | "staff" | "student";
+
+/**
+ * Classify the currently-signed-in user for login-portal gating.
+ * Returns null if no session or the user has no recognized role.
+ */
+export async function classifyCurrentUser(): Promise<LoginCategory | null> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user) return null;
+  const userId = session.user.id;
+
+  const { data: roles } = await supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId);
+
+  if (roles?.some((r) => r.role === "super_admin")) return "super_admin";
+
+  if (roles?.some((r) => r.role === "org_admin")) {
+    const sb: any = supabase;
+    const { data: staff } = await sb
+      .from("staff_profiles")
+      .select("id")
+      .eq("user_id", userId)
+      .maybeSingle();
+    return staff ? "staff" : "owner";
+  }
+
+  const { data: student } = await supabase
+    .from("students")
+    .select("id")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (student) return "student";
+
+  return null;
+}
+
+/**
+ * After signInWithPassword, verify the signed-in user matches the portal.
+ * On mismatch, sign the user out and return an error message.
+ */
+export async function enforceLoginPortal(expected: LoginCategory): Promise<string | null> {
+  const actual = await classifyCurrentUser();
+  if (actual === expected) return null;
+  await supabase.auth.signOut();
+  const labels: Record<LoginCategory, string> = {
+    super_admin: "Master Admin",
+    owner: "Library Owner",
+    staff: "Staff",
+    student: "Student",
+  };
+  if (!actual) return "This account is not recognized. Contact support.";
+  return `These credentials are for the ${labels[actual]} portal. Please use the correct sign-in page.`;
+}
