@@ -36,9 +36,15 @@ function StaffLoginPage() {
     e.preventDefault();
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
     if (error) {
+      setLoading(false);
       toast.error(error.message);
+      return;
+    }
+    const gate = await enforceLoginPortal("staff");
+    setLoading(false);
+    if (gate) {
+      toast.error(gate);
       return;
     }
     toast.success("Welcome back");
