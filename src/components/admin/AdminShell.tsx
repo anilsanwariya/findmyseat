@@ -25,7 +25,7 @@ import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { useSession, hasPerm, type StaffPermissions } from "@/lib/auth";
-import { getOwnerBilling } from "@/lib/billing.functions";
+import { getOwnerBilling, getOrgSubscriptionState } from "@/lib/billing.functions";
 import type { ReactNode } from "react";
 
 type NavItem = {
