@@ -14,7 +14,6 @@ const NAV: NavItem[] = [
   { to: "/super-admin/approvals", label: "Branch Approvals", icon: CheckSquare },
   { to: "/super-admin/categories", label: "Categories", icon: Tags },
   { to: "/super-admin/subscriptions", label: "Subscriptions", icon: CreditCard },
-  { to: "/super-admin/billing", label: "Legacy Plans", icon: CreditCard },
 ];
 
 export function SuperAdminShell({ children }: { children: ReactNode }) {
