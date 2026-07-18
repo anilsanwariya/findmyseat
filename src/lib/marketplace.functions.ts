@@ -129,6 +129,10 @@ export const marketplaceSearch = createServerFn({ method: "POST" })
       if (nearOrigin && typeof l.latitude === "number" && typeof l.longitude === "number") {
         distance_km = haversineKm(nearOrigin, { lat: l.latitude, lng: l.longitude });
       }
+      const ragg = ratingsByLib.get(l.id);
+      const avg_rating = ragg && ragg.count > 0 ? Math.round((ragg.sum / ragg.count) * 10) / 10 : null;
+      const rating_count = ragg?.count ?? 0;
+
       return {
         id: l.id,
         name: l.name,
