@@ -93,7 +93,8 @@ export async function fetchSession(): Promise<SessionInfo> {
   let staffIsActive = true;
 
   if (role === "org_admin") {
-    const { data: staff } = await supabase
+    const sb: any = supabase;
+    const { data: staff } = await sb
       .from("staff_profiles")
       .select("id, employee_id, full_name, permissions, is_active, org_id")
       .eq("user_id", userId)
@@ -106,7 +107,7 @@ export async function fetchSession(): Promise<SessionInfo> {
       staffPermissions = (staff.permissions ?? {}) as StaffPermissions;
       staffIsActive = !!staff.is_active;
       orgId = staff.org_id;
-      const { data: branches } = await supabase
+      const { data: branches } = await sb
         .from("staff_branch_assignments")
         .select("library_id")
         .eq("staff_id", staff.id);
