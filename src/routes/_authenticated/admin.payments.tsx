@@ -153,6 +153,7 @@ function PaymentsPage() {
                 <th className="py-3 px-2 font-normal">Amount</th>
                 <th className="py-3 px-2 font-normal">Method</th>
                 <th className="py-3 px-2 font-normal">Txn Ref</th>
+                <th className="py-3 px-2 font-normal">Collected by</th>
                 <th className="py-3 px-2 font-normal">Proof</th>
                 <th className="py-3 px-2 font-normal">Covers until</th>
               </tr>
