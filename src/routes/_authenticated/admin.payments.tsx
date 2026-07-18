@@ -191,6 +191,16 @@ function PaymentsPage() {
                     {p.transaction_reference ?? (p.method === "cash" ? "—" : "—")}
                   </td>
                   <td className="py-3 px-2">
+                    {p.collected_by_staff_id ? (
+                      <span className="rounded bg-cyan/10 px-2 py-0.5 text-[10px] text-cyan">
+                        {p.collector?.full_name ?? "Staff"}
+                        {p.collector?.employee_id ? ` · ${p.collector.employee_id}` : ""}
+                      </span>
+                    ) : (
+                      <span className="rounded bg-amber/10 px-2 py-0.5 text-[10px] text-amber">Owner</span>
+                    )}
+                  </td>
+                  <td className="py-3 px-2">
                     {p.receipt_url ? <FileImage className="size-4 text-emerald" /> : <span className="text-muted-foreground">—</span>}
                   </td>
                   <td className="py-3 px-2 font-mono text-emerald">{fmtDate(p.covers_until)}</td>
@@ -198,7 +208,7 @@ function PaymentsPage() {
               ))}
               {filteredPayments.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-sm text-muted-foreground">
+                  <td colSpan={9} className="py-8 text-center text-sm text-muted-foreground">
                     No payments in this date range.
                   </td>
                 </tr>
