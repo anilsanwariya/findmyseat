@@ -72,7 +72,9 @@ function AllocationsPage() {
   // Table Filters
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [historyStudent, setHistoryStudent] = useState<{ id: string; library_id: string | null; name: string } | null>(null);
+  const [historyStudent, setHistoryStudent] = useState<{ id: string; library_id: string | null; name: string } | null>(
+    null,
+  );
 
   const qc = useQueryClient();
   const currentLibId = libraryId ?? libs?.[0]?.id;
@@ -774,6 +776,23 @@ function EditAllocationDialog({
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-2">
+              <Label>Section Filter</Label>
+              <Select value={sectionId} onValueChange={setSectionId} disabled={reservationType === "unreserved"}>
+                <SelectTrigger className="bg-panel border-panel-border">
+                  <SelectValue placeholder="All Sections" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all_sections">All Sections</SelectItem>
+                  {(sections.data ?? []).map((s: any) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
               <Label>Type</Label>
               <Select
                 value={reservationType}
@@ -790,23 +809,6 @@ function EditAllocationDialog({
                   <SelectItem value="unreserved" disabled={!!currentSection?.is_reserved_only}>
                     Unreserved{currentSection?.is_reserved_only ? " (section is fully reserved)" : ""}
                   </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Section Filter</Label>
-              <Select value={sectionId} onValueChange={setSectionId} disabled={reservationType === "unreserved"}>
-                <SelectTrigger className="bg-panel border-panel-border">
-                  <SelectValue placeholder="All Sections" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all_sections">All Sections</SelectItem>
-                  {(sections.data ?? []).map((s: any) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.name}
-                    </SelectItem>
-                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -978,7 +980,6 @@ function NewAllocDialog({
       setShiftId("none");
     }
     if (currentSection.has_shifts && (!shiftId || shiftId === "none")) {
-      // Force user to pick a shift; leave blank.
       setShiftId("");
     }
   }, [currentSection?.id]);
@@ -1022,6 +1023,7 @@ function NewAllocDialog({
             toast.error("This section is Full-day only. Shifts are not allowed.");
             return;
           }
+          loading;
           setLoading(true);
 
           const { error } = await supabase.from("allocations").insert({
@@ -1062,22 +1064,18 @@ function NewAllocDialog({
           </div>
 
           <div className="space-y-2">
-            <Label>Type</Label>
-            <Select
-              value={reservationType}
-              onValueChange={(v: any) => {
-                setReservationType(v);
-                if (v === "unreserved") setSeatId("");
-              }}
-            >
+            <Label>Section Filter</Label>
+            <Select value={sectionId} onValueChange={setSectionId} disabled={reservationType === "unreserved"}>
               <SelectTrigger className="bg-panel border-panel-border">
-                <SelectValue />
+                <SelectValue placeholder="All Sections" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="reserved">Reserved</SelectItem>
-                <SelectItem value="unreserved" disabled={!!currentSection?.is_reserved_only}>
-                  Unreserved{currentSection?.is_reserved_only ? " (section is fully reserved)" : ""}
-                </SelectItem>
+                <SelectItem value="all_sections">All Sections</SelectItem>
+                {(sections.data ?? []).map((s: any) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.name}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -1126,21 +1124,26 @@ function NewAllocDialog({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-2">
-            <Label>Section Filter</Label>
-            <Select value={sectionId} onValueChange={setSectionId} disabled={reservationType === "unreserved"}>
+            <Label>Type</Label>
+            <Select
+              value={reservationType}
+              onValueChange={(v: any) => {
+                setReservationType(v);
+                if (v === "unreserved") setSeatId("");
+              }}
+            >
               <SelectTrigger className="bg-panel border-panel-border">
-                <SelectValue placeholder="All Sections" />
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all_sections">All Sections</SelectItem>
-                {(sections.data ?? []).map((s: any) => (
-                  <SelectItem key={s.id} value={s.id}>
-                    {s.name}
-                  </SelectItem>
-                ))}
+                <SelectItem value="reserved">Reserved</SelectItem>
+                <SelectItem value="unreserved" disabled={!!currentSection?.is_reserved_only}>
+                  Unreserved{currentSection?.is_reserved_only ? " (section is fully reserved)" : ""}
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
+
           <div className="space-y-2">
             <Label>Seat {reservationType === "unreserved" ? "(Not Required)" : "(Vacant Only)"}</Label>
             <Select
