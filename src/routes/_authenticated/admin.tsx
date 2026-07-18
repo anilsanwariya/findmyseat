@@ -76,53 +76,8 @@ function AdminLayout() {
 
   return (
     <AdminShell>
-      <PendingBranchesBanner orgId={data.orgId} />
       <Outlet />
     </AdminShell>
   );
 }
 
-function PendingBranchesBanner({ orgId }: { orgId: string | null | undefined }) {
-  const { data } = useQuery({
-    queryKey: ["pending-branches", orgId],
-    enabled: !!orgId,
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("libraries")
-        .select("id, name, approval_status, rejection_reason")
-        .eq("org_id", orgId!)
-        .in("approval_status", ["pending", "rejected"]);
-      return data ?? [];
-    },
-    refetchInterval: 60_000,
-  });
-  if (!data?.length) return null;
-  const pending = data.filter((l) => l.approval_status === "pending");
-  const rejected = data.filter((l) => l.approval_status === "rejected");
-  return (
-    <div className="mb-6 space-y-2">
-      {pending.length > 0 && (
-        <GlassPanel className="flex items-start gap-3 border-l-4 border-l-gold p-4">
-          <AlertTriangle className="mt-0.5 size-5 shrink-0 text-gold" />
-          <div className="text-sm">
-            <p className="font-bold text-gold">Branch under review by Super Admin</p>
-            <p className="text-muted-foreground">
-              {pending.map((l) => l.name).join(", ")} — will not appear in the public marketplace until approved.
-            </p>
-          </div>
-        </GlassPanel>
-      )}
-      {rejected.length > 0 && (
-        <GlassPanel className="flex items-start gap-3 border-l-4 border-l-rose p-4">
-          <AlertTriangle className="mt-0.5 size-5 shrink-0 text-rose" />
-          <div className="text-sm">
-            <p className="font-bold text-rose">Branch changes rejected</p>
-            {rejected.map((l) => (
-              <p key={l.id} className="text-muted-foreground"><span className="text-foreground">{l.name}</span>: {l.rejection_reason ?? "Please review and resubmit."}</p>
-            ))}
-          </div>
-        </GlassPanel>
-      )}
-    </div>
-  );
-}

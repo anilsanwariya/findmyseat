@@ -79,6 +79,9 @@ function SettingsPage() {
   return (
     <div className="space-y-6">
       <SectionHeader title="Settings" hint="Organization and branch configuration." />
+      <PendingBranchesBanner orgId={orgId} />
+
+
 
       <GlassPanel className="p-5">
         <h3 className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Organization</h3>
@@ -908,5 +911,68 @@ function DeleteBranchDialog({ lib, onDone }: { lib: any; onDone: () => void }) {
         </form>
       )}
     </DialogContent>
+  );
+}
+
+function PendingBranchesBanner({ orgId }: { orgId: string }) {
+  const [dismissed, setDismissed] = useState<Record<string, boolean>>({});
+  const { data } = useQuery({
+    queryKey: ["pending-branches", orgId],
+    enabled: !!orgId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("libraries")
+        .select("id, name, approval_status, rejection_reason")
+        .eq("org_id", orgId)
+        .in("approval_status", ["pending", "rejected"]);
+      return data ?? [];
+    },
+    refetchInterval: 60_000,
+  });
+  if (!data?.length) return null;
+  const pending = data.filter((l) => l.approval_status === "pending" && !dismissed[l.id]);
+  const rejected = data.filter((l) => l.approval_status === "rejected" && !dismissed[l.id]);
+  if (!pending.length && !rejected.length) return null;
+  return (
+    <div className="space-y-2">
+      {pending.length > 0 && (
+        <GlassPanel className="relative flex items-start gap-3 border-l-4 border-l-gold p-4 pr-10">
+          <AlertTriangle className="mt-0.5 size-5 shrink-0 text-gold" />
+          <div className="text-sm">
+            <p className="font-bold text-gold">Branch under review by Super Admin</p>
+            <p className="text-muted-foreground">
+              {pending.map((l) => l.name).join(", ")} — will not appear in the public marketplace until approved.
+            </p>
+          </div>
+          <button
+            aria-label="Dismiss"
+            onClick={() => setDismissed((d) => ({ ...d, ...Object.fromEntries(pending.map((l) => [l.id, true])) }))}
+            className="absolute right-2 top-2 rounded-md p-1 text-muted-foreground hover:bg-panel hover:text-white"
+          >
+            <XIcon className="size-4" />
+          </button>
+        </GlassPanel>
+      )}
+      {rejected.length > 0 && (
+        <GlassPanel className="relative flex items-start gap-3 border-l-4 border-l-rose p-4 pr-10">
+          <AlertTriangle className="mt-0.5 size-5 shrink-0 text-rose" />
+          <div className="text-sm">
+            <p className="font-bold text-rose">Branch changes rejected</p>
+            {rejected.map((l) => (
+              <p key={l.id} className="text-muted-foreground">
+                <span className="text-foreground">{l.name}</span>: {l.rejection_reason ?? "Please review and resubmit."}
+              </p>
+            ))}
+          </div>
+          <button
+            aria-label="Dismiss"
+            onClick={() => setDismissed((d) => ({ ...d, ...Object.fromEntries(rejected.map((l) => [l.id, true])) }))}
+            className="absolute right-2 top-2 rounded-md p-1 text-muted-foreground hover:bg-panel hover:text-white"
+          >
+            <XIcon className="size-4" />
+          </button>
+        </GlassPanel>
+      )}
+    </div>
   );
 }
