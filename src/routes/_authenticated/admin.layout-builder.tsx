@@ -865,12 +865,19 @@ function AddSectionDialog({
   const [name, setName] = useState("");
   const [rows, setRows] = useState(15);
   const [cols, setCols] = useState(15);
-  const [hasShifts, setHasShifts] = useState(false);
-  const [isReservedOnly, setIsReservedOnly] = useState(false);
+
+  const [allowFullDay, setAllowFullDay] = useState(true);
+  const [allowMorning, setAllowMorning] = useState(false);
+  const [allowEvening, setAllowEvening] = useState(false);
+  const [allowReserved, setAllowReserved] = useState(true);
+  const [allowUnreserved, setAllowUnreserved] = useState(true);
   const [isPremium, setIsPremium] = useState(false);
+
   const [fullDayFee, setFullDayFee] = useState<number | "">("");
   const [morningFee, setMorningFee] = useState<number | "">("");
   const [eveningFee, setEveningFee] = useState<number | "">("");
+  const [reservationFee, setReservationFee] = useState<number | "">("");
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
@@ -894,12 +901,16 @@ function AddSectionDialog({
                 name,
                 grid_rows: rows,
                 grid_cols: cols,
-                has_shifts: hasShifts,
-                is_reserved_only: isReservedOnly,
+                allow_full_day: allowFullDay,
+                allow_morning: allowMorning,
+                allow_evening: allowEvening,
+                allow_reserved: allowReserved,
+                allow_unreserved: allowUnreserved,
                 is_premium_section: isPremium,
-                full_day_fee: fullDayFee === "" ? null : Number(fullDayFee),
-                morning_fee: hasShifts && morningFee !== "" ? Number(morningFee) : null,
-                evening_fee: hasShifts && eveningFee !== "" ? Number(eveningFee) : null,
+                full_day_fee: allowFullDay && fullDayFee !== "" ? Number(fullDayFee) : null,
+                morning_fee: allowMorning && morningFee !== "" ? Number(morningFee) : null,
+                evening_fee: allowEvening && eveningFee !== "" ? Number(eveningFee) : null,
+                reservation_fee: reservationFee !== "" ? Number(reservationFee) : 0,
               })
               .select("id")
               .single();
@@ -923,6 +934,7 @@ function AddSectionDialog({
               className="bg-panel border-panel-border"
             />
           </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label>Grid rows</Label>
@@ -947,63 +959,111 @@ function AddSectionDialog({
               />
             </div>
           </div>
-          <div className="grid grid-cols-1 gap-2 text-sm">
-            <label className="flex items-center gap-2">
-              <input type="checkbox" checked={hasShifts} onChange={(e) => setHasShifts(e.target.checked)} />
-              Has shifts (Morning / Evening). If unchecked, section is Full-day only.
-            </label>
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={isReservedOnly}
-                onChange={(e) => setIsReservedOnly(e.target.checked)}
-              />
-              Fully reserved (no unreserved seats)
-            </label>
-            <label className="flex items-center gap-2">
+
+          <div className="space-y-4 pt-2">
+            <div>
+              <Label className="text-xs text-muted-foreground uppercase tracking-widest mb-2 block">
+                Available Shifts
+              </Label>
+              <div className="grid grid-cols-3 gap-2 text-sm">
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" checked={allowFullDay} onChange={(e) => setAllowFullDay(e.target.checked)} />{" "}
+                  Full day
+                </label>
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" checked={allowMorning} onChange={(e) => setAllowMorning(e.target.checked)} />{" "}
+                  Morning
+                </label>
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" checked={allowEvening} onChange={(e) => setAllowEvening(e.target.checked)} />{" "}
+                  Evening
+                </label>
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-xs text-muted-foreground uppercase tracking-widest mb-2 block">
+                Available Types
+              </Label>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" checked={allowReserved} onChange={(e) => setAllowReserved(e.target.checked)} />{" "}
+                  Reserved
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={allowUnreserved}
+                    onChange={(e) => setAllowUnreserved(e.target.checked)}
+                  />{" "}
+                  Unreserved
+                </label>
+              </div>
+            </div>
+
+            <label className="flex items-center gap-2 text-sm mt-2">
               <input type="checkbox" checked={isPremium} onChange={(e) => setIsPremium(e.target.checked)} /> Premium
               section
             </label>
           </div>
+
           <div className="rounded-md border border-panel-border bg-panel p-3 space-y-3">
             <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Default fees (₹ / month)</div>
+
             <div className="grid grid-cols-3 gap-2">
-              <div className="space-y-1">
-                <Label className="text-xs">Full day</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  value={fullDayFee}
-                  onChange={(e) => setFullDayFee(e.target.value === "" ? "" : Number(e.target.value))}
-                  disabled={hasShifts && !fullDayFee && false}
-                  className="bg-panel border-panel-border font-mono"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Morning</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  value={morningFee}
-                  onChange={(e) => setMorningFee(e.target.value === "" ? "" : Number(e.target.value))}
-                  disabled={!hasShifts}
-                  className="bg-panel border-panel-border font-mono disabled:opacity-40"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Evening</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  value={eveningFee}
-                  onChange={(e) => setEveningFee(e.target.value === "" ? "" : Number(e.target.value))}
-                  disabled={!hasShifts}
-                  className="bg-panel border-panel-border font-mono disabled:opacity-40"
-                />
-              </div>
+              {allowFullDay && (
+                <div className="space-y-1">
+                  <Label className="text-xs">Full day</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={fullDayFee}
+                    onChange={(e) => setFullDayFee(e.target.value === "" ? "" : Number(e.target.value))}
+                    className="bg-panel border-panel-border font-mono"
+                  />
+                </div>
+              )}
+              {allowMorning && (
+                <div className="space-y-1">
+                  <Label className="text-xs">Morning</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={morningFee}
+                    onChange={(e) => setMorningFee(e.target.value === "" ? "" : Number(e.target.value))}
+                    className="bg-panel border-panel-border font-mono"
+                  />
+                </div>
+              )}
+              {allowEvening && (
+                <div className="space-y-1">
+                  <Label className="text-xs">Evening</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={eveningFee}
+                    onChange={(e) => setEveningFee(e.target.value === "" ? "" : Number(e.target.value))}
+                    className="bg-panel border-panel-border font-mono"
+                  />
+                </div>
+              )}
             </div>
-            <p className="text-[10px] text-muted-foreground">
-              These fees auto-fill when allocating a seat in this section. They remain editable per allocation.
+
+            <div className="space-y-1 mt-3 border-t border-panel-border/50 pt-3">
+              <Label className="text-xs">Extra Reservation Charge (₹)</Label>
+              <Input
+                type="number"
+                min={0}
+                value={reservationFee}
+                onChange={(e) => setReservationFee(e.target.value === "" ? "" : Number(e.target.value))}
+                className="bg-panel border-panel-border font-mono"
+                placeholder="Added to base fee for reserved seats"
+              />
+            </div>
+
+            <p className="text-[10px] text-muted-foreground leading-relaxed mt-2">
+              These fees auto-fill when allocating a seat. The extra reservation charge is automatically added to the
+              base shift fee if the student chooses a Reserved seat.
             </p>
           </div>
           <Button type="submit" className="w-full bg-white text-slate-900 hover:bg-white/90">
@@ -1027,23 +1087,33 @@ function EditSectionDialog({
   onSaved: () => void;
 }) {
   const [name, setName] = useState(section.name ?? "");
-  const [hasShifts, setHasShifts] = useState<boolean>(!!section.has_shifts);
-  const [isReservedOnly, setIsReservedOnly] = useState<boolean>(!!section.is_reserved_only);
+  const [allowFullDay, setAllowFullDay] = useState<boolean>(section.allow_full_day ?? true);
+  const [allowMorning, setAllowMorning] = useState<boolean>(!!section.allow_morning);
+  const [allowEvening, setAllowEvening] = useState<boolean>(!!section.allow_evening);
+  const [allowReserved, setAllowReserved] = useState<boolean>(section.allow_reserved ?? true);
+  const [allowUnreserved, setAllowUnreserved] = useState<boolean>(section.allow_unreserved ?? true);
   const [isPremium, setIsPremium] = useState<boolean>(!!section.is_premium_section);
+
   const [fullDayFee, setFullDayFee] = useState<number | "">(section.full_day_fee ?? "");
   const [morningFee, setMorningFee] = useState<number | "">(section.morning_fee ?? "");
   const [eveningFee, setEveningFee] = useState<number | "">(section.evening_fee ?? "");
+  const [reservationFee, setReservationFee] = useState<number | "">(section.reservation_fee ?? "");
+
   const [saving, setSaving] = useState(false);
 
   // Re-sync when a different section is opened.
   useEffect(() => {
     setName(section.name ?? "");
-    setHasShifts(!!section.has_shifts);
-    setIsReservedOnly(!!section.is_reserved_only);
+    setAllowFullDay(section.allow_full_day ?? true);
+    setAllowMorning(!!section.allow_morning);
+    setAllowEvening(!!section.allow_evening);
+    setAllowReserved(section.allow_reserved ?? true);
+    setAllowUnreserved(section.allow_unreserved ?? true);
     setIsPremium(!!section.is_premium_section);
     setFullDayFee(section.full_day_fee ?? "");
     setMorningFee(section.morning_fee ?? "");
     setEveningFee(section.evening_fee ?? "");
+    setReservationFee(section.reservation_fee ?? "");
   }, [section.id]);
 
   return (
@@ -1060,12 +1130,16 @@ function EditSectionDialog({
               .from("sections")
               .update({
                 name,
-                has_shifts: hasShifts,
-                is_reserved_only: isReservedOnly,
+                allow_full_day: allowFullDay,
+                allow_morning: allowMorning,
+                allow_evening: allowEvening,
+                allow_reserved: allowReserved,
+                allow_unreserved: allowUnreserved,
                 is_premium_section: isPremium,
-                full_day_fee: fullDayFee === "" ? null : Number(fullDayFee),
-                morning_fee: hasShifts && morningFee !== "" ? Number(morningFee) : null,
-                evening_fee: hasShifts && eveningFee !== "" ? Number(eveningFee) : null,
+                full_day_fee: allowFullDay && fullDayFee !== "" ? Number(fullDayFee) : null,
+                morning_fee: allowMorning && morningFee !== "" ? Number(morningFee) : null,
+                evening_fee: allowEvening && eveningFee !== "" ? Number(eveningFee) : null,
+                reservation_fee: reservationFee !== "" ? Number(reservationFee) : 0,
               })
               .eq("id", section.id);
             setSaving(false);
@@ -1088,59 +1162,106 @@ function EditSectionDialog({
               className="bg-panel border-panel-border"
             />
           </div>
-          <div className="grid grid-cols-1 gap-2 text-sm">
-            <label className="flex items-center gap-2">
-              <input type="checkbox" checked={hasShifts} onChange={(e) => setHasShifts(e.target.checked)} />
-              Has shifts (Morning / Evening). If unchecked, section is Full-day only.
-            </label>
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={isReservedOnly}
-                onChange={(e) => setIsReservedOnly(e.target.checked)}
-              />
-              Fully reserved (no unreserved seats)
-            </label>
-            <label className="flex items-center gap-2">
+
+          <div className="space-y-4 pt-2">
+            <div>
+              <Label className="text-xs text-muted-foreground uppercase tracking-widest mb-2 block">
+                Available Shifts
+              </Label>
+              <div className="grid grid-cols-3 gap-2 text-sm">
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" checked={allowFullDay} onChange={(e) => setAllowFullDay(e.target.checked)} />{" "}
+                  Full day
+                </label>
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" checked={allowMorning} onChange={(e) => setAllowMorning(e.target.checked)} />{" "}
+                  Morning
+                </label>
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" checked={allowEvening} onChange={(e) => setAllowEvening(e.target.checked)} />{" "}
+                  Evening
+                </label>
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-xs text-muted-foreground uppercase tracking-widest mb-2 block">
+                Available Types
+              </Label>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" checked={allowReserved} onChange={(e) => setAllowReserved(e.target.checked)} />{" "}
+                  Reserved
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={allowUnreserved}
+                    onChange={(e) => setAllowUnreserved(e.target.checked)}
+                  />{" "}
+                  Unreserved
+                </label>
+              </div>
+            </div>
+
+            <label className="flex items-center gap-2 text-sm mt-2">
               <input type="checkbox" checked={isPremium} onChange={(e) => setIsPremium(e.target.checked)} /> Premium
               section
             </label>
           </div>
+
           <div className="rounded-md border border-panel-border bg-panel p-3 space-y-3">
             <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Default fees (₹ / month)</div>
+
             <div className="grid grid-cols-3 gap-2">
-              <div className="space-y-1">
-                <Label className="text-xs">Full day</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  value={fullDayFee}
-                  onChange={(e) => setFullDayFee(e.target.value === "" ? "" : Number(e.target.value))}
-                  className="bg-panel border-panel-border font-mono"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Morning</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  value={morningFee}
-                  onChange={(e) => setMorningFee(e.target.value === "" ? "" : Number(e.target.value))}
-                  disabled={!hasShifts}
-                  className="bg-panel border-panel-border font-mono disabled:opacity-40"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Evening</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  value={eveningFee}
-                  onChange={(e) => setEveningFee(e.target.value === "" ? "" : Number(e.target.value))}
-                  disabled={!hasShifts}
-                  className="bg-panel border-panel-border font-mono disabled:opacity-40"
-                />
-              </div>
+              {allowFullDay && (
+                <div className="space-y-1">
+                  <Label className="text-xs">Full day</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={fullDayFee}
+                    onChange={(e) => setFullDayFee(e.target.value === "" ? "" : Number(e.target.value))}
+                    className="bg-panel border-panel-border font-mono"
+                  />
+                </div>
+              )}
+              {allowMorning && (
+                <div className="space-y-1">
+                  <Label className="text-xs">Morning</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={morningFee}
+                    onChange={(e) => setMorningFee(e.target.value === "" ? "" : Number(e.target.value))}
+                    className="bg-panel border-panel-border font-mono"
+                  />
+                </div>
+              )}
+              {allowEvening && (
+                <div className="space-y-1">
+                  <Label className="text-xs">Evening</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={eveningFee}
+                    onChange={(e) => setEveningFee(e.target.value === "" ? "" : Number(e.target.value))}
+                    className="bg-panel border-panel-border font-mono"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-1 mt-3 border-t border-panel-border/50 pt-3">
+              <Label className="text-xs">Extra Reservation Charge (₹)</Label>
+              <Input
+                type="number"
+                min={0}
+                value={reservationFee}
+                onChange={(e) => setReservationFee(e.target.value === "" ? "" : Number(e.target.value))}
+                className="bg-panel border-panel-border font-mono"
+                placeholder="Added to base fee for reserved seats"
+              />
             </div>
           </div>
           <Button disabled={saving} type="submit" className="w-full bg-white text-slate-900 hover:bg-white/90">
@@ -1248,15 +1369,13 @@ function AddSeatDialog({ open, onOpenChange, pos, section, orgId, libraryId, onD
             onSubmit={async (e) => {
               e.preventDefault();
               if (!pos || !section) return;
-              const { error } = await supabase
-                .from("layout_objects")
-                .insert({
-                  section_id: section.id,
-                  org_id: orgId,
-                  object_type: objectType,
-                  row_position: pos.row,
-                  column_position: pos.col,
-                });
+              const { error } = await supabase.from("layout_objects").insert({
+                section_id: section.id,
+                org_id: orgId,
+                object_type: objectType,
+                row_position: pos.row,
+                column_position: pos.col,
+              });
               if (error) {
                 toast.error(error.message);
                 return;
@@ -1351,7 +1470,7 @@ function BulkAreaDialog({ open, onOpenChange, cells, section, orgId, onDone }: a
   );
 }
 
-// New: Target Bulk Generates Seats directly into selected empty cells
+// Target Bulk Generates Seats directly into selected empty cells
 function BulkSeatDialog({
   open,
   onOpenChange,
@@ -1471,7 +1590,7 @@ function BulkSeatDialog({
   );
 }
 
-// New: Target Bulk Edit Seats
+// Target Bulk Edit Seats
 function BulkEditSeatsDialog({ open, onOpenChange, cells, existingSeats, onDone }: any) {
   const [facing, setFacing] = useState<string>("no_change");
   const [isCorner, setIsCorner] = useState<string>("no_change");
