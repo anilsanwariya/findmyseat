@@ -43,7 +43,8 @@ function PaymentsPage() {
     queryKey: ["payments-list", orgId, fromDate, toDate, staffLibs],
     enabled: !!orgId,
     queryFn: async () => {
-      let q = supabase
+      const sb: any = supabase;
+      let q = sb
         .from("payments")
         .select(
           "id, amount_paid, payment_date, method, reference_note, transaction_reference, receipt_url, covers_until, student_id, library_id, collected_by_staff_id, students(full_name, mobile_number), libraries(name), collector:staff_profiles!payments_collected_by_staff_id_fkey(full_name, employee_id)",
