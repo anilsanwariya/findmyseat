@@ -15,6 +15,9 @@ import { toast } from "sonner";
 import { inr, fmtDate } from "@/lib/format";
 import { changeMyPin, sendEmailVerificationOtp, verifyEmailOtp } from "@/lib/students.functions";
 import { cn } from "@/lib/utils";
+import { RateBranchDialog } from "@/components/student/RateBranchDialog";
+import { Star } from "lucide-react";
+
 import {
   LogOut,
   KeyRound,
