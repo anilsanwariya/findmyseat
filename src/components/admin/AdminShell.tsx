@@ -128,9 +128,10 @@ export function AdminShell({ children }: { children: ReactNode }) {
             <div className="flex items-center gap-3">
               <div className="size-8 shrink-0 rounded-full bg-gradient-to-br from-violet/40 to-cyan/40 ring-1 ring-panel-border" />
               <div className="min-w-0 flex-1 text-xs">
-                <p className="truncate font-bold">{session?.email ?? "—"}</p>
-                <p className="truncate text-muted-foreground">Organization admin</p>
-              </div>
+                <p className="truncate font-bold">{session?.staffName ?? session?.email ?? "—"}</p>
+                <p className="truncate text-muted-foreground">
+                  {isStaff ? `Staff · ${session?.employeeId ?? ""}` : "Organization admin"}
+                </p>
               <button
                 onClick={signOut}
                 className="rounded-md p-1.5 text-muted-foreground hover:bg-panel hover:text-foreground"
