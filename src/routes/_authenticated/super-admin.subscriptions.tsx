@@ -36,109 +36,129 @@ function SubscriptionsAdmin() {
 
 function PlansSection() {
   const qc = useQueryClient();
-  const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
 
   const plans = useQuery({
     queryKey: ["super-admin", "plans-full"],
-    queryFn: async () => (await supabase.from("subscription_plans").select("*").order("monthly_price")).data ?? [],
+    queryFn: async () =>
+      (await supabase
+        .from("subscription_plans")
+        .select("*")
+        .in("plan_code", ["starter", "growth", "enterprise"])
+        .order("monthly_price")).data ?? [],
   });
 
   const save = useMutation({
     mutationFn: async (p: any) => {
+      // Owners can only change prices; name/features/limits are locked.
       const payload = {
-        name: p.name,
-        description: p.description || null,
         monthly_price: Number(p.monthly_price) || 0,
         annual_price: Number(p.annual_price) || 0,
         price: Number(p.monthly_price) || 0,
-        features: p.features ? p.features.split("\n").map((s: string) => s.trim()).filter(Boolean) : [],
-        is_active: !!p.is_active,
       };
-      if (editing) {
-        const { error } = await supabase.from("subscription_plans").update(payload).eq("id", editing.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from("subscription_plans").insert(payload);
-        if (error) throw error;
-      }
+      const { error } = await supabase.from("subscription_plans").update(payload).eq("id", editing.id);
+      if (error) throw error;
     },
-    onSuccess: () => { toast.success("Saved"); qc.invalidateQueries({ queryKey: ["super-admin", "plans-full"] }); setOpen(false); setEditing(null); },
-    onError: (e: any) => toast.error(e?.message ?? "Failed"),
-  });
-
-  const del = useMutation({
-    mutationFn: async (id: string) => { const { error } = await supabase.from("subscription_plans").delete().eq("id", id); if (error) throw error; },
-    onSuccess: () => { toast.success("Deleted"); qc.invalidateQueries({ queryKey: ["super-admin", "plans-full"] }); },
+    onSuccess: () => {
+      toast.success("Prices updated");
+      qc.invalidateQueries({ queryKey: ["super-admin", "plans-full"] });
+      setEditing(null);
+    },
     onError: (e: any) => toast.error(e?.message ?? "Failed"),
   });
 
   return (
     <GlassPanel className="overflow-hidden">
       <div className="flex items-center justify-between border-b border-panel-border p-5">
-        <h2 className="text-sm font-bold">Subscription plans</h2>
-        <Dialog open={open || !!editing} onOpenChange={(v) => { if (!v) { setOpen(false); setEditing(null); } }}>
-          <DialogTrigger asChild>
-            <Button className="bg-white text-slate-900 hover:bg-white/90" onClick={() => { setEditing(null); setOpen(true); }}>
-              <Plus className="mr-1 size-4" /> New plan
-            </Button>
-          </DialogTrigger>
-          <PlanFormDialog initial={editing} onSubmit={(v) => save.mutate(v)} pending={save.isPending} />
-        </Dialog>
+        <div>
+          <h2 className="text-sm font-bold">Subscription plans</h2>
+          <p className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            <Lock className="size-3" /> Structure is fixed. You can adjust pricing only.
+          </p>
+        </div>
       </div>
       <Table>
         <TableHeader>
           <TableRow className="border-panel-border hover:bg-transparent">
-            <TableHead>Name</TableHead><TableHead>Monthly</TableHead><TableHead>Annual</TableHead>
-            <TableHead>Features</TableHead><TableHead>Active</TableHead><TableHead className="text-right">Actions</TableHead>
+            <TableHead>Plan</TableHead>
+            <TableHead>Branches</TableHead>
+            <TableHead>Monthly</TableHead>
+            <TableHead>Annual</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {plans.data?.map((p: any) => (
             <TableRow key={p.id} className="border-panel-border">
-              <TableCell className="font-medium">{p.name}</TableCell>
-              <TableCell className="font-mono">₹{p.monthly_price ?? 0}</TableCell>
-              <TableCell className="font-mono">₹{p.annual_price ?? 0}</TableCell>
-              <TableCell className="text-xs text-muted-foreground">{Array.isArray(p.features) ? p.features.length : 0} items</TableCell>
               <TableCell>
-                <Switch checked={p.is_active} onCheckedChange={async (v) => { await supabase.from("subscription_plans").update({ is_active: v }).eq("id", p.id); qc.invalidateQueries({ queryKey: ["super-admin", "plans-full"] }); }} />
+                <div className="font-medium">{p.name}</div>
+                <div className="text-[11px] text-muted-foreground">{p.description}</div>
               </TableCell>
+              <TableCell className="font-mono text-xs">
+                {p.max_branches == null ? (
+                  <span className="inline-flex items-center gap-1 text-emerald"><InfinityIcon className="size-3.5" /> Unlimited</span>
+                ) : (
+                  <>Up to {p.max_branches}</>
+                )}
+              </TableCell>
+              <TableCell className="font-mono">₹{Number(p.monthly_price ?? 0).toLocaleString("en-IN")}</TableCell>
+              <TableCell className="font-mono">₹{Number(p.annual_price ?? 0).toLocaleString("en-IN")}</TableCell>
               <TableCell className="text-right">
-                <Button variant="ghost" size="icon" onClick={() => setEditing(p)}><Edit2 className="size-4" /></Button>
-                <Button variant="ghost" size="icon" onClick={() => { if (confirm(`Delete ${p.name}?`)) del.mutate(p.id); }}><Trash2 className="size-4 text-rose" /></Button>
+                <Button variant="ghost" size="icon" onClick={() => setEditing(p)}>
+                  <Edit2 className="size-4" />
+                </Button>
               </TableCell>
             </TableRow>
           ))}
-          {plans.isLoading && <TableRow><TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">Loading…</TableCell></TableRow>}
+          {plans.isLoading && (
+            <TableRow>
+              <TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
+                Loading…
+              </TableCell>
+            </TableRow>
+          )}
         </TableBody>
       </Table>
+
+      <Dialog open={!!editing} onOpenChange={(v) => { if (!v) setEditing(null); }}>
+        {editing && <PlanPriceDialog initial={editing} onSubmit={(v) => save.mutate(v)} pending={save.isPending} />}
+      </Dialog>
     </GlassPanel>
   );
 }
 
-function PlanFormDialog({ initial, onSubmit, pending }: { initial: any | null; onSubmit: (v: any) => void; pending: boolean }) {
+function PlanPriceDialog({ initial, onSubmit, pending }: { initial: any; onSubmit: (v: any) => void; pending: boolean }) {
   const [f, setF] = useState({
-    name: initial?.name ?? "",
-    description: initial?.description ?? "",
     monthly_price: initial?.monthly_price ?? 0,
     annual_price: initial?.annual_price ?? 0,
-    features: Array.isArray(initial?.features) ? initial.features.join("\n") : "",
-    is_active: initial?.is_active ?? true,
   });
   return (
     <DialogContent className="glass-strong border-panel-border">
-      <DialogHeader><DialogTitle>{initial ? "Edit plan" : "New plan"}</DialogTitle></DialogHeader>
+      <DialogHeader>
+        <DialogTitle>Edit {initial.name} pricing</DialogTitle>
+      </DialogHeader>
       <div className="space-y-3">
-        <div><Label>Name</Label><Input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} className="bg-panel border-panel-border" /></div>
-        <div><Label>Description</Label><Textarea value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} className="bg-panel border-panel-border" /></div>
-        <div className="grid grid-cols-2 gap-3">
-          <div><Label>Monthly ₹</Label><Input type="number" value={f.monthly_price} onChange={(e) => setF({ ...f, monthly_price: e.target.value })} className="bg-panel border-panel-border font-mono" /></div>
-          <div><Label>Annual ₹</Label><Input type="number" value={f.annual_price} onChange={(e) => setF({ ...f, annual_price: e.target.value })} className="bg-panel border-panel-border font-mono" /></div>
+        <div className="rounded-md border border-panel-border/60 bg-panel/40 p-3 text-xs text-muted-foreground">
+          <div className="font-medium text-foreground">{initial.name}</div>
+          <div>{initial.max_branches == null ? "Unlimited branches" : `Up to ${initial.max_branches} branch${initial.max_branches === 1 ? "" : "es"}`}</div>
+          <div className="mt-1 flex items-center gap-1"><Lock className="size-3" /> Name, features, and branch limit are locked.</div>
         </div>
-        <div><Label>Features (one per line)</Label><Textarea value={f.features} onChange={(e) => setF({ ...f, features: e.target.value })} className="bg-panel border-panel-border min-h-[120px]" /></div>
-        <div className="flex items-center gap-2"><Switch checked={f.is_active} onCheckedChange={(v) => setF({ ...f, is_active: v })} /><Label>Active</Label></div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label>Monthly ₹</Label>
+            <Input type="number" value={f.monthly_price} onChange={(e) => setF({ ...f, monthly_price: e.target.value as any })} className="bg-panel border-panel-border font-mono" />
+          </div>
+          <div>
+            <Label>Annual ₹</Label>
+            <Input type="number" value={f.annual_price} onChange={(e) => setF({ ...f, annual_price: e.target.value as any })} className="bg-panel border-panel-border font-mono" />
+          </div>
+        </div>
       </div>
-      <DialogFooter><Button className="bg-white text-slate-900 hover:bg-white/90" disabled={pending || !f.name} onClick={() => onSubmit(f)}>Save</Button></DialogFooter>
+      <DialogFooter>
+        <Button className="bg-white text-slate-900 hover:bg-white/90" disabled={pending} onClick={() => onSubmit(f)}>
+          Save prices
+        </Button>
+      </DialogFooter>
     </DialogContent>
   );
 }
