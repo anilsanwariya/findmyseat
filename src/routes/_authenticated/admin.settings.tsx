@@ -79,6 +79,9 @@ function SettingsPage() {
   return (
     <div className="space-y-6">
       <SectionHeader title="Settings" hint="Organization and branch configuration." />
+      <PendingBranchesBanner orgId={orgId} />
+
+
 
       <GlassPanel className="p-5">
         <h3 className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Organization</h3>
