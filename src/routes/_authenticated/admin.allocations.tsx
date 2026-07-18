@@ -650,8 +650,15 @@ function EditAllocationDialog({
     queryKey: ["sections-for-edit", alloc?.library_id],
     enabled: !!alloc?.library_id,
     queryFn: async () =>
-      (await supabase.from("sections").select("id, name").eq("library_id", alloc.library_id)).data ?? [],
+      (
+        await supabase
+          .from("sections")
+          .select("id, name, has_shifts, is_reserved_only, full_day_fee, morning_fee, evening_fee")
+          .eq("library_id", alloc.library_id)
+      ).data ?? [],
   });
+
+  const currentSection = sections.data?.find((s: any) => s.id === sectionId);
 
   const seats = useQuery({
     queryKey: ["seats-for-edit", alloc?.library_id, sectionId],
@@ -674,17 +681,39 @@ function EditAllocationDialog({
       ]);
 
       const taken = new Set((allocRes.data ?? []).map((a) => a.seat_id));
-      // Include the currently assigned seat so they can keep it, filter out all other taken seats
       return (seatsRes.data ?? []).filter((s) => !taken.has(s.id) || s.id === alloc.seat_id);
     },
   });
 
   const shifts = useQuery({
-    queryKey: ["shifts-for-edit", alloc?.library_id],
+    queryKey: ["shifts-for-edit", alloc?.library_id, sectionId],
     enabled: !!alloc?.library_id,
-    queryFn: async () =>
-      (await supabase.from("shifts").select("id, name").eq("library_id", alloc.library_id)).data ?? [],
+    queryFn: async () => {
+      let q = supabase.from("shifts").select("id, name, section_id, base_fee").eq("library_id", alloc.library_id);
+      if (sectionId && sectionId !== "all_sections") q = q.or(`section_id.eq.${sectionId},section_id.is.null`);
+      return (await q).data ?? [];
+    },
   });
+
+  useEffect(() => {
+    if (!currentSection) return;
+    if (currentSection.is_reserved_only && reservationType === "unreserved") setReservationType("reserved");
+    if (!currentSection.has_shifts && shiftId && shiftId !== "none") setShiftId("none");
+    if (currentSection.has_shifts && (!shiftId || shiftId === "none")) setShiftId("");
+  }, [currentSection?.id]);
+
+  useEffect(() => {
+    if (!currentSection) return;
+    if (!currentSection.has_shifts || !shiftId || shiftId === "none") {
+      if (currentSection.full_day_fee != null) setFee(Number(currentSection.full_day_fee));
+      return;
+    }
+    const shift = shifts.data?.find((s: any) => s.id === shiftId);
+    const name = (shift?.name ?? "").toLowerCase();
+    if (name.includes("morning") && currentSection.morning_fee != null) setFee(Number(currentSection.morning_fee));
+    else if (name.includes("evening") && currentSection.evening_fee != null) setFee(Number(currentSection.evening_fee));
+    else if (shift?.base_fee != null) setFee(Number(shift.base_fee));
+  }, [currentSection?.id, shiftId, shifts.data]);
 
   if (!alloc) return null;
 
