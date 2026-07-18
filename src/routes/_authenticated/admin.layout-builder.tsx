@@ -70,6 +70,7 @@ function LayoutBuilderPage() {
   const [selectedSeat, setSelectedSeat] = useState<string | null>(null);
 
   const [addSectionOpen, setAddSectionOpen] = useState(false);
+  const [editSectionOpen, setEditSectionOpen] = useState(false);
   const [addSeatOpen, setAddSeatOpen] = useState(false);
   const [addSeatPos, setAddSeatPos] = useState<{ row: number; col: number } | null>(null);
 
