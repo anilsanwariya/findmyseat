@@ -439,6 +439,8 @@ function LibraryDetailsDialog({
   onRequestSeat: () => void;
 }) {
   const [lang, setLang] = useState<"en" | "hi">("en");
+  const [showRatings, setShowRatings] = useState(false);
+
   const photos = useQuery({
     queryKey: ["library-photos", lib?.id],
     enabled: !!lib?.id,
