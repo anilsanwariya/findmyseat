@@ -150,6 +150,9 @@ function SubscriptionPage() {
                   <h4 className="font-bold">{p.name}</h4>
                 </div>
                 {p.description && <p className="mt-1 text-xs text-muted-foreground">{p.description}</p>}
+                <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-panel-border bg-panel/60 px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-widest text-cyan">
+                  {p.max_branches == null ? "Unlimited branches" : `Up to ${p.max_branches} branch${p.max_branches === 1 ? "" : "es"}`}
+                </div>
                 <div className="mt-4">
                   <div className="text-3xl font-extrabold tracking-tight">
                     ₹{finalPrice.toLocaleString("en-IN")}

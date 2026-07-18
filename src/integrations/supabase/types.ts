@@ -1191,8 +1191,10 @@ export type Database = {
           features: Json
           id: string
           is_active: boolean
+          max_branches: number | null
           monthly_price: number
           name: string
+          plan_code: string | null
           price: number
           updated_at: string
         }
@@ -1203,8 +1205,10 @@ export type Database = {
           features?: Json
           id?: string
           is_active?: boolean
+          max_branches?: number | null
           monthly_price?: number
           name: string
+          plan_code?: string | null
           price?: number
           updated_at?: string
         }
@@ -1215,8 +1219,10 @@ export type Database = {
           features?: Json
           id?: string
           is_active?: boolean
+          max_branches?: number | null
           monthly_price?: number
           name?: string
+          plan_code?: string | null
           price?: number
           updated_at?: string
         }
