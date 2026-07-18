@@ -14,15 +14,21 @@ export interface Library {
 
 export function useLibraries() {
   const { data: session } = useSession();
+  const staffLibs = session?.staffLibraryIds;
   return useQuery({
-    queryKey: ["libraries", session?.orgId],
+    queryKey: ["libraries", session?.orgId, staffLibs],
     enabled: !!session?.orgId,
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("libraries")
         .select("*")
         .eq("org_id", session!.orgId!)
         .order("created_at", { ascending: true });
+      if (session?.isStaff) {
+        if (!staffLibs || staffLibs.length === 0) return [] as Library[];
+        q = q.in("id", staffLibs);
+      }
+      const { data, error } = await q;
       if (error) throw error;
       return data as Library[];
     },

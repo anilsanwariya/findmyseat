@@ -28,6 +28,7 @@ const addDaysISO = (base: string, days: number) => {
 function PaymentsPage() {
   const { data: session } = useSession();
   const orgId = session?.orgId;
+  const staffLibs = session?.staffLibraryIds;
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [fromDate, setFromDate] = useState<string>(addDaysISO(todayISO(), -30));
@@ -39,22 +40,27 @@ function PaymentsPage() {
   const qc = useQueryClient();
 
   const payments = useQuery({
-    queryKey: ["payments-list", orgId, fromDate, toDate],
+    queryKey: ["payments-list", orgId, fromDate, toDate, staffLibs],
     enabled: !!orgId,
-    queryFn: async () =>
-      (
-        await supabase
-          .from("payments")
-          .select(
-            "id, amount_paid, payment_date, method, reference_note, transaction_reference, receipt_url, covers_until, student_id, library_id, students(full_name, mobile_number), libraries(name)",
-          )
-          .eq("org_id", orgId!)
-          .gte("payment_date", fromDate)
-          .lte("payment_date", toDate)
-          .order("payment_date", { ascending: false })
-          .order("logged_at", { ascending: false })
-          .limit(500)
-      ).data ?? [],
+    queryFn: async () => {
+      const sb: any = supabase;
+      let q = sb
+        .from("payments")
+        .select(
+          "id, amount_paid, payment_date, method, reference_note, transaction_reference, receipt_url, covers_until, student_id, library_id, collected_by_staff_id, students(full_name, mobile_number), libraries(name), collector:staff_profiles!payments_collected_by_staff_id_fkey(full_name, employee_id)",
+        )
+        .eq("org_id", orgId!)
+        .gte("payment_date", fromDate)
+        .lte("payment_date", toDate)
+        .order("payment_date", { ascending: false })
+        .order("logged_at", { ascending: false })
+        .limit(500);
+      if (session?.isStaff) {
+        if (!staffLibs?.length) return [];
+        q = q.in("library_id", staffLibs);
+      }
+      return (await q).data ?? [];
+    },
   });
 
   const filteredPayments = useMemo(() => {
@@ -147,6 +153,7 @@ function PaymentsPage() {
                 <th className="py-3 px-2 font-normal">Amount</th>
                 <th className="py-3 px-2 font-normal">Method</th>
                 <th className="py-3 px-2 font-normal">Txn Ref</th>
+                <th className="py-3 px-2 font-normal">Collected by</th>
                 <th className="py-3 px-2 font-normal">Proof</th>
                 <th className="py-3 px-2 font-normal">Covers until</th>
               </tr>
@@ -184,6 +191,16 @@ function PaymentsPage() {
                     {p.transaction_reference ?? (p.method === "cash" ? "—" : "—")}
                   </td>
                   <td className="py-3 px-2">
+                    {p.collected_by_staff_id ? (
+                      <span className="rounded bg-cyan/10 px-2 py-0.5 text-[10px] text-cyan">
+                        {p.collector?.full_name ?? "Staff"}
+                        {p.collector?.employee_id ? ` · ${p.collector.employee_id}` : ""}
+                      </span>
+                    ) : (
+                      <span className="rounded bg-amber/10 px-2 py-0.5 text-[10px] text-amber">Owner</span>
+                    )}
+                  </td>
+                  <td className="py-3 px-2">
                     {p.receipt_url ? <FileImage className="size-4 text-emerald" /> : <span className="text-muted-foreground">—</span>}
                   </td>
                   <td className="py-3 px-2 font-mono text-emerald">{fmtDate(p.covers_until)}</td>
@@ -191,7 +208,7 @@ function PaymentsPage() {
               ))}
               {filteredPayments.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-sm text-muted-foreground">
+                  <td colSpan={9} className="py-8 text-center text-sm text-muted-foreground">
                     No payments in this date range.
                   </td>
                 </tr>
@@ -311,7 +328,8 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
                 transaction_reference: method === "cash" ? (txnRef.trim() || null) : txnRef.trim(),
                 reference_note: note || null,
                 covers_until: endDate,
-              })
+                collected_by_staff_id: session?.staffId ?? null,
+              } as any)
               .select("id")
               .single();
 

@@ -16,6 +16,7 @@ import {
   X,
   CreditCard,
   Crown,
+  UserCog,
 } from "lucide-react";
 import { AuroraBackground, GlassPanel } from "@/components/glass";
 import { supabase } from "@/integrations/supabase/client";
@@ -23,22 +24,30 @@ import { cn } from "@/lib/utils";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { useSession } from "@/lib/auth";
+import { useSession, hasPerm, type StaffPermissions } from "@/lib/auth";
 import { getOwnerBilling } from "@/lib/billing.functions";
 import type { ReactNode } from "react";
 
-type NavItem = { to: string; label: string; icon: typeof LayoutDashboard; exact?: boolean };
+type NavItem = {
+  to: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  exact?: boolean;
+  perm?: keyof StaffPermissions;
+  ownerOnly?: boolean;
+};
 const NAV: NavItem[] = [
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
-  { to: "/admin/settings", label: "Branches", icon: Building2 },
-  { to: "/admin/layout-builder", label: "Layout Builder", icon: Grid3x3 },
-  { to: "/admin/students", label: "Students", icon: Users },
-  { to: "/admin/allocations", label: "Allocations", icon: Ticket },
-  { to: "/admin/payments", label: "Payments", icon: IndianRupee },
-  { to: "/admin/expenses", label: "Expenses", icon: ReceiptText },
-  { to: "/admin/leads", label: "Leads", icon: Sparkles },
-  { to: "/admin/notices", label: "Notices", icon: Megaphone },
-  { to: "/admin/tickets", label: "Tickets", icon: LifeBuoy },
+  { to: "/admin/settings", label: "Branches", icon: Building2, ownerOnly: true },
+  { to: "/admin/layout-builder", label: "Layout Builder", icon: Grid3x3, perm: "manage_allocations" },
+  { to: "/admin/students", label: "Students", icon: Users, perm: "manage_students" },
+  { to: "/admin/allocations", label: "Allocations", icon: Ticket, perm: "manage_allocations" },
+  { to: "/admin/payments", label: "Payments", icon: IndianRupee, perm: "collect_payments" },
+  { to: "/admin/expenses", label: "Expenses", icon: ReceiptText, perm: "manage_expenses" },
+  { to: "/admin/leads", label: "Leads", icon: Sparkles, perm: "manage_leads" },
+  { to: "/admin/notices", label: "Notices", icon: Megaphone, perm: "manage_notices" },
+  { to: "/admin/tickets", label: "Tickets", icon: LifeBuoy, perm: "manage_tickets" },
+  { to: "/admin/staff", label: "Team", icon: UserCog, ownerOnly: true },
 ];
 
 export function AdminShell({ children }: { children: ReactNode }) {
@@ -59,10 +68,17 @@ export function AdminShell({ children }: { children: ReactNode }) {
     navigate({ to: "/owner-login", replace: true });
   }
 
+  const isStaff = !!session?.isStaff;
+  const visibleNav = NAV.filter((n) => {
+    if (n.ownerOnly && isStaff) return false;
+    if (n.perm && !hasPerm(session, n.perm)) return false;
+    return true;
+  });
+
   function NavList({ onClick }: { onClick?: () => void }) {
     return (
       <>
-        {NAV.map((n) => {
+        {visibleNav.map((n) => {
           const active = n.exact ? pathname === n.to : pathname === n.to || pathname.startsWith(n.to + "/");
           return (
             <Link
@@ -112,8 +128,10 @@ export function AdminShell({ children }: { children: ReactNode }) {
             <div className="flex items-center gap-3">
               <div className="size-8 shrink-0 rounded-full bg-gradient-to-br from-violet/40 to-cyan/40 ring-1 ring-panel-border" />
               <div className="min-w-0 flex-1 text-xs">
-                <p className="truncate font-bold">{session?.email ?? "—"}</p>
-                <p className="truncate text-muted-foreground">Organization admin</p>
+                <p className="truncate font-bold">{session?.staffName ?? session?.email ?? "—"}</p>
+                <p className="truncate text-muted-foreground">
+                  {isStaff ? `Staff · ${session?.employeeId ?? ""}` : "Organization admin"}
+                </p>
               </div>
               <button
                 onClick={signOut}
