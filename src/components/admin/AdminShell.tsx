@@ -168,9 +168,12 @@ export function AdminShell({ children }: { children: ReactNode }) {
               </div>
               <nav className="flex-1 space-y-1 overflow-y-auto px-3 pb-4">
                 <NavList onClick={() => setMobileOpen(false)} />
-                <div className="pt-3">
-                  <SubscriptionCard onClick={() => setMobileOpen(false)} />
-                </div>
+                {!isStaff && (
+                  <div className="pt-3">
+                    <SubscriptionCard onClick={() => setMobileOpen(false)} />
+                  </div>
+                )}
+
               </nav>
               <button
                 onClick={signOut}
