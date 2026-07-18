@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Plus, Trash2, Edit2, CreditCard, Tag } from "lucide-react";
+import { Plus, Trash2, Edit2, CreditCard, Tag, Lock, Infinity as InfinityIcon } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/super-admin/subscriptions")({
   component: SubscriptionsAdmin,
