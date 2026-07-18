@@ -650,8 +650,15 @@ function EditAllocationDialog({
     queryKey: ["sections-for-edit", alloc?.library_id],
     enabled: !!alloc?.library_id,
     queryFn: async () =>
-      (await supabase.from("sections").select("id, name").eq("library_id", alloc.library_id)).data ?? [],
+      (
+        await supabase
+          .from("sections")
+          .select("id, name, has_shifts, is_reserved_only, full_day_fee, morning_fee, evening_fee")
+          .eq("library_id", alloc.library_id)
+      ).data ?? [],
   });
+
+  const currentSection = sections.data?.find((s: any) => s.id === sectionId);
 
   const seats = useQuery({
     queryKey: ["seats-for-edit", alloc?.library_id, sectionId],
@@ -674,17 +681,39 @@ function EditAllocationDialog({
       ]);
 
       const taken = new Set((allocRes.data ?? []).map((a) => a.seat_id));
-      // Include the currently assigned seat so they can keep it, filter out all other taken seats
       return (seatsRes.data ?? []).filter((s) => !taken.has(s.id) || s.id === alloc.seat_id);
     },
   });
 
   const shifts = useQuery({
-    queryKey: ["shifts-for-edit", alloc?.library_id],
+    queryKey: ["shifts-for-edit", alloc?.library_id, sectionId],
     enabled: !!alloc?.library_id,
-    queryFn: async () =>
-      (await supabase.from("shifts").select("id, name").eq("library_id", alloc.library_id)).data ?? [],
+    queryFn: async () => {
+      let q = supabase.from("shifts").select("id, name, section_id, base_fee").eq("library_id", alloc.library_id);
+      if (sectionId && sectionId !== "all_sections") q = q.or(`section_id.eq.${sectionId},section_id.is.null`);
+      return (await q).data ?? [];
+    },
   });
+
+  useEffect(() => {
+    if (!currentSection) return;
+    if (currentSection.is_reserved_only && reservationType === "unreserved") setReservationType("reserved");
+    if (!currentSection.has_shifts && shiftId && shiftId !== "none") setShiftId("none");
+    if (currentSection.has_shifts && (!shiftId || shiftId === "none")) setShiftId("");
+  }, [currentSection?.id]);
+
+  useEffect(() => {
+    if (!currentSection) return;
+    if (!currentSection.has_shifts || !shiftId || shiftId === "none") {
+      if (currentSection.full_day_fee != null) setFee(Number(currentSection.full_day_fee));
+      return;
+    }
+    const shift = shifts.data?.find((s: any) => s.id === shiftId);
+    const name = (shift?.name ?? "").toLowerCase();
+    if (name.includes("morning") && currentSection.morning_fee != null) setFee(Number(currentSection.morning_fee));
+    else if (name.includes("evening") && currentSection.evening_fee != null) setFee(Number(currentSection.evening_fee));
+    else if (shift?.base_fee != null) setFee(Number(shift.base_fee));
+  }, [currentSection?.id, shiftId, shifts.data]);
 
   if (!alloc) return null;
 
@@ -710,6 +739,18 @@ function EditAllocationDialog({
           className="space-y-4"
           onSubmit={async (e) => {
             e.preventDefault();
+            if (currentSection?.is_reserved_only && reservationType === "unreserved") {
+              toast.error("This section is fully reserved. Choose Reserved.");
+              return;
+            }
+            if (currentSection?.has_shifts && (!shiftId || shiftId === "none")) {
+              toast.error("This section requires a shift. Full-day is not allowed.");
+              return;
+            }
+            if (currentSection && !currentSection.has_shifts && shiftId && shiftId !== "none") {
+              toast.error("This section is Full-day only. Shifts are not allowed.");
+              return;
+            }
             setLoading(true);
 
             const { error } = await supabase
@@ -746,7 +787,9 @@ function EditAllocationDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="reserved">Reserved</SelectItem>
-                  <SelectItem value="unreserved">Unreserved</SelectItem>
+                  <SelectItem value="unreserved" disabled={!!currentSection?.is_reserved_only}>
+                    Unreserved{currentSection?.is_reserved_only ? " (section is fully reserved)" : ""}
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -788,13 +831,17 @@ function EditAllocationDialog({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label>Shift</Label>
+              <Label>
+                Shift{currentSection?.has_shifts ? " (required)" : currentSection ? " (Full day only)" : ""}
+              </Label>
               <Select value={shiftId} onValueChange={setShiftId}>
                 <SelectTrigger className="bg-panel border-panel-border">
-                  <SelectValue placeholder="Full day" />
+                  <SelectValue placeholder={currentSection?.has_shifts ? "Choose shift" : "Full day"} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Full day</SelectItem>
+                  <SelectItem value="none" disabled={!!currentSection?.has_shifts}>
+                    Full day{currentSection?.has_shifts ? " (not available)" : ""}
+                  </SelectItem>
                   {(shifts.data ?? []).map((s: any) => (
                     <SelectItem key={s.id} value={s.id}>
                       {s.name}
@@ -876,8 +923,16 @@ function NewAllocDialog({
   const sections = useQuery({
     queryKey: ["sections-for-alloc", libraryId],
     enabled: !!libraryId,
-    queryFn: async () => (await supabase.from("sections").select("id, name").eq("library_id", libraryId)).data ?? [],
+    queryFn: async () =>
+      (
+        await supabase
+          .from("sections")
+          .select("id, name, has_shifts, is_reserved_only, full_day_fee, morning_fee, evening_fee")
+          .eq("library_id", libraryId)
+      ).data ?? [],
   });
+
+  const currentSection = sections.data?.find((s: any) => s.id === sectionId);
 
   const seats = useQuery({
     queryKey: ["seats-for-alloc", libraryId, sectionId],
@@ -904,10 +959,43 @@ function NewAllocDialog({
   });
 
   const shifts = useQuery({
-    queryKey: ["shifts-for-alloc", libraryId],
+    queryKey: ["shifts-for-alloc", libraryId, sectionId],
     enabled: !!libraryId,
-    queryFn: async () => (await supabase.from("shifts").select("id, name").eq("library_id", libraryId)).data ?? [],
+    queryFn: async () => {
+      let q = supabase.from("shifts").select("id, name, section_id, base_fee").eq("library_id", libraryId);
+      if (sectionId && sectionId !== "all_sections") q = q.or(`section_id.eq.${sectionId},section_id.is.null`);
+      return (await q).data ?? [];
+    },
   });
+
+  // Enforce section constraints
+  useEffect(() => {
+    if (!currentSection) return;
+    if (currentSection.is_reserved_only && reservationType === "unreserved") {
+      setReservationType("reserved");
+    }
+    if (!currentSection.has_shifts && shiftId && shiftId !== "none") {
+      setShiftId("none");
+    }
+    if (currentSection.has_shifts && (!shiftId || shiftId === "none")) {
+      // Force user to pick a shift; leave blank.
+      setShiftId("");
+    }
+  }, [currentSection?.id]);
+
+  // Auto-fill fee based on section + shift/full-day selection.
+  useEffect(() => {
+    if (!currentSection) return;
+    if (!currentSection.has_shifts || !shiftId || shiftId === "none") {
+      if (currentSection.full_day_fee != null) setFee(Number(currentSection.full_day_fee));
+      return;
+    }
+    const shift = shifts.data?.find((s: any) => s.id === shiftId);
+    const name = (shift?.name ?? "").toLowerCase();
+    if (name.includes("morning") && currentSection.morning_fee != null) setFee(Number(currentSection.morning_fee));
+    else if (name.includes("evening") && currentSection.evening_fee != null) setFee(Number(currentSection.evening_fee));
+    else if (shift?.base_fee != null) setFee(Number(shift.base_fee));
+  }, [currentSection?.id, shiftId, shifts.data]);
 
   // Calculate selected student context
   const selectedStudent = students.data?.find((s: any) => s.id === studentId);
@@ -922,6 +1010,18 @@ function NewAllocDialog({
         className="space-y-4"
         onSubmit={async (e) => {
           e.preventDefault();
+          if (currentSection?.is_reserved_only && reservationType === "unreserved") {
+            toast.error("This section is fully reserved. Choose Reserved.");
+            return;
+          }
+          if (currentSection?.has_shifts && (!shiftId || shiftId === "none")) {
+            toast.error("This section requires a shift. Full-day is not allowed.");
+            return;
+          }
+          if (currentSection && !currentSection.has_shifts && shiftId && shiftId !== "none") {
+            toast.error("This section is Full-day only. Shifts are not allowed.");
+            return;
+          }
           setLoading(true);
 
           const { error } = await supabase.from("allocations").insert({
@@ -975,7 +1075,9 @@ function NewAllocDialog({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="reserved">Reserved</SelectItem>
-                <SelectItem value="unreserved">Unreserved</SelectItem>
+                <SelectItem value="unreserved" disabled={!!currentSection?.is_reserved_only}>
+                  Unreserved{currentSection?.is_reserved_only ? " (section is fully reserved)" : ""}
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -1063,13 +1165,18 @@ function NewAllocDialog({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-2">
-            <Label>Shift</Label>
+            <Label>
+              Shift
+              {currentSection?.has_shifts ? " (required)" : currentSection ? " (Full day only)" : ""}
+            </Label>
             <Select value={shiftId} onValueChange={setShiftId}>
               <SelectTrigger className="bg-panel border-panel-border">
-                <SelectValue placeholder="Full day" />
+                <SelectValue placeholder={currentSection?.has_shifts ? "Choose shift" : "Full day"} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">Full day</SelectItem>
+                <SelectItem value="none" disabled={!!currentSection?.has_shifts}>
+                  Full day{currentSection?.has_shifts ? " (not available in this section)" : ""}
+                </SelectItem>
                 {(shifts.data ?? []).map((s: any) => (
                   <SelectItem key={s.id} value={s.id}>
                     {s.name}

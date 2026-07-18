@@ -25,15 +25,17 @@ export const Route = createFileRoute("/_authenticated/admin/students")({
 function StudentsPage() {
   const { data: session } = useSession();
   const orgId = session?.orgId;
+  const { data: libs } = useLibraries();
   const [q, setQ] = useState("");
   const [tab, setTab] = useState<"active" | "inactive">("active");
+  const [libraryFilter, setLibraryFilter] = useState<string>("all");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
   const qc = useQueryClient();
   const setActive = useServerFn(setStudentActive);
 
   const students = useQuery({
-    queryKey: ["students", orgId, tab, q],
+    queryKey: ["students", orgId, tab, q, libraryFilter],
     enabled: !!orgId,
     queryFn: async () => {
       let query = supabase
@@ -45,6 +47,7 @@ function StudentsPage() {
         .eq("is_active", tab === "active")
         .order("created_at", { ascending: false });
 
+      if (libraryFilter !== "all") query = query.eq("library_id", libraryFilter);
       if (q) query = query.or(`full_name.ilike.%${q}%,mobile_number.ilike.%${q}%`);
 
       const { data } = await query;
@@ -84,14 +87,29 @@ function StudentsPage() {
               <TabsTrigger value="inactive">Inactive</TabsTrigger>
             </TabsList>
           </Tabs>
-          <div className="flex items-center gap-2 flex-1 sm:max-w-xs">
-            <Search className="size-4 text-muted-foreground shrink-0" />
-            <Input
-              placeholder="Search by name or mobile…"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              className="bg-panel border-panel-border"
-            />
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-1 sm:justify-end">
+            <Select value={libraryFilter} onValueChange={setLibraryFilter}>
+              <SelectTrigger className="bg-panel border-panel-border w-full sm:w-52">
+                <SelectValue placeholder="All branches" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All branches</SelectItem>
+                {(libs ?? []).map((l) => (
+                  <SelectItem key={l.id} value={l.id}>
+                    {l.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="flex items-center gap-2 flex-1 sm:max-w-xs">
+              <Search className="size-4 text-muted-foreground shrink-0" />
+              <Input
+                placeholder="Search by name or mobile…"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                className="bg-panel border-panel-border"
+              />
+            </div>
           </div>
         </div>
 

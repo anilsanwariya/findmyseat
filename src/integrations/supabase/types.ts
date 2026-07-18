@@ -1014,6 +1014,8 @@ export type Database = {
       sections: {
         Row: {
           created_at: string
+          evening_fee: number | null
+          full_day_fee: number | null
           grid_cols: number
           grid_rows: number
           has_shifts: boolean
@@ -1021,12 +1023,15 @@ export type Database = {
           is_premium_section: boolean
           is_reserved_only: boolean
           library_id: string
+          morning_fee: number | null
           name: string
           org_id: string
           updated_at: string
         }
         Insert: {
           created_at?: string
+          evening_fee?: number | null
+          full_day_fee?: number | null
           grid_cols?: number
           grid_rows?: number
           has_shifts?: boolean
@@ -1034,12 +1039,15 @@ export type Database = {
           is_premium_section?: boolean
           is_reserved_only?: boolean
           library_id: string
+          morning_fee?: number | null
           name: string
           org_id: string
           updated_at?: string
         }
         Update: {
           created_at?: string
+          evening_fee?: number | null
+          full_day_fee?: number | null
           grid_cols?: number
           grid_rows?: number
           has_shifts?: boolean
@@ -1047,6 +1055,7 @@ export type Database = {
           is_premium_section?: boolean
           is_reserved_only?: boolean
           library_id?: string
+          morning_fee?: number | null
           name?: string
           org_id?: string
           updated_at?: string
