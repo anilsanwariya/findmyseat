@@ -30,7 +30,6 @@ import { Route as ApiPublicRazorpayWebhookRouteImport } from './routes/api/publi
 import { Route as AuthenticatedSuperAdminSubscriptionsRouteImport } from './routes/_authenticated/super-admin.subscriptions'
 import { Route as AuthenticatedSuperAdminOrganizationsRouteImport } from './routes/_authenticated/super-admin.organizations'
 import { Route as AuthenticatedSuperAdminCategoriesRouteImport } from './routes/_authenticated/super-admin.categories'
-import { Route as AuthenticatedSuperAdminBillingRouteImport } from './routes/_authenticated/super-admin.billing'
 import { Route as AuthenticatedSuperAdminApprovalsRouteImport } from './routes/_authenticated/super-admin.approvals'
 import { Route as AuthenticatedAdminTicketsRouteImport } from './routes/_authenticated/admin.tickets'
 import { Route as AuthenticatedAdminSubscriptionRouteImport } from './routes/_authenticated/admin.subscription'
@@ -156,12 +155,6 @@ const AuthenticatedSuperAdminCategoriesRoute =
     path: '/categories',
     getParentRoute: () => AuthenticatedSuperAdminRoute,
   } as any)
-const AuthenticatedSuperAdminBillingRoute =
-  AuthenticatedSuperAdminBillingRouteImport.update({
-    id: '/billing',
-    path: '/billing',
-    getParentRoute: () => AuthenticatedSuperAdminRoute,
-  } as any)
 const AuthenticatedSuperAdminApprovalsRoute =
   AuthenticatedSuperAdminApprovalsRouteImport.update({
     id: '/approvals',
@@ -276,7 +269,6 @@ export interface FileRoutesByFullPath {
   '/admin/subscription': typeof AuthenticatedAdminSubscriptionRoute
   '/admin/tickets': typeof AuthenticatedAdminTicketsRoute
   '/super-admin/approvals': typeof AuthenticatedSuperAdminApprovalsRoute
-  '/super-admin/billing': typeof AuthenticatedSuperAdminBillingRoute
   '/super-admin/categories': typeof AuthenticatedSuperAdminCategoriesRoute
   '/super-admin/organizations': typeof AuthenticatedSuperAdminOrganizationsRoute
   '/super-admin/subscriptions': typeof AuthenticatedSuperAdminSubscriptionsRoute
@@ -312,7 +304,6 @@ export interface FileRoutesByTo {
   '/admin/subscription': typeof AuthenticatedAdminSubscriptionRoute
   '/admin/tickets': typeof AuthenticatedAdminTicketsRoute
   '/super-admin/approvals': typeof AuthenticatedSuperAdminApprovalsRoute
-  '/super-admin/billing': typeof AuthenticatedSuperAdminBillingRoute
   '/super-admin/categories': typeof AuthenticatedSuperAdminCategoriesRoute
   '/super-admin/organizations': typeof AuthenticatedSuperAdminOrganizationsRoute
   '/super-admin/subscriptions': typeof AuthenticatedSuperAdminSubscriptionsRoute
@@ -352,7 +343,6 @@ export interface FileRoutesById {
   '/_authenticated/admin/subscription': typeof AuthenticatedAdminSubscriptionRoute
   '/_authenticated/admin/tickets': typeof AuthenticatedAdminTicketsRoute
   '/_authenticated/super-admin/approvals': typeof AuthenticatedSuperAdminApprovalsRoute
-  '/_authenticated/super-admin/billing': typeof AuthenticatedSuperAdminBillingRoute
   '/_authenticated/super-admin/categories': typeof AuthenticatedSuperAdminCategoriesRoute
   '/_authenticated/super-admin/organizations': typeof AuthenticatedSuperAdminOrganizationsRoute
   '/_authenticated/super-admin/subscriptions': typeof AuthenticatedSuperAdminSubscriptionsRoute
@@ -392,7 +382,6 @@ export interface FileRouteTypes {
     | '/admin/subscription'
     | '/admin/tickets'
     | '/super-admin/approvals'
-    | '/super-admin/billing'
     | '/super-admin/categories'
     | '/super-admin/organizations'
     | '/super-admin/subscriptions'
@@ -428,7 +417,6 @@ export interface FileRouteTypes {
     | '/admin/subscription'
     | '/admin/tickets'
     | '/super-admin/approvals'
-    | '/super-admin/billing'
     | '/super-admin/categories'
     | '/super-admin/organizations'
     | '/super-admin/subscriptions'
@@ -467,7 +455,6 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/subscription'
     | '/_authenticated/admin/tickets'
     | '/_authenticated/super-admin/approvals'
-    | '/_authenticated/super-admin/billing'
     | '/_authenticated/super-admin/categories'
     | '/_authenticated/super-admin/organizations'
     | '/_authenticated/super-admin/subscriptions'
@@ -647,13 +634,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSuperAdminCategoriesRouteImport
       parentRoute: typeof AuthenticatedSuperAdminRoute
     }
-    '/_authenticated/super-admin/billing': {
-      id: '/_authenticated/super-admin/billing'
-      path: '/billing'
-      fullPath: '/super-admin/billing'
-      preLoaderRoute: typeof AuthenticatedSuperAdminBillingRouteImport
-      parentRoute: typeof AuthenticatedSuperAdminRoute
-    }
     '/_authenticated/super-admin/approvals': {
       id: '/_authenticated/super-admin/approvals'
       path: '/approvals'
@@ -797,7 +777,6 @@ const AuthenticatedAdminRouteWithChildren =
 
 interface AuthenticatedSuperAdminRouteChildren {
   AuthenticatedSuperAdminApprovalsRoute: typeof AuthenticatedSuperAdminApprovalsRoute
-  AuthenticatedSuperAdminBillingRoute: typeof AuthenticatedSuperAdminBillingRoute
   AuthenticatedSuperAdminCategoriesRoute: typeof AuthenticatedSuperAdminCategoriesRoute
   AuthenticatedSuperAdminOrganizationsRoute: typeof AuthenticatedSuperAdminOrganizationsRoute
   AuthenticatedSuperAdminSubscriptionsRoute: typeof AuthenticatedSuperAdminSubscriptionsRoute
@@ -808,7 +787,6 @@ const AuthenticatedSuperAdminRouteChildren: AuthenticatedSuperAdminRouteChildren
   {
     AuthenticatedSuperAdminApprovalsRoute:
       AuthenticatedSuperAdminApprovalsRoute,
-    AuthenticatedSuperAdminBillingRoute: AuthenticatedSuperAdminBillingRoute,
     AuthenticatedSuperAdminCategoriesRoute:
       AuthenticatedSuperAdminCategoriesRoute,
     AuthenticatedSuperAdminOrganizationsRoute:
