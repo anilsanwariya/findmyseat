@@ -1013,6 +1013,11 @@ export type Database = {
       }
       sections: {
         Row: {
+          allow_evening: boolean | null
+          allow_full_day: boolean | null
+          allow_morning: boolean | null
+          allow_reserved: boolean | null
+          allow_unreserved: boolean | null
           created_at: string
           evening_fee: number | null
           full_day_fee: number | null
@@ -1026,9 +1031,15 @@ export type Database = {
           morning_fee: number | null
           name: string
           org_id: string
+          reservation_fee: number | null
           updated_at: string
         }
         Insert: {
+          allow_evening?: boolean | null
+          allow_full_day?: boolean | null
+          allow_morning?: boolean | null
+          allow_reserved?: boolean | null
+          allow_unreserved?: boolean | null
           created_at?: string
           evening_fee?: number | null
           full_day_fee?: number | null
@@ -1042,9 +1053,15 @@ export type Database = {
           morning_fee?: number | null
           name: string
           org_id: string
+          reservation_fee?: number | null
           updated_at?: string
         }
         Update: {
+          allow_evening?: boolean | null
+          allow_full_day?: boolean | null
+          allow_morning?: boolean | null
+          allow_reserved?: boolean | null
+          allow_unreserved?: boolean | null
           created_at?: string
           evening_fee?: number | null
           full_day_fee?: number | null
@@ -1058,6 +1075,7 @@ export type Database = {
           morning_fee?: number | null
           name?: string
           org_id?: string
+          reservation_fee?: number | null
           updated_at?: string
         }
         Relationships: [
