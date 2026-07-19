@@ -673,7 +673,7 @@ function EditAllocationDialog({
         await supabase
           .from("sections")
           .select(
-            "id, name, allow_full_day, allow_morning, allow_evening, allow_reserved, allow_unreserved, full_day_fee, morning_fee, evening_fee, reservation_fee",
+            "id, name, allow_full_day, allow_morning, allow_evening, allow_24_hrs, allow_morning_night, allow_evening_night, allow_night, allow_reserved, allow_unreserved, full_day_fee, morning_fee, evening_fee, fee_24_hrs, fee_morning_night, fee_evening_night, fee_night, reservation_fee",
           )
           .eq("library_id", alloc.library_id)
       ).data ?? [],
@@ -692,7 +692,7 @@ function EditAllocationDialog({
         .eq("is_active", true)
         .order("seat_number");
 
-      if (sectionId && sectionId !== "all_sections") {
+      if (sectionId) {
         query = query.eq("section_id", sectionId);
       }
 
@@ -711,7 +711,7 @@ function EditAllocationDialog({
     enabled: !!alloc?.library_id,
     queryFn: async () => {
       let q = supabase.from("shifts").select("id, name, section_id, base_fee").eq("library_id", alloc.library_id);
-      if (sectionId && sectionId !== "all_sections") q = q.or(`section_id.eq.${sectionId},section_id.is.null`);
+      if (sectionId) q = q.or(`section_id.eq.${sectionId},section_id.is.null`);
       return (await q).data ?? [];
     },
   });
@@ -736,9 +736,8 @@ function EditAllocationDialog({
       calculatedFee = Number(currentSection.full_day_fee || 0);
     } else {
       const shift = shifts.data?.find((s: any) => s.id === shiftId);
-      const name = (shift?.name ?? "").toLowerCase();
-      if (name.includes("morning")) calculatedFee = Number(currentSection.morning_fee || 0);
-      else if (name.includes("evening")) calculatedFee = Number(currentSection.evening_fee || 0);
+      const cls = classifyShiftByName(shift?.name ?? "");
+      if (cls) calculatedFee = Number((currentSection as any)[cls.feeKey] || 0);
       else calculatedFee = Number(shift?.base_fee || 0);
     }
 
@@ -818,7 +817,6 @@ function EditAllocationDialog({
                   <SelectValue placeholder="All Sections" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all_sections">All Sections</SelectItem>
                   {(sections.data ?? []).map((s: any) => (
                     <SelectItem key={s.id} value={s.id}>
                       {s.name}
@@ -975,7 +973,7 @@ function NewAllocDialog({
         await supabase
           .from("sections")
           .select(
-            "id, name, allow_full_day, allow_morning, allow_evening, allow_reserved, allow_unreserved, full_day_fee, morning_fee, evening_fee, reservation_fee",
+            "id, name, allow_full_day, allow_morning, allow_evening, allow_24_hrs, allow_morning_night, allow_evening_night, allow_night, allow_reserved, allow_unreserved, full_day_fee, morning_fee, evening_fee, fee_24_hrs, fee_morning_night, fee_evening_night, fee_night, reservation_fee",
           )
           .eq("library_id", libraryId)
       ).data ?? [],
@@ -994,7 +992,7 @@ function NewAllocDialog({
         .eq("is_active", true)
         .order("seat_number");
 
-      if (sectionId && sectionId !== "all_sections") {
+      if (sectionId) {
         query = query.eq("section_id", sectionId);
       }
 
@@ -1012,7 +1010,7 @@ function NewAllocDialog({
     enabled: !!libraryId,
     queryFn: async () => {
       let q = supabase.from("shifts").select("id, name, section_id, base_fee").eq("library_id", libraryId);
-      if (sectionId && sectionId !== "all_sections") q = q.or(`section_id.eq.${sectionId},section_id.is.null`);
+      if (sectionId) q = q.or(`section_id.eq.${sectionId},section_id.is.null`);
       return (await q).data ?? [];
     },
   });
@@ -1037,9 +1035,8 @@ function NewAllocDialog({
       calculatedFee = Number(currentSection.full_day_fee || 0);
     } else {
       const shift = shifts.data?.find((s: any) => s.id === shiftId);
-      const name = (shift?.name ?? "").toLowerCase();
-      if (name.includes("morning")) calculatedFee = Number(currentSection.morning_fee || 0);
-      else if (name.includes("evening")) calculatedFee = Number(currentSection.evening_fee || 0);
+      const cls = classifyShiftByName(shift?.name ?? "");
+      if (cls) calculatedFee = Number((currentSection as any)[cls.feeKey] || 0);
       else calculatedFee = Number(shift?.base_fee || 0);
     }
 
@@ -1125,7 +1122,7 @@ function NewAllocDialog({
                 <SelectValue placeholder="All Sections" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all_sections">All Sections</SelectItem>
+                
                 {(sections.data ?? []).map((s: any) => (
                   <SelectItem key={s.id} value={s.id}>
                     {s.name}
