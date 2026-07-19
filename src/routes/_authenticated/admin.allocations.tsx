@@ -927,10 +927,12 @@ function EditAllocationDialog({
 function NewAllocDialog({
   onDone,
   initialLibraryId,
+  initialSectionId,
   initialSeatId,
 }: {
   onDone: () => void;
   initialLibraryId?: string;
+  initialSectionId?: string;
   initialSeatId?: string;
 }) {
   const { data: session } = useSession();
@@ -939,7 +941,7 @@ function NewAllocDialog({
 
   const [libraryId, setLibraryId] = useState(initialLibraryId || "");
   const [studentId, setStudentId] = useState("");
-  const [sectionId, setSectionId] = useState<string>("");
+  const [sectionId, setSectionId] = useState<string>(initialSectionId || "");
   const [seatId, setSeatId] = useState(initialSeatId || "");
   const [shiftId, setShiftId] = useState<string>("");
   const [fee, setFee] = useState<number | "">(1500);
@@ -948,8 +950,9 @@ function NewAllocDialog({
 
   useEffect(() => {
     if (initialLibraryId) setLibraryId(initialLibraryId);
+    if (initialSectionId) setSectionId(initialSectionId);
     if (initialSeatId) setSeatId(initialSeatId);
-  }, [initialLibraryId, initialSeatId]);
+  }, [initialLibraryId, initialSectionId, initialSeatId]);
 
   const students = useQuery({
     queryKey: ["students-for-alloc", orgId, libraryId],
