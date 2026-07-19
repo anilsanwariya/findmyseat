@@ -879,12 +879,9 @@ function EditAllocationDialog({
                     Full day{!currentSection?.allow_full_day ? " (Not allowed)" : ""}
                   </SelectItem>
                   {(shifts.data ?? []).map((s: any) => {
-                    const name = (s.name || "").toLowerCase();
-                    const isMorning = name.includes("morning");
-                    const isEvening = name.includes("evening");
+                    const cls = classifyShiftByName(s.name || "");
                     const isDisabled =
-                      (isMorning && currentSection && !currentSection.allow_morning) ||
-                      (isEvening && currentSection && !currentSection.allow_evening);
+                      !!currentSection && !!cls && !((currentSection as any)[cls.allowKey]);
 
                     return (
                       <SelectItem key={s.id} value={s.id} disabled={isDisabled}>
@@ -1232,12 +1229,9 @@ function NewAllocDialog({
                   Full day{!currentSection?.allow_full_day ? " (Not allowed)" : ""}
                 </SelectItem>
                 {(shifts.data ?? []).map((s: any) => {
-                  const name = (s.name || "").toLowerCase();
-                  const isMorning = name.includes("morning");
-                  const isEvening = name.includes("evening");
+                  const cls = classifyShiftByName(s.name || "");
                   const isDisabled =
-                    (isMorning && currentSection && !currentSection.allow_morning) ||
-                    (isEvening && currentSection && !currentSection.allow_evening);
+                    !!currentSection && !!cls && !((currentSection as any)[cls.allowKey]);
 
                   return (
                     <SelectItem key={s.id} value={s.id} disabled={isDisabled}>
