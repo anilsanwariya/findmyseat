@@ -1119,10 +1119,14 @@ function NewAllocDialog({
           </div>
 
           <div className="space-y-2">
-            <Label>Section Filter</Label>
-            <Select value={sectionId} onValueChange={setSectionId} disabled={reservationType === "unreserved"}>
+            <Label>Section</Label>
+            <Select
+              value={sectionId}
+              onValueChange={setSectionId}
+              disabled={!!initialSeatId || reservationType === "unreserved"}
+            >
               <SelectTrigger className="bg-panel border-panel-border">
-                <SelectValue placeholder="All Sections" />
+                <SelectValue placeholder="Choose section" />
               </SelectTrigger>
               <SelectContent>
                 
