@@ -55,6 +55,23 @@ const OBJ_META: Record<string, { icon: any; label: string; color: string }> = {
   dining: { icon: Utensils, label: "Dining Area", color: "bg-orange-500/10 text-orange-300 border-orange-500/30" },
 };
 
+// Map a shift's name to its section's allow_ boolean and fee column.
+// Returns null for "full day" (no shift row).
+function classifyShiftByName(name: string): { allowKey: string; feeKey: string } | null {
+  const n = (name || "").toLowerCase();
+  const hasM = n.includes("morning");
+  const hasE = n.includes("evening");
+  const hasN = n.includes("night");
+  const has24 = n.includes("24");
+  if (has24) return { allowKey: "allow_24_hrs", feeKey: "fee_24_hrs" };
+  if (hasM && hasN) return { allowKey: "allow_morning_night", feeKey: "fee_morning_night" };
+  if (hasE && hasN) return { allowKey: "allow_evening_night", feeKey: "fee_evening_night" };
+  if (hasN) return { allowKey: "allow_night", feeKey: "fee_night" };
+  if (hasM) return { allowKey: "allow_morning", feeKey: "morning_fee" };
+  if (hasE) return { allowKey: "allow_evening", feeKey: "evening_fee" };
+  return null;
+}
+
 function AllocationsPage() {
   const { data: session } = useSession();
   const orgId = session?.orgId;
@@ -505,6 +522,8 @@ function AllocationsPage() {
       {/* Manual New Allocation Dialog */}
       <Dialog open={openNewAlloc} onOpenChange={setOpenNewAlloc}>
         <NewAllocDialog
+          initialLibraryId={currentLibId}
+          initialSectionId={currentSectionId}
           onDone={() => {
             refreshData();
             setOpenNewAlloc(false);
@@ -527,6 +546,7 @@ function AllocationsPage() {
         {selectedVacantSeat && (
           <NewAllocDialog
             initialLibraryId={currentLibId}
+            initialSectionId={selectedVacantSeat.section_id ?? currentSectionId}
             initialSeatId={selectedVacantSeat.id}
             onDone={() => {
               refreshData();
@@ -656,7 +676,7 @@ function EditAllocationDialog({
         await supabase
           .from("sections")
           .select(
-            "id, name, allow_full_day, allow_morning, allow_evening, allow_reserved, allow_unreserved, full_day_fee, morning_fee, evening_fee, reservation_fee",
+            "id, name, allow_full_day, allow_morning, allow_evening, allow_24_hrs, allow_morning_night, allow_evening_night, allow_night, allow_reserved, allow_unreserved, full_day_fee, morning_fee, evening_fee, fee_24_hrs, fee_morning_night, fee_evening_night, fee_night, reservation_fee",
           )
           .eq("library_id", alloc.library_id)
       ).data ?? [],
@@ -675,7 +695,7 @@ function EditAllocationDialog({
         .eq("is_active", true)
         .order("seat_number");
 
-      if (sectionId && sectionId !== "all_sections") {
+      if (sectionId) {
         query = query.eq("section_id", sectionId);
       }
 
@@ -694,7 +714,7 @@ function EditAllocationDialog({
     enabled: !!alloc?.library_id,
     queryFn: async () => {
       let q = supabase.from("shifts").select("id, name, section_id, base_fee").eq("library_id", alloc.library_id);
-      if (sectionId && sectionId !== "all_sections") q = q.or(`section_id.eq.${sectionId},section_id.is.null`);
+      if (sectionId) q = q.or(`section_id.eq.${sectionId},section_id.is.null`);
       return (await q).data ?? [];
     },
   });
@@ -719,9 +739,8 @@ function EditAllocationDialog({
       calculatedFee = Number(currentSection.full_day_fee || 0);
     } else {
       const shift = shifts.data?.find((s: any) => s.id === shiftId);
-      const name = (shift?.name ?? "").toLowerCase();
-      if (name.includes("morning")) calculatedFee = Number(currentSection.morning_fee || 0);
-      else if (name.includes("evening")) calculatedFee = Number(currentSection.evening_fee || 0);
+      const cls = classifyShiftByName(shift?.name ?? "");
+      if (cls) calculatedFee = Number((currentSection as any)[cls.feeKey] || 0);
       else calculatedFee = Number(shift?.base_fee || 0);
     }
 
@@ -795,13 +814,12 @@ function EditAllocationDialog({
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label>Section Filter</Label>
+              <Label>Section</Label>
               <Select value={sectionId} onValueChange={setSectionId} disabled={reservationType === "unreserved"}>
                 <SelectTrigger className="bg-panel border-panel-border">
-                  <SelectValue placeholder="All Sections" />
+                  <SelectValue placeholder="Choose section" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all_sections">All Sections</SelectItem>
                   {(sections.data ?? []).map((s: any) => (
                     <SelectItem key={s.id} value={s.id}>
                       {s.name}
@@ -864,12 +882,9 @@ function EditAllocationDialog({
                     Full day{!currentSection?.allow_full_day ? " (Not allowed)" : ""}
                   </SelectItem>
                   {(shifts.data ?? []).map((s: any) => {
-                    const name = (s.name || "").toLowerCase();
-                    const isMorning = name.includes("morning");
-                    const isEvening = name.includes("evening");
+                    const cls = classifyShiftByName(s.name || "");
                     const isDisabled =
-                      (isMorning && currentSection && !currentSection.allow_morning) ||
-                      (isEvening && currentSection && !currentSection.allow_evening);
+                      !!currentSection && !!cls && !((currentSection as any)[cls.allowKey]);
 
                     return (
                       <SelectItem key={s.id} value={s.id} disabled={isDisabled}>
@@ -912,10 +927,12 @@ function EditAllocationDialog({
 function NewAllocDialog({
   onDone,
   initialLibraryId,
+  initialSectionId,
   initialSeatId,
 }: {
   onDone: () => void;
   initialLibraryId?: string;
+  initialSectionId?: string;
   initialSeatId?: string;
 }) {
   const { data: session } = useSession();
@@ -924,7 +941,7 @@ function NewAllocDialog({
 
   const [libraryId, setLibraryId] = useState(initialLibraryId || "");
   const [studentId, setStudentId] = useState("");
-  const [sectionId, setSectionId] = useState<string>("");
+  const [sectionId, setSectionId] = useState<string>(initialSectionId || "");
   const [seatId, setSeatId] = useState(initialSeatId || "");
   const [shiftId, setShiftId] = useState<string>("");
   const [fee, setFee] = useState<number | "">(1500);
@@ -933,8 +950,9 @@ function NewAllocDialog({
 
   useEffect(() => {
     if (initialLibraryId) setLibraryId(initialLibraryId);
+    if (initialSectionId) setSectionId(initialSectionId);
     if (initialSeatId) setSeatId(initialSeatId);
-  }, [initialLibraryId, initialSeatId]);
+  }, [initialLibraryId, initialSectionId, initialSeatId]);
 
   const students = useQuery({
     queryKey: ["students-for-alloc", orgId, libraryId],
@@ -958,7 +976,7 @@ function NewAllocDialog({
         await supabase
           .from("sections")
           .select(
-            "id, name, allow_full_day, allow_morning, allow_evening, allow_reserved, allow_unreserved, full_day_fee, morning_fee, evening_fee, reservation_fee",
+            "id, name, allow_full_day, allow_morning, allow_evening, allow_24_hrs, allow_morning_night, allow_evening_night, allow_night, allow_reserved, allow_unreserved, full_day_fee, morning_fee, evening_fee, fee_24_hrs, fee_morning_night, fee_evening_night, fee_night, reservation_fee",
           )
           .eq("library_id", libraryId)
       ).data ?? [],
@@ -977,7 +995,7 @@ function NewAllocDialog({
         .eq("is_active", true)
         .order("seat_number");
 
-      if (sectionId && sectionId !== "all_sections") {
+      if (sectionId) {
         query = query.eq("section_id", sectionId);
       }
 
@@ -995,7 +1013,7 @@ function NewAllocDialog({
     enabled: !!libraryId,
     queryFn: async () => {
       let q = supabase.from("shifts").select("id, name, section_id, base_fee").eq("library_id", libraryId);
-      if (sectionId && sectionId !== "all_sections") q = q.or(`section_id.eq.${sectionId},section_id.is.null`);
+      if (sectionId) q = q.or(`section_id.eq.${sectionId},section_id.is.null`);
       return (await q).data ?? [];
     },
   });
@@ -1020,9 +1038,8 @@ function NewAllocDialog({
       calculatedFee = Number(currentSection.full_day_fee || 0);
     } else {
       const shift = shifts.data?.find((s: any) => s.id === shiftId);
-      const name = (shift?.name ?? "").toLowerCase();
-      if (name.includes("morning")) calculatedFee = Number(currentSection.morning_fee || 0);
-      else if (name.includes("evening")) calculatedFee = Number(currentSection.evening_fee || 0);
+      const cls = classifyShiftByName(shift?.name ?? "");
+      if (cls) calculatedFee = Number((currentSection as any)[cls.feeKey] || 0);
       else calculatedFee = Number(shift?.base_fee || 0);
     }
 
@@ -1102,13 +1119,17 @@ function NewAllocDialog({
           </div>
 
           <div className="space-y-2">
-            <Label>Section Filter</Label>
-            <Select value={sectionId} onValueChange={setSectionId} disabled={reservationType === "unreserved"}>
+            <Label>Section</Label>
+            <Select
+              value={sectionId}
+              onValueChange={setSectionId}
+              disabled={!!initialSeatId || reservationType === "unreserved"}
+            >
               <SelectTrigger className="bg-panel border-panel-border">
-                <SelectValue placeholder="All Sections" />
+                <SelectValue placeholder="Choose section" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all_sections">All Sections</SelectItem>
+                
                 {(sections.data ?? []).map((s: any) => (
                   <SelectItem key={s.id} value={s.id}>
                     {s.name}
@@ -1218,12 +1239,9 @@ function NewAllocDialog({
                   Full day{!currentSection?.allow_full_day ? " (Not allowed)" : ""}
                 </SelectItem>
                 {(shifts.data ?? []).map((s: any) => {
-                  const name = (s.name || "").toLowerCase();
-                  const isMorning = name.includes("morning");
-                  const isEvening = name.includes("evening");
+                  const cls = classifyShiftByName(s.name || "");
                   const isDisabled =
-                    (isMorning && currentSection && !currentSection.allow_morning) ||
-                    (isEvening && currentSection && !currentSection.allow_evening);
+                    !!currentSection && !!cls && !((currentSection as any)[cls.allowKey]);
 
                   return (
                     <SelectItem key={s.id} value={s.id} disabled={isDisabled}>

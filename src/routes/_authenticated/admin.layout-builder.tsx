@@ -849,6 +849,178 @@ function InspectorPanel({
 }
 
 // Dialogs ...
+
+// 7 supported shift types — order defines display order.
+const SHIFT_META: { key: string; label: string; allow: string; fee: string }[] = [
+  { key: "full_day", label: "Full day", allow: "allow_full_day", fee: "full_day_fee" },
+  { key: "morning", label: "Morning", allow: "allow_morning", fee: "morning_fee" },
+  { key: "evening", label: "Evening", allow: "allow_evening", fee: "evening_fee" },
+  { key: "hrs24", label: "24 Hrs", allow: "allow_24_hrs", fee: "fee_24_hrs" },
+  { key: "morning_night", label: "Morning + Night", allow: "allow_morning_night", fee: "fee_morning_night" },
+  { key: "evening_night", label: "Evening + Night", allow: "allow_evening_night", fee: "fee_evening_night" },
+  { key: "night", label: "Night", allow: "allow_night", fee: "fee_night" },
+];
+
+type ShiftKey = (typeof SHIFT_META)[number]["key"];
+
+function emptyAllows(defaultFullDay = false): Record<ShiftKey, boolean> {
+  const r: any = {};
+  for (const s of SHIFT_META) r[s.key] = false;
+  if (defaultFullDay) r.full_day = true;
+  return r;
+}
+function emptyFees(): Record<ShiftKey, string> {
+  const r: any = {};
+  for (const s of SHIFT_META) r[s.key] = "";
+  return r;
+}
+
+function SectionShiftAndFeeFields({
+  allows,
+  setAllows,
+  fees,
+  setFees,
+  allowReserved,
+  setAllowReserved,
+  allowUnreserved,
+  setAllowUnreserved,
+  reservationFee,
+  setReservationFee,
+}: {
+  allows: Record<ShiftKey, boolean>;
+  setAllows: (v: Record<ShiftKey, boolean>) => void;
+  fees: Record<ShiftKey, string>;
+  setFees: (v: Record<ShiftKey, string>) => void;
+  allowReserved: boolean;
+  setAllowReserved: (v: boolean) => void;
+  allowUnreserved: boolean;
+  setAllowUnreserved: (v: boolean) => void;
+  reservationFee: string;
+  setReservationFee: (v: string) => void;
+}) {
+  const toggle = (k: ShiftKey) => setAllows({ ...allows, [k]: !allows[k] });
+  const setFee = (k: ShiftKey, v: string) => setFees({ ...fees, [k]: v });
+
+  return (
+    <>
+      <div className="space-y-4 pt-2">
+        <div>
+          <Label className="text-xs text-muted-foreground uppercase tracking-widest mb-2 block">
+            Available Shifts
+          </Label>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-sm">
+            {SHIFT_META.map((s) => (
+              <label key={s.key} className="flex items-center gap-2">
+                <input type="checkbox" checked={!!allows[s.key]} onChange={() => toggle(s.key)} />
+                {s.label}
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <Label className="text-xs text-muted-foreground uppercase tracking-widest mb-2 block">
+            Available Types
+          </Label>
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={allowReserved} onChange={(e) => setAllowReserved(e.target.checked)} />
+              Reserved
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={allowUnreserved}
+                onChange={(e) => setAllowUnreserved(e.target.checked)}
+              />
+              Unreserved
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-md border border-panel-border bg-panel p-3 space-y-3">
+        <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Default fees (₹ / month)</div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          {SHIFT_META.filter((s) => allows[s.key]).map((s) => (
+            <div key={s.key} className="space-y-1">
+              <Label className="text-xs">{s.label}</Label>
+              <Input
+                type="number"
+                min={0}
+                required
+                value={fees[s.key]}
+                onChange={(e) => setFee(s.key, e.target.value)}
+                className="bg-panel border-panel-border font-mono"
+                placeholder="0"
+              />
+            </div>
+          ))}
+          {SHIFT_META.every((s) => !allows[s.key]) && (
+            <div className="col-span-full text-[11px] text-muted-foreground italic">
+              Select at least one shift to set its fee.
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-1 mt-3 border-t border-panel-border/50 pt-3">
+          <Label className="text-xs">Extra Reservation Charge (₹)</Label>
+          <Input
+            type="number"
+            min={0}
+            value={reservationFee}
+            onChange={(e) => setReservationFee(e.target.value)}
+            className="bg-panel border-panel-border font-mono"
+            placeholder="Added to base fee for reserved seats"
+          />
+        </div>
+
+        <p className="text-[10px] text-muted-foreground leading-relaxed mt-2">
+          These fees auto-fill when allocating a seat. The extra reservation charge is automatically added to the
+          base shift fee if the student chooses a Reserved seat.
+        </p>
+      </div>
+    </>
+  );
+}
+
+function validateSectionForm(
+  allows: Record<ShiftKey, boolean>,
+  fees: Record<ShiftKey, string>,
+  allowReserved: boolean,
+  allowUnreserved: boolean,
+): string | null {
+  if (!SHIFT_META.some((s) => allows[s.key])) return "Select at least one shift.";
+  if (!allowReserved && !allowUnreserved) return "Select at least one seat type (Reserved or Unreserved).";
+  for (const s of SHIFT_META) {
+    if (allows[s.key]) {
+      const v = fees[s.key];
+      if (v === "" || v == null || Number.isNaN(Number(v))) return `Enter a fee for ${s.label}.`;
+    }
+  }
+  return null;
+}
+
+function buildSectionPayload(
+  allows: Record<ShiftKey, boolean>,
+  fees: Record<ShiftKey, string>,
+  allowReserved: boolean,
+  allowUnreserved: boolean,
+  reservationFee: string,
+) {
+  const p: any = {
+    allow_reserved: allowReserved,
+    allow_unreserved: allowUnreserved,
+    reservation_fee: reservationFee !== "" ? Number(reservationFee) : 0,
+  };
+  for (const s of SHIFT_META) {
+    p[s.allow] = !!allows[s.key];
+    p[s.fee] = allows[s.key] && fees[s.key] !== "" ? Number(fees[s.key]) : null;
+  }
+  return p;
+}
+
 function AddSectionDialog({
   open,
   onOpenChange,
@@ -865,18 +1037,11 @@ function AddSectionDialog({
   const [name, setName] = useState("");
   const [rows, setRows] = useState(15);
   const [cols, setCols] = useState(15);
-
-  const [allowFullDay, setAllowFullDay] = useState(true);
-  const [allowMorning, setAllowMorning] = useState(false);
-  const [allowEvening, setAllowEvening] = useState(false);
+  const [allows, setAllows] = useState<Record<ShiftKey, boolean>>(() => emptyAllows(true));
+  const [fees, setFees] = useState<Record<ShiftKey, string>>(() => emptyFees());
   const [allowReserved, setAllowReserved] = useState(true);
   const [allowUnreserved, setAllowUnreserved] = useState(true);
-  const [isPremium, setIsPremium] = useState(false);
-
-  const [fullDayFee, setFullDayFee] = useState<number | "">("");
-  const [morningFee, setMorningFee] = useState<number | "">("");
-  const [eveningFee, setEveningFee] = useState<number | "">("");
-  const [reservationFee, setReservationFee] = useState<number | "">("");
+  const [reservationFee, setReservationFee] = useState<string>("");
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -893,25 +1058,22 @@ function AddSectionDialog({
           onSubmit={async (e) => {
             e.preventDefault();
             if (!libraryId || !orgId) return;
+            const err = validateSectionForm(allows, fees, allowReserved, allowUnreserved);
+            if (err) {
+              toast.error(err);
+              return;
+            }
+            const payload = {
+              library_id: libraryId,
+              org_id: orgId,
+              name,
+              grid_rows: rows,
+              grid_cols: cols,
+              ...buildSectionPayload(allows, fees, allowReserved, allowUnreserved, reservationFee),
+            };
             const { data, error } = await supabase
               .from("sections")
-              .insert({
-                library_id: libraryId,
-                org_id: orgId,
-                name,
-                grid_rows: rows,
-                grid_cols: cols,
-                allow_full_day: allowFullDay,
-                allow_morning: allowMorning,
-                allow_evening: allowEvening,
-                allow_reserved: allowReserved,
-                allow_unreserved: allowUnreserved,
-                is_premium_section: isPremium,
-                full_day_fee: allowFullDay && fullDayFee !== "" ? Number(fullDayFee) : null,
-                morning_fee: allowMorning && morningFee !== "" ? Number(morningFee) : null,
-                evening_fee: allowEvening && eveningFee !== "" ? Number(eveningFee) : null,
-                reservation_fee: reservationFee !== "" ? Number(reservationFee) : 0,
-              })
+              .insert(payload as any)
               .select("id")
               .single();
             if (error) {
@@ -922,6 +1084,11 @@ function AddSectionDialog({
             onCreated(data.id);
             onOpenChange(false);
             setName("");
+            setAllows(emptyAllows(true));
+            setFees(emptyFees());
+            setAllowReserved(true);
+            setAllowUnreserved(true);
+            setReservationFee("");
           }}
           className="space-y-4"
         >
@@ -960,112 +1127,19 @@ function AddSectionDialog({
             </div>
           </div>
 
-          <div className="space-y-4 pt-2">
-            <div>
-              <Label className="text-xs text-muted-foreground uppercase tracking-widest mb-2 block">
-                Available Shifts
-              </Label>
-              <div className="grid grid-cols-3 gap-2 text-sm">
-                <label className="flex items-center gap-2">
-                  <input type="checkbox" checked={allowFullDay} onChange={(e) => setAllowFullDay(e.target.checked)} />{" "}
-                  Full day
-                </label>
-                <label className="flex items-center gap-2">
-                  <input type="checkbox" checked={allowMorning} onChange={(e) => setAllowMorning(e.target.checked)} />{" "}
-                  Morning
-                </label>
-                <label className="flex items-center gap-2">
-                  <input type="checkbox" checked={allowEvening} onChange={(e) => setAllowEvening(e.target.checked)} />{" "}
-                  Evening
-                </label>
-              </div>
-            </div>
+          <SectionShiftAndFeeFields
+            allows={allows}
+            setAllows={setAllows}
+            fees={fees}
+            setFees={setFees}
+            allowReserved={allowReserved}
+            setAllowReserved={setAllowReserved}
+            allowUnreserved={allowUnreserved}
+            setAllowUnreserved={setAllowUnreserved}
+            reservationFee={reservationFee}
+            setReservationFee={setReservationFee}
+          />
 
-            <div>
-              <Label className="text-xs text-muted-foreground uppercase tracking-widest mb-2 block">
-                Available Types
-              </Label>
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <label className="flex items-center gap-2">
-                  <input type="checkbox" checked={allowReserved} onChange={(e) => setAllowReserved(e.target.checked)} />{" "}
-                  Reserved
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={allowUnreserved}
-                    onChange={(e) => setAllowUnreserved(e.target.checked)}
-                  />{" "}
-                  Unreserved
-                </label>
-              </div>
-            </div>
-
-            <label className="flex items-center gap-2 text-sm mt-2">
-              <input type="checkbox" checked={isPremium} onChange={(e) => setIsPremium(e.target.checked)} /> Premium
-              section
-            </label>
-          </div>
-
-          <div className="rounded-md border border-panel-border bg-panel p-3 space-y-3">
-            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Default fees (₹ / month)</div>
-
-            <div className="grid grid-cols-3 gap-2">
-              {allowFullDay && (
-                <div className="space-y-1">
-                  <Label className="text-xs">Full day</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={fullDayFee}
-                    onChange={(e) => setFullDayFee(e.target.value === "" ? "" : Number(e.target.value))}
-                    className="bg-panel border-panel-border font-mono"
-                  />
-                </div>
-              )}
-              {allowMorning && (
-                <div className="space-y-1">
-                  <Label className="text-xs">Morning</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={morningFee}
-                    onChange={(e) => setMorningFee(e.target.value === "" ? "" : Number(e.target.value))}
-                    className="bg-panel border-panel-border font-mono"
-                  />
-                </div>
-              )}
-              {allowEvening && (
-                <div className="space-y-1">
-                  <Label className="text-xs">Evening</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={eveningFee}
-                    onChange={(e) => setEveningFee(e.target.value === "" ? "" : Number(e.target.value))}
-                    className="bg-panel border-panel-border font-mono"
-                  />
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-1 mt-3 border-t border-panel-border/50 pt-3">
-              <Label className="text-xs">Extra Reservation Charge (₹)</Label>
-              <Input
-                type="number"
-                min={0}
-                value={reservationFee}
-                onChange={(e) => setReservationFee(e.target.value === "" ? "" : Number(e.target.value))}
-                className="bg-panel border-panel-border font-mono"
-                placeholder="Added to base fee for reserved seats"
-              />
-            </div>
-
-            <p className="text-[10px] text-muted-foreground leading-relaxed mt-2">
-              These fees auto-fill when allocating a seat. The extra reservation charge is automatically added to the
-              base shift fee if the student chooses a Reserved seat.
-            </p>
-          </div>
           <Button type="submit" className="w-full bg-white text-slate-900 hover:bg-white/90">
             Create section
           </Button>
@@ -1087,33 +1161,30 @@ function EditSectionDialog({
   onSaved: () => void;
 }) {
   const [name, setName] = useState(section.name ?? "");
-  const [allowFullDay, setAllowFullDay] = useState<boolean>(section.allow_full_day ?? true);
-  const [allowMorning, setAllowMorning] = useState<boolean>(!!section.allow_morning);
-  const [allowEvening, setAllowEvening] = useState<boolean>(!!section.allow_evening);
+  const [allows, setAllows] = useState<Record<ShiftKey, boolean>>(() => emptyAllows());
+  const [fees, setFees] = useState<Record<ShiftKey, string>>(() => emptyFees());
   const [allowReserved, setAllowReserved] = useState<boolean>(section.allow_reserved ?? true);
   const [allowUnreserved, setAllowUnreserved] = useState<boolean>(section.allow_unreserved ?? true);
-  const [isPremium, setIsPremium] = useState<boolean>(!!section.is_premium_section);
-
-  const [fullDayFee, setFullDayFee] = useState<number | "">(section.full_day_fee ?? "");
-  const [morningFee, setMorningFee] = useState<number | "">(section.morning_fee ?? "");
-  const [eveningFee, setEveningFee] = useState<number | "">(section.evening_fee ?? "");
-  const [reservationFee, setReservationFee] = useState<number | "">(section.reservation_fee ?? "");
-
+  const [reservationFee, setReservationFee] = useState<string>(
+    section.reservation_fee != null ? String(section.reservation_fee) : "",
+  );
   const [saving, setSaving] = useState(false);
 
   // Re-sync when a different section is opened.
   useEffect(() => {
     setName(section.name ?? "");
-    setAllowFullDay(section.allow_full_day ?? true);
-    setAllowMorning(!!section.allow_morning);
-    setAllowEvening(!!section.allow_evening);
+    const a: any = {};
+    const f: any = {};
+    for (const s of SHIFT_META) {
+      a[s.key] = !!section[s.allow];
+      const v = section[s.fee];
+      f[s.key] = v == null ? "" : String(v);
+    }
+    setAllows(a);
+    setFees(f);
     setAllowReserved(section.allow_reserved ?? true);
     setAllowUnreserved(section.allow_unreserved ?? true);
-    setIsPremium(!!section.is_premium_section);
-    setFullDayFee(section.full_day_fee ?? "");
-    setMorningFee(section.morning_fee ?? "");
-    setEveningFee(section.evening_fee ?? "");
-    setReservationFee(section.reservation_fee ?? "");
+    setReservationFee(section.reservation_fee != null ? String(section.reservation_fee) : "");
   }, [section.id]);
 
   return (
@@ -1125,22 +1196,19 @@ function EditSectionDialog({
         <form
           onSubmit={async (e) => {
             e.preventDefault();
+            const err = validateSectionForm(allows, fees, allowReserved, allowUnreserved);
+            if (err) {
+              toast.error(err);
+              return;
+            }
             setSaving(true);
+            const payload = {
+              name,
+              ...buildSectionPayload(allows, fees, allowReserved, allowUnreserved, reservationFee),
+            };
             const { error } = await supabase
               .from("sections")
-              .update({
-                name,
-                allow_full_day: allowFullDay,
-                allow_morning: allowMorning,
-                allow_evening: allowEvening,
-                allow_reserved: allowReserved,
-                allow_unreserved: allowUnreserved,
-                is_premium_section: isPremium,
-                full_day_fee: allowFullDay && fullDayFee !== "" ? Number(fullDayFee) : null,
-                morning_fee: allowMorning && morningFee !== "" ? Number(morningFee) : null,
-                evening_fee: allowEvening && eveningFee !== "" ? Number(eveningFee) : null,
-                reservation_fee: reservationFee !== "" ? Number(reservationFee) : 0,
-              })
+              .update(payload as any)
               .eq("id", section.id);
             setSaving(false);
             if (error) {
@@ -1163,107 +1231,19 @@ function EditSectionDialog({
             />
           </div>
 
-          <div className="space-y-4 pt-2">
-            <div>
-              <Label className="text-xs text-muted-foreground uppercase tracking-widest mb-2 block">
-                Available Shifts
-              </Label>
-              <div className="grid grid-cols-3 gap-2 text-sm">
-                <label className="flex items-center gap-2">
-                  <input type="checkbox" checked={allowFullDay} onChange={(e) => setAllowFullDay(e.target.checked)} />{" "}
-                  Full day
-                </label>
-                <label className="flex items-center gap-2">
-                  <input type="checkbox" checked={allowMorning} onChange={(e) => setAllowMorning(e.target.checked)} />{" "}
-                  Morning
-                </label>
-                <label className="flex items-center gap-2">
-                  <input type="checkbox" checked={allowEvening} onChange={(e) => setAllowEvening(e.target.checked)} />{" "}
-                  Evening
-                </label>
-              </div>
-            </div>
+          <SectionShiftAndFeeFields
+            allows={allows}
+            setAllows={setAllows}
+            fees={fees}
+            setFees={setFees}
+            allowReserved={allowReserved}
+            setAllowReserved={setAllowReserved}
+            allowUnreserved={allowUnreserved}
+            setAllowUnreserved={setAllowUnreserved}
+            reservationFee={reservationFee}
+            setReservationFee={setReservationFee}
+          />
 
-            <div>
-              <Label className="text-xs text-muted-foreground uppercase tracking-widest mb-2 block">
-                Available Types
-              </Label>
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <label className="flex items-center gap-2">
-                  <input type="checkbox" checked={allowReserved} onChange={(e) => setAllowReserved(e.target.checked)} />{" "}
-                  Reserved
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={allowUnreserved}
-                    onChange={(e) => setAllowUnreserved(e.target.checked)}
-                  />{" "}
-                  Unreserved
-                </label>
-              </div>
-            </div>
-
-            <label className="flex items-center gap-2 text-sm mt-2">
-              <input type="checkbox" checked={isPremium} onChange={(e) => setIsPremium(e.target.checked)} /> Premium
-              section
-            </label>
-          </div>
-
-          <div className="rounded-md border border-panel-border bg-panel p-3 space-y-3">
-            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Default fees (₹ / month)</div>
-
-            <div className="grid grid-cols-3 gap-2">
-              {allowFullDay && (
-                <div className="space-y-1">
-                  <Label className="text-xs">Full day</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={fullDayFee}
-                    onChange={(e) => setFullDayFee(e.target.value === "" ? "" : Number(e.target.value))}
-                    className="bg-panel border-panel-border font-mono"
-                  />
-                </div>
-              )}
-              {allowMorning && (
-                <div className="space-y-1">
-                  <Label className="text-xs">Morning</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={morningFee}
-                    onChange={(e) => setMorningFee(e.target.value === "" ? "" : Number(e.target.value))}
-                    className="bg-panel border-panel-border font-mono"
-                  />
-                </div>
-              )}
-              {allowEvening && (
-                <div className="space-y-1">
-                  <Label className="text-xs">Evening</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={eveningFee}
-                    onChange={(e) => setEveningFee(e.target.value === "" ? "" : Number(e.target.value))}
-                    className="bg-panel border-panel-border font-mono"
-                  />
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-1 mt-3 border-t border-panel-border/50 pt-3">
-              <Label className="text-xs">Extra Reservation Charge (₹)</Label>
-              <Input
-                type="number"
-                min={0}
-                value={reservationFee}
-                onChange={(e) => setReservationFee(e.target.value === "" ? "" : Number(e.target.value))}
-                className="bg-panel border-panel-border font-mono"
-                placeholder="Added to base fee for reserved seats"
-              />
-            </div>
-          </div>
           <Button disabled={saving} type="submit" className="w-full bg-white text-slate-900 hover:bg-white/90">
             {saving ? "Saving…" : "Save section"}
           </Button>

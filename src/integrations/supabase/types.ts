@@ -1013,13 +1013,21 @@ export type Database = {
       }
       sections: {
         Row: {
+          allow_24_hrs: boolean
           allow_evening: boolean | null
+          allow_evening_night: boolean
           allow_full_day: boolean | null
           allow_morning: boolean | null
+          allow_morning_night: boolean
+          allow_night: boolean
           allow_reserved: boolean | null
           allow_unreserved: boolean | null
           created_at: string
           evening_fee: number | null
+          fee_24_hrs: number | null
+          fee_evening_night: number | null
+          fee_morning_night: number | null
+          fee_night: number | null
           full_day_fee: number | null
           grid_cols: number
           grid_rows: number
@@ -1035,13 +1043,21 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          allow_24_hrs?: boolean
           allow_evening?: boolean | null
+          allow_evening_night?: boolean
           allow_full_day?: boolean | null
           allow_morning?: boolean | null
+          allow_morning_night?: boolean
+          allow_night?: boolean
           allow_reserved?: boolean | null
           allow_unreserved?: boolean | null
           created_at?: string
           evening_fee?: number | null
+          fee_24_hrs?: number | null
+          fee_evening_night?: number | null
+          fee_morning_night?: number | null
+          fee_night?: number | null
           full_day_fee?: number | null
           grid_cols?: number
           grid_rows?: number
@@ -1057,13 +1073,21 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          allow_24_hrs?: boolean
           allow_evening?: boolean | null
+          allow_evening_night?: boolean
           allow_full_day?: boolean | null
           allow_morning?: boolean | null
+          allow_morning_night?: boolean
+          allow_night?: boolean
           allow_reserved?: boolean | null
           allow_unreserved?: boolean | null
           created_at?: string
           evening_fee?: number | null
+          fee_24_hrs?: number | null
+          fee_evening_night?: number | null
+          fee_morning_night?: number | null
+          fee_night?: number | null
           full_day_fee?: number | null
           grid_cols?: number
           grid_rows?: number
