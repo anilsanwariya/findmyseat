@@ -522,6 +522,8 @@ function AllocationsPage() {
       {/* Manual New Allocation Dialog */}
       <Dialog open={openNewAlloc} onOpenChange={setOpenNewAlloc}>
         <NewAllocDialog
+          initialLibraryId={currentLibId}
+          initialSectionId={currentSectionId}
           onDone={() => {
             refreshData();
             setOpenNewAlloc(false);
@@ -544,6 +546,7 @@ function AllocationsPage() {
         {selectedVacantSeat && (
           <NewAllocDialog
             initialLibraryId={currentLibId}
+            initialSectionId={selectedVacantSeat.section_id ?? currentSectionId}
             initialSeatId={selectedVacantSeat.id}
             onDone={() => {
               refreshData();
