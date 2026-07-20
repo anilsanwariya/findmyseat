@@ -749,6 +749,30 @@ export type Database = {
         }
         Relationships: []
       }
+      owner_signup_otps: {
+        Row: {
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          otp_code: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          expires_at: string
+          id?: string
+          otp_code: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          otp_code?: string
+        }
+        Relationships: []
+      }
       owner_subscriptions: {
         Row: {
           billing_cycle: string
