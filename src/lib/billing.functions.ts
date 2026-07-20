@@ -32,17 +32,16 @@ export const getOwnerBilling = createServerFn({ method: "GET" })
     const orgId = roleRow?.org_id;
     if (!orgId) return { subscription: null, invoices: [], plan: null, org: null };
 
-    const [{ data: sub }, { data: invoices }, { data: org }] = await Promise.all([
+    const [{ data: sub }, { data: invoices }] = await Promise.all([
       supabase.from("owner_subscriptions").select("*").eq("org_id", orgId).order("created_at", { ascending: false }).limit(1).maybeSingle(),
       supabase.from("subscription_invoices").select("*").eq("org_id", orgId).order("created_at", { ascending: false }).limit(50),
-      supabase.from("organizations").select("discount_monthly_pct, discount_annual_pct, discount_valid_until").eq("id", orgId).maybeSingle(),
     ]);
     let plan = null;
     if (sub?.plan_id) {
       const { data: p } = await supabase.from("subscription_plans").select("*").eq("id", sub.plan_id).maybeSingle();
       plan = p;
     }
-    return { subscription: sub, invoices: invoices ?? [], plan, org: org ?? null };
+    return { subscription: sub, invoices: invoices ?? [], plan, org: null };
   });
 
 // -------- Subscription/trial state for banner ----------
