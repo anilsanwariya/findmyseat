@@ -50,18 +50,37 @@ function PendingTransfers() {
   const [busy, setBusy] = useState<string | null>(null);
   const sb: any = supabase;
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ["super-admin", "pending-transfers"],
     queryFn: async () => {
-      const { data, error } = await sb
+      const { data: rows, error } = await sb
         .from("branch_transfer_requests")
-        .select("id, buyer_email, created_at, library_id, org_id, libraries(name), organizations(company_name)")
+        .select("id, buyer_email, created_at, library_id, org_id")
         .eq("status", "pending")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data ?? [];
+      const list = rows ?? [];
+      if (list.length === 0) return [];
+      const libIds = Array.from(new Set(list.map((r: any) => r.library_id).filter(Boolean)));
+      const orgIds = Array.from(new Set(list.map((r: any) => r.org_id).filter(Boolean)));
+      const [libsRes, orgsRes] = await Promise.all([
+        libIds.length
+          ? sb.from("libraries").select("id, name").in("id", libIds)
+          : Promise.resolve({ data: [] as any[] }),
+        orgIds.length
+          ? sb.from("organizations").select("id, company_name").in("id", orgIds)
+          : Promise.resolve({ data: [] as any[] }),
+      ]);
+      const libMap = new Map((libsRes.data ?? []).map((l: any) => [l.id, l]));
+      const orgMap = new Map((orgsRes.data ?? []).map((o: any) => [o.id, o]));
+      return list.map((r: any) => ({
+        ...r,
+        libraries: libMap.get(r.library_id) ?? null,
+        organizations: orgMap.get(r.org_id) ?? null,
+      }));
     },
   });
+
 
   async function completeTransfer(row: any) {
     if (!confirm(`Complete transfer of "${row.libraries?.name}" to ${row.buyer_email}?`)) return;
