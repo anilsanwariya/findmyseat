@@ -152,6 +152,73 @@ export type Database = {
           },
         ]
       }
+      branch_transfer_requests: {
+        Row: {
+          buyer_email: string
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string
+          id: string
+          library_id: string
+          new_org_id: string | null
+          notes: string | null
+          org_id: string
+          requested_by: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          buyer_email: string
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          id?: string
+          library_id: string
+          new_org_id?: string | null
+          notes?: string | null
+          org_id: string
+          requested_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          buyer_email?: string
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          id?: string
+          library_id?: string
+          new_org_id?: string | null
+          notes?: string | null
+          org_id?: string
+          requested_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "branch_transfer_requests_library_id_fkey"
+            columns: ["library_id"]
+            isOneToOne: false
+            referencedRelation: "libraries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "branch_transfer_requests_new_org_id_fkey"
+            columns: ["new_org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "branch_transfer_requests_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       discount_coupons: {
         Row: {
           code: string
@@ -1549,6 +1616,7 @@ export type Database = {
         Returns: string
       }
       current_user_org: { Args: never; Returns: string }
+      find_org_by_email: { Args: { _email: string }; Returns: string }
       get_current_staff: {
         Args: never
         Returns: {
@@ -1587,6 +1655,10 @@ export type Database = {
         Returns: boolean
       }
       org_subscription_state: { Args: { _org_id: string }; Returns: string }
+      transfer_branch_ownership: {
+        Args: { _library_id: string; _new_org_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       allocation_status: "paid" | "overdue" | "pending"
