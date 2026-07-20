@@ -49,6 +49,7 @@ function MetricsRow() {
 function PendingTransfers() {
   const qc = useQueryClient();
   const [busy, setBusy] = useState<string | null>(null);
+  const [details, setDetails] = useState<any | null>(null);
   const sb: any = supabase;
 
   const { data, isLoading, error } = useQuery({
