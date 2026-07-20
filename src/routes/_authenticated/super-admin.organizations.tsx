@@ -210,7 +210,6 @@ function DiscountDialog({ org, onClose, onSaved }: { org: Org | null; onClose: (
 }
 
 // Small helper to sync local state when an external key changes
-import { useEffect, useRef } from "react";
 function useSyncOnChange(key: string, cb: () => void) {
   const last = useRef(key);
   useEffect(() => {
