@@ -23,6 +23,7 @@ import {
 import { AuroraBackground, GlassPanel } from "@/components/glass";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { Logo } from "@/components/Logo";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -113,9 +114,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
         <aside className="hidden w-64 shrink-0 border-r border-panel-border bg-panel/60 backdrop-blur-xl md:flex md:flex-col">
           <div className="p-6">
             <Link to="/admin" className="flex items-center gap-2">
-              <div className="grid size-8 place-items-center rounded-lg bg-gradient-to-br from-violet to-cyan font-black">
-                L
-              </div>
+              <Logo size={32} />
               <span className="text-lg font-medium tracking-tight">LibraryBandhu</span>
             </Link>
             <div className="mt-8 inline-flex items-center gap-2 rounded-full border border-panel-border bg-panel px-2.5 py-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
@@ -158,9 +157,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
             <aside className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col border-r border-panel-border bg-background/95 backdrop-blur-xl">
               <div className="flex items-center justify-between p-5">
                 <Link to="/admin" onClick={() => setMobileOpen(false)} className="flex items-center gap-2">
-                  <div className="grid size-8 place-items-center rounded-lg bg-gradient-to-br from-violet to-cyan font-black">
-                    L
-                  </div>
+                  <Logo size={32} />
                   <span className="text-lg font-medium tracking-tight">LibraryBandhu</span>
                 </Link>
                 <button
@@ -199,9 +196,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
               <Menu className="size-5" />
             </button>
             <Link to="/admin" className="flex items-center gap-2">
-              <div className="grid size-7 place-items-center rounded-lg bg-gradient-to-br from-violet to-cyan text-xs font-black">
-                L
-              </div>
+              <Logo size={28} />
               <span className="text-sm font-extrabold">LibraryBandhu</span>
             </Link>
             <button onClick={signOut} className="text-xs text-muted-foreground">

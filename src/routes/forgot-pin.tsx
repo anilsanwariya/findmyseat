@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { requestPinReset, verifyPinReset } from "@/lib/students.functions";
 import { KeyRound, Mail } from "lucide-react";
+import { Logo } from "@/components/Logo";
 
 export const Route = createFileRoute("/forgot-pin")({
   component: ForgotPinPage,
@@ -54,9 +55,7 @@ function ForgotPinPage() {
       <div className="relative z-10 flex min-h-screen items-center justify-center px-4">
         <div className="w-full max-w-md">
           <Link to="/" className="mb-6 flex items-center justify-center gap-2">
-            <div className="grid size-8 place-items-center rounded-lg bg-gradient-to-br from-violet to-cyan font-black">
-              L
-            </div>
+            <Logo size={32} />
             <span className="text-lg font-extrabold tracking-tight">LibraryBandhu</span>
           </Link>
           <GlassPanel className="p-6">

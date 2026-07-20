@@ -4,6 +4,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
 import { AuroraBackground, GlassPanel } from "@/components/glass";
+import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -138,9 +139,7 @@ function Marketplace() {
       <div className="relative z-10 flex-1 flex flex-col">
         <header className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-5 sm:px-6">
           <Link to="/" className="flex items-center gap-2">
-            <div className="grid size-8 place-items-center rounded-lg bg-gradient-to-br from-violet to-cyan font-black">
-              L
-            </div>
+            <Logo size={32} />
             <span className="text-lg font-extrabold tracking-tight">LibraryBandhu</span>
           </Link>
           <nav className="flex items-center gap-2">

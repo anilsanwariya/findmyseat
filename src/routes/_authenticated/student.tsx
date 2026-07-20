@@ -16,6 +16,7 @@ import { inr, fmtDate } from "@/lib/format";
 import { changeMyPin, sendEmailVerificationOtp, verifyEmailOtp } from "@/lib/students.functions";
 import { cn } from "@/lib/utils";
 import { RateBranchDialog } from "@/components/student/RateBranchDialog";
+import { Logo } from "@/components/Logo";
 import { Star } from "lucide-react";
 
 import {
@@ -168,9 +169,7 @@ function StudentApp() {
       <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 py-8">
         <header className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="grid size-8 place-items-center rounded-lg bg-gradient-to-br from-violet to-cyan font-black">
-              L
-            </div>
+            <Logo size={32} />
             <span className="text-lg font-extrabold tracking-tight">LibraryBandhu</span>
           </div>
           <button
