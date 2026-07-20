@@ -132,8 +132,8 @@ function isDiscountActive(o: Org) {
     && ((o.discount_monthly_pct ?? 0) > 0 || (o.discount_annual_pct ?? 0) > 0));
 }
 
-function SubscriptionEditDialog({ org, plans, onClose, onSaved }: { org: Org | null; plans: Plan[]; onClose: () => void; onSaved: () => void }) {
-  const [plan, setPlan] = useState(org?.subscription_plan ?? "");
+function SubscriptionEditDialog({ org, onClose, onSaved }: { org: Org | null; onClose: () => void; onSaved: () => void }) {
+  const [plan, setPlan] = useState<Org["subscription_plan"]>(org?.subscription_plan ?? "single_branch");
   const [status, setStatus] = useState<Org["subscription_status"]>(org?.subscription_status ?? "trial");
   const [nextBilling, setNextBilling] = useState("");
   const [monthly, setMonthly] = useState("0");
