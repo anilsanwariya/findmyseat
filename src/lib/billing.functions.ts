@@ -30,7 +30,7 @@ export const getOwnerBilling = createServerFn({ method: "GET" })
     const { supabase, userId } = context;
     const { data: roleRow } = await supabase.from("user_roles").select("org_id").eq("user_id", userId).eq("role", "org_admin").maybeSingle();
     const orgId = roleRow?.org_id;
-    if (!orgId) return { subscription: null, invoices: [], plan: null };
+    if (!orgId) return { subscription: null, invoices: [], plan: null, org: null };
 
     const [{ data: sub }, { data: invoices }, { data: org }] = await Promise.all([
       supabase.from("owner_subscriptions").select("*").eq("org_id", orgId).order("created_at", { ascending: false }).limit(1).maybeSingle(),
