@@ -439,52 +439,76 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
               </div>
             </div>
 
-            <div className="p-4 border border-panel-border rounded-lg bg-black/10 space-y-4">
-              <div className="flex justify-between items-center bg-panel p-2 rounded-md border border-panel-border/50">
-                <Label className="text-xs uppercase tracking-widest text-muted-foreground">Standard Monthly Fee</Label>
-                <span className="font-mono font-bold text-cyan">{inr(chosen.monthly_fee)}</span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label>Amount Paid (₹)</Label>
-                  <Input
-                    required
-                    type="number"
-                    value={amount}
-                    onChange={(e) => setAmount(Number(e.target.value))}
-                    className="bg-panel border-panel-border font-mono w-full"
-                  />
+            {isLegacy ? (
+              <div className="p-4 border border-amber-400/30 rounded-lg bg-amber-400/5 space-y-3">
+                <div className="text-[11px] uppercase tracking-widest text-amber-300/90">
+                  Legacy Onboarding — no revenue recorded
                 </div>
                 <div className="space-y-2">
-                  <Label>Coverage Start Date</Label>
+                  <Label>Next Due Date <span className="text-red-400">*</span></Label>
                   <Input
                     required
                     type="date"
-                    value={startDate}
-                    disabled
-                    className="bg-black/20 border-transparent text-muted-foreground text-sm block w-full opacity-70 cursor-not-allowed"
+                    value={legacyDueDate}
+                    min={todayISO()}
+                    onChange={(e) => setLegacyDueDate(e.target.value)}
+                    className="bg-panel border-panel-border font-mono w-full text-emerald font-semibold"
                   />
+                  <p className="text-[10px] text-muted-foreground">
+                    The date when this student's current offline cycle ends. They will be marked paid until then.
+                  </p>
                 </div>
               </div>
+            ) : (
+              <div className="p-4 border border-panel-border rounded-lg bg-black/10 space-y-4">
+                <div className="flex justify-between items-center bg-panel p-2 rounded-md border border-panel-border/50">
+                  <Label className="text-xs uppercase tracking-widest text-muted-foreground">Standard Monthly Fee</Label>
+                  <span className="font-mono font-bold text-cyan">{inr(chosen.monthly_fee)}</span>
+                </div>
 
-              <div className="space-y-2">
-                <Label>Calculated New Due Date</Label>
-                <Input
-                  required
-                  type="date"
-                  value={endDate}
-                  disabled
-                  className="bg-black/20 border-transparent text-emerald font-semibold text-sm block w-full opacity-90 cursor-not-allowed"
-                />
-                <p className="text-[10px] text-muted-foreground mt-1">
-                  Pro-rated automatically based on the amount paid vs the standard monthly fee (1 month = 30 days).
-                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label>Amount Paid (₹)</Label>
+                    <Input
+                      required
+                      type="number"
+                      value={amount}
+                      onChange={(e) => setAmount(Number(e.target.value))}
+                      className="bg-panel border-panel-border font-mono w-full"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Coverage Start Date</Label>
+                    <Input
+                      required
+                      type="date"
+                      value={startDate}
+                      disabled
+                      className="bg-black/20 border-transparent text-muted-foreground text-sm block w-full opacity-70 cursor-not-allowed"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Calculated New Due Date</Label>
+                  <Input
+                    required
+                    type="date"
+                    value={endDate}
+                    disabled
+                    className="bg-black/20 border-transparent text-emerald font-semibold text-sm block w-full opacity-90 cursor-not-allowed"
+                  />
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    Pro-rated automatically based on the amount paid vs the standard monthly fee (1 month = 30 days).
+                  </p>
+                </div>
               </div>
-            </div>
+            )}
           </>
         )}
 
+        {!isLegacy && (
+          <>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-2">
             <Label>Payment Method</Label>
@@ -500,6 +524,7 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
               </SelectContent>
             </Select>
           </div>
+
           <div className="space-y-2">
             <Label>
               Transaction Reference {method !== "cash" && <span className="text-red-400">*</span>}
