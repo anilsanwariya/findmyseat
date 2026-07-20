@@ -22,14 +22,17 @@ export const Route = createFileRoute("/_authenticated/super-admin/organizations"
 type Org = {
   id: string; company_name: string; owner_name: string;
   contact_email: string | null; contact_phone: string | null;
-  subscription_plan: string; subscription_status: "active" | "suspended" | "trial";
+  subscription_plan: "single_branch" | "multi_branch"; subscription_status: "active" | "suspended" | "trial";
   next_billing_date: string | null; created_at: string;
   discount_monthly_pct: number | null;
   discount_annual_pct: number | null;
   discount_valid_until: string | null;
 };
 
-type Plan = { id: string; plan_code: string; name: string };
+const PLAN_OPTIONS: { value: Org["subscription_plan"]; label: string }[] = [
+  { value: "single_branch", label: "Single branch" },
+  { value: "multi_branch", label: "Multi branch" },
+];
 
 function OrganizationsPage() {
   const qc = useQueryClient();
@@ -41,15 +44,6 @@ function OrganizationsPage() {
       const { data, error } = await supabase.from("organizations").select("*").order("created_at", { ascending: false });
       if (error) throw error;
       return data as Org[];
-    },
-  });
-
-  const { data: plans } = useQuery({
-    queryKey: ["super-admin", "plans-list"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("subscription_plans").select("id, plan_code, name").order("monthly_price");
-      if (error) throw error;
-      return (data ?? []) as Plan[];
     },
   });
 
