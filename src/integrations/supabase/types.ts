@@ -1498,6 +1498,9 @@ export type Database = {
           annual_price: number
           created_at: string
           description: string | null
+          discount_annual_pct: number
+          discount_monthly_pct: number
+          discount_valid_until: string | null
           features: Json
           id: string
           is_active: boolean
@@ -1512,6 +1515,9 @@ export type Database = {
           annual_price?: number
           created_at?: string
           description?: string | null
+          discount_annual_pct?: number
+          discount_monthly_pct?: number
+          discount_valid_until?: string | null
           features?: Json
           id?: string
           is_active?: boolean
@@ -1526,6 +1532,9 @@ export type Database = {
           annual_price?: number
           created_at?: string
           description?: string | null
+          discount_annual_pct?: number
+          discount_monthly_pct?: number
+          discount_valid_until?: string | null
           features?: Json
           id?: string
           is_active?: boolean
