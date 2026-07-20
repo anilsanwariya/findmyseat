@@ -4,8 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { GlassPanel, Kpi, SectionHeader } from "@/components/glass";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { ArrowRightLeft, CheckCircle2, XCircle } from "lucide-react";
+import { ArrowRightLeft, CheckCircle2, XCircle, Eye, Mail, Phone, User, Building2 } from "lucide-react";
 import { useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/_authenticated/super-admin/")({
   component: SuperAdminDashboard,
