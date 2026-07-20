@@ -69,7 +69,7 @@ function PendingTransfers() {
           ? sb.from("libraries").select("id, name").in("id", libIds)
           : Promise.resolve({ data: [] as any[] }),
         orgIds.length
-          ? sb.from("organizations").select("id, company_name").in("id", orgIds)
+          ? sb.from("organizations").select("id, company_name, owner_name, contact_phone, contact_email").in("id", orgIds)
           : Promise.resolve({ data: [] as any[] }),
       ]);
       const libMap = new Map((libsRes.data ?? []).map((l: any) => [l.id, l]));
