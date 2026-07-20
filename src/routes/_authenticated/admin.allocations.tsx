@@ -1206,20 +1206,22 @@ function NewAllocDialog({
             </SelectContent>
           </Select>
 
-          {activeAlloc && (
+          {activeAlloc && (() => {
+            const st = effectiveStatus(activeAlloc);
+            return (
             <div className="flex items-center gap-4 rounded-md border border-panel-border bg-black/10 px-3 py-2 mt-2 text-xs">
               <div>
                 <span className="text-muted-foreground mr-1">Status:</span>
                 <span
                   className={
-                    activeAlloc.status === "paid"
+                    st === "paid"
                       ? "text-emerald"
-                      : activeAlloc.status === "overdue"
+                      : st === "overdue"
                         ? "text-rose"
                         : "text-amber-400"
                   }
                 >
-                  {activeAlloc.status.toUpperCase()}
+                  {st.toUpperCase()}
                 </span>
               </div>
               <div>
