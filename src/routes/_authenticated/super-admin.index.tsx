@@ -162,13 +162,28 @@ function PendingTransfers() {
               {data.map((row: any) => (
                 <tr key={row.id} className="border-b border-panel-border/50">
                   <td className="py-3 pr-3">{row.organizations?.company_name ?? "—"}</td>
-                  <td className="py-3 pr-3 font-medium">{row.libraries?.name ?? "—"}</td>
+                  <td className="py-3 pr-3 font-medium">
+                    <button
+                      onClick={() => setDetails(row)}
+                      className="text-left text-cyan hover:underline"
+                    >
+                      {row.libraries?.name ?? "—"}
+                    </button>
+                  </td>
                   <td className="py-3 pr-3 font-mono text-xs text-cyan">{row.buyer_email}</td>
                   <td className="py-3 pr-3 text-xs text-muted-foreground">
                     {new Date(row.created_at).toLocaleDateString()}
                   </td>
                   <td className="py-3 pr-3">
                     <div className="flex justify-end gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setDetails(row)}
+                        className="h-7"
+                      >
+                        <Eye className="mr-1 size-3" /> Details
+                      </Button>
                       <Button
                         size="sm"
                         variant="outline"
