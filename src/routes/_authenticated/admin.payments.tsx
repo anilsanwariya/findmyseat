@@ -582,13 +582,15 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
             )}
           </div>
         </div>
+          </>
+        )}
 
         <Button
-          disabled={loading || !allocId || !endDate}
+          disabled={loading || !allocId || (isLegacy ? !legacyDueDate : !endDate)}
           type="submit"
           className="w-full mt-2 bg-white text-slate-900 hover:bg-white/90"
         >
-          {loading ? "Processing…" : "Log Payment & Extend Due Date"}
+          {loading ? "Processing…" : isLegacy ? "Onboard Existing Student" : "Log Payment & Extend Due Date"}
         </Button>
       </form>
     </DialogContent>
