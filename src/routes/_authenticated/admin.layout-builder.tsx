@@ -1021,6 +1021,64 @@ function buildSectionPayload(
   return p;
 }
 
+// Map a shift row's name back to a SHIFT_META key using the same rules as
+// classifyShiftByName in allocations. Ensures we don't create duplicates.
+function shiftNameToKey(name: string): ShiftKey | null {
+  const n = (name || "").toLowerCase();
+  const hasM = n.includes("morning");
+  const hasE = n.includes("evening");
+  const hasN = n.includes("night");
+  const has24 = n.includes("24");
+  if (has24) return "hrs24";
+  if (hasM && hasN) return "morning_night";
+  if (hasE && hasN) return "evening_night";
+  if (hasN) return "night";
+  if (hasM) return "morning";
+  if (hasE) return "evening";
+  return null;
+}
+
+// Sync shift rows for a section so allocation dropdowns reflect the section's
+// enabled shifts. Full-day has no shift row. Disabled shifts are left in place
+// (allocations may still reference them); the allocation UI filters them by
+// the section's allow_ flags.
+async function syncSectionShifts(
+  sectionId: string,
+  libraryId: string,
+  orgId: string,
+  allows: Record<ShiftKey, boolean>,
+  fees: Record<ShiftKey, string>,
+) {
+  const { data: existing } = await supabase
+    .from("shifts")
+    .select("id, name, base_fee")
+    .eq("section_id", sectionId);
+  const byKey = new Map<ShiftKey, { id: string; base_fee: number | null }>();
+  for (const r of existing ?? []) {
+    const k = shiftNameToKey(r.name);
+    if (k) byKey.set(k, { id: r.id, base_fee: r.base_fee as any });
+  }
+  for (const s of SHIFT_META) {
+    if (s.key === "full_day") continue;
+    if (!allows[s.key]) continue;
+    const fee = fees[s.key] !== "" ? Number(fees[s.key]) : 0;
+    const match = byKey.get(s.key);
+    if (match) {
+      if (Number(match.base_fee ?? 0) !== fee) {
+        await supabase.from("shifts").update({ base_fee: fee, name: s.label }).eq("id", match.id);
+      }
+    } else {
+      await supabase.from("shifts").insert({
+        section_id: sectionId,
+        library_id: libraryId,
+        org_id: orgId,
+        name: s.label,
+        base_fee: fee,
+      } as any);
+    }
+  }
+}
+
 function AddSectionDialog({
   open,
   onOpenChange,
