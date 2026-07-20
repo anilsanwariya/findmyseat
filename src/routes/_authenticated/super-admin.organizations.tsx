@@ -208,13 +208,13 @@ function SubscriptionEditDialog({ org, onClose, onSaved }: { org: Org | null; on
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="mb-1 block font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Plan</Label>
-                <Select value={plan} onValueChange={setPlan}>
+                <Select value={plan} onValueChange={(v) => setPlan(v as Org["subscription_plan"])}>
                   <SelectTrigger className="bg-panel border-panel-border">
                     <SelectValue placeholder="Select plan" />
                   </SelectTrigger>
                   <SelectContent className="bg-panel border-panel-border">
-                    {plans.map((p) => (
-                      <SelectItem key={p.id} value={p.plan_code}>{p.name}</SelectItem>
+                    {PLAN_OPTIONS.map((p) => (
+                      <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
