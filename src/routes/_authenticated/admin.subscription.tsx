@@ -97,13 +97,17 @@ function SubscriptionPageInner() {
   const currentPlan = billing.data?.plan;
   const statusTone = sub?.status === "active" ? "text-emerald bg-emerald/15" : sub?.status === "past_due" || sub?.status === "halted" ? "text-rose bg-rose/15" : "text-cyan bg-cyan/15";
 
-  // Custom org-level discount
-  const orgDiscount = billing.data?.org;
-  const offerActive = !!(orgDiscount?.discount_valid_until && new Date(orgDiscount.discount_valid_until) > new Date()
-    && ((Number(orgDiscount.discount_monthly_pct) || 0) > 0 || (Number(orgDiscount.discount_annual_pct) || 0) > 0));
-  const customPct = offerActive
-    ? (cycle === "monthly" ? Number(orgDiscount?.discount_monthly_pct) || 0 : Number(orgDiscount?.discount_annual_pct) || 0)
-    : 0;
+  // Global (per-plan) discount — active if any plan has a valid discount for the current cycle
+  const activeOffers = (plans.data ?? []).filter((p: any) => {
+    const pct = cycle === "monthly" ? Number(p.discount_monthly_pct) || 0 : Number(p.discount_annual_pct) || 0;
+    return pct > 0 && p.discount_valid_until && new Date(p.discount_valid_until) > new Date();
+  });
+  const offerActive = activeOffers.length > 0;
+  const soonestExpiry = offerActive
+    ? activeOffers
+        .map((p: any) => new Date(p.discount_valid_until).getTime())
+        .sort((a, b) => a - b)[0]
+    : null;
 
   return (
     <div className="space-y-8">
@@ -121,14 +125,10 @@ function SubscriptionPageInner() {
                 <Sparkles className="size-5 text-slate-950" />
               </div>
               <div>
-                <div className="text-sm font-extrabold tracking-tight text-gold">🎉 Special Offer unlocked!</div>
+                <div className="text-sm font-extrabold tracking-tight text-gold">🎉 Limited-time offer live!</div>
                 <div className="text-xs text-muted-foreground">
-                  Your custom discount expires on{" "}
-                  <span className="text-foreground">{fmtDate(orgDiscount!.discount_valid_until)}</span>
-                  {" · "}
-                  {(Number(orgDiscount?.discount_monthly_pct) || 0) > 0 && <>Monthly {Number(orgDiscount?.discount_monthly_pct)}% off</>}
-                  {(Number(orgDiscount?.discount_monthly_pct) || 0) > 0 && (Number(orgDiscount?.discount_annual_pct) || 0) > 0 && " · "}
-                  {(Number(orgDiscount?.discount_annual_pct) || 0) > 0 && <>Annual {Number(orgDiscount?.discount_annual_pct)}% off</>}
+                  Discounted {cycle} pricing on {activeOffers.length} plan{activeOffers.length === 1 ? "" : "s"}
+                  {soonestExpiry && <> · ends <span className="text-foreground">{fmtDate(new Date(soonestExpiry).toISOString())}</span></>}
                 </div>
               </div>
             </div>
