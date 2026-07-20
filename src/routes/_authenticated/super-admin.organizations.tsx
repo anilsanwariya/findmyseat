@@ -24,9 +24,6 @@ type Org = {
   contact_email: string | null; contact_phone: string | null;
   subscription_plan: "single_branch" | "multi_branch"; subscription_status: "active" | "suspended" | "trial";
   next_billing_date: string | null; created_at: string;
-  discount_monthly_pct: number | null;
-  discount_annual_pct: number | null;
-  discount_valid_until: string | null;
 };
 
 const PLAN_OPTIONS: { value: Org["subscription_plan"]; label: string }[] = [
