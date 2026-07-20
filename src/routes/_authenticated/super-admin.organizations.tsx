@@ -120,7 +120,6 @@ function OrganizationsPage() {
 
       <SubscriptionEditDialog
         org={editingOrg}
-        plans={plans ?? []}
         onClose={() => setEditingOrg(null)}
         onSaved={() => qc.invalidateQueries({ queryKey: ["super-admin", "orgs"] })}
       />
