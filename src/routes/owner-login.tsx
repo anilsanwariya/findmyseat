@@ -8,6 +8,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { enforceLoginPortal } from "@/lib/auth";
 import { toast } from "sonner";
+import { Logo } from "@/components/Logo";
 import { Building2 } from "lucide-react";
 
 export const Route = createFileRoute("/owner-login")({
@@ -77,9 +78,7 @@ function OwnerLoginPage() {
       <div className="relative z-10 flex min-h-screen flex-col">
         <header className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-5 sm:px-6">
           <Link to="/" className="flex items-center gap-2">
-            <div className="grid size-8 place-items-center rounded-lg bg-gradient-to-br from-violet to-cyan font-black">
-              L
-            </div>
+            <Logo size={32} />
             <span className="text-lg font-extrabold tracking-tight">LibraryBandhu</span>
           </Link>
         </header>

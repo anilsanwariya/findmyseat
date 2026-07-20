@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AuroraBackground, GlassPanel } from "@/components/glass";
 import { Button } from "@/components/ui/button";
+import { Logo } from "@/components/Logo";
 import { Grid3x3, Sparkles, Megaphone, ReceiptText, ArrowRight, Building2, CheckCircle2 } from "lucide-react";
 
 export const Route = createFileRoute("/owners")({
@@ -58,9 +59,7 @@ function OwnersLandingPage() {
       <div className="relative z-10">
         <header className="mx-auto flex max-w-7xl items-center justify-between px-4 py-5 sm:px-6">
           <Link to="/" className="flex items-center gap-2">
-            <div className="grid size-8 place-items-center rounded-lg bg-gradient-to-br from-violet to-cyan font-black">
-              L
-            </div>
+            <Logo size={32} />
             <span className="text-lg font-extrabold tracking-tight">LibraryBandhu</span>
             <span className="hidden sm:inline text-xs font-mono uppercase tracking-widest text-muted-foreground ml-2">
               for Owners

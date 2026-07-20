@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { studentEmailFromMobile } from "@/lib/student-utils";
 import { toast } from "sonner";
+import { Logo } from "@/components/Logo";
 
 // HIDDEN SUFFIX: Must exactly match the suffix in students.functions.ts
 const PIN_SUFFIX = "_Lx!9aZ*qW2#vP7$Lex26";
@@ -56,9 +57,7 @@ function StudentLogin() {
       <div className="relative z-10 flex min-h-screen flex-col">
         <header className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-5 sm:px-6">
           <Link to="/" className="flex items-center gap-2">
-            <div className="grid size-8 place-items-center rounded-lg bg-gradient-to-br from-violet to-cyan font-black">
-              L
-            </div>
+            <Logo size={32} />
             <span className="text-lg font-extrabold tracking-tight">LibraryBandhu</span>
           </Link>
         </header>
