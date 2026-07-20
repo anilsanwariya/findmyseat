@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { inr, fmtDate } from "@/lib/format";
 import { Plus, Search, Upload, FileImage, Calendar as CalendarIcon, X } from "lucide-react";
@@ -235,11 +236,13 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
   const [amount, setAmount] = useState<number | "">("");
   const [startDate, setStartDate] = useState(todayISO());
   const [endDate, setEndDate] = useState("");
-  const [method, setMethod] = useState<"upi" | "cash" | "card" | "bank_transfer">("upi");
+  const [method, setMethod] = useState<"upi" | "cash" | "card" | "bank_transfer" | "offline_legacy">("upi");
   const [txnRef, setTxnRef] = useState("");
   const [note, setNote] = useState("");
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isLegacy, setIsLegacy] = useState(false);
+  const [legacyDueDate, setLegacyDueDate] = useState("");
 
   const active = useQuery({
     queryKey: ["allocations-active", orgId],
@@ -308,10 +311,24 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
         className="space-y-4"
         onSubmit={async (e) => {
           e.preventDefault();
-          if (!chosen || !endDate) return;
-          if (method !== "cash" && !txnRef.trim()) {
-            toast.error("Transaction reference is required for non-cash payments.");
-            return;
+          if (!chosen) return;
+
+          const effectiveMethod = isLegacy ? "offline_legacy" : method;
+          const effectiveAmount = isLegacy ? 0 : Number(amount || 0);
+          const effectiveCoversUntil = isLegacy ? legacyDueDate : endDate;
+          const effectiveNote = isLegacy ? "Legacy offline payment onboarding" : (note || null);
+
+          if (isLegacy) {
+            if (!legacyDueDate) {
+              toast.error("Please select the next due date.");
+              return;
+            }
+          } else {
+            if (!endDate) return;
+            if (method !== "cash" && !txnRef.trim()) {
+              toast.error("Transaction reference is required for non-cash payments.");
+              return;
+            }
           }
           setLoading(true);
 
@@ -323,11 +340,13 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
                 library_id: chosen.library_id,
                 student_id: chosen.student_id,
                 allocation_id: chosen.id,
-                amount_paid: Number(amount || 0),
-                method,
-                transaction_reference: method === "cash" ? (txnRef.trim() || null) : txnRef.trim(),
-                reference_note: note || null,
-                covers_until: endDate,
+                amount_paid: effectiveAmount,
+                method: effectiveMethod,
+                transaction_reference: isLegacy
+                  ? null
+                  : (method === "cash" ? (txnRef.trim() || null) : txnRef.trim()),
+                reference_note: effectiveNote,
+                covers_until: effectiveCoversUntil,
                 collected_by_staff_id: session?.staffId ?? null,
               } as any)
               .select("id")
@@ -335,8 +354,8 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
 
             if (error) throw error;
 
-            // Upload receipt if provided
-            if (receiptFile && inserted) {
+            // Upload receipt if provided (not applicable for legacy)
+            if (!isLegacy && receiptFile && inserted) {
               const ext = receiptFile.name.split(".").pop() ?? "jpg";
               const path = `${orgId}/${inserted.id}.${ext}`;
               const { error: upErr } = await supabase.storage
@@ -348,10 +367,10 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
 
             await supabase
               .from("allocations")
-              .update({ next_due_date: endDate, status: "paid" })
+              .update({ next_due_date: effectiveCoversUntil, status: "paid" })
               .eq("id", chosen.id);
 
-            toast.success("Payment logged successfully.");
+            toast.success(isLegacy ? "Existing student onboarded." : "Payment logged successfully.");
             onDone();
           } catch (err: any) {
             toast.error(err.message ?? "Failed to log payment");
@@ -360,6 +379,16 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
           }
         }}
       >
+        <div className="flex items-start justify-between gap-3 rounded-lg border border-panel-border bg-panel/60 p-3">
+          <div className="min-w-0">
+            <div className="text-sm font-medium">Existing Student (Already Paid Offline)</div>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">
+              Use this for students who paid before you started using the app. This will not add to your revenue dashboard.
+            </p>
+          </div>
+          <Switch checked={isLegacy} onCheckedChange={setIsLegacy} />
+        </div>
+
         <div className="space-y-2">
           <Label>Find Active Allocation</Label>
           <div className="relative">
@@ -410,52 +439,76 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
               </div>
             </div>
 
-            <div className="p-4 border border-panel-border rounded-lg bg-black/10 space-y-4">
-              <div className="flex justify-between items-center bg-panel p-2 rounded-md border border-panel-border/50">
-                <Label className="text-xs uppercase tracking-widest text-muted-foreground">Standard Monthly Fee</Label>
-                <span className="font-mono font-bold text-cyan">{inr(chosen.monthly_fee)}</span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label>Amount Paid (₹)</Label>
-                  <Input
-                    required
-                    type="number"
-                    value={amount}
-                    onChange={(e) => setAmount(Number(e.target.value))}
-                    className="bg-panel border-panel-border font-mono w-full"
-                  />
+            {isLegacy ? (
+              <div className="p-4 border border-amber-400/30 rounded-lg bg-amber-400/5 space-y-3">
+                <div className="text-[11px] uppercase tracking-widest text-amber-300/90">
+                  Legacy Onboarding — no revenue recorded
                 </div>
                 <div className="space-y-2">
-                  <Label>Coverage Start Date</Label>
+                  <Label>Next Due Date <span className="text-red-400">*</span></Label>
                   <Input
                     required
                     type="date"
-                    value={startDate}
-                    disabled
-                    className="bg-black/20 border-transparent text-muted-foreground text-sm block w-full opacity-70 cursor-not-allowed"
+                    value={legacyDueDate}
+                    min={todayISO()}
+                    onChange={(e) => setLegacyDueDate(e.target.value)}
+                    className="bg-panel border-panel-border font-mono w-full text-emerald font-semibold"
                   />
+                  <p className="text-[10px] text-muted-foreground">
+                    The date when this student's current offline cycle ends. They will be marked paid until then.
+                  </p>
                 </div>
               </div>
+            ) : (
+              <div className="p-4 border border-panel-border rounded-lg bg-black/10 space-y-4">
+                <div className="flex justify-between items-center bg-panel p-2 rounded-md border border-panel-border/50">
+                  <Label className="text-xs uppercase tracking-widest text-muted-foreground">Standard Monthly Fee</Label>
+                  <span className="font-mono font-bold text-cyan">{inr(chosen.monthly_fee)}</span>
+                </div>
 
-              <div className="space-y-2">
-                <Label>Calculated New Due Date</Label>
-                <Input
-                  required
-                  type="date"
-                  value={endDate}
-                  disabled
-                  className="bg-black/20 border-transparent text-emerald font-semibold text-sm block w-full opacity-90 cursor-not-allowed"
-                />
-                <p className="text-[10px] text-muted-foreground mt-1">
-                  Pro-rated automatically based on the amount paid vs the standard monthly fee (1 month = 30 days).
-                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label>Amount Paid (₹)</Label>
+                    <Input
+                      required
+                      type="number"
+                      value={amount}
+                      onChange={(e) => setAmount(Number(e.target.value))}
+                      className="bg-panel border-panel-border font-mono w-full"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Coverage Start Date</Label>
+                    <Input
+                      required
+                      type="date"
+                      value={startDate}
+                      disabled
+                      className="bg-black/20 border-transparent text-muted-foreground text-sm block w-full opacity-70 cursor-not-allowed"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Calculated New Due Date</Label>
+                  <Input
+                    required
+                    type="date"
+                    value={endDate}
+                    disabled
+                    className="bg-black/20 border-transparent text-emerald font-semibold text-sm block w-full opacity-90 cursor-not-allowed"
+                  />
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    Pro-rated automatically based on the amount paid vs the standard monthly fee (1 month = 30 days).
+                  </p>
+                </div>
               </div>
-            </div>
+            )}
           </>
         )}
 
+        {!isLegacy && (
+          <>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-2">
             <Label>Payment Method</Label>
@@ -471,6 +524,7 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
               </SelectContent>
             </Select>
           </div>
+
           <div className="space-y-2">
             <Label>
               Transaction Reference {method !== "cash" && <span className="text-red-400">*</span>}
@@ -528,13 +582,15 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
             )}
           </div>
         </div>
+          </>
+        )}
 
         <Button
-          disabled={loading || !allocId || !endDate}
+          disabled={loading || !allocId || (isLegacy ? !legacyDueDate : !endDate)}
           type="submit"
           className="w-full mt-2 bg-white text-slate-900 hover:bg-white/90"
         >
-          {loading ? "Processing…" : "Log Payment & Extend Due Date"}
+          {loading ? "Processing…" : isLegacy ? "Onboard Existing Student" : "Log Payment & Extend Due Date"}
         </Button>
       </form>
     </DialogContent>
