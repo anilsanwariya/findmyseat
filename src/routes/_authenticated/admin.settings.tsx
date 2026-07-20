@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Plus, Building2, Globe, Languages, Edit2, Trash2, Mail, AlertTriangle, Image as ImageIcon, X as XIcon, Upload, ArrowUp, ArrowDown, Star, MapPin, Loader2 } from "lucide-react";
+import { Plus, Building2, Globe, Languages, Edit2, Trash2, Mail, AlertTriangle, Image as ImageIcon, X as XIcon, Upload, ArrowUp, ArrowDown, Star, MapPin, Loader2, ArrowRightLeft } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { uploadLibraryPhoto, deleteLibraryPhoto, reorderLibraryPhotos } from "@/lib/libraries.functions";
 import { reverseGeocode } from "@/lib/geocode.functions";
