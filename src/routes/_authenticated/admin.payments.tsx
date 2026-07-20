@@ -311,10 +311,24 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
         className="space-y-4"
         onSubmit={async (e) => {
           e.preventDefault();
-          if (!chosen || !endDate) return;
-          if (method !== "cash" && !txnRef.trim()) {
-            toast.error("Transaction reference is required for non-cash payments.");
-            return;
+          if (!chosen) return;
+
+          const effectiveMethod = isLegacy ? "offline_legacy" : method;
+          const effectiveAmount = isLegacy ? 0 : Number(amount || 0);
+          const effectiveCoversUntil = isLegacy ? legacyDueDate : endDate;
+          const effectiveNote = isLegacy ? "Legacy offline payment onboarding" : (note || null);
+
+          if (isLegacy) {
+            if (!legacyDueDate) {
+              toast.error("Please select the next due date.");
+              return;
+            }
+          } else {
+            if (!endDate) return;
+            if (method !== "cash" && !txnRef.trim()) {
+              toast.error("Transaction reference is required for non-cash payments.");
+              return;
+            }
           }
           setLoading(true);
 
@@ -326,11 +340,13 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
                 library_id: chosen.library_id,
                 student_id: chosen.student_id,
                 allocation_id: chosen.id,
-                amount_paid: Number(amount || 0),
-                method,
-                transaction_reference: method === "cash" ? (txnRef.trim() || null) : txnRef.trim(),
-                reference_note: note || null,
-                covers_until: endDate,
+                amount_paid: effectiveAmount,
+                method: effectiveMethod,
+                transaction_reference: isLegacy
+                  ? null
+                  : (method === "cash" ? (txnRef.trim() || null) : txnRef.trim()),
+                reference_note: effectiveNote,
+                covers_until: effectiveCoversUntil,
                 collected_by_staff_id: session?.staffId ?? null,
               } as any)
               .select("id")
@@ -338,8 +354,8 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
 
             if (error) throw error;
 
-            // Upload receipt if provided
-            if (receiptFile && inserted) {
+            // Upload receipt if provided (not applicable for legacy)
+            if (!isLegacy && receiptFile && inserted) {
               const ext = receiptFile.name.split(".").pop() ?? "jpg";
               const path = `${orgId}/${inserted.id}.${ext}`;
               const { error: upErr } = await supabase.storage
@@ -351,10 +367,10 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
 
             await supabase
               .from("allocations")
-              .update({ next_due_date: endDate, status: "paid" })
+              .update({ next_due_date: effectiveCoversUntil, status: "paid" })
               .eq("id", chosen.id);
 
-            toast.success("Payment logged successfully.");
+            toast.success(isLegacy ? "Existing student onboarded." : "Payment logged successfully.");
             onDone();
           } catch (err: any) {
             toast.error(err.message ?? "Failed to log payment");
@@ -363,6 +379,16 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
           }
         }}
       >
+        <div className="flex items-start justify-between gap-3 rounded-lg border border-panel-border bg-panel/60 p-3">
+          <div className="min-w-0">
+            <div className="text-sm font-medium">Existing Student (Already Paid Offline)</div>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">
+              Use this for students who paid before you started using the app. This will not add to your revenue dashboard.
+            </p>
+          </div>
+          <Switch checked={isLegacy} onCheckedChange={setIsLegacy} />
+        </div>
+
         <div className="space-y-2">
           <Label>Find Active Allocation</Label>
           <div className="relative">
