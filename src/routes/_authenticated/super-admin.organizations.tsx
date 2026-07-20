@@ -146,10 +146,7 @@ function SubscriptionEditDialog({ org, onClose, onSaved }: { org: Org | null; on
     <Dialog open={!!org} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="bg-background/95 backdrop-blur-xl border-panel-border max-w-lg">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="size-4 text-gold" />
-            Edit subscription
-          </DialogTitle>
+          <DialogTitle>Edit subscription</DialogTitle>
         </DialogHeader>
         {org && (
           <div className="space-y-4">
@@ -192,31 +189,13 @@ function SubscriptionEditDialog({ org, onClose, onSaved }: { org: Org | null; on
               <Input type="date" value={nextBilling} onChange={(e) => setNextBilling(e.target.value)} className="bg-panel border-panel-border" />
             </div>
 
-            <div className="border-t border-panel-border pt-4">
-              <Label className="mb-2 block font-mono text-[10px] uppercase tracking-widest text-gold">Custom discount</Label>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="mb-1 block text-xs text-muted-foreground">Monthly (%)</Label>
-                  <Input type="number" min={0} max={100} value={monthly} onChange={(e) => setMonthly(e.target.value)} className="bg-panel border-panel-border" />
-                </div>
-                <div>
-                  <Label className="mb-1 block text-xs text-muted-foreground">Annual (%)</Label>
-                  <Input type="number" min={0} max={100} value={annual} onChange={(e) => setAnnual(e.target.value)} className="bg-panel border-panel-border" />
-                </div>
-              </div>
-              <div className="mt-3">
-                <Label className="mb-1 block text-xs text-muted-foreground">Offer valid until</Label>
-                <Input type="date" value={until} onChange={(e) => setUntil(e.target.value)} className="bg-panel border-panel-border" />
-                <p className="mt-1 text-xs text-muted-foreground">Discount only applies while today is before this date.</p>
-              </div>
-            </div>
+            <p className="rounded-md border border-panel-border/60 bg-panel/40 p-2 text-[11px] text-muted-foreground">
+              Global plan discounts are configured on the <span className="text-foreground font-medium">Subscriptions › Plans</span> page and apply to all organizations.
+            </p>
           </div>
         )}
         <DialogFooter className="gap-2">
-          <Button variant="outline" className="border-rose/40 text-rose hover:bg-rose/10" onClick={() => clear.mutate()} disabled={clear.isPending || save.isPending}>
-            Clear discount
-          </Button>
-          <Button className="bg-gradient-to-r from-gold to-magenta text-slate-950 hover:opacity-90" onClick={() => save.mutate()} disabled={save.isPending}>
+          <Button className="bg-white text-slate-900 hover:bg-white/90" onClick={() => save.mutate()} disabled={save.isPending}>
             {save.isPending ? "Saving…" : "Save subscription"}
           </Button>
         </DialogFooter>
