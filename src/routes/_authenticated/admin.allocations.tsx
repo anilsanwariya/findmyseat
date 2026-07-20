@@ -1023,8 +1023,17 @@ function NewAllocDialog({
     enabled: !!libraryId,
     queryFn: async () => {
       let q = supabase.from("shifts").select("id, name, section_id, base_fee").eq("library_id", libraryId);
-      if (sectionId) q = q.or(`section_id.eq.${sectionId},section_id.is.null`);
-      return (await q).data ?? [];
+      if (sectionId) q = q.eq("section_id", sectionId);
+      const rows = (await q).data ?? [];
+      const seen = new Set<string>();
+      return rows.filter((r: any) => {
+        const cls = classifyShiftByName(r.name || "");
+        const key = cls?.allowKey || (r.name || "").toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
     },
   });
 
