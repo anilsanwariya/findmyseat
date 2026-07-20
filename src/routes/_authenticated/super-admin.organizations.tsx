@@ -63,32 +63,19 @@ function OrganizationsPage() {
             <TableHeader>
               <TableRow className="border-panel-border hover:bg-transparent">
                 <TableHead>Company</TableHead><TableHead>Owner</TableHead><TableHead>Contact</TableHead>
-                <TableHead>Plan</TableHead><TableHead>Discount</TableHead><TableHead>Next billing</TableHead>
+                <TableHead>Plan</TableHead><TableHead>Next billing</TableHead>
                 <TableHead>Status</TableHead><TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading && <TableRow><TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">Loading tenants…</TableCell></TableRow>}
-              {!isLoading && (!orgs || orgs.length === 0) && <TableRow><TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">No organizations yet.</TableCell></TableRow>}
-              {orgs?.map((o) => {
-                const active = isDiscountActive(o);
-                return (
+              {isLoading && <TableRow><TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">Loading tenants…</TableCell></TableRow>}
+              {!isLoading && (!orgs || orgs.length === 0) && <TableRow><TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">No organizations yet.</TableCell></TableRow>}
+              {orgs?.map((o) => (
                 <TableRow key={o.id} className="border-panel-border">
                   <TableCell className="font-medium">{o.company_name}</TableCell>
                   <TableCell className="text-muted-foreground">{o.owner_name}</TableCell>
                   <TableCell className="text-muted-foreground text-xs">{o.contact_email ?? o.contact_phone ?? "—"}</TableCell>
                   <TableCell><span className="rounded-full border border-panel-border bg-panel px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest">{o.subscription_plan}</span></TableCell>
-                  <TableCell>
-                    <span className={cn(
-                      "inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest transition",
-                      active
-                        ? "border-gold/40 bg-gold/10 text-gold"
-                        : "border-panel-border bg-panel text-muted-foreground",
-                    )}>
-                      <Sparkles className="size-3" />
-                      {active ? `M ${o.discount_monthly_pct ?? 0}% · A ${o.discount_annual_pct ?? 0}%` : "No offer"}
-                    </span>
-                  </TableCell>
                   <TableCell className="text-muted-foreground">{o.next_billing_date ? fmtDate(o.next_billing_date) : "—"}</TableCell>
                   <TableCell>
                     <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest",
@@ -108,8 +95,7 @@ function OrganizationsPage() {
                     </div>
                   </TableCell>
                 </TableRow>
-                );
-              })}
+              ))}
             </TableBody>
           </Table>
         </div>
@@ -124,37 +110,23 @@ function OrganizationsPage() {
   );
 }
 
-function isDiscountActive(o: Org) {
-  return !!(o.discount_valid_until && new Date(o.discount_valid_until) > new Date()
-    && ((o.discount_monthly_pct ?? 0) > 0 || (o.discount_annual_pct ?? 0) > 0));
-}
-
 function SubscriptionEditDialog({ org, onClose, onSaved }: { org: Org | null; onClose: () => void; onSaved: () => void }) {
   const [plan, setPlan] = useState<Org["subscription_plan"]>(org?.subscription_plan ?? "single_branch");
   const [status, setStatus] = useState<Org["subscription_status"]>(org?.subscription_status ?? "trial");
   const [nextBilling, setNextBilling] = useState("");
-  const [monthly, setMonthly] = useState("0");
-  const [annual, setAnnual] = useState("0");
-  const [until, setUntil] = useState("");
 
-  const key = `${org?.id ?? ""}|${org?.subscription_plan ?? ""}|${org?.subscription_status ?? ""}|${org?.next_billing_date ?? ""}|${org?.discount_valid_until ?? ""}|${org?.discount_monthly_pct ?? ""}|${org?.discount_annual_pct ?? ""}`;
+  const key = `${org?.id ?? ""}|${org?.subscription_plan ?? ""}|${org?.subscription_status ?? ""}|${org?.next_billing_date ?? ""}`;
   useSyncOnChange(key, () => {
     if (org) {
       setPlan(org.subscription_plan);
       setStatus(org.subscription_status);
       setNextBilling(org.next_billing_date ? org.next_billing_date.slice(0, 10) : "");
-      setMonthly(String(org.discount_monthly_pct ?? 0));
-      setAnnual(String(org.discount_annual_pct ?? 0));
-      setUntil(org.discount_valid_until ? org.discount_valid_until.slice(0, 10) : "");
     }
   });
 
   const save = useMutation({
     mutationFn: async () => {
       if (!org) return;
-      const m = Math.max(0, Math.min(100, Number(monthly) || 0));
-      const a = Math.max(0, Math.min(100, Number(annual) || 0));
-      const validUntil = until ? new Date(until + "T23:59:59").toISOString() : null;
       const nextBillingDate = nextBilling ? new Date(nextBilling + "T00:00:00").toISOString() : null;
       const { error } = await supabase
         .from("organizations")
@@ -162,28 +134,12 @@ function SubscriptionEditDialog({ org, onClose, onSaved }: { org: Org | null; on
           subscription_plan: plan,
           subscription_status: status,
           next_billing_date: nextBillingDate,
-          discount_monthly_pct: m,
-          discount_annual_pct: a,
-          discount_valid_until: validUntil,
         })
         .eq("id", org.id);
       if (error) throw error;
     },
     onSuccess: () => { toast.success("Subscription updated"); onSaved(); onClose(); },
     onError: (e: any) => toast.error(e?.message ?? "Failed to update subscription"),
-  });
-
-  const clear = useMutation({
-    mutationFn: async () => {
-      if (!org) return;
-      const { error } = await supabase
-        .from("organizations")
-        .update({ discount_monthly_pct: 0, discount_annual_pct: 0, discount_valid_until: null })
-        .eq("id", org.id);
-      if (error) throw error;
-    },
-    onSuccess: () => { toast.success("Discount cleared"); onSaved(); },
-    onError: (e: any) => toast.error(e?.message ?? "Failed to clear discount"),
   });
 
   return (
