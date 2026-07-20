@@ -1084,7 +1084,7 @@ function NewAllocDialog({
           // Release any existing active allocation(s) for this student so they only occupy one seat.
           const { error: releaseErr } = await supabase
             .from("allocations")
-            .update({ is_active: false, status: "ended" })
+            .update({ is_active: false })
             .eq("student_id", studentId)
             .eq("is_active", true);
           if (releaseErr) {
