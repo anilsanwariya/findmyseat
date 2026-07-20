@@ -150,6 +150,22 @@ function BranchCard({ lib, onChanged, orgId }: { lib: any; onChanged: () => void
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [photosOpen, setPhotosOpen] = useState(false);
+  const [transferOpen, setTransferOpen] = useState(false);
+  const qc = useQueryClient();
+
+  const pendingTransfer = useQuery({
+    queryKey: ["branch-transfer-pending", lib.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("branch_transfer_requests")
+        .select("id, buyer_email, status, created_at")
+        .eq("library_id", lib.id)
+        .eq("status", "pending")
+        .maybeSingle();
+      return data;
+    },
+  });
+  const hasPending = !!pendingTransfer.data;
 
   return (
     <GlassPanel className="p-5 flex flex-col h-full">
@@ -234,6 +250,35 @@ function BranchCard({ lib, onChanged, orgId }: { lib: any; onChanged: () => void
           </DialogTrigger>
           <PhotoManagerDialog lib={lib} />
         </Dialog>
+
+        <Dialog open={transferOpen} onOpenChange={setTransferOpen}>
+          <DialogTrigger asChild>
+            <Button
+              variant="outline"
+              disabled={hasPending}
+              className="w-full bg-panel border-panel-border hover:bg-amber-400/10 hover:text-amber-300 text-xs disabled:opacity-70"
+            >
+              <ArrowRightLeft className="mr-2 size-3.5" />
+              {hasPending ? "Transfer Pending Verification" : "Transfer Ownership"}
+            </Button>
+          </DialogTrigger>
+          {!hasPending && (
+            <TransferOwnershipDialog
+              lib={lib}
+              orgId={orgId}
+              onDone={() => {
+                setTransferOpen(false);
+                qc.invalidateQueries({ queryKey: ["branch-transfer-pending", lib.id] });
+              }}
+            />
+          )}
+        </Dialog>
+        {hasPending && (
+          <div className="rounded-lg border border-amber-400/30 bg-amber-400/5 px-3 py-2 text-[11px] text-amber-200">
+            Awaiting super-admin verification for <span className="font-mono">{pendingTransfer.data?.buyer_email}</span>
+          </div>
+        )}
+
         <div className="flex items-center justify-between rounded-lg border border-panel-border bg-panel p-3">
           <div className="flex items-center gap-2 text-xs">
             <Globe className="size-3.5 text-cyan" /> Public availability
@@ -250,6 +295,87 @@ function BranchCard({ lib, onChanged, orgId }: { lib: any; onChanged: () => void
     </GlassPanel>
   );
 }
+
+function TransferOwnershipDialog({ lib, orgId, onDone }: { lib: any; orgId: string; onDone: () => void }) {
+  const [buyerEmail, setBuyerEmail] = useState("");
+  const [confirmName, setConfirmName] = useState("");
+  const [loading, setLoading] = useState(false);
+  const canSubmit = confirmName.trim() === lib.name && /^\S+@\S+\.\S+$/.test(buyerEmail) && !loading;
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!canSubmit) return;
+    setLoading(true);
+    const { error } = await supabase.from("branch_transfer_requests").insert({
+      org_id: orgId,
+      library_id: lib.id,
+      buyer_email: buyerEmail.trim().toLowerCase(),
+    });
+    setLoading(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Transfer request submitted. Our Super Admin team will contact you for manual verification.");
+    onDone();
+  }
+
+  return (
+    <DialogContent className="glass-strong border-panel-border w-[95vw] max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogHeader>
+        <DialogTitle className="flex items-center gap-2">
+          <ArrowRightLeft className="size-4 text-amber-300" /> Transfer ownership · {lib.name}
+        </DialogTitle>
+        <DialogDescription className="sr-only">Request a manual ownership transfer of this branch.</DialogDescription>
+      </DialogHeader>
+      <form onSubmit={submit} className="space-y-4">
+        <div className="flex gap-3 rounded-lg border border-amber-400/40 bg-amber-400/10 p-3 text-xs text-amber-100">
+          <AlertTriangle className="size-4 shrink-0 text-amber-300 mt-0.5" />
+          <div>
+            Transferring a branch hands over all active students and seat allocations to the new owner. Your historical
+            revenue data will remain with you. This action requires manual verification by our Super Admin team.
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label className="text-xs">Buyer's registered email</Label>
+          <Input
+            type="email"
+            required
+            value={buyerEmail}
+            onChange={(e) => setBuyerEmail(e.target.value)}
+            className="bg-panel border-panel-border"
+            placeholder="buyer@example.com"
+          />
+          <p className="text-[11px] text-muted-foreground">
+            The new owner must create a LibraryBandhu account using this exact email address.
+          </p>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label className="text-xs">
+            Type <span className="font-mono text-amber-300">{lib.name}</span> to confirm
+          </Label>
+          <Input
+            value={confirmName}
+            onChange={(e) => setConfirmName(e.target.value)}
+            className="bg-panel border-panel-border"
+            placeholder={lib.name}
+          />
+        </div>
+
+        <Button
+          type="submit"
+          disabled={!canSubmit}
+          className="w-full bg-amber-400 text-slate-950 hover:bg-amber-300 disabled:opacity-40"
+        >
+          {loading ? "Submitting…" : "Submit transfer request"}
+        </Button>
+      </form>
+    </DialogContent>
+  );
+}
+
 
 function PhotoManagerDialog({ lib }: { lib: any }) {
   const qc = useQueryClient();
