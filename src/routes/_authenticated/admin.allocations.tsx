@@ -149,7 +149,7 @@ function AllocationsPage() {
         a.students?.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         a.students?.mobile_number?.includes(searchQuery);
 
-      const matchesStatus = statusFilter === "all" || a.status === statusFilter;
+      const matchesStatus = statusFilter === "all" || effectiveStatus(a) === statusFilter;
 
       return matchesSearch && matchesStatus;
     });
