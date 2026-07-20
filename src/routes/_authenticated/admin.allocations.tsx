@@ -502,11 +502,16 @@ function AllocationsPage() {
                   <td className="py-3 px-2 font-mono">{inr(a.monthly_fee)}</td>
                   <td className="py-3 px-2 font-mono">{a.next_due_date ? fmtDate(a.next_due_date) : "—"}</td>
                   <td className="py-3 px-2">
-                    <span
-                      className={`rounded px-2 py-1 text-[10px] ${a.status === "paid" ? "bg-emerald/10 text-emerald" : a.status === "overdue" ? "bg-rose/10 text-rose" : "bg-amber-500/10 text-amber-400"}`}
-                    >
-                      {a.status.toUpperCase()}
-                    </span>
+                    {(() => {
+                      const st = effectiveStatus(a);
+                      return (
+                        <span
+                          className={`rounded px-2 py-1 text-[10px] ${st === "paid" ? "bg-emerald/10 text-emerald" : st === "overdue" ? "bg-rose/10 text-rose" : "bg-amber-500/10 text-amber-400"}`}
+                        >
+                          {st.toUpperCase()}
+                        </span>
+                      );
+                    })()}
                   </td>
                   <td className="py-3 px-2 text-right">
                     <Button
