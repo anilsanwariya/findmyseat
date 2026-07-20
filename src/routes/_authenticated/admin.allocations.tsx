@@ -72,6 +72,20 @@ function classifyShiftByName(name: string): { allowKey: string; feeKey: string }
   return null;
 }
 
+// Derive fee status: if the next due date has passed, treat as overdue
+// regardless of the stored status (which only updates on payment events).
+function effectiveStatus(a: { status?: string | null; next_due_date?: string | null }): string {
+  const s = a?.status ?? "pending";
+  if (a?.next_due_date) {
+    const due = new Date(a.next_due_date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    due.setHours(0, 0, 0, 0);
+    if (due.getTime() < today.getTime()) return "overdue";
+  }
+  return s;
+}
+
 function AllocationsPage() {
   const { data: session } = useSession();
   const orgId = session?.orgId;
