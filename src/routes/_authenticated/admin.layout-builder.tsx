@@ -1138,6 +1138,7 @@ function AddSectionDialog({
               toast.error(error.message);
               return;
             }
+            await syncSectionShifts(data.id, libraryId, orgId, allows, fees);
             toast.success("Section created");
             onCreated(data.id);
             onOpenChange(false);
