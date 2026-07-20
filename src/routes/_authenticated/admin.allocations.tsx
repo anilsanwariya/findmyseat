@@ -72,6 +72,20 @@ function classifyShiftByName(name: string): { allowKey: string; feeKey: string }
   return null;
 }
 
+// Derive fee status: if the next due date has passed, treat as overdue
+// regardless of the stored status (which only updates on payment events).
+function effectiveStatus(a: { status?: string | null; next_due_date?: string | null }): string {
+  const s = a?.status ?? "pending";
+  if (a?.next_due_date) {
+    const due = new Date(a.next_due_date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    due.setHours(0, 0, 0, 0);
+    if (due.getTime() < today.getTime()) return "overdue";
+  }
+  return s;
+}
+
 function AllocationsPage() {
   const { data: session } = useSession();
   const orgId = session?.orgId;
@@ -135,7 +149,7 @@ function AllocationsPage() {
         a.students?.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         a.students?.mobile_number?.includes(searchQuery);
 
-      const matchesStatus = statusFilter === "all" || a.status === statusFilter;
+      const matchesStatus = statusFilter === "all" || effectiveStatus(a) === statusFilter;
 
       return matchesSearch && matchesStatus;
     });
@@ -488,11 +502,16 @@ function AllocationsPage() {
                   <td className="py-3 px-2 font-mono">{inr(a.monthly_fee)}</td>
                   <td className="py-3 px-2 font-mono">{a.next_due_date ? fmtDate(a.next_due_date) : "—"}</td>
                   <td className="py-3 px-2">
-                    <span
-                      className={`rounded px-2 py-1 text-[10px] ${a.status === "paid" ? "bg-emerald/10 text-emerald" : a.status === "overdue" ? "bg-rose/10 text-rose" : "bg-amber-500/10 text-amber-400"}`}
-                    >
-                      {a.status.toUpperCase()}
-                    </span>
+                    {(() => {
+                      const st = effectiveStatus(a);
+                      return (
+                        <span
+                          className={`rounded px-2 py-1 text-[10px] ${st === "paid" ? "bg-emerald/10 text-emerald" : st === "overdue" ? "bg-rose/10 text-rose" : "bg-amber-500/10 text-amber-400"}`}
+                        >
+                          {st.toUpperCase()}
+                        </span>
+                      );
+                    })()}
                   </td>
                   <td className="py-3 px-2 text-right">
                     <Button
@@ -1187,20 +1206,22 @@ function NewAllocDialog({
             </SelectContent>
           </Select>
 
-          {activeAlloc && (
+          {activeAlloc && (() => {
+            const st = effectiveStatus(activeAlloc);
+            return (
             <div className="flex items-center gap-4 rounded-md border border-panel-border bg-black/10 px-3 py-2 mt-2 text-xs">
               <div>
                 <span className="text-muted-foreground mr-1">Status:</span>
                 <span
                   className={
-                    activeAlloc.status === "paid"
+                    st === "paid"
                       ? "text-emerald"
-                      : activeAlloc.status === "overdue"
+                      : st === "overdue"
                         ? "text-rose"
                         : "text-amber-400"
                   }
                 >
-                  {activeAlloc.status.toUpperCase()}
+                  {st.toUpperCase()}
                 </span>
               </div>
               <div>
@@ -1210,7 +1231,8 @@ function NewAllocDialog({
                 </span>
               </div>
             </div>
-          )}
+            );
+          })()}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
