@@ -1269,11 +1269,13 @@ function EditSectionDialog({
               .from("sections")
               .update(payload as any)
               .eq("id", section.id);
-            setSaving(false);
             if (error) {
+              setSaving(false);
               toast.error(error.message);
               return;
             }
+            await syncSectionShifts(section.id, section.library_id, section.org_id, allows, fees);
+            setSaving(false);
             toast.success("Section updated");
             onSaved();
             onOpenChange(false);
