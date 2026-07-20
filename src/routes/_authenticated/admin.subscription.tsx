@@ -194,7 +194,10 @@ function SubscriptionPageInner() {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {(plans.data ?? []).map((p: any) => {
             const basePrice = cycle === "monthly" ? Number(p.monthly_price) : Number(p.annual_price);
-            // Apply org-level custom discount first
+            // Per-plan global discount
+            const planPct = cycle === "monthly" ? Number(p.discount_monthly_pct) || 0 : Number(p.discount_annual_pct) || 0;
+            const planOfferActive = planPct > 0 && p.discount_valid_until && new Date(p.discount_valid_until) > new Date();
+            const customPct = planOfferActive ? planPct : 0;
             const afterCustom = customPct > 0 ? Math.max(0, basePrice * (1 - customPct / 100)) : basePrice;
             // Then coupon on top
             const couponOff = appliedCoupon
