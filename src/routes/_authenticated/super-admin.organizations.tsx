@@ -125,17 +125,7 @@ function DiscountDialog({ org, onClose, onSaved }: { org: Org | null; onClose: (
   const [annual, setAnnual] = useState("0");
   const [until, setUntil] = useState("");
 
-  // Reset when org changes
-  const orgId = org?.id;
-  useState(() => {
-    if (org) {
-      setMonthly(String(org.discount_monthly_pct ?? 0));
-      setAnnual(String(org.discount_annual_pct ?? 0));
-      setUntil(org.discount_valid_until ? org.discount_valid_until.slice(0, 10) : "");
-    }
-    return undefined;
-  });
-  // Sync on prop change
+  // Sync local state whenever the target org changes
   const key = `${orgId ?? ""}|${org?.discount_valid_until ?? ""}|${org?.discount_monthly_pct ?? ""}|${org?.discount_annual_pct ?? ""}`;
   useSyncOnChange(key, () => {
     if (org) {
