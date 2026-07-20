@@ -110,13 +110,21 @@ export const createOwnerSubscription = createServerFn({ method: "POST" })
 
     const [{ data: plan }, { data: org }] = await Promise.all([
       supabase.from("subscription_plans").select("*").eq("id", data.plan_id).eq("is_active", true).maybeSingle(),
-      supabase.from("organizations").select("company_name, contact_email, contact_phone, owner_name").eq("id", orgId).maybeSingle(),
+      supabase.from("organizations").select("company_name, contact_email, contact_phone, owner_name, discount_monthly_pct, discount_annual_pct, discount_valid_until").eq("id", orgId).maybeSingle(),
     ]);
     if (!plan) throw new Error("Plan not found");
     if (!org) throw new Error("Organization missing");
 
-    const baseAmount = Number(data.billing_cycle === "monthly" ? plan.monthly_price : plan.annual_price) || Number(plan.price) || 0;
-    if (baseAmount <= 0) throw new Error("Plan price is not set");
+    const basePrice = Number(data.billing_cycle === "monthly" ? plan.monthly_price : plan.annual_price) || Number(plan.price) || 0;
+    if (basePrice <= 0) throw new Error("Plan price is not set");
+
+    // Apply org-level custom discount if valid
+    const customPct = Number(
+      data.billing_cycle === "monthly" ? (org as any).discount_monthly_pct : (org as any).discount_annual_pct,
+    ) || 0;
+    const validUntil = (org as any).discount_valid_until;
+    const customActive = customPct > 0 && validUntil && new Date(validUntil) > new Date();
+    const baseAmount = customActive ? Math.max(0, basePrice * (1 - customPct / 100)) : basePrice;
 
     // Coupon
     let couponId: string | null = null;
