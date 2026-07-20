@@ -4,8 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { GlassPanel, Kpi, SectionHeader } from "@/components/glass";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { ArrowRightLeft, CheckCircle2, XCircle } from "lucide-react";
+import { ArrowRightLeft, CheckCircle2, XCircle, Eye, Mail, Phone, User, Building2 } from "lucide-react";
 import { useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/_authenticated/super-admin/")({
   component: SuperAdminDashboard,
@@ -48,6 +49,7 @@ function MetricsRow() {
 function PendingTransfers() {
   const qc = useQueryClient();
   const [busy, setBusy] = useState<string | null>(null);
+  const [details, setDetails] = useState<any | null>(null);
   const sb: any = supabase;
 
   const { data, isLoading, error } = useQuery({
@@ -68,7 +70,7 @@ function PendingTransfers() {
           ? sb.from("libraries").select("id, name").in("id", libIds)
           : Promise.resolve({ data: [] as any[] }),
         orgIds.length
-          ? sb.from("organizations").select("id, company_name").in("id", orgIds)
+          ? sb.from("organizations").select("id, company_name, owner_name, contact_phone, contact_email").in("id", orgIds)
           : Promise.resolve({ data: [] as any[] }),
       ]);
       const libMap = new Map((libsRes.data ?? []).map((l: any) => [l.id, l]));
@@ -160,13 +162,28 @@ function PendingTransfers() {
               {data.map((row: any) => (
                 <tr key={row.id} className="border-b border-panel-border/50">
                   <td className="py-3 pr-3">{row.organizations?.company_name ?? "—"}</td>
-                  <td className="py-3 pr-3 font-medium">{row.libraries?.name ?? "—"}</td>
+                  <td className="py-3 pr-3 font-medium">
+                    <button
+                      onClick={() => setDetails(row)}
+                      className="text-left text-cyan hover:underline"
+                    >
+                      {row.libraries?.name ?? "—"}
+                    </button>
+                  </td>
                   <td className="py-3 pr-3 font-mono text-xs text-cyan">{row.buyer_email}</td>
                   <td className="py-3 pr-3 text-xs text-muted-foreground">
                     {new Date(row.created_at).toLocaleDateString()}
                   </td>
                   <td className="py-3 pr-3">
                     <div className="flex justify-end gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setDetails(row)}
+                        className="h-7"
+                      >
+                        <Eye className="mr-1 size-3" /> Details
+                      </Button>
                       <Button
                         size="sm"
                         variant="outline"
@@ -193,6 +210,80 @@ function PendingTransfers() {
           </table>
         </div>
       )}
+
+      <Dialog open={!!details} onOpenChange={(o) => !o && setDetails(null)}>
+        <DialogContent className="border-panel-border bg-background/95 backdrop-blur-xl sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Building2 className="size-4 text-amber-300" />
+              {details?.libraries?.name ?? "Branch"}
+            </DialogTitle>
+            <DialogDescription>
+              Contact both parties to verify the transfer before completing.
+            </DialogDescription>
+          </DialogHeader>
+
+          {details && (
+            <div className="space-y-4">
+              <section className="rounded-lg border border-panel-border bg-panel/40 p-4">
+                <div className="mb-3 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                  Current Owner (Seller)
+                </div>
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="size-3.5 text-muted-foreground" />
+                    <span>{details.organizations?.company_name ?? "—"}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <User className="size-3.5 text-muted-foreground" />
+                    <span>{details.organizations?.owner_name ?? "—"}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Mail className="size-3.5 text-muted-foreground" />
+                    {details.organizations?.contact_email ? (
+                      <a href={`mailto:${details.organizations.contact_email}`} className="text-cyan hover:underline">
+                        {details.organizations.contact_email}
+                      </a>
+                    ) : (
+                      <span>—</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Phone className="size-3.5 text-muted-foreground" />
+                    {details.organizations?.contact_phone ? (
+                      <a href={`tel:${details.organizations.contact_phone}`} className="text-cyan hover:underline">
+                        {details.organizations.contact_phone}
+                      </a>
+                    ) : (
+                      <span>—</span>
+                    )}
+                  </div>
+                </div>
+              </section>
+
+              <section className="rounded-lg border border-emerald/30 bg-emerald/5 p-4">
+                <div className="mb-3 font-mono text-[10px] uppercase tracking-widest text-emerald">
+                  New Owner (Buyer)
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <Mail className="size-3.5 text-muted-foreground" />
+                  <a href={`mailto:${details.buyer_email}`} className="text-cyan hover:underline">
+                    {details.buyer_email}
+                  </a>
+                </div>
+                {details.notes && (
+                  <p className="mt-3 text-xs text-muted-foreground">Note: {details.notes}</p>
+                )}
+              </section>
+
+              <p className="text-[11px] text-muted-foreground">
+                Requested on {new Date(details.created_at).toLocaleString()}
+              </p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </GlassPanel>
   );
 }
+
