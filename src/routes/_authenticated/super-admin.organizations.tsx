@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { fmtDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { Sparkles, Edit2 } from "lucide-react";
+import { Edit2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/super-admin/organizations")({
   component: OrganizationsPage,
