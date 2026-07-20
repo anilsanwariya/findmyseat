@@ -1596,7 +1596,12 @@ export type Database = {
       lead_status: "pending" | "contacted" | "converted" | "lost"
       library_approval_status: "pending" | "approved" | "rejected"
       notice_type: "announcement" | "holiday"
-      payment_method: "upi" | "cash" | "card" | "bank_transfer"
+      payment_method:
+        | "upi"
+        | "cash"
+        | "card"
+        | "bank_transfer"
+        | "offline_legacy"
       reservation_type: "reserved" | "unreserved"
       subscription_plan: "single_branch" | "multi_branch"
       subscription_status: "active" | "suspended" | "trial"
@@ -1736,7 +1741,13 @@ export const Constants = {
       lead_status: ["pending", "contacted", "converted", "lost"],
       library_approval_status: ["pending", "approved", "rejected"],
       notice_type: ["announcement", "holiday"],
-      payment_method: ["upi", "cash", "card", "bank_transfer"],
+      payment_method: [
+        "upi",
+        "cash",
+        "card",
+        "bank_transfer",
+        "offline_legacy",
+      ],
       reservation_type: ["reserved", "unreserved"],
       subscription_plan: ["single_branch", "multi_branch"],
       subscription_status: ["active", "suspended", "trial"],
