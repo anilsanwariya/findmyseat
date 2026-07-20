@@ -126,7 +126,7 @@ function DiscountDialog({ org, onClose, onSaved }: { org: Org | null; onClose: (
   const [until, setUntil] = useState("");
 
   // Sync local state whenever the target org changes
-  const key = `${orgId ?? ""}|${org?.discount_valid_until ?? ""}|${org?.discount_monthly_pct ?? ""}|${org?.discount_annual_pct ?? ""}`;
+  const key = `${org?.id ?? ""}|${org?.discount_valid_until ?? ""}|${org?.discount_monthly_pct ?? ""}|${org?.discount_annual_pct ?? ""}`;
   useSyncOnChange(key, () => {
     if (org) {
       setMonthly(String(org.discount_monthly_pct ?? 0));
