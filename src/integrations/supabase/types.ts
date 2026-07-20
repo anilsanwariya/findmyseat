@@ -1678,7 +1678,13 @@ export type Database = {
         Args: { _org_id: string; _user_id: string }
         Returns: boolean
       }
+      is_staff_user: { Args: { _uid: string }; Returns: boolean }
       org_subscription_state: { Args: { _org_id: string }; Returns: string }
+      staff_lib_ok: {
+        Args: { _library_id: string; _uid: string }
+        Returns: boolean
+      }
+      staff_perm_ok: { Args: { _perm: string; _uid: string }; Returns: boolean }
       transfer_branch_ownership: {
         Args: { _library_id: string; _new_org_id: string }
         Returns: undefined
