@@ -1,0 +1,1 @@
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.branch_transfer_requests TO authenticated; GRANT ALL ON public.branch_transfer_requests TO service_role;
