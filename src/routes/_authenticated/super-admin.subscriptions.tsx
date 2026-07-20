@@ -50,17 +50,20 @@ function PlansSection() {
 
   const save = useMutation({
     mutationFn: async (p: any) => {
-      // Owners can only change prices; name/features/limits are locked.
+      // Owners can only change prices and the global discount; name/features/limits are locked.
       const payload = {
         monthly_price: Number(p.monthly_price) || 0,
         annual_price: Number(p.annual_price) || 0,
         price: Number(p.monthly_price) || 0,
+        discount_monthly_pct: Math.max(0, Math.min(100, Number(p.discount_monthly_pct) || 0)),
+        discount_annual_pct: Math.max(0, Math.min(100, Number(p.discount_annual_pct) || 0)),
+        discount_valid_until: p.discount_valid_until ? new Date(p.discount_valid_until + "T23:59:59").toISOString() : null,
       };
       const { error } = await supabase.from("subscription_plans").update(payload).eq("id", editing.id);
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Prices updated");
+      toast.success("Plan updated");
       qc.invalidateQueries({ queryKey: ["super-admin", "plans-full"] });
       setEditing(null);
     },
@@ -131,6 +134,9 @@ function PlanPriceDialog({ initial, onSubmit, pending }: { initial: any; onSubmi
   const [f, setF] = useState({
     monthly_price: initial?.monthly_price ?? 0,
     annual_price: initial?.annual_price ?? 0,
+    discount_monthly_pct: initial?.discount_monthly_pct ?? 0,
+    discount_annual_pct: initial?.discount_annual_pct ?? 0,
+    discount_valid_until: initial?.discount_valid_until ? String(initial.discount_valid_until).slice(0, 10) : "",
   });
   return (
     <DialogContent className="glass-strong border-panel-border">
@@ -153,10 +159,29 @@ function PlanPriceDialog({ initial, onSubmit, pending }: { initial: any; onSubmi
             <Input type="number" value={f.annual_price} onChange={(e) => setF({ ...f, annual_price: e.target.value as any })} className="bg-panel border-panel-border font-mono" />
           </div>
         </div>
+
+        <div className="border-t border-panel-border pt-3">
+          <Label className="mb-2 block font-mono text-[10px] uppercase tracking-widest text-gold">Global discount (applies to all organizations)</Label>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs text-muted-foreground">Monthly %</Label>
+              <Input type="number" min={0} max={100} value={f.discount_monthly_pct} onChange={(e) => setF({ ...f, discount_monthly_pct: e.target.value as any })} className="bg-panel border-panel-border font-mono" />
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">Annual %</Label>
+              <Input type="number" min={0} max={100} value={f.discount_annual_pct} onChange={(e) => setF({ ...f, discount_annual_pct: e.target.value as any })} className="bg-panel border-panel-border font-mono" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <Label className="text-xs text-muted-foreground">Offer valid until</Label>
+            <Input type="date" value={f.discount_valid_until} onChange={(e) => setF({ ...f, discount_valid_until: e.target.value })} className="bg-panel border-panel-border" />
+            <p className="mt-1 text-[11px] text-muted-foreground">Leave blank to disable the discount. Applies while today is before this date.</p>
+          </div>
+        </div>
       </div>
       <DialogFooter>
         <Button className="bg-white text-slate-900 hover:bg-white/90" disabled={pending} onClick={() => onSubmit(f)}>
-          Save prices
+          Save changes
         </Button>
       </DialogFooter>
     </DialogContent>
