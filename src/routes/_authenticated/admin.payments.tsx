@@ -236,11 +236,13 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
   const [amount, setAmount] = useState<number | "">("");
   const [startDate, setStartDate] = useState(todayISO());
   const [endDate, setEndDate] = useState("");
-  const [method, setMethod] = useState<"upi" | "cash" | "card" | "bank_transfer">("upi");
+  const [method, setMethod] = useState<"upi" | "cash" | "card" | "bank_transfer" | "offline_legacy">("upi");
   const [txnRef, setTxnRef] = useState("");
   const [note, setNote] = useState("");
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isLegacy, setIsLegacy] = useState(false);
+  const [legacyDueDate, setLegacyDueDate] = useState("");
 
   const active = useQuery({
     queryKey: ["allocations-active", orgId],
