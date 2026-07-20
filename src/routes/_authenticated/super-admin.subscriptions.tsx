@@ -50,17 +50,20 @@ function PlansSection() {
 
   const save = useMutation({
     mutationFn: async (p: any) => {
-      // Owners can only change prices; name/features/limits are locked.
+      // Owners can only change prices and the global discount; name/features/limits are locked.
       const payload = {
         monthly_price: Number(p.monthly_price) || 0,
         annual_price: Number(p.annual_price) || 0,
         price: Number(p.monthly_price) || 0,
+        discount_monthly_pct: Math.max(0, Math.min(100, Number(p.discount_monthly_pct) || 0)),
+        discount_annual_pct: Math.max(0, Math.min(100, Number(p.discount_annual_pct) || 0)),
+        discount_valid_until: p.discount_valid_until ? new Date(p.discount_valid_until + "T23:59:59").toISOString() : null,
       };
       const { error } = await supabase.from("subscription_plans").update(payload).eq("id", editing.id);
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Prices updated");
+      toast.success("Plan updated");
       qc.invalidateQueries({ queryKey: ["super-admin", "plans-full"] });
       setEditing(null);
     },
