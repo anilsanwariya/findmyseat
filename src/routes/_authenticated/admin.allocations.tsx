@@ -1081,6 +1081,18 @@ function NewAllocDialog({
 
           setLoading(true);
 
+          // Release any existing active allocation(s) for this student so they only occupy one seat.
+          const { error: releaseErr } = await supabase
+            .from("allocations")
+            .update({ is_active: false })
+            .eq("student_id", studentId)
+            .eq("is_active", true);
+          if (releaseErr) {
+            setLoading(false);
+            toast.error(releaseErr.message);
+            return;
+          }
+
           const { error } = await supabase.from("allocations").insert({
             org_id: orgId!,
             library_id: libraryId,
@@ -1097,6 +1109,7 @@ function NewAllocDialog({
             toast.error(error.message);
             return;
           }
+
           toast.success("Allocation created. Set dates in Payments view.");
           onDone();
         }}
