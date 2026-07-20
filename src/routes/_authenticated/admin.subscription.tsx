@@ -97,9 +97,44 @@ function SubscriptionPageInner() {
   const currentPlan = billing.data?.plan;
   const statusTone = sub?.status === "active" ? "text-emerald bg-emerald/15" : sub?.status === "past_due" || sub?.status === "halted" ? "text-rose bg-rose/15" : "text-cyan bg-cyan/15";
 
+  // Custom org-level discount
+  const orgDiscount = billing.data?.org;
+  const offerActive = !!(orgDiscount?.discount_valid_until && new Date(orgDiscount.discount_valid_until) > new Date()
+    && ((Number(orgDiscount.discount_monthly_pct) || 0) > 0 || (Number(orgDiscount.discount_annual_pct) || 0) > 0));
+  const customPct = offerActive
+    ? (cycle === "monthly" ? Number(orgDiscount?.discount_monthly_pct) || 0 : Number(orgDiscount?.discount_annual_pct) || 0)
+    : 0;
+
   return (
     <div className="space-y-8">
       <SectionHeader title="Subscription & billing" hint="Manage your LibraryBandhu SaaS plan" />
+
+      {offerActive && (
+        <GlassPanel
+          className="relative overflow-hidden border-gold/40 p-5 shadow-[0_0_40px_-8px_rgba(212,175,55,0.55)]"
+          strong
+        >
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-gold/15 via-magenta/10 to-cyan/15 animate-pulse" />
+          <div className="relative flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="grid size-10 place-items-center rounded-xl bg-gradient-to-br from-gold to-magenta shadow-[0_0_20px_-4px_rgba(236,72,153,0.7)]">
+                <Sparkles className="size-5 text-slate-950" />
+              </div>
+              <div>
+                <div className="text-sm font-extrabold tracking-tight text-gold">🎉 Special Offer unlocked!</div>
+                <div className="text-xs text-muted-foreground">
+                  Your custom discount expires on{" "}
+                  <span className="text-foreground">{fmtDate(orgDiscount!.discount_valid_until)}</span>
+                  {" · "}
+                  {(Number(orgDiscount?.discount_monthly_pct) || 0) > 0 && <>Monthly {Number(orgDiscount?.discount_monthly_pct)}% off</>}
+                  {(Number(orgDiscount?.discount_monthly_pct) || 0) > 0 && (Number(orgDiscount?.discount_annual_pct) || 0) > 0 && " · "}
+                  {(Number(orgDiscount?.discount_annual_pct) || 0) > 0 && <>Annual {Number(orgDiscount?.discount_annual_pct)}% off</>}
+                </div>
+              </div>
+            </div>
+          </div>
+        </GlassPanel>
+      )}
 
       {/* Current plan */}
       <GlassPanel className="p-6">
@@ -158,12 +193,37 @@ function SubscriptionPageInner() {
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {(plans.data ?? []).map((p: any) => {
-            const price = cycle === "monthly" ? Number(p.monthly_price) : Number(p.annual_price);
-            const discount = appliedCoupon ? (appliedCoupon.discount_type === "flat" ? appliedCoupon.discount_value : price * appliedCoupon.discount_value / 100) : 0;
-            const finalPrice = Math.max(0, price - discount);
+            const basePrice = cycle === "monthly" ? Number(p.monthly_price) : Number(p.annual_price);
+            // Apply org-level custom discount first
+            const afterCustom = customPct > 0 ? Math.max(0, basePrice * (1 - customPct / 100)) : basePrice;
+            // Then coupon on top
+            const couponOff = appliedCoupon
+              ? (appliedCoupon.discount_type === "flat" ? appliedCoupon.discount_value : afterCustom * appliedCoupon.discount_value / 100)
+              : 0;
+            const finalPrice = Math.max(0, afterCustom - couponOff);
+            const hasDiscount = finalPrice < basePrice;
             const isCurrent = sub?.plan_id === p.id && sub?.billing_cycle === cycle && sub?.status === "active";
+
+            // Annual savings vs paying standard monthly for 12 months
+            const stdMonthly = Number(p.monthly_price) || 0;
+            const annualSavingsPct = cycle === "annual" && stdMonthly > 0
+              ? Math.round(((stdMonthly * 12 - finalPrice) / (stdMonthly * 12)) * 100)
+              : 0;
+
             return (
-              <GlassPanel key={p.id} className={cn("flex flex-col p-6", isCurrent && "ring-2 ring-emerald/60")}>
+              <GlassPanel
+                key={p.id}
+                className={cn(
+                  "relative flex flex-col p-6",
+                  isCurrent && "ring-2 ring-emerald/60",
+                  hasDiscount && "border-gold/40 shadow-[0_0_36px_-10px_rgba(212,175,55,0.55)]",
+                )}
+              >
+                {cycle === "annual" && annualSavingsPct > 0 && (
+                  <div className="absolute -top-3 right-4 rounded-full bg-gradient-to-r from-gold to-magenta px-3 py-1 text-[11px] font-bold text-slate-950 shadow-[0_0_20px_-4px_rgba(236,72,153,0.7)]">
+                    🔥 Save {annualSavingsPct}%
+                  </div>
+                )}
                 <div className="flex items-center gap-2">
                   <Sparkles className="size-4 text-violet" />
                   <h4 className="font-bold">{p.name}</h4>
@@ -173,11 +233,25 @@ function SubscriptionPageInner() {
                   {p.max_branches == null ? "Unlimited branches" : `Up to ${p.max_branches} branch${p.max_branches === 1 ? "" : "es"}`}
                 </div>
                 <div className="mt-4">
-                  <div className="text-3xl font-extrabold tracking-tight">
+                  {hasDiscount && (
+                    <div className="text-xs text-muted-foreground line-through">
+                      ₹{basePrice.toLocaleString("en-IN")}/{cycle === "monthly" ? "mo" : "yr"}
+                    </div>
+                  )}
+                  <div
+                    className={cn(
+                      "text-3xl font-extrabold tracking-tight",
+                      hasDiscount && "bg-gradient-to-r from-gold via-magenta to-cyan bg-clip-text text-transparent drop-shadow-[0_0_18px_rgba(212,175,55,0.35)]",
+                    )}
+                  >
                     ₹{finalPrice.toLocaleString("en-IN")}
                     <span className="ml-1 text-sm font-medium text-muted-foreground">/{cycle === "monthly" ? "mo" : "yr"}</span>
                   </div>
-                  {discount > 0 && <div className="text-xs text-muted-foreground line-through">₹{price.toLocaleString("en-IN")}</div>}
+                  {hasDiscount && customPct > 0 && (
+                    <div className="mt-1 inline-flex items-center gap-1 rounded-full border border-gold/40 bg-gold/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest text-gold">
+                      Offer price · {customPct}% off
+                    </div>
+                  )}
                 </div>
                 <ul className="mt-4 flex-1 space-y-1.5 text-xs">
                   {(Array.isArray(p.features) ? p.features : []).map((f: string, i: number) => (
@@ -197,6 +271,7 @@ function SubscriptionPageInner() {
           {plans.isLoading && <GlassPanel className="p-10 text-center text-muted-foreground col-span-full">Loading plans…</GlassPanel>}
         </div>
       </div>
+
 
       {/* Invoices */}
       <GlassPanel className="overflow-hidden">

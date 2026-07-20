@@ -710,6 +710,9 @@ export type Database = {
           contact_email: string | null
           contact_phone: string | null
           created_at: string
+          discount_annual_pct: number
+          discount_monthly_pct: number
+          discount_valid_until: string | null
           id: string
           next_billing_date: string | null
           owner_name: string
@@ -724,6 +727,9 @@ export type Database = {
           contact_email?: string | null
           contact_phone?: string | null
           created_at?: string
+          discount_annual_pct?: number
+          discount_monthly_pct?: number
+          discount_valid_until?: string | null
           id?: string
           next_billing_date?: string | null
           owner_name: string
@@ -738,6 +744,9 @@ export type Database = {
           contact_email?: string | null
           contact_phone?: string | null
           created_at?: string
+          discount_annual_pct?: number
+          discount_monthly_pct?: number
+          discount_valid_until?: string | null
           id?: string
           next_billing_date?: string | null
           owner_name?: string
