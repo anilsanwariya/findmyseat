@@ -210,6 +210,80 @@ function PendingTransfers() {
           </table>
         </div>
       )}
+
+      <Dialog open={!!details} onOpenChange={(o) => !o && setDetails(null)}>
+        <DialogContent className="border-panel-border bg-background/95 backdrop-blur-xl sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Building2 className="size-4 text-amber-300" />
+              {details?.libraries?.name ?? "Branch"}
+            </DialogTitle>
+            <DialogDescription>
+              Contact both parties to verify the transfer before completing.
+            </DialogDescription>
+          </DialogHeader>
+
+          {details && (
+            <div className="space-y-4">
+              <section className="rounded-lg border border-panel-border bg-panel/40 p-4">
+                <div className="mb-3 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                  Current Owner (Seller)
+                </div>
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="size-3.5 text-muted-foreground" />
+                    <span>{details.organizations?.company_name ?? "—"}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <User className="size-3.5 text-muted-foreground" />
+                    <span>{details.organizations?.owner_name ?? "—"}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Mail className="size-3.5 text-muted-foreground" />
+                    {details.organizations?.contact_email ? (
+                      <a href={`mailto:${details.organizations.contact_email}`} className="text-cyan hover:underline">
+                        {details.organizations.contact_email}
+                      </a>
+                    ) : (
+                      <span>—</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Phone className="size-3.5 text-muted-foreground" />
+                    {details.organizations?.contact_phone ? (
+                      <a href={`tel:${details.organizations.contact_phone}`} className="text-cyan hover:underline">
+                        {details.organizations.contact_phone}
+                      </a>
+                    ) : (
+                      <span>—</span>
+                    )}
+                  </div>
+                </div>
+              </section>
+
+              <section className="rounded-lg border border-emerald/30 bg-emerald/5 p-4">
+                <div className="mb-3 font-mono text-[10px] uppercase tracking-widest text-emerald">
+                  New Owner (Buyer)
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <Mail className="size-3.5 text-muted-foreground" />
+                  <a href={`mailto:${details.buyer_email}`} className="text-cyan hover:underline">
+                    {details.buyer_email}
+                  </a>
+                </div>
+                {details.notes && (
+                  <p className="mt-3 text-xs text-muted-foreground">Note: {details.notes}</p>
+                )}
+              </section>
+
+              <p className="text-[11px] text-muted-foreground">
+                Requested on {new Date(details.created_at).toLocaleString()}
+              </p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </GlassPanel>
   );
 }
+
