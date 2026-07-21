@@ -70,11 +70,12 @@ export async function fetchSession(): Promise<SessionInfo> {
   let studentId: string | null = null;
   let requiresPinChange = false;
   if (!role) {
-    const { data: student } = await supabase
+    const { data: students } = await supabase
       .from("students")
       .select("id, org_id, requires_pin_change")
       .eq("user_id", userId)
-      .maybeSingle();
+      .limit(1);
+    const student = students?.[0];
     if (student) {
       role = "student";
       studentId = student.id;
