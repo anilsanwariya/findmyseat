@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { inr, fmtDate } from "@/lib/format";
-import { changeMyPin, sendEmailVerificationOtp, verifyEmailOtp } from "@/lib/students.functions";
+import { changeMyPin, sendEmailVerificationOtp, verifyEmailOtp, archiveMyAllocation } from "@/lib/students.functions";
 import { cn } from "@/lib/utils";
 import { RateBranchDialog } from "@/components/student/RateBranchDialog";
 import { Logo } from "@/components/Logo";
