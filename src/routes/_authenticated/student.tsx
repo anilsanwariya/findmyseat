@@ -75,7 +75,9 @@ function StudentApp() {
   const { data: session, isLoading } = useSession();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const [rateOpen, setRateOpen] = useState(false);
+  const [rateTarget, setRateTarget] = useState<{ libId: string; libName: string; studentId: string } | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const archiveAllocation = useServerFn(archiveMyAllocation);
 
 
   useEffect(() => {
