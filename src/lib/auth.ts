@@ -187,12 +187,12 @@ export async function classifyCurrentUser(): Promise<LoginCategory | null> {
     return staff ? "staff" : "owner";
   }
 
-  const { data: student } = await supabase
+  const { data: students } = await supabase
     .from("students")
     .select("id")
     .eq("user_id", userId)
-    .maybeSingle();
-  if (student) return "student";
+    .limit(1);
+  if (students && students.length > 0) return "student";
 
   return null;
 }
