@@ -97,19 +97,43 @@ function StudentApp() {
       ).data,
   });
 
-  const alloc = useQuery({
-    queryKey: ["my-allocation", session?.studentId],
-    enabled: !!session?.studentId,
+  // All student rows for this user (one per org).
+  const myStudents = useQuery({
+    queryKey: ["my-student-rows", session?.userId],
+    enabled: !!session?.userId,
+    queryFn: async () =>
+      (await supabase.from("students").select("id, org_id, library_id").eq("user_id", session!.userId!)).data ?? [],
+  });
+  const studentIds = useMemo(() => (myStudents.data ?? []).map((s: any) => s.id), [myStudents.data]);
+
+  // All allocations across every library the student is subscribed to.
+  const myAllocations = useQuery({
+    queryKey: ["my-allocations", studentIds.join(",")],
+    enabled: studentIds.length > 0,
     queryFn: async () =>
       (
         await supabase
           .from("allocations")
-          .select("*, seats(seat_number, is_corner, facing_direction), shifts(name), libraries(name)")
-          .eq("student_id", session!.studentId!)
-          .eq("is_active", true)
-          .maybeSingle()
-      ).data,
+          .select(
+            "id, library_id, is_active, is_archived, status, monthly_fee, start_date, next_due_date, seats(seat_number, is_corner, facing_direction), shifts(name), libraries(name, city, zone_area)",
+          )
+          .in("student_id", studentIds)
+          .order("created_at", { ascending: false })
+      ).data ?? [],
   });
+
+  const activeAllocations = useMemo(
+    () => (myAllocations.data ?? []).filter((a: any) => !a.is_archived && (a.is_active || a.status === "paid")),
+    [myAllocations.data],
+  );
+  const inactiveAllocations = useMemo(
+    () => (myAllocations.data ?? []).filter((a: any) => !a.is_archived && !a.is_active && a.status !== "paid"),
+    [myAllocations.data],
+  );
+  const archivedAllocations = useMemo(
+    () => (myAllocations.data ?? []).filter((a: any) => a.is_archived),
+    [myAllocations.data],
+  );
 
   const notices = useQuery({
     queryKey: ["my-notices", session?.userId],
@@ -119,27 +143,27 @@ function StudentApp() {
   });
 
   const payments = useQuery({
-    queryKey: ["my-payments", session?.studentId],
-    enabled: !!session?.studentId,
+    queryKey: ["my-payments", studentIds.join(",")],
+    enabled: studentIds.length > 0,
     queryFn: async () =>
       (
         await supabase
           .from("payments")
-          .select("*")
-          .eq("student_id", session!.studentId!)
+          .select("*, libraries(name)")
+          .in("student_id", studentIds)
           .order("payment_date", { ascending: false })
       ).data ?? [],
   });
 
   const tickets = useQuery({
-    queryKey: ["my-tickets", session?.studentId],
-    enabled: !!session?.studentId,
+    queryKey: ["my-tickets", studentIds.join(",")],
+    enabled: studentIds.length > 0,
     queryFn: async () =>
       (
         await supabase
           .from("tickets")
           .select("*")
-          .eq("student_id", session!.studentId!)
+          .in("student_id", studentIds)
           .order("created_at", { ascending: false })
       ).data ?? [],
   });
