@@ -19,6 +19,7 @@ export type Database = {
           created_at: string
           id: string
           is_active: boolean
+          is_archived: boolean
           library_id: string
           monthly_fee: number
           next_due_date: string | null
@@ -35,6 +36,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          is_archived?: boolean
           library_id: string
           monthly_fee: number
           next_due_date?: string | null
@@ -51,6 +53,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          is_archived?: boolean
           library_id?: string
           monthly_fee?: number
           next_due_date?: string | null
