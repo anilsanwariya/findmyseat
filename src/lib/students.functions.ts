@@ -43,11 +43,59 @@ export const createStudent = createServerFn({ method: "POST" })
     if (!lib || lib.org_id !== orgId) throw new Error("Library not in your organization");
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const email = emailFromMobile(data.mobile_number);
 
+    // Global lookup by mobile — a student may already exist in another org.
+    const { data: existingRows } = await supabaseAdmin
+      .from("students")
+      .select("id, user_id, full_name, mobile_number, dob, org_id, library_id, is_active")
+      .eq("mobile_number", data.mobile_number);
+
+    const existing = (existingRows ?? [])[0];
+
+    if (existing) {
+      // Cross-library join: DOB must match the student's original record.
+      if (existing.dob !== data.dob) {
+        throw new Error(
+          "Verification Failed: The Mobile Number is already registered, but the DOB does not match. Please verify with the student.",
+        );
+      }
+
+      // Already registered in this org — reuse and (re)activate that row.
+      const sameOrg = (existingRows ?? []).find((r) => r.org_id === orgId);
+      if (sameOrg) {
+        await supabaseAdmin
+          .from("students")
+          .update({ library_id: data.library_id, is_active: true })
+          .eq("id", sameOrg.id);
+        return { ok: true, student_id: sameOrg.id, reused: true };
+      }
+
+      // New org — create a linked student row using the original identity.
+      // Name from the new owner is intentionally ignored.
+      const { data: student, error: insertErr } = await supabaseAdmin
+        .from("students")
+        .insert({
+          user_id: existing.user_id,
+          org_id: orgId,
+          library_id: data.library_id,
+          full_name: existing.full_name,
+          mobile_number: existing.mobile_number,
+          dob: existing.dob,
+          target_exam_id: data.target_exam_id ?? null,
+          email: data.email ?? null,
+          requires_pin_change: false,
+        })
+        .select("id")
+        .single();
+      if (insertErr) throw new Error(insertErr.message);
+      return { ok: true, student_id: student.id, reused: true };
+    }
+
+    // Brand-new student — create auth user + first student row.
+    const email = emailFromMobile(data.mobile_number);
     const { data: created, error: createErr } = await supabaseAdmin.auth.admin.createUser({
       email,
-      password: data.dob + PIN_SUFFIX, // Suffix appended here
+      password: data.dob + PIN_SUFFIX,
       email_confirm: true,
       user_metadata: { role: "student", mobile: data.mobile_number, full_name: data.full_name },
     });
@@ -73,7 +121,33 @@ export const createStudent = createServerFn({ method: "POST" })
       await supabaseAdmin.auth.admin.deleteUser(user_id).catch(() => {});
       throw new Error(insertErr.message);
     }
-    return { ok: true, student_id: student.id };
+    return { ok: true, student_id: student.id, reused: false };
+  });
+
+const ArchiveAllocationSchema = z.object({ allocation_id: z.string().uuid(), archived: z.boolean() });
+export const archiveMyAllocation = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => ArchiveAllocationSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    // Verify the allocation belongs to a student row owned by the caller.
+    const { data: alloc } = await context.supabase
+      .from("allocations")
+      .select("id, student_id, is_active, students!inner(user_id)")
+      .eq("id", data.allocation_id)
+      .maybeSingle();
+    if (!alloc || (alloc as any).students?.user_id !== context.userId) {
+      throw new Error("Not your allocation");
+    }
+    if ((alloc as any).is_active && data.archived) {
+      throw new Error("Cannot archive an active allocation");
+    }
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin
+      .from("allocations")
+      .update({ is_archived: data.archived })
+      .eq("id", data.allocation_id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
   });
 
 // ============ Update student (org admin) ============
