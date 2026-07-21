@@ -519,13 +519,13 @@ function StudentApp() {
         </div>
       </div>
 
-      {alloc.data?.library_id && session.studentId && (
+      {rateTarget && (
         <RateBranchDialog
-          open={rateOpen}
-          onOpenChange={setRateOpen}
-          libraryId={alloc.data.library_id}
-          libraryName={alloc.data.libraries?.name}
-          studentId={session.studentId}
+          open={!!rateTarget}
+          onOpenChange={(v) => !v && setRateTarget(null)}
+          libraryId={rateTarget.libId}
+          libraryName={rateTarget.libName}
+          studentId={rateTarget.studentId}
         />
       )}
     </div>
