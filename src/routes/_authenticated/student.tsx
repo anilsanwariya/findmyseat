@@ -40,6 +40,10 @@ import {
   Navigation,
   MessageSquare,
   Utensils,
+  Archive,
+  ChevronDown,
+  ChevronRight,
+  Library as LibraryIcon,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/student")({
