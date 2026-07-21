@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { inr, fmtDate } from "@/lib/format";
-import { changeMyPin, sendEmailVerificationOtp, verifyEmailOtp } from "@/lib/students.functions";
+import { changeMyPin, sendEmailVerificationOtp, verifyEmailOtp, archiveMyAllocation } from "@/lib/students.functions";
 import { cn } from "@/lib/utils";
 import { RateBranchDialog } from "@/components/student/RateBranchDialog";
 import { Logo } from "@/components/Logo";
@@ -40,6 +40,10 @@ import {
   Navigation,
   MessageSquare,
   Utensils,
+  Archive,
+  ChevronDown,
+  ChevronRight,
+  Library as LibraryIcon,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/student")({
@@ -71,7 +75,9 @@ function StudentApp() {
   const { data: session, isLoading } = useSession();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const [rateOpen, setRateOpen] = useState(false);
+  const [rateTarget, setRateTarget] = useState<{ libId: string; libName: string; studentId: string } | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const archiveAllocation = useServerFn(archiveMyAllocation);
 
 
   useEffect(() => {
@@ -93,19 +99,43 @@ function StudentApp() {
       ).data,
   });
 
-  const alloc = useQuery({
-    queryKey: ["my-allocation", session?.studentId],
-    enabled: !!session?.studentId,
+  // All student rows for this user (one per org).
+  const myStudents = useQuery({
+    queryKey: ["my-student-rows", session?.userId],
+    enabled: !!session?.userId,
+    queryFn: async () =>
+      (await supabase.from("students").select("id, org_id, library_id").eq("user_id", session!.userId!)).data ?? [],
+  });
+  const studentIds = useMemo(() => (myStudents.data ?? []).map((s: any) => s.id), [myStudents.data]);
+
+  // All allocations across every library the student is subscribed to.
+  const myAllocations = useQuery({
+    queryKey: ["my-allocations", studentIds.join(",")],
+    enabled: studentIds.length > 0,
     queryFn: async () =>
       (
         await supabase
           .from("allocations")
-          .select("*, seats(seat_number, is_corner, facing_direction), shifts(name), libraries(name)")
-          .eq("student_id", session!.studentId!)
-          .eq("is_active", true)
-          .maybeSingle()
-      ).data,
+          .select(
+            "id, library_id, is_active, is_archived, status, monthly_fee, start_date, next_due_date, seats(seat_number, is_corner, facing_direction), shifts(name), libraries(name, city, zone_area)",
+          )
+          .in("student_id", studentIds)
+          .order("created_at", { ascending: false })
+      ).data ?? [],
   });
+
+  const activeAllocations = useMemo(
+    () => (myAllocations.data ?? []).filter((a: any) => !a.is_archived && (a.is_active || a.status === "paid")),
+    [myAllocations.data],
+  );
+  const inactiveAllocations = useMemo(
+    () => (myAllocations.data ?? []).filter((a: any) => !a.is_archived && !a.is_active && a.status !== "paid"),
+    [myAllocations.data],
+  );
+  const archivedAllocations = useMemo(
+    () => (myAllocations.data ?? []).filter((a: any) => a.is_archived),
+    [myAllocations.data],
+  );
 
   const notices = useQuery({
     queryKey: ["my-notices", session?.userId],
@@ -115,27 +145,27 @@ function StudentApp() {
   });
 
   const payments = useQuery({
-    queryKey: ["my-payments", session?.studentId],
-    enabled: !!session?.studentId,
+    queryKey: ["my-payments", studentIds.join(",")],
+    enabled: studentIds.length > 0,
     queryFn: async () =>
       (
         await supabase
           .from("payments")
-          .select("*")
-          .eq("student_id", session!.studentId!)
+          .select("*, libraries(name)")
+          .in("student_id", studentIds)
           .order("payment_date", { ascending: false })
       ).data ?? [],
   });
 
   const tickets = useQuery({
-    queryKey: ["my-tickets", session?.studentId],
-    enabled: !!session?.studentId,
+    queryKey: ["my-tickets", studentIds.join(",")],
+    enabled: studentIds.length > 0,
     queryFn: async () =>
       (
         await supabase
           .from("tickets")
           .select("*")
-          .eq("student_id", session!.studentId!)
+          .in("student_id", studentIds)
           .order("created_at", { ascending: false })
       ).data ?? [],
   });
@@ -214,54 +244,25 @@ function StudentApp() {
           </GlassPanel>
 
           <GlassPanel className="p-5 flex flex-col">
-            <div className="flex items-center justify-between mb-4">
-              <div className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                <MapIcon className="size-3.5" /> My Seat
-              </div>
-              {profile.data?.library_id && <StudentSeatMapDialog libraryId={profile.data.library_id} />}
+            <div className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground flex items-center gap-2 mb-4">
+              <LibraryIcon className="size-3.5" /> Subscriptions
             </div>
-
-            {alloc.data ? (
-              <div className="flex flex-col flex-1">
-                <div className="mt-2 flex items-center gap-3">
-                  <div
-                    className={`grid size-14 place-items-center rounded-xl font-mono text-xl font-bold ${alloc.data.seats?.is_corner ? "border-2 border-gold/60 bg-gold/10 text-gold glow-gold" : "border border-panel-border bg-panel"}`}
-                  >
-                    {alloc.data.seats?.seat_number}
-                  </div>
-                  <div>
-                    <div className="font-semibold">{alloc.data.libraries?.name}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {alloc.data.shifts?.name ?? "Full day"} · Facing {alloc.data.seats?.facing_direction}
-                    </div>
-                  </div>
-                </div>
-                <div className="mt-auto pt-4 grid grid-cols-2 gap-3">
-                  <div className="rounded-lg bg-panel p-3">
-                    <div className="text-[10px] uppercase text-muted-foreground">Monthly fee</div>
-                    <div className="mt-0.5 font-mono text-lg">{inr(alloc.data.monthly_fee)}</div>
-                  </div>
-                  <div className="rounded-lg bg-panel p-3">
-                    <div className="text-[10px] uppercase text-muted-foreground">Next due</div>
-                    <div className="mt-0.5 font-mono text-sm">{fmtDate(alloc.data.next_due_date)}</div>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setRateOpen(true)}
-                  className="mt-3 w-full inline-flex items-center justify-center gap-1.5 rounded-lg border border-gold/40 bg-gradient-to-r from-gold/20 to-amber-400/10 px-3 py-2 text-xs font-semibold text-gold hover:from-gold/30 hover:to-amber-400/20 transition-colors"
-                >
-                  <Star className="size-3.5 fill-gold" /> Rate My Branch
-                </button>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-lg bg-panel p-3">
+                <div className="text-[10px] uppercase text-muted-foreground">Active</div>
+                <div className="mt-0.5 font-mono text-2xl text-cyan">{activeAllocations.length}</div>
               </div>
-            ) : (
-              <div className="flex-1 flex flex-col items-center justify-center text-center">
-                <p className="mt-4 text-sm text-muted-foreground">
-                  No active seat allocation yet. Contact the reception.
-                </p>
+              <div className="rounded-lg bg-panel p-3">
+                <div className="text-[10px] uppercase text-muted-foreground">History</div>
+                <div className="mt-0.5 font-mono text-2xl text-muted-foreground">
+                  {inactiveAllocations.length + archivedAllocations.length}
+                </div>
               </div>
-            )}
+            </div>
+            <p className="mt-3 text-xs text-muted-foreground">
+              Your libraries are listed below. One login works for every branch you join.
+            </p>
           </GlassPanel>
-
 
           <GlassPanel className="p-5">
             <div className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground mb-4">Security</div>
@@ -273,6 +274,162 @@ function StudentApp() {
               <PinChangeDialog />
             </div>
           </GlassPanel>
+        </div>
+
+        {/* MY LIBRARIES */}
+        <div className="mt-8">
+          <SectionHeader title="My Libraries" hint="Every study space you're currently subscribed to." />
+          {activeAllocations.length === 0 && inactiveAllocations.length === 0 ? (
+            <GlassPanel className="mt-4 p-6 text-center text-sm text-muted-foreground">
+              You don't have any library subscriptions yet. Visit reception at any LibraryBandhu partner branch to get
+              started.
+            </GlassPanel>
+          ) : (
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              {activeAllocations.map((a: any) => {
+                const student = (myStudents.data ?? []).find((s: any) => s.library_id === a.library_id) ??
+                  (myStudents.data ?? [])[0];
+                return (
+                  <div
+                    key={a.id}
+                    className="glass-strong rounded-2xl border border-cyan/30 p-5 relative overflow-hidden shadow-[0_0_32px_-12px_rgba(34,211,238,0.35)]"
+                  >
+                    <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan/60 to-transparent" />
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="inline-flex items-center gap-1.5 rounded-full bg-cyan/10 border border-cyan/30 px-2 py-0.5 text-[9px] uppercase tracking-widest text-cyan">
+                          <span className="size-1.5 rounded-full bg-cyan animate-pulse" /> Active
+                        </div>
+                        <div className="mt-2 font-semibold text-lg truncate">{a.libraries?.name}</div>
+                        <div className="text-xs text-muted-foreground truncate">
+                          {[a.libraries?.zone_area, a.libraries?.city].filter(Boolean).join(" · ") || "—"}
+                        </div>
+                      </div>
+                      <div
+                        className={cn(
+                          "grid size-12 place-items-center rounded-xl font-mono text-lg font-bold shrink-0",
+                          a.seats?.is_corner
+                            ? "border-2 border-gold/60 bg-gold/10 text-gold glow-gold"
+                            : "border border-panel-border bg-panel",
+                        )}
+                      >
+                        {a.seats?.seat_number ?? "—"}
+                      </div>
+                    </div>
+                    <div className="mt-4 grid grid-cols-3 gap-2 text-xs">
+                      <div className="rounded-lg bg-panel p-2">
+                        <div className="text-[9px] uppercase text-muted-foreground">Shift</div>
+                        <div className="mt-0.5 font-medium">{a.shifts?.name ?? "Full day"}</div>
+                      </div>
+                      <div className="rounded-lg bg-panel p-2">
+                        <div className="text-[9px] uppercase text-muted-foreground">Fee</div>
+                        <div className="mt-0.5 font-mono">{inr(a.monthly_fee)}</div>
+                      </div>
+                      <div className="rounded-lg bg-panel p-2">
+                        <div className="text-[9px] uppercase text-muted-foreground">Valid until</div>
+                        <div className="mt-0.5 font-mono">{fmtDate(a.next_due_date)}</div>
+                      </div>
+                    </div>
+                    <div className="mt-3 flex items-center gap-2">
+                      <StudentSeatMapDialog libraryId={a.library_id} />
+                      {student && (
+                        <button
+                          onClick={() =>
+                            setRateTarget({
+                              libId: a.library_id,
+                              libName: a.libraries?.name ?? "Branch",
+                              studentId: student.id,
+                            })
+                          }
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-gold/40 bg-gradient-to-r from-gold/20 to-amber-400/10 px-3 py-1.5 text-xs font-semibold text-gold hover:from-gold/30 hover:to-amber-400/20 transition-colors"
+                        >
+                          <Star className="size-3.5 fill-gold" /> Rate
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {inactiveAllocations.map((a: any) => (
+                <div key={a.id} className="glass rounded-2xl border border-panel-border p-5 opacity-90">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="inline-flex items-center gap-1.5 rounded-full bg-rose/10 border border-rose/30 px-2 py-0.5 text-[9px] uppercase tracking-widest text-rose">
+                        Expired
+                      </div>
+                      <div className="mt-2 font-semibold truncate">{a.libraries?.name}</div>
+                      <div className="text-xs text-muted-foreground">
+                        Ended {fmtDate(a.next_due_date)} · {a.shifts?.name ?? "Full day"}
+                      </div>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        if (!confirm(`Remove ${a.libraries?.name} from your dashboard? You can rejoin any time.`))
+                          return;
+                        try {
+                          await archiveAllocation({ data: { allocation_id: a.id, archived: true } });
+                          toast.success("Moved to history");
+                          qc.invalidateQueries({ queryKey: ["my-allocations"] });
+                        } catch (e: any) {
+                          toast.error(e.message);
+                        }
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-panel-border bg-panel px-2.5 py-1 text-[11px] text-muted-foreground hover:text-white hover:bg-panel-strong shrink-0"
+                    >
+                      <Archive className="size-3" /> Archive
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {archivedAllocations.length > 0 && (
+            <div className="mt-6">
+              <button
+                onClick={() => setHistoryOpen((v) => !v)}
+                className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest text-muted-foreground hover:text-white"
+              >
+                {historyOpen ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
+                Library History ({archivedAllocations.length})
+              </button>
+              {historyOpen && (
+                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  {archivedAllocations.map((a: any) => (
+                    <div
+                      key={a.id}
+                      className="rounded-xl border border-panel-border bg-panel/40 p-4 opacity-60 grayscale hover:opacity-90 transition-opacity"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="text-[9px] uppercase tracking-widest text-muted-foreground">Archived</div>
+                          <div className="mt-1 font-medium truncate">{a.libraries?.name}</div>
+                          <div className="text-[11px] text-muted-foreground">
+                            Ended {fmtDate(a.next_due_date)} · Seat {a.seats?.seat_number ?? "—"}
+                          </div>
+                        </div>
+                        <button
+                          onClick={async () => {
+                            try {
+                              await archiveAllocation({ data: { allocation_id: a.id, archived: false } });
+                              toast.success("Restored to your dashboard");
+                              qc.invalidateQueries({ queryKey: ["my-allocations"] });
+                            } catch (e: any) {
+                              toast.error(e.message);
+                            }
+                          }}
+                          className="text-[10px] text-cyan hover:underline shrink-0"
+                        >
+                          Restore
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="mt-6 grid gap-6 lg:grid-cols-2">
@@ -362,13 +519,13 @@ function StudentApp() {
         </div>
       </div>
 
-      {alloc.data?.library_id && session.studentId && (
+      {rateTarget && (
         <RateBranchDialog
-          open={rateOpen}
-          onOpenChange={setRateOpen}
-          libraryId={alloc.data.library_id}
-          libraryName={alloc.data.libraries?.name}
-          studentId={session.studentId}
+          open={!!rateTarget}
+          onOpenChange={(v) => !v && setRateTarget(null)}
+          libraryId={rateTarget.libId}
+          libraryName={rateTarget.libName}
+          studentId={rateTarget.studentId}
         />
       )}
     </div>
