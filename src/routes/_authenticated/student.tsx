@@ -276,6 +276,7 @@ function StudentApp() {
                 <div className="mt-0.5 font-mono text-sm">{session.email?.split("@")[0]}</div>
               </div>
               <PinChangeDialog />
+              <DeleteAccountDialog />
             </div>
           </GlassPanel>
         </div>
