@@ -44,6 +44,7 @@ import {
   ChevronDown,
   ChevronRight,
   Library as LibraryIcon,
+  Trash2,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/student")({
