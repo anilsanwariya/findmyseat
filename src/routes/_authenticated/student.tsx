@@ -95,9 +95,12 @@ function StudentApp() {
           .from("students")
           .select("*, libraries(name), master_exams(name)")
           .eq("user_id", session!.userId!)
-          .single()
+          .order("created_at", { ascending: true })
+          .limit(1)
+          .maybeSingle()
       ).data,
   });
+
 
   // All student rows for this user (one per org).
   const myStudents = useQuery({
