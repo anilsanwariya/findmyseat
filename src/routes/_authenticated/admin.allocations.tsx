@@ -470,6 +470,20 @@ function AllocationsPage() {
               <SelectItem value="overdue">Overdue</SelectItem>
             </SelectContent>
           </Select>
+          <Select value={shiftFilter} onValueChange={setShiftFilter}>
+            <SelectTrigger className="w-full sm:w-40 bg-panel border-panel-border">
+              <SelectValue placeholder="Shift Filter" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Shifts</SelectItem>
+              {shiftOptions.hasFullDay && <SelectItem value="__full_day__">Full day</SelectItem>}
+              {shiftOptions.names.map((n) => (
+                <SelectItem key={n} value={n}>
+                  {n}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="w-full overflow-x-auto pb-4 custom-scrollbar">
