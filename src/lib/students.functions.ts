@@ -586,3 +586,106 @@ export const verifyEmailOtp = createServerFn({ method: "POST" })
 
     return { ok: true };
   });
+
+// ============ Account deletion (student self-service) via email OTP ============
+
+const DELETE_OTP_PREFIX = "delete:";
+
+export const requestAccountDeletionOtp = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data: student } = await context.supabase
+      .from("students")
+      .select("id, email")
+      .eq("user_id", context.userId)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (!student) throw new Error("No student profile");
+    const email = (student.email ?? "").toLowerCase();
+    if (!email || email.endsWith("@students.librarybandhu.local")) {
+      throw new Error("Please verify your email first, then try again.");
+    }
+
+    const otp_code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expires_at = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error: insErr } = await supabaseAdmin
+      .from("email_verification_otps")
+      .insert({ student_id: student.id, email: DELETE_OTP_PREFIX + email, otp_code, expires_at });
+    if (insErr) throw new Error(insErr.message);
+
+    let sent = false;
+    try {
+      const { sendTemplateEmail } = await import("@/lib/email-templates/send-email");
+      const result = await sendTemplateEmail("student-email-otp", email, {
+        templateData: { code: otp_code, siteName: "LibraryBandhu" },
+        idempotencyKey: `delete-account-otp-${student.id}-${otp_code}`,
+      });
+      sent = result.sent === true;
+      if (!sent && "reason" in result) console.warn("[delete-otp] not sent:", result.reason);
+    } catch (err) {
+      console.error("[delete-otp] send failed:", err);
+    }
+    return { ok: true, sent, email, dev_code: sent ? null : otp_code };
+  });
+
+const ConfirmDeleteSchema = z.object({
+  otp: z.string().regex(/^[0-9]{6}$/, "6-digit code"),
+});
+export const deleteMyAccount = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => ConfirmDeleteSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: student } = await context.supabase
+      .from("students")
+      .select("id, email")
+      .eq("user_id", context.userId)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (!student) throw new Error("No student profile");
+    const email = (student.email ?? "").toLowerCase();
+    if (!email) throw new Error("No verified email on file");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: otp } = await supabaseAdmin
+      .from("email_verification_otps")
+      .select("id, expires_at")
+      .eq("student_id", student.id)
+      .eq("email", DELETE_OTP_PREFIX + email)
+      .eq("otp_code", data.otp)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!otp) throw new Error("Invalid or expired code");
+    if (new Date(otp.expires_at).getTime() < Date.now()) throw new Error("Invalid or expired code");
+
+    // Consume OTP first so it cannot be reused.
+    await supabaseAdmin.from("email_verification_otps").delete().eq("id", otp.id);
+
+    // Gather all student rows for this user (multi-library).
+    const { data: rows } = await supabaseAdmin
+      .from("students")
+      .select("id")
+      .eq("user_id", context.userId);
+    const studentIds = (rows ?? []).map((r) => r.id);
+
+    if (studentIds.length > 0) {
+      // Release any active seat allocations before deleting.
+      await supabaseAdmin
+        .from("allocations")
+        .update({ is_active: false })
+        .in("student_id", studentIds)
+        .eq("is_active", true);
+      await supabaseAdmin.from("students").delete().in("id", studentIds);
+    }
+
+    // Finally remove the auth user.
+    const { error: delErr } = await supabaseAdmin.auth.admin.deleteUser(context.userId);
+    if (delErr) throw new Error(delErr.message);
+
+    return { ok: true };
+  });
