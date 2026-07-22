@@ -103,6 +103,7 @@ function AllocationsPage() {
   // Table Filters
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [shiftFilter, setShiftFilter] = useState<string>("all");
   const [historyStudent, setHistoryStudent] = useState<{ id: string; library_id: string | null; name: string } | null>(
     null,
   );
