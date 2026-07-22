@@ -545,25 +545,35 @@ export const verifyEmailOtp = createServerFn({ method: "POST" })
       throw new Error("Invalid or expired OTP");
     }
 
-    // 1) Ensure email is unique across students.
+    if (!student.user_id) throw new Error("Student is not linked to an auth user");
+    const studentUserId = student.user_id;
+
+    // 1) Ensure email is unique across DIFFERENT users (multi-library students
+    // share the same auth user_id across all their student rows, so matching
+    // rows for the same user are expected and must be allowed).
     const { data: conflict } = await supabaseAdmin
       .from("students")
-      .select("id")
+      .select("id, user_id")
       .ilike("email", email)
-      .neq("id", student.id)
-      .maybeSingle();
-    if (conflict) {
+      .neq("user_id", studentUserId);
+    if (conflict && conflict.length > 0) {
       throw new Error("This email is already linked to another student account.");
     }
 
-    // Update student profile email.
-    const { error: sErr } = await supabaseAdmin.from("students").update({ email }).eq("id", student.id);
+    // Update email on every student row belonging to this user so all
+    // library memberships stay in sync.
+    const { error: sErr } = await supabaseAdmin
+      .from("students")
+      .update({ email })
+      .eq("user_id", studentUserId);
     if (sErr) {
       if (sErr.code === "23505" || /duplicate key/i.test(sErr.message)) {
         throw new Error("This email is already linked to another student account.");
       }
       throw new Error(sErr.message);
     }
+
+
 
     // NOTE: Do NOT update auth.users.email — student login uses the
     // synthetic `<mobile>@students.librarybandhu.local` address. Changing
