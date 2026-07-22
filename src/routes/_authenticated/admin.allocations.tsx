@@ -103,6 +103,7 @@ function AllocationsPage() {
   // Table Filters
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [shiftFilter, setShiftFilter] = useState<string>("all");
   const [historyStudent, setHistoryStudent] = useState<{ id: string; library_id: string | null; name: string } | null>(
     null,
   );
@@ -151,9 +152,22 @@ function AllocationsPage() {
 
       const matchesStatus = statusFilter === "all" || effectiveStatus(a) === statusFilter;
 
-      return matchesSearch && matchesStatus;
+      const shiftName = a.shifts?.name ?? "__full_day__";
+      const matchesShift = shiftFilter === "all" || shiftName === shiftFilter;
+
+      return matchesSearch && matchesStatus && matchesShift;
     });
-  }, [allocations.data, searchQuery, statusFilter]);
+  }, [allocations.data, searchQuery, statusFilter, shiftFilter]);
+
+  const shiftOptions = useMemo(() => {
+    const set = new Set<string>();
+    let hasFullDay = false;
+    (allocations.data ?? []).forEach((a: any) => {
+      if (a.shifts?.name) set.add(a.shifts.name);
+      else hasFullDay = true;
+    });
+    return { names: Array.from(set).sort(), hasFullDay };
+  }, [allocations.data]);
 
   // Fetch seats and objects just for the visual map
   const layoutData = useQuery({
@@ -454,6 +468,20 @@ function AllocationsPage() {
               <SelectItem value="paid">Paid</SelectItem>
               <SelectItem value="pending">Pending</SelectItem>
               <SelectItem value="overdue">Overdue</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={shiftFilter} onValueChange={setShiftFilter}>
+            <SelectTrigger className="w-full sm:w-40 bg-panel border-panel-border">
+              <SelectValue placeholder="Shift Filter" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Shifts</SelectItem>
+              {shiftOptions.hasFullDay && <SelectItem value="__full_day__">Full day</SelectItem>}
+              {shiftOptions.names.map((n) => (
+                <SelectItem key={n} value={n}>
+                  {n}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
