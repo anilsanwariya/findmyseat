@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { inr, fmtDate } from "@/lib/format";
-import { changeMyPin, sendEmailVerificationOtp, verifyEmailOtp, archiveMyAllocation } from "@/lib/students.functions";
+import { changeMyPin, sendEmailVerificationOtp, verifyEmailOtp, archiveMyAllocation, requestAccountDeletionOtp, deleteMyAccount } from "@/lib/students.functions";
 import { cn } from "@/lib/utils";
 import { RateBranchDialog } from "@/components/student/RateBranchDialog";
 import { Logo } from "@/components/Logo";
@@ -44,6 +44,7 @@ import {
   ChevronDown,
   ChevronRight,
   Library as LibraryIcon,
+  Trash2,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/student")({
@@ -275,6 +276,7 @@ function StudentApp() {
                 <div className="mt-0.5 font-mono text-sm">{session.email?.split("@")[0]}</div>
               </div>
               <PinChangeDialog />
+              <DeleteAccountDialog />
             </div>
           </GlassPanel>
         </div>
@@ -962,6 +964,124 @@ function PinChangeDialog() {
           <DialogTitle>Change PIN</DialogTitle>
         </DialogHeader>
         <PinChangeForm onDone={() => setOpen(false)} />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function DeleteAccountDialog() {
+  const [open, setOpen] = useState(false);
+  const [step, setStep] = useState<"warn" | "otp">("warn");
+  const [email, setEmail] = useState("");
+  const [otp, setOtp] = useState("");
+  const [confirmText, setConfirmText] = useState("");
+  const [loading, setLoading] = useState(false);
+  const requestOtp = useServerFn(requestAccountDeletionOtp);
+  const confirmDelete = useServerFn(deleteMyAccount);
+  const navigate = useNavigate();
+
+  const reset = () => {
+    setStep("warn");
+    setEmail("");
+    setOtp("");
+    setConfirmText("");
+    setLoading(false);
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        setOpen(v);
+        if (!v) reset();
+      }}
+    >
+      <button
+        onClick={() => setOpen(true)}
+        className="flex w-full items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/5 p-3 text-sm text-red-300 hover:bg-red-500/10"
+      >
+        <Trash2 className="size-4" /> Delete Account
+      </button>
+      <DialogContent className="glass-strong border-panel-border">
+        <DialogHeader>
+          <DialogTitle className="text-red-300">Delete Account</DialogTitle>
+        </DialogHeader>
+
+        {step === "warn" ? (
+          <div className="space-y-4 text-sm">
+            <div className="rounded-lg border border-red-500/30 bg-red-500/5 p-3 text-red-200">
+              This permanently deletes your LibraryBandhu account, removes your profile from every
+              library you've joined, and releases any active seats. This cannot be undone.
+            </div>
+            <div>
+              <Label className="text-xs">Type <span className="font-mono text-red-300">DELETE</span> to continue</Label>
+              <Input
+                value={confirmText}
+                onChange={(e) => setConfirmText(e.target.value)}
+                className="mt-1 bg-panel border-panel-border"
+                placeholder="DELETE"
+              />
+            </div>
+            <Button
+              disabled={loading || confirmText.trim() !== "DELETE"}
+              onClick={async () => {
+                setLoading(true);
+                try {
+                  const res: any = await requestOtp({});
+                  setEmail(res.email);
+                  if (res.dev_code) {
+                    toast.message(`Dev code: ${res.dev_code}`);
+                  } else {
+                    toast.success("Verification code sent to your email");
+                  }
+                  setStep("otp");
+                } catch (err: any) {
+                  toast.error(err.message || "Could not send code");
+                } finally {
+                  setLoading(false);
+                }
+              }}
+              className="w-full bg-red-500/20 border border-red-500/40 text-red-200 hover:bg-red-500/30"
+            >
+              {loading ? "Sending…" : "Send verification code"}
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-4 text-sm">
+            <p className="text-muted-foreground">
+              We sent a 6-digit code to <span className="text-foreground font-medium">{email}</span>.
+              Enter it below to permanently delete your account.
+            </p>
+            <div>
+              <Label className="text-xs">Verification code</Label>
+              <Input
+                value={otp}
+                onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                inputMode="numeric"
+                className="mt-1 bg-panel border-panel-border font-mono tracking-[0.5em] text-center text-lg"
+                placeholder="••••••"
+              />
+            </div>
+            <Button
+              disabled={loading || otp.length !== 6}
+              onClick={async () => {
+                setLoading(true);
+                try {
+                  await confirmDelete({ data: { otp } });
+                  toast.success("Account deleted");
+                  await supabase.auth.signOut();
+                  navigate({ to: "/" });
+                } catch (err: any) {
+                  toast.error(err.message || "Failed to delete account");
+                  setLoading(false);
+                }
+              }}
+              className="w-full bg-red-500/20 border border-red-500/40 text-red-200 hover:bg-red-500/30"
+            >
+              {loading ? "Deleting…" : "Permanently delete my account"}
+            </Button>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
