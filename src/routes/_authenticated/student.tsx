@@ -1086,6 +1086,8 @@ function DeleteAccountDialog() {
     </Dialog>
   );
 }
+
+function PinChangeForm({ forced, onDone }: { forced?: boolean; onDone?: () => void }) {
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
