@@ -152,9 +152,22 @@ function AllocationsPage() {
 
       const matchesStatus = statusFilter === "all" || effectiveStatus(a) === statusFilter;
 
-      return matchesSearch && matchesStatus;
+      const shiftName = a.shifts?.name ?? "__full_day__";
+      const matchesShift = shiftFilter === "all" || shiftName === shiftFilter;
+
+      return matchesSearch && matchesStatus && matchesShift;
     });
-  }, [allocations.data, searchQuery, statusFilter]);
+  }, [allocations.data, searchQuery, statusFilter, shiftFilter]);
+
+  const shiftOptions = useMemo(() => {
+    const set = new Set<string>();
+    let hasFullDay = false;
+    (allocations.data ?? []).forEach((a: any) => {
+      if (a.shifts?.name) set.add(a.shifts.name);
+      else hasFullDay = true;
+    });
+    return { names: Array.from(set).sort(), hasFullDay };
+  }, [allocations.data]);
 
   // Fetch seats and objects just for the visual map
   const layoutData = useQuery({
