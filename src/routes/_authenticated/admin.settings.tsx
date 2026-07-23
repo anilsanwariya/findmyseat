@@ -49,6 +49,81 @@ export const AMENITIES_DICT: Record<string, { en: string; hi: string }> = {
   parking: { en: "Safe parking for two-wheelers", hi: "दुपहिया वाहनों के लिए सुरक्षित पार्किंग" },
 };
 
+// ============ Schedule helpers (structured pickers <-> stored strings) ============
+const WEEK_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
+const DAY_LONG: Record<string, string> = { Mon: "Monday", Tue: "Tuesday", Wed: "Wednesday", Thu: "Thursday", Fri: "Friday", Sat: "Saturday", Sun: "Sunday" };
+
+function to12h(t: string): string {
+  // "HH:MM" -> "h:MM AM/PM"
+  if (!t || !/^\d{2}:\d{2}$/.test(t)) return "";
+  const [hStr, m] = t.split(":");
+  let h = parseInt(hStr, 10);
+  const ap = h >= 12 ? "PM" : "AM";
+  h = h % 12; if (h === 0) h = 12;
+  return `${h}:${m} ${ap}`;
+}
+function from12h(s: string): string {
+  // "h:MM AM/PM" or "hAM" -> "HH:MM"
+  const m = s.trim().match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM|am|pm)$/);
+  if (!m) return "";
+  let h = parseInt(m[1], 10);
+  const min = m[2] ?? "00";
+  const ap = m[3].toUpperCase();
+  if (ap === "PM" && h !== 12) h += 12;
+  if (ap === "AM" && h === 12) h = 0;
+  return `${String(h).padStart(2, "0")}:${min}`;
+}
+
+function serializeOpeningHours({ open24, openTime, closeTime }: { open24: boolean; openTime: string; closeTime: string }): string | null {
+  if (open24) return "Open 24 hours";
+  if (!openTime || !closeTime) return null;
+  return `${to12h(openTime)} - ${to12h(closeTime)}`;
+}
+function parseOpeningHours(s: string): { open24: boolean; openTime: string; closeTime: string } {
+  const raw = (s || "").trim();
+  if (!raw) return { open24: false, openTime: "", closeTime: "" };
+  if (/24\s*hours?|24\s*hrs?|24\/7/i.test(raw)) return { open24: true, openTime: "", closeTime: "" };
+  const m = raw.match(/(\d{1,2}(?::\d{2})?\s*(?:AM|PM|am|pm))\s*[-–to]+\s*(\d{1,2}(?::\d{2})?\s*(?:AM|PM|am|pm))/);
+  if (m) return { open24: false, openTime: from12h(m[1]), closeTime: from12h(m[2]) };
+  return { open24: false, openTime: "", closeTime: "" };
+}
+
+function serializeClosedOn({ openAllDays, days }: { openAllDays: boolean; days: string[] }): string | null {
+  if (openAllDays) return "Open all days";
+  if (!days.length) return null;
+  const ordered = WEEK_DAYS.filter((d) => days.includes(d)).map((d) => DAY_LONG[d]);
+  return ordered.join(", ");
+}
+function parseClosedOn(s: string): { openAllDays: boolean; days: string[] } {
+  const raw = (s || "").trim();
+  if (!raw) return { openAllDays: false, days: [] };
+  if (/open\s*all\s*days|all\s*days|none|never/i.test(raw)) return { openAllDays: true, days: [] };
+  const days: string[] = [];
+  for (const d of WEEK_DAYS) {
+    const re = new RegExp(`\\b${DAY_LONG[d]}s?\\b|\\b${d}\\b`, "i");
+    if (re.test(raw)) days.push(d);
+  }
+  return { openAllDays: false, days };
+}
+
+function serializeShifts(v: { hasMorning: boolean; morningStart: string; morningEnd: string; hasEvening: boolean; eveningStart: string; eveningEnd: string }): string | null {
+  const parts: string[] = [];
+  if (v.hasMorning && v.morningStart && v.morningEnd) parts.push(`Morning: ${to12h(v.morningStart)} - ${to12h(v.morningEnd)}`);
+  if (v.hasEvening && v.eveningStart && v.eveningEnd) parts.push(`Evening: ${to12h(v.eveningStart)} - ${to12h(v.eveningEnd)}`);
+  return parts.length ? parts.join(", ") : null;
+}
+function parseShifts(s: string): { hasMorning: boolean; morningStart: string; morningEnd: string; hasEvening: boolean; eveningStart: string; eveningEnd: string } {
+  const raw = (s || "").trim();
+  const out = { hasMorning: false, morningStart: "", morningEnd: "", hasEvening: false, eveningStart: "", eveningEnd: "" };
+  if (!raw) return out;
+  const mm = raw.match(/morning[^0-9]*(\d{1,2}(?::\d{2})?\s*(?:AM|PM|am|pm))\s*[-–to]+\s*(\d{1,2}(?::\d{2})?\s*(?:AM|PM|am|pm))/i);
+  if (mm) { out.hasMorning = true; out.morningStart = from12h(mm[1]); out.morningEnd = from12h(mm[2]); }
+  const em = raw.match(/evening[^0-9]*(\d{1,2}(?::\d{2})?\s*(?:AM|PM|am|pm))\s*[-–to]+\s*(\d{1,2}(?::\d{2})?\s*(?:AM|PM|am|pm))/i);
+  if (em) { out.hasEvening = true; out.eveningStart = from12h(em[1]); out.eveningEnd = from12h(em[2]); }
+  return out;
+}
+
+
 function SettingsPage() {
   const { data: session, isLoading } = useSession();
   const qc = useQueryClient();
@@ -612,9 +687,18 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
   const [googleMapsUrl, setGoogleMapsUrl] = useState("");
   const [zone, setZone] = useState("");
   const [city, setCity] = useState("");
-  const [openingHours, setOpeningHours] = useState("");
-  const [shifts, setShifts] = useState("");
-  const [closedOn, setClosedOn] = useState("");
+  // Structured schedule state
+  const [open24, setOpen24] = useState(false);
+  const [openTime, setOpenTime] = useState(""); // "HH:MM"
+  const [closeTime, setCloseTime] = useState("");
+  const [openAllDays, setOpenAllDays] = useState(false);
+  const [closedDays, setClosedDays] = useState<Set<string>>(new Set());
+  const [hasMorning, setHasMorning] = useState(false);
+  const [morningStart, setMorningStart] = useState("");
+  const [morningEnd, setMorningEnd] = useState("");
+  const [hasEvening, setHasEvening] = useState(false);
+  const [eveningStart, setEveningStart] = useState("");
+  const [eveningEnd, setEveningEnd] = useState("");
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
   const [placeId, setPlaceId] = useState<string | null>(null);
@@ -634,9 +718,20 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
       setGoogleMapsUrl(existingLib.google_maps_url || "");
       setZone(existingLib.zone_area || "");
       setCity(existingLib.city || "");
-      setOpeningHours(existingLib.opening_hours || "");
-      setShifts(existingLib.shifts || "");
-      setClosedOn(existingLib.closed_on || "");
+      const oh = parseOpeningHours(existingLib.opening_hours || "");
+      setOpen24(oh.open24);
+      setOpenTime(oh.openTime);
+      setCloseTime(oh.closeTime);
+      const co = parseClosedOn(existingLib.closed_on || "");
+      setOpenAllDays(co.openAllDays);
+      setClosedDays(new Set(co.days));
+      const sh = parseShifts(existingLib.shifts || "");
+      setHasMorning(sh.hasMorning);
+      setMorningStart(sh.morningStart);
+      setMorningEnd(sh.morningEnd);
+      setHasEvening(sh.hasEvening);
+      setEveningStart(sh.eveningStart);
+      setEveningEnd(sh.eveningEnd);
       setSelectedExams(new Set(existingLib.targeted_exam_ids || []));
       setAmenities(existingLib.amenities || {});
       setLatitude(existingLib.latitude ?? null);
@@ -709,9 +804,9 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
             google_maps_url: googleMapsUrl || null,
             zone_area: zone || null,
             city: city || null,
-            opening_hours: openingHours || null,
-            shifts: shifts || null,
-            closed_on: closedOn || null,
+            opening_hours: serializeOpeningHours({ open24, openTime, closeTime }),
+            shifts: serializeShifts({ hasMorning, morningStart, morningEnd, hasEvening, eveningStart, eveningEnd }),
+            closed_on: serializeClosedOn({ openAllDays, days: Array.from(closedDays) }),
             targeted_exam_ids: Array.from(selectedExams),
             amenities: amenities,
             latitude: latitude,
@@ -841,34 +936,118 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
           <h4 className="text-xs font-mono uppercase tracking-widest text-cyan border-b border-panel-border/50 pb-1">
             Timings & Schedule
           </h4>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label>Opening Hours</Label>
-              <Input
-                value={openingHours}
-                onChange={(e) => setOpeningHours(e.target.value)}
-                className="bg-panel border-panel-border"
-                placeholder="e.g. 6:00 AM - 11:00 PM"
-              />
+
+          {/* Opening Hours */}
+          <div className="space-y-2 rounded-lg border border-panel-border bg-panel/40 p-3">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm">Opening Hours</Label>
+              <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+                <Switch checked={open24} onCheckedChange={setOpen24} />
+                <span>Open 24 hours</span>
+              </label>
             </div>
-            <div className="space-y-2">
-              <Label>Closed On</Label>
-              <Input
-                value={closedOn}
-                onChange={(e) => setClosedOn(e.target.value)}
-                className="bg-panel border-panel-border"
-                placeholder="e.g. Open all days / Sundays"
-              />
-            </div>
+            {!open24 && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-muted-foreground">Opens at</Label>
+                  <Input
+                    type="time"
+                    value={openTime}
+                    onChange={(e) => setOpenTime(e.target.value)}
+                    className="bg-panel border-panel-border font-mono"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-muted-foreground">Closes at</Label>
+                  <Input
+                    type="time"
+                    value={closeTime}
+                    onChange={(e) => setCloseTime(e.target.value)}
+                    className="bg-panel border-panel-border font-mono"
+                  />
+                </div>
+              </div>
+            )}
           </div>
-          <div className="space-y-2">
-            <Label>Shifts</Label>
-            <Input
-              value={shifts}
-              onChange={(e) => setShifts(e.target.value)}
-              className="bg-panel border-panel-border"
-              placeholder="e.g. Morning: 6AM-2PM, Evening: 2PM-10PM"
-            />
+
+          {/* Closed On */}
+          <div className="space-y-2 rounded-lg border border-panel-border bg-panel/40 p-3">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm">Closed On</Label>
+              <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+                <Switch
+                  checked={openAllDays}
+                  onCheckedChange={(v) => {
+                    setOpenAllDays(v);
+                    if (v) setClosedDays(new Set());
+                  }}
+                />
+                <span>Open all days</span>
+              </label>
+            </div>
+            {!openAllDays && (
+              <div className="flex flex-wrap gap-1.5">
+                {WEEK_DAYS.map((d) => {
+                  const on = closedDays.has(d);
+                  return (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => {
+                        const s = new Set(closedDays);
+                        if (on) s.delete(d);
+                        else s.add(d);
+                        setClosedDays(s);
+                      }}
+                      className={`rounded-full border px-3 py-1 text-xs transition-colors ${on ? "border-rose bg-rose/20 text-rose" : "border-panel-border text-muted-foreground hover:text-white"}`}
+                    >
+                      {d}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Shifts */}
+          <div className="space-y-3 rounded-lg border border-panel-border bg-panel/40 p-3">
+            <Label className="text-sm">Shifts</Label>
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-xs cursor-pointer">
+                <Switch checked={hasMorning} onCheckedChange={setHasMorning} />
+                <span className="font-medium">Morning shift</span>
+              </label>
+              {hasMorning && (
+                <div className="grid grid-cols-2 gap-3 pl-9">
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-muted-foreground">Starts</Label>
+                    <Input type="time" value={morningStart} onChange={(e) => setMorningStart(e.target.value)} className="bg-panel border-panel-border font-mono" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-muted-foreground">Ends</Label>
+                    <Input type="time" value={morningEnd} onChange={(e) => setMorningEnd(e.target.value)} className="bg-panel border-panel-border font-mono" />
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-xs cursor-pointer">
+                <Switch checked={hasEvening} onCheckedChange={setHasEvening} />
+                <span className="font-medium">Evening shift</span>
+              </label>
+              {hasEvening && (
+                <div className="grid grid-cols-2 gap-3 pl-9">
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-muted-foreground">Starts</Label>
+                    <Input type="time" value={eveningStart} onChange={(e) => setEveningStart(e.target.value)} className="bg-panel border-panel-border font-mono" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-muted-foreground">Ends</Label>
+                    <Input type="time" value={eveningEnd} onChange={(e) => setEveningEnd(e.target.value)} className="bg-panel border-panel-border font-mono" />
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
