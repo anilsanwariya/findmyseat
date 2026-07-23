@@ -861,34 +861,118 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
           <h4 className="text-xs font-mono uppercase tracking-widest text-cyan border-b border-panel-border/50 pb-1">
             Timings & Schedule
           </h4>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label>Opening Hours</Label>
-              <Input
-                value={openingHours}
-                onChange={(e) => setOpeningHours(e.target.value)}
-                className="bg-panel border-panel-border"
-                placeholder="e.g. 6:00 AM - 11:00 PM"
-              />
+
+          {/* Opening Hours */}
+          <div className="space-y-2 rounded-lg border border-panel-border bg-panel/40 p-3">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm">Opening Hours</Label>
+              <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+                <Switch checked={open24} onCheckedChange={setOpen24} />
+                <span>Open 24 hours</span>
+              </label>
             </div>
-            <div className="space-y-2">
-              <Label>Closed On</Label>
-              <Input
-                value={closedOn}
-                onChange={(e) => setClosedOn(e.target.value)}
-                className="bg-panel border-panel-border"
-                placeholder="e.g. Open all days / Sundays"
-              />
-            </div>
+            {!open24 && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-muted-foreground">Opens at</Label>
+                  <Input
+                    type="time"
+                    value={openTime}
+                    onChange={(e) => setOpenTime(e.target.value)}
+                    className="bg-panel border-panel-border font-mono"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-muted-foreground">Closes at</Label>
+                  <Input
+                    type="time"
+                    value={closeTime}
+                    onChange={(e) => setCloseTime(e.target.value)}
+                    className="bg-panel border-panel-border font-mono"
+                  />
+                </div>
+              </div>
+            )}
           </div>
-          <div className="space-y-2">
-            <Label>Shifts</Label>
-            <Input
-              value={shifts}
-              onChange={(e) => setShifts(e.target.value)}
-              className="bg-panel border-panel-border"
-              placeholder="e.g. Morning: 6AM-2PM, Evening: 2PM-10PM"
-            />
+
+          {/* Closed On */}
+          <div className="space-y-2 rounded-lg border border-panel-border bg-panel/40 p-3">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm">Closed On</Label>
+              <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+                <Switch
+                  checked={openAllDays}
+                  onCheckedChange={(v) => {
+                    setOpenAllDays(v);
+                    if (v) setClosedDays(new Set());
+                  }}
+                />
+                <span>Open all days</span>
+              </label>
+            </div>
+            {!openAllDays && (
+              <div className="flex flex-wrap gap-1.5">
+                {WEEK_DAYS.map((d) => {
+                  const on = closedDays.has(d);
+                  return (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => {
+                        const s = new Set(closedDays);
+                        if (on) s.delete(d);
+                        else s.add(d);
+                        setClosedDays(s);
+                      }}
+                      className={`rounded-full border px-3 py-1 text-xs transition-colors ${on ? "border-rose bg-rose/20 text-rose" : "border-panel-border text-muted-foreground hover:text-white"}`}
+                    >
+                      {d}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Shifts */}
+          <div className="space-y-3 rounded-lg border border-panel-border bg-panel/40 p-3">
+            <Label className="text-sm">Shifts</Label>
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-xs cursor-pointer">
+                <Switch checked={hasMorning} onCheckedChange={setHasMorning} />
+                <span className="font-medium">Morning shift</span>
+              </label>
+              {hasMorning && (
+                <div className="grid grid-cols-2 gap-3 pl-9">
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-muted-foreground">Starts</Label>
+                    <Input type="time" value={morningStart} onChange={(e) => setMorningStart(e.target.value)} className="bg-panel border-panel-border font-mono" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-muted-foreground">Ends</Label>
+                    <Input type="time" value={morningEnd} onChange={(e) => setMorningEnd(e.target.value)} className="bg-panel border-panel-border font-mono" />
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-xs cursor-pointer">
+                <Switch checked={hasEvening} onCheckedChange={setHasEvening} />
+                <span className="font-medium">Evening shift</span>
+              </label>
+              {hasEvening && (
+                <div className="grid grid-cols-2 gap-3 pl-9">
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-muted-foreground">Starts</Label>
+                    <Input type="time" value={eveningStart} onChange={(e) => setEveningStart(e.target.value)} className="bg-panel border-panel-border font-mono" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-muted-foreground">Ends</Label>
+                    <Input type="time" value={eveningEnd} onChange={(e) => setEveningEnd(e.target.value)} className="bg-panel border-panel-border font-mono" />
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
