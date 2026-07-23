@@ -49,6 +49,81 @@ export const AMENITIES_DICT: Record<string, { en: string; hi: string }> = {
   parking: { en: "Safe parking for two-wheelers", hi: "दुपहिया वाहनों के लिए सुरक्षित पार्किंग" },
 };
 
+// ============ Schedule helpers (structured pickers <-> stored strings) ============
+const WEEK_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
+const DAY_LONG: Record<string, string> = { Mon: "Monday", Tue: "Tuesday", Wed: "Wednesday", Thu: "Thursday", Fri: "Friday", Sat: "Saturday", Sun: "Sunday" };
+
+function to12h(t: string): string {
+  // "HH:MM" -> "h:MM AM/PM"
+  if (!t || !/^\d{2}:\d{2}$/.test(t)) return "";
+  const [hStr, m] = t.split(":");
+  let h = parseInt(hStr, 10);
+  const ap = h >= 12 ? "PM" : "AM";
+  h = h % 12; if (h === 0) h = 12;
+  return `${h}:${m} ${ap}`;
+}
+function from12h(s: string): string {
+  // "h:MM AM/PM" or "hAM" -> "HH:MM"
+  const m = s.trim().match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM|am|pm)$/);
+  if (!m) return "";
+  let h = parseInt(m[1], 10);
+  const min = m[2] ?? "00";
+  const ap = m[3].toUpperCase();
+  if (ap === "PM" && h !== 12) h += 12;
+  if (ap === "AM" && h === 12) h = 0;
+  return `${String(h).padStart(2, "0")}:${min}`;
+}
+
+function serializeOpeningHours({ open24, openTime, closeTime }: { open24: boolean; openTime: string; closeTime: string }): string | null {
+  if (open24) return "Open 24 hours";
+  if (!openTime || !closeTime) return null;
+  return `${to12h(openTime)} - ${to12h(closeTime)}`;
+}
+function parseOpeningHours(s: string): { open24: boolean; openTime: string; closeTime: string } {
+  const raw = (s || "").trim();
+  if (!raw) return { open24: false, openTime: "", closeTime: "" };
+  if (/24\s*hours?|24\s*hrs?|24\/7/i.test(raw)) return { open24: true, openTime: "", closeTime: "" };
+  const m = raw.match(/(\d{1,2}(?::\d{2})?\s*(?:AM|PM|am|pm))\s*[-–to]+\s*(\d{1,2}(?::\d{2})?\s*(?:AM|PM|am|pm))/);
+  if (m) return { open24: false, openTime: from12h(m[1]), closeTime: from12h(m[2]) };
+  return { open24: false, openTime: "", closeTime: "" };
+}
+
+function serializeClosedOn({ openAllDays, days }: { openAllDays: boolean; days: string[] }): string | null {
+  if (openAllDays) return "Open all days";
+  if (!days.length) return null;
+  const ordered = WEEK_DAYS.filter((d) => days.includes(d)).map((d) => DAY_LONG[d]);
+  return ordered.join(", ");
+}
+function parseClosedOn(s: string): { openAllDays: boolean; days: string[] } {
+  const raw = (s || "").trim();
+  if (!raw) return { openAllDays: false, days: [] };
+  if (/open\s*all\s*days|all\s*days|none|never/i.test(raw)) return { openAllDays: true, days: [] };
+  const days: string[] = [];
+  for (const d of WEEK_DAYS) {
+    const re = new RegExp(`\\b${DAY_LONG[d]}s?\\b|\\b${d}\\b`, "i");
+    if (re.test(raw)) days.push(d);
+  }
+  return { openAllDays: false, days };
+}
+
+function serializeShifts(v: { hasMorning: boolean; morningStart: string; morningEnd: string; hasEvening: boolean; eveningStart: string; eveningEnd: string }): string | null {
+  const parts: string[] = [];
+  if (v.hasMorning && v.morningStart && v.morningEnd) parts.push(`Morning: ${to12h(v.morningStart)} - ${to12h(v.morningEnd)}`);
+  if (v.hasEvening && v.eveningStart && v.eveningEnd) parts.push(`Evening: ${to12h(v.eveningStart)} - ${to12h(v.eveningEnd)}`);
+  return parts.length ? parts.join(", ") : null;
+}
+function parseShifts(s: string): { hasMorning: boolean; morningStart: string; morningEnd: string; hasEvening: boolean; eveningStart: string; eveningEnd: string } {
+  const raw = (s || "").trim();
+  const out = { hasMorning: false, morningStart: "", morningEnd: "", hasEvening: false, eveningStart: "", eveningEnd: "" };
+  if (!raw) return out;
+  const mm = raw.match(/morning[^0-9]*(\d{1,2}(?::\d{2})?\s*(?:AM|PM|am|pm))\s*[-–to]+\s*(\d{1,2}(?::\d{2})?\s*(?:AM|PM|am|pm))/i);
+  if (mm) { out.hasMorning = true; out.morningStart = from12h(mm[1]); out.morningEnd = from12h(mm[2]); }
+  const em = raw.match(/evening[^0-9]*(\d{1,2}(?::\d{2})?\s*(?:AM|PM|am|pm))\s*[-–to]+\s*(\d{1,2}(?::\d{2})?\s*(?:AM|PM|am|pm))/i);
+  if (em) { out.hasEvening = true; out.eveningStart = from12h(em[1]); out.eveningEnd = from12h(em[2]); }
+  return out;
+}
+
+
 function SettingsPage() {
   const { data: session, isLoading } = useSession();
   const qc = useQueryClient();
