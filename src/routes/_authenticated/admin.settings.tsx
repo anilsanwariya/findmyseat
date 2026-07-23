@@ -612,9 +612,18 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
   const [googleMapsUrl, setGoogleMapsUrl] = useState("");
   const [zone, setZone] = useState("");
   const [city, setCity] = useState("");
-  const [openingHours, setOpeningHours] = useState("");
-  const [shifts, setShifts] = useState("");
-  const [closedOn, setClosedOn] = useState("");
+  // Structured schedule state
+  const [open24, setOpen24] = useState(false);
+  const [openTime, setOpenTime] = useState(""); // "HH:MM"
+  const [closeTime, setCloseTime] = useState("");
+  const [openAllDays, setOpenAllDays] = useState(false);
+  const [closedDays, setClosedDays] = useState<Set<string>>(new Set());
+  const [hasMorning, setHasMorning] = useState(false);
+  const [morningStart, setMorningStart] = useState("");
+  const [morningEnd, setMorningEnd] = useState("");
+  const [hasEvening, setHasEvening] = useState(false);
+  const [eveningStart, setEveningStart] = useState("");
+  const [eveningEnd, setEveningEnd] = useState("");
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
   const [placeId, setPlaceId] = useState<string | null>(null);
@@ -634,9 +643,20 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
       setGoogleMapsUrl(existingLib.google_maps_url || "");
       setZone(existingLib.zone_area || "");
       setCity(existingLib.city || "");
-      setOpeningHours(existingLib.opening_hours || "");
-      setShifts(existingLib.shifts || "");
-      setClosedOn(existingLib.closed_on || "");
+      const oh = parseOpeningHours(existingLib.opening_hours || "");
+      setOpen24(oh.open24);
+      setOpenTime(oh.openTime);
+      setCloseTime(oh.closeTime);
+      const co = parseClosedOn(existingLib.closed_on || "");
+      setOpenAllDays(co.openAllDays);
+      setClosedDays(new Set(co.days));
+      const sh = parseShifts(existingLib.shifts || "");
+      setHasMorning(sh.hasMorning);
+      setMorningStart(sh.morningStart);
+      setMorningEnd(sh.morningEnd);
+      setHasEvening(sh.hasEvening);
+      setEveningStart(sh.eveningStart);
+      setEveningEnd(sh.eveningEnd);
       setSelectedExams(new Set(existingLib.targeted_exam_ids || []));
       setAmenities(existingLib.amenities || {});
       setLatitude(existingLib.latitude ?? null);
