@@ -63,33 +63,40 @@ function StudentsPage() {
         title="Student Directory"
         hint="Onboard, edit, and manage student profiles."
         right={
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button className="w-full sm:w-auto bg-white text-slate-900 hover:bg-white/90">
-                <Plus className="mr-1 size-4" /> New student
-              </Button>
-            </DialogTrigger>
-            <StudentFormDialog
-              onDone={async () => {
-                await invalidate();
-                setOpen(false);
-              }}
-            />
-          </Dialog>
+          <div className="w-full sm:w-auto mt-4 sm:mt-0">
+            <Dialog open={open} onOpenChange={setOpen}>
+              <DialogTrigger asChild>
+                <Button className="w-full sm:w-auto bg-white text-slate-900 hover:bg-white/90">
+                  <Plus className="mr-1 size-4" /> New student
+                </Button>
+              </DialogTrigger>
+              <StudentFormDialog
+                onDone={async () => {
+                  await invalidate();
+                  setOpen(false);
+                }}
+              />
+            </Dialog>
+          </div>
         }
       />
 
-      <GlassPanel className="p-4 overflow-hidden">
-        <div className="mb-3 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
-          <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
-            <TabsList className="bg-panel border border-panel-border">
-              <TabsTrigger value="active">Active</TabsTrigger>
-              <TabsTrigger value="inactive">Inactive</TabsTrigger>
+      <GlassPanel className="p-4 overflow-hidden flex flex-col min-w-0">
+        <div className="mb-4 flex flex-col lg:flex-row gap-4 lg:items-center justify-between">
+          <Tabs value={tab} onValueChange={(v) => setTab(v as any)} className="w-full sm:w-auto overflow-x-auto">
+            <TabsList className="bg-panel border border-panel-border inline-flex w-full sm:w-auto whitespace-nowrap">
+              <TabsTrigger value="active" className="flex-1 sm:flex-none">
+                Active
+              </TabsTrigger>
+              <TabsTrigger value="inactive" className="flex-1 sm:flex-none">
+                Inactive
+              </TabsTrigger>
             </TabsList>
           </Tabs>
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-1 sm:justify-end">
+
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
             <Select value={libraryFilter} onValueChange={setLibraryFilter}>
-              <SelectTrigger className="bg-panel border-panel-border w-full sm:w-52">
+              <SelectTrigger className="bg-panel border-panel-border w-full sm:w-48 shrink-0">
                 <SelectValue placeholder="All branches" />
               </SelectTrigger>
               <SelectContent>
@@ -101,19 +108,19 @@ function StudentsPage() {
                 ))}
               </SelectContent>
             </Select>
-            <div className="flex items-center gap-2 flex-1 sm:max-w-xs">
-              <Search className="size-4 text-muted-foreground shrink-0" />
+            <div className="flex items-center gap-2 w-full sm:max-w-xs shrink-0 relative">
+              <Search className="size-4 text-muted-foreground absolute left-3" />
               <Input
                 placeholder="Search by name or mobile…"
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                className="bg-panel border-panel-border"
+                className="bg-panel border-panel-border pl-9 w-full"
               />
             </div>
           </div>
         </div>
 
-        <div className="w-full overflow-x-auto pb-4 custom-scrollbar">
+        <div className="w-full overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
           <table className="w-full text-left text-sm min-w-[700px]">
             <thead>
               <tr className="border-b border-panel-border text-[10px] uppercase tracking-widest text-muted-foreground whitespace-nowrap">
