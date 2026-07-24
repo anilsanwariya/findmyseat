@@ -120,24 +120,24 @@ function PaymentsPage() {
             />
           </div>
 
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3 w-full xl:w-auto">
-            <div className="flex flex-col min-[450px]:flex-row items-stretch min-[450px]:items-end gap-2 w-full sm:w-auto">
-              <div className="space-y-1 w-full min-[450px]:w-36 shrink-0">
+          <div className="flex flex-col sm:flex-row items-center sm:items-end justify-center gap-3 w-full xl:w-auto">
+            <div className="flex flex-row items-end justify-center gap-3 w-full">
+              <div className="space-y-1 w-1/2 max-w-[160px] sm:w-36 shrink-0">
                 <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">From</Label>
                 <Input
                   type="date"
                   value={fromDate}
                   onChange={(e) => setFromDate(e.target.value)}
-                  className="bg-panel border-panel-border font-mono text-xs w-full"
+                  className="bg-panel border-panel-border font-mono text-xs w-full px-2"
                 />
               </div>
-              <div className="space-y-1 w-full min-[450px]:w-36 shrink-0">
+              <div className="space-y-1 w-1/2 max-w-[160px] sm:w-36 shrink-0">
                 <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">To</Label>
                 <Input
                   type="date"
                   value={toDate}
                   onChange={(e) => setToDate(e.target.value)}
-                  className="bg-panel border-panel-border font-mono text-xs w-full"
+                  className="bg-panel border-panel-border font-mono text-xs w-full px-2"
                 />
               </div>
             </div>
@@ -247,6 +247,7 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
   const orgId = session?.orgId;
 
   const [studentSearch, setStudentSearch] = useState("");
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [allocId, setAllocId] = useState("");
   const [amount, setAmount] = useState<number | "">("");
   const [startDate, setStartDate] = useState(todayISO());
@@ -401,39 +402,55 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
           <Switch checked={isLegacy} onCheckedChange={setIsLegacy} />
         </div>
 
-        <div className="space-y-2">
+        {/* Enhanced Autocomplete Search Bar */}
+        <div className="space-y-2 relative z-50">
           <Label>Find Active Allocation</Label>
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground z-10" />
             <Input
               placeholder="Search name or mobile..."
               value={studentSearch}
-              onChange={(e) => setStudentSearch(e.target.value)}
-              className="pl-9 mb-2 bg-black/20 border-panel-border focus-visible:ring-1 focus-visible:ring-cyan/50"
+              onChange={(e) => {
+                setStudentSearch(e.target.value);
+                if (allocId) setAllocId(""); // clear selection if they edit
+              }}
+              onFocus={() => setIsSearchFocused(true)}
+              onBlur={() => setIsSearchFocused(false)}
+              className="pl-9 bg-black/20 border-panel-border focus-visible:ring-1 focus-visible:ring-cyan/50"
             />
+            {isSearchFocused && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-panel border border-panel-border rounded-md shadow-2xl max-h-60 overflow-y-auto custom-scrollbar">
+                {filteredAllocations.map((a: any) => (
+                  <div
+                    key={a.id}
+                    className="p-3 text-sm hover:bg-cyan/10 cursor-pointer border-b border-panel-border/30 last:border-0 transition-colors"
+                    onMouseDown={(e) => e.preventDefault()} // Prevents input blur before click registers
+                    onClick={() => {
+                      setAllocId(a.id);
+                      setStudentSearch(`${a.students?.full_name} (${a.students?.mobile_number})`);
+                      setIsSearchFocused(false);
+                    }}
+                  >
+                    <div className="font-medium text-slate-200">{a.students?.full_name}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      <span className="font-mono text-cyan/80">{a.students?.mobile_number}</span>
+                      <span className="mx-1.5">·</span>
+                      {a.reservation_type === "unreserved" ? "Unreserved" : `Seat ${a.seats?.seat_number ?? "—"}`}
+                    </div>
+                  </div>
+                ))}
+                {filteredAllocations.length === 0 && (
+                  <div className="p-4 text-xs text-muted-foreground text-center">No active allocations found.</div>
+                )}
+              </div>
+            )}
           </div>
-          <Select value={allocId} onValueChange={setAllocId}>
-            <SelectTrigger className="bg-panel border-panel-border">
-              <SelectValue placeholder="Select student & seat" />
-            </SelectTrigger>
-            <SelectContent>
-              {filteredAllocations.map((a: any) => (
-                <SelectItem key={a.id} value={a.id}>
-                  {a.students?.full_name} ({a.students?.mobile_number}) ·{" "}
-                  {a.reservation_type === "unreserved" ? "Unreserved" : `Seat ${a.seats?.seat_number ?? "—"}`}
-                </SelectItem>
-              ))}
-              {filteredAllocations.length === 0 && (
-                <div className="p-3 text-xs text-muted-foreground text-center">No matches found.</div>
-              )}
-            </SelectContent>
-          </Select>
         </div>
 
         {chosen && (
           <>
             {/* Status Card */}
-            <div className="rounded-lg border border-panel-border bg-black/20 p-3 space-y-1">
+            <div className="rounded-lg border border-panel-border bg-black/20 p-3 space-y-1 mt-4">
               <div className="text-xs uppercase tracking-widest text-muted-foreground">Current status</div>
               <div className="flex items-center justify-between">
                 <div>
@@ -525,7 +542,7 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
 
         {!isLegacy && (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
               <div className="space-y-2">
                 <Label>Payment Method</Label>
                 <Select value={method} onValueChange={(v: any) => setMethod(v)}>
