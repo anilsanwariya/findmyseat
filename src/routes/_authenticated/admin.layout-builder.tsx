@@ -314,12 +314,18 @@ function LayoutBuilderPage() {
 
   return (
     <div className="space-y-6">
-      <SectionHeader
-        title="Layout Builder"
-        hint="Build your floor plan, setup seats, and define custom areas."
-        right={
-          <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-3 w-full sm:w-auto mt-4 sm:mt-0">
-            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+      {/* 
+        Modified header layout to prevent text squishing on mobile.
+        Title area takes full width on small screens, and the controls wrap elegantly beneath.
+      */}
+      <div className="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-4">
+        <div className="flex-1 w-full">
+          <SectionHeader title="Layout Builder" hint="Build your floor plan, setup seats, and define custom areas." />
+        </div>
+
+        <div className="w-full xl:w-auto shrink-0 flex flex-col sm:flex-row gap-3">
+          <div className="flex w-full sm:w-auto gap-2">
+            <div className="flex-1 sm:flex-none">
               <Select
                 value={currentLibId ?? ""}
                 onValueChange={(v) => {
@@ -328,7 +334,7 @@ function LayoutBuilderPage() {
                   setSelectedSeat(null);
                 }}
               >
-                <SelectTrigger className="w-full sm:w-40 md:w-48 bg-panel border-panel-border">
+                <SelectTrigger className="w-full sm:w-36 md:w-48 bg-panel border-panel-border">
                   <SelectValue placeholder="Branch" />
                 </SelectTrigger>
                 <SelectContent>
@@ -339,6 +345,8 @@ function LayoutBuilderPage() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="flex-1 sm:flex-none">
               <Select
                 value={currentSectionId ?? ""}
                 onValueChange={(v) => {
@@ -346,7 +354,7 @@ function LayoutBuilderPage() {
                   setSelectedSeat(null);
                 }}
               >
-                <SelectTrigger className="w-full sm:w-40 md:w-48 bg-panel border-panel-border">
+                <SelectTrigger className="w-full sm:w-36 md:w-48 bg-panel border-panel-border">
                   <SelectValue placeholder="Section" />
                 </SelectTrigger>
                 <SelectContent>
@@ -358,8 +366,10 @@ function LayoutBuilderPage() {
                 </SelectContent>
               </Select>
             </div>
+          </div>
 
-            <div className="flex items-center gap-2 w-full sm:w-auto justify-start sm:justify-end">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <div className="flex-1 sm:flex-none">
               <AddSectionDialog
                 open={addSectionOpen}
                 onOpenChange={setAddSectionOpen}
@@ -370,29 +380,30 @@ function LayoutBuilderPage() {
                   setSectionId(id);
                 }}
               />
-              {currentSection && (
-                <>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="border-panel-border bg-panel shrink-0"
-                    onClick={() => setEditSectionOpen(true)}
-                    title="Section settings"
-                  >
-                    <Settings2 className="size-4" />
-                  </Button>
-                  <EditSectionDialog
-                    open={editSectionOpen}
-                    onOpenChange={setEditSectionOpen}
-                    section={currentSection}
-                    onSaved={() => qc.invalidateQueries({ queryKey: ["sections", currentLibId] })}
-                  />
-                </>
-              )}
             </div>
+            {currentSection && (
+              <div className="flex-1 sm:flex-none">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full sm:w-auto border-panel-border bg-panel shrink-0"
+                  onClick={() => setEditSectionOpen(true)}
+                  title="Section settings"
+                >
+                  <Settings2 className="size-4 mr-2 sm:mr-0" />
+                  <span className="sm:hidden">Settings</span>
+                </Button>
+                <EditSectionDialog
+                  open={editSectionOpen}
+                  onOpenChange={setEditSectionOpen}
+                  section={currentSection}
+                  onSaved={() => qc.invalidateQueries({ queryKey: ["sections", currentLibId] })}
+                />
+              </div>
+            )}
           </div>
-        }
-      />
+        </div>
+      </div>
 
       {!libs?.length ? (
         <GlassPanel className="p-10 text-center">
@@ -420,7 +431,7 @@ function LayoutBuilderPage() {
               </div>
 
               {/* Map Tools */}
-              <div className="flex gap-2">
+              <div className="flex gap-2 w-full sm:w-auto">
                 <Button
                   variant={multiSelectMode ? "default" : "outline"}
                   onClick={() => {
@@ -428,7 +439,7 @@ function LayoutBuilderPage() {
                     setSelectedCells([]);
                   }}
                   className={cn(
-                    "bg-panel transition-colors shrink-0",
+                    "w-full sm:w-auto bg-panel transition-colors shrink-0",
                     multiSelectMode &&
                       "bg-cyan text-cyan-950 hover:bg-cyan/90 border-cyan/50 shadow-[0_0_15px_rgba(34,211,238,0.2)]",
                   )}
@@ -441,14 +452,14 @@ function LayoutBuilderPage() {
 
             {/* Unified Selection Action Banner */}
             {multiSelectMode && selectedCells.length > 0 && (
-              <div className="bg-cyan/10 border border-cyan/30 rounded-lg p-3 mb-4 mx-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in zoom-in slide-in-from-top-4">
+              <div className="bg-cyan/10 border border-cyan/30 rounded-lg p-3 mb-4 mx-2 flex flex-col xl:flex-row xl:items-center justify-between gap-3 animate-in fade-in zoom-in slide-in-from-top-4">
                 <span className="text-sm font-medium text-cyan shrink-0">{selectedCells.length} cells selected</span>
-                <div className="flex flex-wrap gap-2">
+                <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
                   <Button
                     size="sm"
                     variant="ghost"
                     onClick={() => setSelectedCells([])}
-                    className="text-muted-foreground hover:text-white"
+                    className="text-muted-foreground hover:text-white col-span-2 sm:col-span-1"
                   >
                     Clear
                   </Button>
@@ -464,7 +475,7 @@ function LayoutBuilderPage() {
                     className="bg-cyan text-cyan-950 hover:bg-cyan/90"
                     onClick={() => setBulkAreaOpen(true)}
                   >
-                    <Square className="size-3.5 mr-1.5" /> Assign Object
+                    <Square className="size-3.5 mr-1.5" /> Object
                   </Button>
                   <Button
                     size="sm"
@@ -642,7 +653,7 @@ function LayoutBuilderPage() {
         onDone={() => qc.invalidateQueries({ queryKey: ["seats", currentSectionId] })}
       />
 
-      {/* Unified Bulk Tools (Triggered by Multi-Select Banner) */}
+      {/* Unified Bulk Tools */}
       <BulkAreaDialog
         open={bulkAreaOpen}
         onOpenChange={setBulkAreaOpen}
@@ -1090,7 +1101,7 @@ function AddSectionDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="border-panel-border bg-panel">
+        <Button variant="outline" size="sm" className="w-full sm:w-auto border-panel-border bg-panel">
           <Plus className="mr-1 size-4" /> Section
         </Button>
       </DialogTrigger>
