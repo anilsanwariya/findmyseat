@@ -120,10 +120,6 @@ function PaymentsPage() {
             />
           </div>
 
-          {/* 
-            FIX: Prevent date picker overlapping by allowing them to stack on very small screens, 
-            and giving them a fixed width (w-36 / ~144px) when side-by-side. 
-          */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3 w-full xl:w-auto">
             <div className="flex flex-col min-[450px]:flex-row items-stretch min-[450px]:items-end gap-2 w-full sm:w-auto">
               <div className="space-y-1 w-full min-[450px]:w-36 shrink-0">
@@ -132,7 +128,7 @@ function PaymentsPage() {
                   type="date"
                   value={fromDate}
                   onChange={(e) => setFromDate(e.target.value)}
-                  className="bg-panel border-panel-border font-mono text-xs w-full px-2"
+                  className="bg-panel border-panel-border font-mono text-xs w-full"
                 />
               </div>
               <div className="space-y-1 w-full min-[450px]:w-36 shrink-0">
@@ -141,7 +137,7 @@ function PaymentsPage() {
                   type="date"
                   value={toDate}
                   onChange={(e) => setToDate(e.target.value)}
-                  className="bg-panel border-panel-border font-mono text-xs w-full px-2"
+                  className="bg-panel border-panel-border font-mono text-xs w-full"
                 />
               </div>
             </div>
