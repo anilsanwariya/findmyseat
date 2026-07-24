@@ -59,27 +59,31 @@ function StudentsPage() {
 
   return (
     <div className="space-y-6">
-      <SectionHeader
-        title="Student Directory"
-        hint="Onboard, edit, and manage student profiles."
-        right={
-          <div className="w-full sm:w-auto mt-4 sm:mt-0">
-            <Dialog open={open} onOpenChange={setOpen}>
-              <DialogTrigger asChild>
-                <Button className="w-full sm:w-auto bg-white text-slate-900 hover:bg-white/90">
-                  <Plus className="mr-1 size-4" /> New student
-                </Button>
-              </DialogTrigger>
-              <StudentFormDialog
-                onDone={async () => {
-                  await invalidate();
-                  setOpen(false);
-                }}
-              />
-            </Dialog>
-          </div>
-        }
-      />
+      {/* 
+        Modified header layout to prevent text squishing on mobile.
+        We use a custom flex container instead of relying entirely on SectionHeader's internal flex row,
+        allowing the title to take full width on mobile, and pushing the action button below.
+      */}
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div className="flex-1 w-full">
+          <SectionHeader title="Student Directory" hint="Onboard, edit, and manage student profiles." />
+        </div>
+        <div className="w-full sm:w-auto shrink-0 mt-2 sm:mt-0">
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button className="w-full sm:w-auto bg-white text-slate-900 hover:bg-white/90">
+                <Plus className="mr-1 size-4" /> New student
+              </Button>
+            </DialogTrigger>
+            <StudentFormDialog
+              onDone={async () => {
+                await invalidate();
+                setOpen(false);
+              }}
+            />
+          </Dialog>
+        </div>
+      </div>
 
       <GlassPanel className="p-4 overflow-hidden flex flex-col min-w-0">
         <div className="mb-4 flex flex-col lg:flex-row gap-4 lg:items-center justify-between">
