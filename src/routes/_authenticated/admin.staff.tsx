@@ -9,7 +9,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { fmtDate } from "@/lib/format";
 import { Plus, Pencil, UserX, UserCheck, Trash2, KeyRound, Mail, ShieldOff } from "lucide-react";
@@ -81,10 +88,18 @@ function StaffPage() {
 
   return (
     <div className="space-y-6">
-      <SectionHeader
-        title="Team & Access"
-        hint="Hire staff, restrict them to branches, and choose exactly what they can do."
-        right={
+      {/* 
+        Modified header layout for responsiveness. 
+        Title takes full width on mobile, action button drops below. 
+      */}
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div className="flex-1 w-full">
+          <SectionHeader
+            title="Team & Access"
+            hint="Hire staff, restrict them to branches, and choose exactly what they can do."
+          />
+        </div>
+        <div className="w-full sm:w-auto shrink-0 mt-2 sm:mt-0">
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button className="w-full sm:w-auto bg-white text-slate-900 hover:bg-white/90">
@@ -98,11 +113,11 @@ function StaffPage() {
               }}
             />
           </Dialog>
-        }
-      />
+        </div>
+      </div>
 
-      <GlassPanel className="p-4 overflow-hidden">
-        <div className="w-full overflow-x-auto pb-4 custom-scrollbar">
+      <GlassPanel className="p-4 overflow-hidden flex flex-col min-w-0">
+        <div className="w-full overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 pb-4 custom-scrollbar">
           <table className="w-full text-left text-sm min-w-[820px]">
             <thead>
               <tr className="border-b border-panel-border text-[10px] uppercase tracking-widest text-muted-foreground whitespace-nowrap">
@@ -224,9 +239,7 @@ function StaffFormDialog({ existing, onDone }: { existing?: any; onDone: () => v
   const [empId, setEmpId] = useState(existing?.employee_id ?? "");
   const [email, setEmail] = useState(existing?.email ?? "");
   const [password, setPassword] = useState("");
-  const [libraryIds, setLibraryIds] = useState<string[]>(
-    (existing?.branches ?? []).map((b: any) => b.library_id),
-  );
+  const [libraryIds, setLibraryIds] = useState<string[]>((existing?.branches ?? []).map((b: any) => b.library_id));
   const [perms, setPerms] = useState<Record<string, boolean>>({
     ...DEFAULT_PERMS,
     ...(existing?.permissions ?? {}),
@@ -291,11 +304,21 @@ function StaffFormDialog({ existing, onDone }: { existing?: any; onDone: () => v
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-2">
             <Label>Full name</Label>
-            <Input required value={fullName} onChange={(e) => setFullName(e.target.value)} className="bg-panel border-panel-border" />
+            <Input
+              required
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              className="bg-panel border-panel-border"
+            />
           </div>
           <div className="space-y-2">
             <Label>Employee ID</Label>
-            <Input required value={empId} onChange={(e) => setEmpId(e.target.value)} className="bg-panel border-panel-border font-mono" />
+            <Input
+              required
+              value={empId}
+              onChange={(e) => setEmpId(e.target.value)}
+              className="bg-panel border-panel-border font-mono"
+            />
           </div>
         </div>
 
@@ -366,11 +389,7 @@ function StaffFormDialog({ existing, onDone }: { existing?: any; onDone: () => v
           </div>
         </div>
 
-        <Button
-          disabled={loading}
-          type="submit"
-          className="w-full bg-white text-slate-900 hover:bg-white/90"
-        >
+        <Button disabled={loading} type="submit" className="w-full bg-white text-slate-900 hover:bg-white/90">
           {loading ? "Saving…" : isEdit ? "Save changes" : "Onboard staff"}
         </Button>
       </form>
@@ -387,9 +406,7 @@ function ResetPasswordDialog({ staff, onDone }: { staff: any; onDone: () => void
     <DialogContent className="glass-strong border-panel-border w-[95vw] max-w-sm p-4 md:p-6">
       <DialogHeader>
         <DialogTitle>Reset password</DialogTitle>
-        <DialogDescription>
-          Set a new password for {staff.full_name}, or send them a recovery email.
-        </DialogDescription>
+        <DialogDescription>Set a new password for {staff.full_name}, or send them a recovery email.</DialogDescription>
       </DialogHeader>
       <div className="space-y-4">
         <div className="space-y-2">
