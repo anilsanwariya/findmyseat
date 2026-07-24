@@ -86,10 +86,6 @@ function PaymentsPage() {
 
   return (
     <div className="space-y-6">
-      {/* 
-        Modified header layout for responsiveness. 
-        Title takes full width on mobile, action button drops below. 
-      */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div className="flex-1 w-full">
           <SectionHeader title="Payments" hint="Log payments with proof, and drill into full history." />
@@ -125,12 +121,12 @@ function PaymentsPage() {
           </div>
 
           {/* 
-            Date pickers are structured to stack on very small screens, 
-            sit side-by-side on medium screens, and align right on large screens. 
+            FIX: Prevent date picker overlapping by allowing them to stack on very small screens, 
+            and giving them a fixed width (w-36 / ~144px) when side-by-side. 
           */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3 w-full xl:w-auto">
-            <div className="flex flex-row items-end gap-2 w-full sm:w-auto">
-              <div className="space-y-1 flex-1 sm:w-32">
+            <div className="flex flex-col min-[450px]:flex-row items-stretch min-[450px]:items-end gap-2 w-full sm:w-auto">
+              <div className="space-y-1 w-full min-[450px]:w-36 shrink-0">
                 <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">From</Label>
                 <Input
                   type="date"
@@ -139,7 +135,7 @@ function PaymentsPage() {
                   className="bg-panel border-panel-border font-mono text-xs w-full px-2"
                 />
               </div>
-              <div className="space-y-1 flex-1 sm:w-32">
+              <div className="space-y-1 w-full min-[450px]:w-36 shrink-0">
                 <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">To</Label>
                 <Input
                   type="date"
