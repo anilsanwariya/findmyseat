@@ -263,41 +263,56 @@ function AllocationsPage() {
 
   return (
     <div className="space-y-6">
-      <SectionHeader
-        title="Allocations & Floor Plan"
-        hint="Assign seats visually or view the standard allocations list."
-        right={
-          <div className="flex flex-wrap items-center gap-2">
-            <Select
-              value={currentLibId ?? ""}
-              onValueChange={(v) => {
-                setLibraryId(v);
-                setSectionId(undefined);
-              }}
-            >
-              <SelectTrigger className="w-[140px] sm:w-48 bg-panel border-panel-border">
-                <SelectValue placeholder="Branch" />
-              </SelectTrigger>
-              <SelectContent>
-                {(libs ?? []).map((l) => (
-                  <SelectItem key={l.id} value={l.id}>
-                    {l.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={currentSectionId ?? ""} onValueChange={(v) => setSectionId(v)}>
-              <SelectTrigger className="w-[140px] sm:w-48 bg-panel border-panel-border">
-                <SelectValue placeholder="Section" />
-              </SelectTrigger>
-              <SelectContent>
-                {(sectionsQ.data ?? []).map((s: any) => (
-                  <SelectItem key={s.id} value={s.id}>
-                    {s.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+      {/* 
+        Modified header layout for responsiveness. 
+        Title takes full width on mobile, controls drop below. 
+      */}
+      <div className="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-4">
+        <div className="flex-1 w-full">
+          <SectionHeader
+            title="Allocations & Floor Plan"
+            hint="Assign seats visually or view the standard allocations list."
+          />
+        </div>
+        <div className="w-full xl:w-auto shrink-0 mt-2 xl:mt-0 flex flex-col sm:flex-row flex-wrap items-center gap-3">
+          <div className="flex w-full sm:w-auto gap-2">
+            <div className="flex-1 sm:flex-none">
+              <Select
+                value={currentLibId ?? ""}
+                onValueChange={(v) => {
+                  setLibraryId(v);
+                  setSectionId(undefined);
+                }}
+              >
+                <SelectTrigger className="w-full sm:w-36 md:w-48 bg-panel border-panel-border">
+                  <SelectValue placeholder="Branch" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(libs ?? []).map((l) => (
+                    <SelectItem key={l.id} value={l.id}>
+                      {l.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex-1 sm:flex-none">
+              <Select value={currentSectionId ?? ""} onValueChange={(v) => setSectionId(v)}>
+                <SelectTrigger className="w-full sm:w-36 md:w-48 bg-panel border-panel-border">
+                  <SelectValue placeholder="Section" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(sectionsQ.data ?? []).map((s: any) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="w-full sm:w-auto">
             <Button
               onClick={() => setOpenNewAlloc(true)}
               className="w-full sm:w-auto bg-white text-slate-900 hover:bg-white/90"
@@ -305,8 +320,8 @@ function AllocationsPage() {
               <Plus className="mr-1 size-4" /> New Allocation
             </Button>
           </div>
-        }
-      />
+        </div>
+      </div>
 
       {/* VISUAL SEAT MAP */}
       {currentSection && (
@@ -323,12 +338,12 @@ function AllocationsPage() {
             <div className="text-xs text-muted-foreground">Click a seat to manage</div>
           </div>
 
-          <div className="relative w-full overflow-auto rounded-lg bg-black/30 p-4 md:p-6 ring-1 ring-panel-border touch-pan-x touch-pan-y custom-scrollbar">
+          <div className="relative w-full overflow-x-auto rounded-lg bg-black/30 p-4 md:p-6 ring-1 ring-panel-border touch-pan-x touch-pan-y custom-scrollbar">
             <div
               className="grid gap-2 min-w-max mx-auto"
               style={{
-                gridTemplateColumns: `repeat(${currentSection.grid_cols}, minmax(44px, 1fr))`,
-                gridTemplateRows: `repeat(${currentSection.grid_rows}, minmax(44px, 1fr))`,
+                gridTemplateColumns: `repeat(${currentSection.grid_cols}, minmax(40px, 1fr))`,
+                gridTemplateRows: `repeat(${currentSection.grid_rows}, minmax(40px, 1fr))`,
               }}
             >
               {processedLayout.areas.map((obj: any) => {
@@ -447,46 +462,48 @@ function AllocationsPage() {
       )}
 
       {/* DATA TABLE WITH FILTERS */}
-      <GlassPanel className="p-4">
+      <GlassPanel className="p-4 flex flex-col min-w-0">
         {/* Filter Controls */}
-        <div className="mb-4 flex flex-col sm:flex-row items-start sm:items-center gap-3">
-          <div className="relative w-full sm:w-64">
+        <div className="mb-4 flex flex-col md:flex-row md:items-center gap-3">
+          <div className="relative w-full md:flex-1 md:max-w-sm shrink-0">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
             <Input
               placeholder="Search name or mobile..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 bg-panel border-panel-border"
+              className="pl-9 bg-panel border-panel-border w-full"
             />
           </div>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full sm:w-40 bg-panel border-panel-border">
-              <SelectValue placeholder="Status Filter" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="paid">Paid</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="overdue">Overdue</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={shiftFilter} onValueChange={setShiftFilter}>
-            <SelectTrigger className="w-full sm:w-40 bg-panel border-panel-border">
-              <SelectValue placeholder="Shift Filter" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Shifts</SelectItem>
-              {shiftOptions.hasFullDay && <SelectItem value="__full_day__">Full day</SelectItem>}
-              {shiftOptions.names.map((n) => (
-                <SelectItem key={n} value={n}>
-                  {n}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex flex-row gap-3 w-full md:w-auto">
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-full md:w-36 lg:w-40 bg-panel border-panel-border">
+                <SelectValue placeholder="Status Filter" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="paid">Paid</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="overdue">Overdue</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={shiftFilter} onValueChange={setShiftFilter}>
+              <SelectTrigger className="w-full md:w-36 lg:w-40 bg-panel border-panel-border">
+                <SelectValue placeholder="Shift Filter" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Shifts</SelectItem>
+                {shiftOptions.hasFullDay && <SelectItem value="__full_day__">Full day</SelectItem>}
+                {shiftOptions.names.map((n) => (
+                  <SelectItem key={n} value={n}>
+                    {n}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
-        <div className="w-full overflow-x-auto pb-4 custom-scrollbar">
+        <div className="w-full overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 pb-4 custom-scrollbar">
           <table className="w-full text-left text-sm min-w-[700px]">
             <thead>
               <tr className="border-b border-panel-border text-[10px] uppercase tracking-widest text-muted-foreground whitespace-nowrap">
@@ -772,7 +789,6 @@ function EditAllocationDialog({
         seen.add(key);
         return true;
       });
-
     },
   });
 
@@ -940,8 +956,7 @@ function EditAllocationDialog({
                   </SelectItem>
                   {(shifts.data ?? []).map((s: any) => {
                     const cls = classifyShiftByName(s.name || "");
-                    const isDisabled =
-                      !!currentSection && !!cls && !((currentSection as any)[cls.allowKey]);
+                    const isDisabled = !!currentSection && !!cls && !(currentSection as any)[cls.allowKey];
 
                     return (
                       <SelectItem key={s.id} value={s.id} disabled={isDisabled}>
@@ -1080,7 +1095,6 @@ function NewAllocDialog({
         seen.add(key);
         return true;
       });
-
     },
   });
 
@@ -1208,7 +1222,6 @@ function NewAllocDialog({
                 <SelectValue placeholder="Choose section" />
               </SelectTrigger>
               <SelectContent>
-                
                 {(sections.data ?? []).map((s: any) => (
                   <SelectItem key={s.id} value={s.id}>
                     {s.name}
@@ -1234,33 +1247,28 @@ function NewAllocDialog({
             </SelectContent>
           </Select>
 
-          {activeAlloc && (() => {
-            const st = effectiveStatus(activeAlloc);
-            return (
-            <div className="flex items-center gap-4 rounded-md border border-panel-border bg-black/10 px-3 py-2 mt-2 text-xs">
-              <div>
-                <span className="text-muted-foreground mr-1">Status:</span>
-                <span
-                  className={
-                    st === "paid"
-                      ? "text-emerald"
-                      : st === "overdue"
-                        ? "text-rose"
-                        : "text-amber-400"
-                  }
-                >
-                  {st.toUpperCase()}
-                </span>
-              </div>
-              <div>
-                <span className="text-muted-foreground mr-1">Due Date:</span>
-                <span className="font-mono text-cyan">
-                  {activeAlloc.next_due_date ? fmtDate(activeAlloc.next_due_date) : "—"}
-                </span>
-              </div>
-            </div>
-            );
-          })()}
+          {activeAlloc &&
+            (() => {
+              const st = effectiveStatus(activeAlloc);
+              return (
+                <div className="flex items-center gap-4 rounded-md border border-panel-border bg-black/10 px-3 py-2 mt-2 text-xs">
+                  <div>
+                    <span className="text-muted-foreground mr-1">Status:</span>
+                    <span
+                      className={st === "paid" ? "text-emerald" : st === "overdue" ? "text-rose" : "text-amber-400"}
+                    >
+                      {st.toUpperCase()}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground mr-1">Due Date:</span>
+                    <span className="font-mono text-cyan">
+                      {activeAlloc.next_due_date ? fmtDate(activeAlloc.next_due_date) : "—"}
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1322,8 +1330,7 @@ function NewAllocDialog({
                 </SelectItem>
                 {(shifts.data ?? []).map((s: any) => {
                   const cls = classifyShiftByName(s.name || "");
-                  const isDisabled =
-                    !!currentSection && !!cls && !((currentSection as any)[cls.allowKey]);
+                  const isDisabled = !!currentSection && !!cls && !(currentSection as any)[cls.allowKey];
 
                   return (
                     <SelectItem key={s.id} value={s.id} disabled={isDisabled}>
