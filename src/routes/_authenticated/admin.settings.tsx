@@ -287,7 +287,6 @@ function SettingsPage() {
 function BranchCard({ lib, onChanged, orgId }: { lib: any; onChanged: () => void; orgId: string }) {
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const [photosOpen, setPhotosOpen] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
   const qc = useQueryClient();
 
@@ -306,12 +305,12 @@ function BranchCard({ lib, onChanged, orgId }: { lib: any; onChanged: () => void
   const hasPending = !!pendingTransfer.data;
 
   return (
-    <GlassPanel className="p-5 flex flex-col h-full">
-      <div className="flex items-start justify-between">
+    <GlassPanel className="p-5 flex flex-col h-full relative">
+      <div className="flex items-start justify-between mb-4">
         <div className="min-w-0 pr-4">
           <div className="flex items-center gap-2">
             <Building2 className="size-4 text-violet shrink-0" />
-            <h3 className="truncate font-semibold">{lib.name}</h3>
+            <h3 className="truncate font-semibold text-lg">{lib.name}</h3>
           </div>
           <div className="mt-1 text-xs text-muted-foreground truncate">
             {lib.zone_area ?? "—"}
@@ -335,104 +334,914 @@ function BranchCard({ lib, onChanged, orgId }: { lib: any; onChanged: () => void
           >
             {lib.approval_status ?? "pending"}
           </span>
-          <div className="flex items-center gap-1">
-            <Dialog open={editOpen} onOpenChange={setEditOpen}>
-              <DialogTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-7 rounded-full bg-panel hover:bg-cyan/20 hover:text-cyan border border-panel-border transition-colors"
-                >
-                  <Edit2 className="size-3" />
-                </Button>
-              </DialogTrigger>
-              <LibraryFormDialog
-                orgId={orgId}
-                existingLib={lib}
-                onDone={() => {
-                  onChanged();
-                  setEditOpen(false);
-                }}
-              />
-            </Dialog>
-
-            <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-              <DialogTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-7 rounded-full bg-panel hover:bg-rose/20 hover:text-rose border border-panel-border transition-colors"
-                >
-                  <Trash2 className="size-3" />
-                </Button>
-              </DialogTrigger>
-              <DeleteBranchDialog
-                lib={lib}
-                onDone={() => {
-                  onChanged();
-                  setDeleteOpen(false);
-                }}
-              />
-            </Dialog>
-          </div>
         </div>
       </div>
 
-      <div className="mt-auto pt-4 space-y-2">
-        <Dialog open={photosOpen} onOpenChange={setPhotosOpen}>
-          <DialogTrigger asChild>
-            <Button
-              variant="outline"
-              className="w-full bg-panel border-panel-border hover:bg-cyan/10 hover:text-cyan text-xs"
-            >
-              <ImageIcon className="mr-2 size-3.5" /> Manage photos
-            </Button>
-          </DialogTrigger>
-          <PhotoManagerDialog lib={lib} />
-        </Dialog>
-
-        <Dialog open={transferOpen} onOpenChange={setTransferOpen}>
-          <DialogTrigger asChild>
-            <Button
-              variant="outline"
-              disabled={hasPending}
-              className="w-full bg-panel border-panel-border hover:bg-amber-400/10 hover:text-amber-300 text-xs disabled:opacity-70"
-            >
-              <ArrowRightLeft className="mr-2 size-3.5" />
-              {hasPending ? "Transfer Pending Verification" : "Transfer Ownership"}
-            </Button>
-          </DialogTrigger>
-          {!hasPending && (
-            <TransferOwnershipDialog
-              lib={lib}
-              orgId={orgId}
-              onDone={() => {
-                setTransferOpen(false);
-                qc.invalidateQueries({ queryKey: ["branch-transfer-pending", lib.id] });
-              }}
-            />
-          )}
-        </Dialog>
+      <div className="mt-auto space-y-3">
         {hasPending && (
           <div className="rounded-lg border border-amber-400/30 bg-amber-400/5 px-3 py-2 text-[11px] text-amber-200">
             Awaiting super-admin verification for <span className="font-mono">{pendingTransfer.data?.buyer_email}</span>
           </div>
         )}
-
-        <div className="flex items-center justify-between rounded-lg border border-panel-border bg-panel p-3">
-          <div className="flex items-center gap-2 text-xs">
-            <Globe className="size-3.5 text-cyan" /> Public availability
+        {!lib.show_public_availability && (
+          <div className="rounded-lg border border-panel-border bg-black/20 px-3 py-1.5 text-[10px] text-muted-foreground text-center">
+            Hidden from public marketplace
           </div>
-          <Switch
-            checked={lib.show_public_availability}
-            onCheckedChange={async (v) => {
-              await supabase.from("libraries").update({ show_public_availability: v }).eq("id", lib.id);
-              onChanged();
-            }}
-          />
+        )}
+
+        {/* Clean Action Footer */}
+        <div className="pt-3 border-t border-panel-border/50 flex items-center gap-2">
+          <Dialog open={editOpen} onOpenChange={setEditOpen}>
+            <DialogTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="flex-1 text-xs text-muted-foreground hover:text-cyan hover:bg-cyan/10 px-0"
+              >
+                <Edit2 className="size-3.5 mr-1.5" /> Manage
+              </Button>
+            </DialogTrigger>
+            <LibraryFormDialog
+              orgId={orgId}
+              existingLib={lib}
+              onDone={() => {
+                onChanged();
+                setEditOpen(false);
+              }}
+            />
+          </Dialog>
+
+          <Dialog open={transferOpen} onOpenChange={setTransferOpen}>
+            <DialogTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={hasPending}
+                className="flex-1 text-xs text-muted-foreground hover:text-amber-300 hover:bg-amber-400/10 px-0 disabled:opacity-50"
+              >
+                <ArrowRightLeft className="size-3.5 mr-1.5" /> Transfer
+              </Button>
+            </DialogTrigger>
+            {!hasPending && (
+              <TransferOwnershipDialog
+                lib={lib}
+                orgId={orgId}
+                onDone={() => {
+                  setTransferOpen(false);
+                  qc.invalidateQueries({ queryKey: ["branch-transfer-pending", lib.id] });
+                }}
+              />
+            )}
+          </Dialog>
+
+          <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+            <DialogTrigger asChild>
+              <Button variant="ghost" size="sm" className="px-3 text-muted-foreground hover:text-rose hover:bg-rose/10">
+                <Trash2 className="size-4" />
+              </Button>
+            </DialogTrigger>
+            <DeleteBranchDialog
+              lib={lib}
+              onDone={() => {
+                onChanged();
+                setDeleteOpen(false);
+              }}
+            />
+          </Dialog>
         </div>
       </div>
     </GlassPanel>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// Core View Component for Photo Management (now embedded in the tab)
+// -----------------------------------------------------------------------------
+function PhotoManagerView({ lib }: { lib: any }) {
+  const qc = useQueryClient();
+  const [uploading, setUploading] = useState(false);
+  const [section, setSection] = useState("Overview");
+  const uploadFn = useServerFn(uploadLibraryPhoto);
+  const deleteFn = useServerFn(deleteLibraryPhoto);
+  const reorderFn = useServerFn(reorderLibraryPhotos);
+
+  async function moveBy(index: number, delta: number) {
+    const list = (photos.data ?? []).slice();
+    const target = index + delta;
+    if (target < 0 || target >= list.length) return;
+    [list[index], list[target]] = [list[target], list[index]];
+    const ids = list.map((p: any) => p.id);
+    qc.setQueryData(
+      ["library-photos-admin", lib.id],
+      list.map((p: any, i: number) => ({ ...p, display_order: i })),
+    );
+    try {
+      await reorderFn({ data: { library_id: lib.id, photo_ids: ids } });
+      qc.invalidateQueries({ queryKey: ["library-photos"] });
+    } catch (e: any) {
+      toast.error(e.message || "Reorder failed");
+      qc.invalidateQueries({ queryKey: ["library-photos-admin", lib.id] });
+    }
+  }
+
+  async function setAsCover(index: number) {
+    if (index === 0) return;
+    const list = (photos.data ?? []).slice();
+    const [picked] = list.splice(index, 1);
+    list.unshift(picked);
+    const ids = list.map((p: any) => p.id);
+    qc.setQueryData(
+      ["library-photos-admin", lib.id],
+      list.map((p: any, i: number) => ({ ...p, display_order: i })),
+    );
+    try {
+      await reorderFn({ data: { library_id: lib.id, photo_ids: ids } });
+      toast.success("Cover photo updated");
+      qc.invalidateQueries({ queryKey: ["library-photos"] });
+    } catch (e: any) {
+      toast.error(e.message || "Failed");
+      qc.invalidateQueries({ queryKey: ["library-photos-admin", lib.id] });
+    }
+  }
+
+  const photos = useQuery({
+    queryKey: ["library-photos-admin", lib.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("library_photos")
+        .select("id, image_url, section_name, display_order")
+        .eq("library_id", lib.id)
+        .order("display_order", { ascending: true });
+      return data ?? [];
+    },
+  });
+
+  async function handleFile(file: File) {
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      toast.error("Only JPG, PNG or WebP images are allowed");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image must be under 5MB");
+      return;
+    }
+    setUploading(true);
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result as string);
+        r.onerror = () => reject(new Error("Read failed"));
+        r.readAsDataURL(file);
+      });
+      await uploadFn({
+        data: {
+          library_id: lib.id,
+          section_name: section.trim() || "Overview",
+          file_data_url: dataUrl,
+          content_type: file.type as "image/jpeg" | "image/png" | "image/webp",
+        },
+      });
+      toast.success("Photo uploaded");
+      await qc.invalidateQueries({ queryKey: ["library-photos-admin", lib.id] });
+      await qc.invalidateQueries({ queryKey: ["library-photos"] });
+    } catch (e: any) {
+      toast.error(e.message || "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="rounded-lg border border-panel-border bg-panel p-4 space-y-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs">Section / label</Label>
+            <Input
+              value={section}
+              onChange={(e) => setSection(e.target.value)}
+              placeholder="e.g. Reading Hall, Cabin, Entrance"
+              className="bg-background border-panel-border"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Upload photo</Label>
+            <label className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-panel-border bg-background/50 px-3 py-2 text-xs cursor-pointer hover:bg-cyan/5 hover:border-cyan/40 transition-colors">
+              <Upload className="size-3.5" />
+              {uploading ? "Uploading…" : "Choose image (Max 5MB)"}
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                disabled={uploading}
+                onChange={async (e) => {
+                  const f = e.target.files?.[0];
+                  if (f) await handleFile(f);
+                  e.target.value = "";
+                }}
+              />
+            </label>
+          </div>
+        </div>
+        <p className="text-[10px] text-muted-foreground">
+          Uploading a new photo puts the branch back into the super-admin approval queue.
+        </p>
+      </div>
+
+      <div>
+        <div className="mb-2 flex items-center justify-between">
+          <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+            Gallery ({photos.data?.length ?? 0})
+          </div>
+          {(photos.data?.length ?? 0) > 1 && (
+            <div className="text-[10px] text-muted-foreground">First photo = cover on marketplace</div>
+          )}
+        </div>
+        {photos.data && photos.data.length > 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {photos.data.map((p: any, idx: number) => {
+              const isCover = idx === 0;
+              const isLast = idx === (photos.data?.length ?? 0) - 1;
+              return (
+                <div
+                  key={p.id}
+                  className="group relative overflow-hidden rounded-lg border border-panel-border bg-panel"
+                >
+                  <img src={p.image_url} alt={p.section_name} className="aspect-[4/3] w-full object-cover" />
+                  {isCover && (
+                    <div className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full border border-gold/40 bg-black/70 px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-gold">
+                      <Star className="size-2.5 fill-gold" /> Cover
+                    </div>
+                  )}
+                  <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-gradient-to-t from-black/80 to-transparent p-2">
+                    <div className="min-w-0 text-[11px] font-medium truncate">{p.section_name}</div>
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        type="button"
+                        disabled={idx === 0}
+                        onClick={() => moveBy(idx, -1)}
+                        className="grid size-6 place-items-center rounded bg-black/70 text-white hover:bg-cyan/80 disabled:opacity-30"
+                      >
+                        <ArrowUp className="size-3" />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isLast}
+                        onClick={() => moveBy(idx, 1)}
+                        className="grid size-6 place-items-center rounded bg-black/70 text-white hover:bg-cyan/80 disabled:opacity-30"
+                      >
+                        <ArrowDown className="size-3" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {!isCover && (
+                      <button
+                        type="button"
+                        onClick={() => setAsCover(idx)}
+                        className="grid size-7 place-items-center rounded-full bg-black/70 text-gold hover:bg-gold/20"
+                        title="Set as cover"
+                      >
+                        <Star className="size-3.5" />
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!confirm("Delete this photo?")) return;
+                        try {
+                          await deleteFn({ data: { photo_id: p.id } });
+                          toast.success("Photo removed");
+                          qc.invalidateQueries({ queryKey: ["library-photos-admin", lib.id] });
+                          qc.invalidateQueries({ queryKey: ["library-photos"] });
+                        } catch (e: any) {
+                          toast.error(e.message);
+                        }
+                      }}
+                      className="grid size-7 place-items-center rounded-full bg-black/70 text-white hover:bg-rose"
+                    >
+                      <XIcon className="size-3.5" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="rounded-lg border border-dashed border-panel-border bg-panel/40 py-10 text-center text-xs text-muted-foreground">
+            No photos yet. Upload your first image above.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// Unified Dialog with Tabs for Creating and Editing a Library
+// -----------------------------------------------------------------------------
+const TABS = ["basic", "schedule", "features", "photos"] as const;
+
+function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; existingLib?: any; onDone: () => void }) {
+  const [loading, setLoading] = useState(false);
+  const [lang, setLang] = useState<"en" | "hi">("en");
+  const [activeTab, setActiveTab] = useState<(typeof TABS)[number]>("basic");
+
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [address, setAddress] = useState("");
+  const [googleMapsUrl, setGoogleMapsUrl] = useState("");
+  const [zone, setZone] = useState("");
+  const [city, setCity] = useState("");
+  const [showPublic, setShowPublic] = useState(true);
+
+  // Structured schedule state
+  const [open24, setOpen24] = useState(false);
+  const [openTime, setOpenTime] = useState(""); // "HH:MM"
+  const [closeTime, setCloseTime] = useState("");
+  const [openAllDays, setOpenAllDays] = useState(false);
+  const [closedDays, setClosedDays] = useState<Set<string>>(new Set());
+  const [hasMorning, setHasMorning] = useState(false);
+  const [morningStart, setMorningStart] = useState("");
+  const [morningEnd, setMorningEnd] = useState("");
+  const [hasEvening, setHasEvening] = useState(false);
+  const [eveningStart, setEveningStart] = useState("");
+  const [eveningEnd, setEveningEnd] = useState("");
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
+  const [placeId, setPlaceId] = useState<string | null>(null);
+  const [locLoading, setLocLoading] = useState(false);
+  const geocodeFn = useServerFn(reverseGeocode);
+
+  const { data: exams } = useMasterExams();
+  const [selectedExams, setSelectedExams] = useState<Set<string>>(new Set());
+  const [amenities, setAmenities] = useState<Record<string, boolean>>({});
+
+  // Pre-fill data if editing
+  useEffect(() => {
+    if (existingLib) {
+      setName(existingLib.name || "");
+      setPhone(existingLib.contact_phone || "");
+      setAddress(existingLib.address || "");
+      setGoogleMapsUrl(existingLib.google_maps_url || "");
+      setZone(existingLib.zone_area || "");
+      setCity(existingLib.city || "");
+      setShowPublic(existingLib.show_public_availability ?? true);
+      const oh = parseOpeningHours(existingLib.opening_hours || "");
+      setOpen24(oh.open24);
+      setOpenTime(oh.openTime);
+      setCloseTime(oh.closeTime);
+      const co = parseClosedOn(existingLib.closed_on || "");
+      setOpenAllDays(co.openAllDays);
+      setClosedDays(new Set(co.days));
+      const sh = parseShifts(existingLib.shifts || "");
+      setHasMorning(sh.hasMorning);
+      setMorningStart(sh.morningStart);
+      setMorningEnd(sh.morningEnd);
+      setHasEvening(sh.hasEvening);
+      setEveningStart(sh.eveningStart);
+      setEveningEnd(sh.eveningEnd);
+      setSelectedExams(new Set(existingLib.targeted_exam_ids || []));
+      setAmenities(existingLib.amenities || {});
+      setLatitude(existingLib.latitude ?? null);
+      setLongitude(existingLib.longitude ?? null);
+      setPlaceId(existingLib.location_place_id ?? null);
+    }
+  }, [existingLib]);
+
+  async function useCurrentLocation() {
+    if (!("geolocation" in navigator)) {
+      toast.error("Geolocation not supported on this device");
+      return;
+    }
+    setLocLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const { latitude: lat, longitude: lng } = pos.coords;
+          const res = await geocodeFn({ data: { lat, lng } });
+          setLatitude(lat);
+          setLongitude(lng);
+          setPlaceId(res.place_id);
+          setAddress(res.formatted_address);
+          if (res.area) setZone(res.area);
+          if (res.city) setCity(res.city);
+          if (!googleMapsUrl) {
+            setGoogleMapsUrl(
+              `https://www.google.com/maps/search/?api=1&query=${lat},${lng}&query_place_id=${res.place_id}`,
+            );
+          }
+          toast.success("Location captured — please verify the address");
+        } catch (err: any) {
+          toast.error(err?.message || "Could not resolve address");
+        } finally {
+          setLocLoading(false);
+        }
+      },
+      (err) => {
+        setLocLoading(false);
+        toast.error(err.message || "Location permission denied");
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
+    );
+  }
+
+  const handleToggleAmenity = (key: string) => {
+    setAmenities((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const tabIndex = TABS.indexOf(activeTab);
+  const isLastTab = tabIndex === TABS.length - 1;
+
+  const handleNext = () => {
+    if (!name.trim()) {
+      toast.error("Branch name is required.");
+      setActiveTab("basic");
+      return;
+    }
+    if (tabIndex < TABS.length - 1) setActiveTab(TABS[tabIndex + 1]);
+  };
+
+  const handleBack = () => {
+    if (tabIndex > 0) setActiveTab(TABS[tabIndex - 1]);
+  };
+
+  return (
+    <DialogContent className="glass-strong border-panel-border w-[95vw] max-w-2xl max-h-[90vh] overflow-hidden flex flex-col p-0">
+      <div className="p-4 md:p-6 pb-0 shrink-0 border-b border-panel-border/50">
+        <DialogHeader>
+          <DialogTitle>{existingLib ? "Edit Branch" : "New Branch Onboarding"}</DialogTitle>
+          <DialogDescription className="sr-only">Configure branch details, schedule, and amenities.</DialogDescription>
+        </DialogHeader>
+
+        {/* Tab Navigation */}
+        <div className="flex w-full overflow-x-auto mt-4 custom-scrollbar">
+          <button
+            type="button"
+            onClick={() => setActiveTab("basic")}
+            className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 ${
+              activeTab === "basic"
+                ? "border-cyan text-cyan"
+                : "border-transparent text-muted-foreground hover:text-slate-300"
+            }`}
+          >
+            Basic & Location
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("schedule")}
+            className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 ${
+              activeTab === "schedule"
+                ? "border-cyan text-cyan"
+                : "border-transparent text-muted-foreground hover:text-slate-300"
+            }`}
+          >
+            Timings & Schedule
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("features")}
+            className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 ${
+              activeTab === "features"
+                ? "border-cyan text-cyan"
+                : "border-transparent text-muted-foreground hover:text-slate-300"
+            }`}
+          >
+            Exams & Amenities
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("photos")}
+            className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 ${
+              activeTab === "photos"
+                ? "border-cyan text-cyan"
+                : "border-transparent text-muted-foreground hover:text-slate-300"
+            }`}
+          >
+            Photos
+          </button>
+        </div>
+      </div>
+
+      <form
+        className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 custom-scrollbar"
+        onSubmit={async (e) => {
+          e.preventDefault();
+
+          if (!isLastTab) {
+            handleNext();
+            return;
+          }
+
+          if (!orgId) {
+            toast.error("Security error: Organization ID missing.");
+            return;
+          }
+          if (!name.trim()) {
+            toast.error("Branch name is required.");
+            setActiveTab("basic");
+            return;
+          }
+
+          setLoading(true);
+          const payload = {
+            org_id: orgId,
+            name,
+            contact_phone: phone || null,
+            address: address || null,
+            google_maps_url: googleMapsUrl || null,
+            zone_area: zone || null,
+            city: city || null,
+            show_public_availability: showPublic,
+            opening_hours: serializeOpeningHours({ open24, openTime, closeTime }),
+            shifts: serializeShifts({ hasMorning, morningStart, morningEnd, hasEvening, eveningStart, eveningEnd }),
+            closed_on: serializeClosedOn({ openAllDays, days: Array.from(closedDays) }),
+            targeted_exam_ids: Array.from(selectedExams),
+            amenities: amenities,
+            latitude: latitude,
+            longitude: longitude,
+            location_place_id: placeId,
+          };
+
+          let error;
+          if (existingLib) {
+            const res = await supabase.from("libraries").update(payload).eq("id", existingLib.id);
+            error = res.error;
+          } else {
+            const res = await supabase.from("libraries").insert(payload);
+            error = res.error;
+          }
+
+          setLoading(false);
+
+          if (error) {
+            toast.error(error.message);
+            return;
+          }
+          toast.success(existingLib ? "Library updated successfully" : "Branch successfully created");
+          onDone();
+        }}
+      >
+        {activeTab === "basic" && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>
+                    Branch name <span className="text-red-400">*</span>
+                  </Label>
+                  <Input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="bg-panel border-panel-border"
+                    placeholder="e.g. LibraryBandhu Main Branch"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Contact phone</Label>
+                  <Input
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="bg-panel border-panel-border font-mono"
+                    placeholder="9876543210"
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-panel-border bg-panel/40 p-4 mt-2 flex items-center justify-between">
+                <div>
+                  <Label className="text-sm font-semibold">Public Marketplace</Label>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Allow students to discover this branch online.
+                  </p>
+                </div>
+                <Switch checked={showPublic} onCheckedChange={setShowPublic} />
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div className="rounded-lg border border-panel-border bg-panel/60 p-3 space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 text-xs">
+                    <MapPin className="size-4 text-cyan" />
+                    {latitude != null && longitude != null ? (
+                      <span className="font-mono text-emerald">
+                        Pinned: {latitude.toFixed(5)}, {longitude.toFixed(5)}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">No location pinned yet</span>
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={useCurrentLocation}
+                    disabled={locLoading}
+                    className="border-cyan/40 text-cyan hover:bg-cyan/10"
+                  >
+                    {locLoading ? <Loader2 className="mr-1 size-4 animate-spin" /> : <MapPin className="mr-1 size-4" />}
+                    {latitude != null ? "Re-capture location" : "Use current location"}
+                  </Button>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Stand at the branch entrance and tap the button. We'll auto-fill the address, area and city from
+                  Google Maps.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label>Complete Address</Label>
+                <Textarea
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  className="bg-panel border-panel-border min-h-[80px]"
+                  placeholder="Full street address..."
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Google Maps Share Link</Label>
+                <Input
+                  value={googleMapsUrl}
+                  onChange={(e) => setGoogleMapsUrl(e.target.value)}
+                  className="bg-panel border-panel-border"
+                  placeholder="https://maps.app.goo.gl/..."
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>Area / Locality</Label>
+                  <Input
+                    value={zone}
+                    onChange={(e) => setZone(e.target.value)}
+                    className="bg-panel border-panel-border"
+                    placeholder="e.g. Malviya Nagar"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>City</Label>
+                  <Input
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    className="bg-panel border-panel-border"
+                    placeholder="e.g. Jaipur"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === "schedule" && (
+          <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
+            {/* Opening Hours */}
+            <div className="space-y-4 rounded-lg border border-panel-border bg-panel/40 p-4">
+              <div className="flex items-center justify-between border-b border-panel-border/50 pb-2">
+                <Label className="text-sm font-semibold">Opening Hours</Label>
+                <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+                  <Switch checked={open24} onCheckedChange={setOpen24} />
+                  <span>Open 24 hours</span>
+                </label>
+              </div>
+              {!open24 && (
+                <div className="flex flex-col sm:flex-row gap-4 w-full">
+                  <div className="space-y-1 w-full">
+                    <Label className="text-xs text-muted-foreground">Opens at</Label>
+                    <Input
+                      type="time"
+                      value={openTime}
+                      onChange={(e) => setOpenTime(e.target.value)}
+                      className="bg-panel border-panel-border font-mono w-full"
+                    />
+                  </div>
+                  <div className="space-y-1 w-full">
+                    <Label className="text-xs text-muted-foreground">Closes at</Label>
+                    <Input
+                      type="time"
+                      value={closeTime}
+                      onChange={(e) => setCloseTime(e.target.value)}
+                      className="bg-panel border-panel-border font-mono w-full"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Closed On */}
+            <div className="space-y-2 rounded-lg border border-panel-border bg-panel/40 p-4">
+              <div className="flex items-center justify-between border-b border-panel-border/50 pb-2 mb-2">
+                <Label className="text-sm font-semibold">Weekly Off</Label>
+                <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+                  <Switch
+                    checked={openAllDays}
+                    onCheckedChange={(v) => {
+                      setOpenAllDays(v);
+                      if (v) setClosedDays(new Set());
+                    }}
+                  />
+                  <span>Open all days</span>
+                </label>
+              </div>
+              {!openAllDays && (
+                <div className="flex flex-wrap gap-2 pt-2">
+                  {WEEK_DAYS.map((d) => {
+                    const on = closedDays.has(d);
+                    return (
+                      <button
+                        key={d}
+                        type="button"
+                        onClick={() => {
+                          const s = new Set(closedDays);
+                          if (on) s.delete(d);
+                          else s.add(d);
+                          setClosedDays(s);
+                        }}
+                        className={`rounded-full border px-4 py-1.5 text-xs transition-colors ${on ? "border-rose bg-rose/20 text-rose" : "border-panel-border bg-black/20 text-muted-foreground hover:text-white"}`}
+                      >
+                        {d}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Shifts */}
+            <div className="space-y-4 rounded-lg border border-panel-border bg-panel/40 p-4">
+              <Label className="text-sm font-semibold block border-b border-panel-border/50 pb-2">
+                Specific Shifts
+              </Label>
+              <div className="space-y-3">
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <Switch checked={hasMorning} onCheckedChange={setHasMorning} />
+                  <span className="font-medium text-slate-300">Morning shift</span>
+                </label>
+                {hasMorning && (
+                  <div className="flex flex-col sm:flex-row gap-4 w-full pl-0 sm:pl-10">
+                    <div className="space-y-1 w-full">
+                      <Label className="text-[11px] text-muted-foreground">Starts</Label>
+                      <Input
+                        type="time"
+                        value={morningStart}
+                        onChange={(e) => setMorningStart(e.target.value)}
+                        className="bg-panel border-panel-border font-mono w-full"
+                      />
+                    </div>
+                    <div className="space-y-1 w-full">
+                      <Label className="text-[11px] text-muted-foreground">Ends</Label>
+                      <Input
+                        type="time"
+                        value={morningEnd}
+                        onChange={(e) => setMorningEnd(e.target.value)}
+                        className="bg-panel border-panel-border font-mono w-full"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="space-y-3 pt-3 border-t border-panel-border/50">
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <Switch checked={hasEvening} onCheckedChange={setHasEvening} />
+                  <span className="font-medium text-slate-300">Evening shift</span>
+                </label>
+                {hasEvening && (
+                  <div className="flex flex-col sm:flex-row gap-4 w-full pl-0 sm:pl-10">
+                    <div className="space-y-1 w-full">
+                      <Label className="text-[11px] text-muted-foreground">Starts</Label>
+                      <Input
+                        type="time"
+                        value={eveningStart}
+                        onChange={(e) => setEveningStart(e.target.value)}
+                        className="bg-panel border-panel-border font-mono w-full"
+                      />
+                    </div>
+                    <div className="space-y-1 w-full">
+                      <Label className="text-[11px] text-muted-foreground">Ends</Label>
+                      <Input
+                        type="time"
+                        value={eveningEnd}
+                        onChange={(e) => setEveningEnd(e.target.value)}
+                        className="bg-panel border-panel-border font-mono w-full"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === "features" && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
+            <div className="space-y-3">
+              <h4 className="text-sm font-semibold border-b border-panel-border/50 pb-2">Targeted Exams</h4>
+              <div className="flex max-h-48 flex-wrap gap-2 overflow-y-auto rounded-lg border border-panel-border bg-black/20 p-4 custom-scrollbar">
+                {(exams ?? []).map((e) => {
+                  const on = selectedExams.has(e.id);
+                  return (
+                    <button
+                      key={e.id}
+                      type="button"
+                      onClick={() => {
+                        const s = new Set(selectedExams);
+                        if (on) s.delete(e.id);
+                        else s.add(e.id);
+                        setSelectedExams(s);
+                      }}
+                      className={`rounded-full border px-3 py-1.5 text-xs transition-colors ${on ? "border-violet bg-violet/20 text-violet" : "border-panel-border bg-black/40 text-muted-foreground hover:bg-panel hover:text-white"}`}
+                    >
+                      {e.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="space-y-3 pt-2">
+              <div className="flex items-center justify-between border-b border-panel-border/50 pb-2">
+                <h4 className="text-sm font-semibold">Facilities & Amenities</h4>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setLang(lang === "en" ? "hi" : "en")}
+                  className="h-8 text-xs bg-panel border-panel-border"
+                >
+                  <Languages className="size-3 mr-1.5" />
+                  {lang === "en" ? "Switch to Hindi" : "Switch to English"}
+                </Button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 rounded-lg bg-black/20 p-4 border border-panel-border">
+                {Object.entries(AMENITIES_DICT).map(([key, translations]) => (
+                  <div
+                    key={key}
+                    className="flex items-center justify-between gap-4 p-2 rounded-md hover:bg-black/20 transition-colors"
+                  >
+                    <Label
+                      className="text-sm font-normal text-slate-300 leading-tight cursor-pointer"
+                      onClick={() => handleToggleAmenity(key)}
+                    >
+                      {translations[lang]}
+                    </Label>
+                    <Switch
+                      checked={!!amenities[key]}
+                      onCheckedChange={() => handleToggleAmenity(key)}
+                      className="shrink-0"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === "photos" && (
+          <div className="animate-in fade-in slide-in-from-right-4">
+            {!existingLib ? (
+              <div className="py-12 px-6 text-center border border-dashed border-panel-border rounded-lg bg-panel/30">
+                <ImageIcon className="size-8 text-muted-foreground mx-auto mb-3 opacity-50" />
+                <h3 className="text-sm font-semibold text-slate-200 mb-2">Save branch first</h3>
+                <p className="text-xs text-muted-foreground">
+                  The branch must be saved to the database before you can upload photos. Click "Complete Onboarding"
+                  below to save it, then you can add photos anytime from the Settings page.
+                </p>
+              </div>
+            ) : (
+              <PhotoManagerView lib={existingLib} />
+            )}
+          </div>
+        )}
+      </form>
+
+      {/* Footer Wizard Controls (Fixed dark border styling) */}
+      <div className="border-t border-panel-border bg-panel p-4 flex items-center justify-between shrink-0">
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={handleBack}
+          className={`text-muted-foreground hover:text-white ${tabIndex === 0 ? "invisible" : ""}`}
+        >
+          Previous
+        </Button>
+
+        {isLastTab ? (
+          <Button
+            disabled={loading}
+            type="submit"
+            className="bg-white text-slate-900 hover:bg-white/90 font-medium px-6"
+          >
+            {loading ? "Saving..." : existingLib ? "Save All Changes" : "Complete Onboarding"}
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            onClick={handleNext}
+            className="bg-cyan text-cyan-950 hover:bg-cyan/90 font-medium px-8"
+          >
+            Next Step
+          </Button>
+        )}
+      </div>
+    </DialogContent>
   );
 }
 
@@ -516,770 +1325,10 @@ function TransferOwnershipDialog({ lib, orgId, onDone }: { lib: any; orgId: stri
   );
 }
 
-function PhotoManagerDialog({ lib }: { lib: any }) {
-  const qc = useQueryClient();
-  const [uploading, setUploading] = useState(false);
-  const [section, setSection] = useState("Overview");
-  const uploadFn = useServerFn(uploadLibraryPhoto);
-  const deleteFn = useServerFn(deleteLibraryPhoto);
-  const reorderFn = useServerFn(reorderLibraryPhotos);
-
-  async function moveBy(index: number, delta: number) {
-    const list = (photos.data ?? []).slice();
-    const target = index + delta;
-    if (target < 0 || target >= list.length) return;
-    [list[index], list[target]] = [list[target], list[index]];
-    const ids = list.map((p: any) => p.id);
-    // Optimistic update
-    qc.setQueryData(
-      ["library-photos-admin", lib.id],
-      list.map((p: any, i: number) => ({ ...p, display_order: i })),
-    );
-    try {
-      await reorderFn({ data: { library_id: lib.id, photo_ids: ids } });
-      qc.invalidateQueries({ queryKey: ["library-photos"] });
-    } catch (e: any) {
-      toast.error(e.message || "Reorder failed");
-      qc.invalidateQueries({ queryKey: ["library-photos-admin", lib.id] });
-    }
-  }
-
-  async function setAsCover(index: number) {
-    if (index === 0) return;
-    const list = (photos.data ?? []).slice();
-    const [picked] = list.splice(index, 1);
-    list.unshift(picked);
-    const ids = list.map((p: any) => p.id);
-    qc.setQueryData(
-      ["library-photos-admin", lib.id],
-      list.map((p: any, i: number) => ({ ...p, display_order: i })),
-    );
-    try {
-      await reorderFn({ data: { library_id: lib.id, photo_ids: ids } });
-      toast.success("Cover photo updated");
-      qc.invalidateQueries({ queryKey: ["library-photos"] });
-    } catch (e: any) {
-      toast.error(e.message || "Failed");
-      qc.invalidateQueries({ queryKey: ["library-photos-admin", lib.id] });
-    }
-  }
-
-  const photos = useQuery({
-    queryKey: ["library-photos-admin", lib.id],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("library_photos")
-        .select("id, image_url, section_name, display_order")
-        .eq("library_id", lib.id)
-        .order("display_order", { ascending: true });
-      return data ?? [];
-    },
-  });
-
-  async function handleFile(file: File) {
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-      toast.error("Only JPG, PNG or WebP images are allowed");
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("Image must be under 5MB");
-      return;
-    }
-    setUploading(true);
-    try {
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        const r = new FileReader();
-        r.onload = () => resolve(r.result as string);
-        r.onerror = () => reject(new Error("Read failed"));
-        r.readAsDataURL(file);
-      });
-      await uploadFn({
-        data: {
-          library_id: lib.id,
-          section_name: section.trim() || "Overview",
-          file_data_url: dataUrl,
-          content_type: file.type as "image/jpeg" | "image/png" | "image/webp",
-        },
-      });
-      toast.success("Photo uploaded");
-      await qc.invalidateQueries({ queryKey: ["library-photos-admin", lib.id] });
-      await qc.invalidateQueries({ queryKey: ["library-photos"] });
-    } catch (e: any) {
-      toast.error(e.message || "Upload failed");
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  return (
-    <DialogContent className="glass-strong border-panel-border w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto">
-      <DialogHeader>
-        <DialogTitle className="flex items-center gap-2">
-          <ImageIcon className="size-4 text-cyan" /> Photos · {lib.name}
-        </DialogTitle>
-        <DialogDescription>
-          Photos appear in the marketplace gallery for students to swipe through. The first photo is used as the cover
-          on your marketplace card — drag order or use the star to change it. Max 5MB each. Uploading a new photo puts
-          the branch back into the super-admin approval queue.
-        </DialogDescription>
-      </DialogHeader>
-
-      <div className="space-y-4">
-        <div className="rounded-lg border border-panel-border bg-panel p-4 space-y-3">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs">Section / label</Label>
-              <Input
-                value={section}
-                onChange={(e) => setSection(e.target.value)}
-                placeholder="e.g. Reading Hall, Cabin, Entrance"
-                className="bg-background border-panel-border"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Upload photo</Label>
-              <label className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-panel-border bg-background/50 px-3 py-2 text-xs cursor-pointer hover:bg-cyan/5 hover:border-cyan/40 transition-colors">
-                <Upload className="size-3.5" />
-                {uploading ? "Uploading…" : "Choose image"}
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  className="hidden"
-                  disabled={uploading}
-                  onChange={async (e) => {
-                    const f = e.target.files?.[0];
-                    if (f) await handleFile(f);
-                    e.target.value = "";
-                  }}
-                />
-              </label>
-            </div>
-          </div>
-        </div>
-
-        <div>
-          <div className="mb-2 flex items-center justify-between">
-            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-              Gallery ({photos.data?.length ?? 0})
-            </div>
-            {(photos.data?.length ?? 0) > 1 && (
-              <div className="text-[10px] text-muted-foreground">First photo = cover on marketplace card</div>
-            )}
-          </div>
-          {photos.data && photos.data.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {photos.data.map((p: any, idx: number) => {
-                const isCover = idx === 0;
-                const isLast = idx === (photos.data?.length ?? 0) - 1;
-                return (
-                  <div
-                    key={p.id}
-                    className="group relative overflow-hidden rounded-lg border border-panel-border bg-panel"
-                  >
-                    <img src={p.image_url} alt={p.section_name} className="aspect-[4/3] w-full object-cover" />
-                    {isCover && (
-                      <div className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full border border-gold/40 bg-black/70 px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-gold">
-                        <Star className="size-2.5 fill-gold" /> Cover
-                      </div>
-                    )}
-                    <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-gradient-to-t from-black/80 to-transparent p-2">
-                      <div className="min-w-0 text-[11px] font-medium truncate">{p.section_name}</div>
-                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          type="button"
-                          disabled={idx === 0}
-                          onClick={() => moveBy(idx, -1)}
-                          className="grid size-6 place-items-center rounded bg-black/70 text-white hover:bg-cyan/80 disabled:opacity-30"
-                          aria-label="Move earlier"
-                        >
-                          <ArrowUp className="size-3" />
-                        </button>
-                        <button
-                          type="button"
-                          disabled={isLast}
-                          onClick={() => moveBy(idx, 1)}
-                          className="grid size-6 place-items-center rounded bg-black/70 text-white hover:bg-cyan/80 disabled:opacity-30"
-                          aria-label="Move later"
-                        >
-                          <ArrowDown className="size-3" />
-                        </button>
-                      </div>
-                    </div>
-                    <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      {!isCover && (
-                        <button
-                          type="button"
-                          onClick={() => setAsCover(idx)}
-                          className="grid size-7 place-items-center rounded-full bg-black/70 text-gold hover:bg-gold/20"
-                          aria-label="Set as cover"
-                          title="Set as cover"
-                        >
-                          <Star className="size-3.5" />
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          if (!confirm("Delete this photo?")) return;
-                          try {
-                            await deleteFn({ data: { photo_id: p.id } });
-                            toast.success("Photo removed");
-                            qc.invalidateQueries({ queryKey: ["library-photos-admin", lib.id] });
-                            qc.invalidateQueries({ queryKey: ["library-photos"] });
-                          } catch (e: any) {
-                            toast.error(e.message);
-                          }
-                        }}
-                        className="grid size-7 place-items-center rounded-full bg-black/70 text-white hover:bg-rose"
-                        aria-label="Delete photo"
-                      >
-                        <XIcon className="size-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="rounded-lg border border-dashed border-panel-border bg-panel/40 py-10 text-center text-xs text-muted-foreground">
-              No photos yet. Upload your first image above.
-            </div>
-          )}
-        </div>
-      </div>
-    </DialogContent>
-  );
-}
-
-// Unified Dialog with Tabs for Creating and Editing a Library
-function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; existingLib?: any; onDone: () => void }) {
-  const [loading, setLoading] = useState(false);
-  const [lang, setLang] = useState<"en" | "hi">("en");
-  const [activeTab, setActiveTab] = useState<"basic" | "schedule" | "features">("basic");
-
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [address, setAddress] = useState("");
-  const [googleMapsUrl, setGoogleMapsUrl] = useState("");
-  const [zone, setZone] = useState("");
-  const [city, setCity] = useState("");
-
-  // Structured schedule state
-  const [open24, setOpen24] = useState(false);
-  const [openTime, setOpenTime] = useState(""); // "HH:MM"
-  const [closeTime, setCloseTime] = useState("");
-  const [openAllDays, setOpenAllDays] = useState(false);
-  const [closedDays, setClosedDays] = useState<Set<string>>(new Set());
-  const [hasMorning, setHasMorning] = useState(false);
-  const [morningStart, setMorningStart] = useState("");
-  const [morningEnd, setMorningEnd] = useState("");
-  const [hasEvening, setHasEvening] = useState(false);
-  const [eveningStart, setEveningStart] = useState("");
-  const [eveningEnd, setEveningEnd] = useState("");
-  const [latitude, setLatitude] = useState<number | null>(null);
-  const [longitude, setLongitude] = useState<number | null>(null);
-  const [placeId, setPlaceId] = useState<string | null>(null);
-  const [locLoading, setLocLoading] = useState(false);
-  const geocodeFn = useServerFn(reverseGeocode);
-
-  const { data: exams } = useMasterExams();
-  const [selectedExams, setSelectedExams] = useState<Set<string>>(new Set());
-  const [amenities, setAmenities] = useState<Record<string, boolean>>({});
-
-  // Pre-fill data if editing
-  useEffect(() => {
-    if (existingLib) {
-      setName(existingLib.name || "");
-      setPhone(existingLib.contact_phone || "");
-      setAddress(existingLib.address || "");
-      setGoogleMapsUrl(existingLib.google_maps_url || "");
-      setZone(existingLib.zone_area || "");
-      setCity(existingLib.city || "");
-      const oh = parseOpeningHours(existingLib.opening_hours || "");
-      setOpen24(oh.open24);
-      setOpenTime(oh.openTime);
-      setCloseTime(oh.closeTime);
-      const co = parseClosedOn(existingLib.closed_on || "");
-      setOpenAllDays(co.openAllDays);
-      setClosedDays(new Set(co.days));
-      const sh = parseShifts(existingLib.shifts || "");
-      setHasMorning(sh.hasMorning);
-      setMorningStart(sh.morningStart);
-      setMorningEnd(sh.morningEnd);
-      setHasEvening(sh.hasEvening);
-      setEveningStart(sh.eveningStart);
-      setEveningEnd(sh.eveningEnd);
-      setSelectedExams(new Set(existingLib.targeted_exam_ids || []));
-      setAmenities(existingLib.amenities || {});
-      setLatitude(existingLib.latitude ?? null);
-      setLongitude(existingLib.longitude ?? null);
-      setPlaceId(existingLib.location_place_id ?? null);
-    }
-  }, [existingLib]);
-
-  async function useCurrentLocation() {
-    if (!("geolocation" in navigator)) {
-      toast.error("Geolocation not supported on this device");
-      return;
-    }
-    setLocLoading(true);
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        try {
-          const { latitude: lat, longitude: lng } = pos.coords;
-          const res = await geocodeFn({ data: { lat, lng } });
-          setLatitude(lat);
-          setLongitude(lng);
-          setPlaceId(res.place_id);
-          setAddress(res.formatted_address);
-          if (res.area) setZone(res.area);
-          if (res.city) setCity(res.city);
-          if (!googleMapsUrl) {
-            setGoogleMapsUrl(
-              `https://www.google.com/maps/search/?api=1&query=${lat},${lng}&query_place_id=${res.place_id}`,
-            );
-          }
-          toast.success("Location captured — please verify the address");
-        } catch (err: any) {
-          toast.error(err?.message || "Could not resolve address");
-        } finally {
-          setLocLoading(false);
-        }
-      },
-      (err) => {
-        setLocLoading(false);
-        toast.error(err.message || "Location permission denied");
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
-    );
-  }
-
-  const handleToggleAmenity = (key: string) => {
-    setAmenities((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
-
-  return (
-    <DialogContent className="glass-strong border-panel-border w-[95vw] max-w-2xl max-h-[90vh] overflow-hidden flex flex-col p-0">
-      <div className="p-4 md:p-6 pb-2 shrink-0">
-        <DialogHeader>
-          <DialogTitle>{existingLib ? "Edit Branch" : "New Branch Onboarding"}</DialogTitle>
-          <DialogDescription className="sr-only">Configure branch details, schedule, and amenities.</DialogDescription>
-        </DialogHeader>
-
-        {/* Tab Navigation */}
-        <div className="flex w-full overflow-x-auto border-b border-panel-border/50 mt-4 custom-scrollbar">
-          <button
-            type="button"
-            onClick={() => setActiveTab("basic")}
-            className={`px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors border-b-2 ${
-              activeTab === "basic"
-                ? "border-cyan text-cyan"
-                : "border-transparent text-muted-foreground hover:text-slate-300"
-            }`}
-          >
-            Basic & Location
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("schedule")}
-            className={`px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors border-b-2 ${
-              activeTab === "schedule"
-                ? "border-cyan text-cyan"
-                : "border-transparent text-muted-foreground hover:text-slate-300"
-            }`}
-          >
-            Timings & Schedule
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("features")}
-            className={`px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors border-b-2 ${
-              activeTab === "features"
-                ? "border-cyan text-cyan"
-                : "border-transparent text-muted-foreground hover:text-slate-300"
-            }`}
-          >
-            Exams & Amenities
-          </button>
-        </div>
-      </div>
-
-      <form
-        className="flex-1 overflow-y-auto p-4 md:p-6 pt-0 space-y-6 custom-scrollbar"
-        onSubmit={async (e) => {
-          e.preventDefault();
-
-          if (!orgId) {
-            toast.error("Security error: Organization ID missing. Please refresh.");
-            return;
-          }
-
-          if (!name.trim()) {
-            toast.error("Branch name is required.");
-            setActiveTab("basic");
-            return;
-          }
-
-          setLoading(true);
-          const payload = {
-            org_id: orgId,
-            name,
-            contact_phone: phone || null,
-            address: address || null,
-            google_maps_url: googleMapsUrl || null,
-            zone_area: zone || null,
-            city: city || null,
-            opening_hours: serializeOpeningHours({ open24, openTime, closeTime }),
-            shifts: serializeShifts({ hasMorning, morningStart, morningEnd, hasEvening, eveningStart, eveningEnd }),
-            closed_on: serializeClosedOn({ openAllDays, days: Array.from(closedDays) }),
-            targeted_exam_ids: Array.from(selectedExams),
-            amenities: amenities,
-            latitude: latitude,
-            longitude: longitude,
-            location_place_id: placeId,
-          };
-
-          let error;
-          if (existingLib) {
-            const res = await supabase.from("libraries").update(payload).eq("id", existingLib.id);
-            error = res.error;
-          } else {
-            const res = await supabase.from("libraries").insert(payload);
-            error = res.error;
-          }
-
-          setLoading(false);
-
-          if (error) {
-            toast.error(error.message);
-            return;
-          }
-          toast.success(existingLib ? "Library updated successfully" : "Branch successfully created");
-          onDone();
-        }}
-      >
-        {activeTab === "basic" && (
-          <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
-            <div className="space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label>
-                    Branch name <span className="text-red-400">*</span>
-                  </Label>
-                  <Input
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="bg-panel border-panel-border"
-                    placeholder="e.g. LibraryBandhu Main Branch"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Contact phone</Label>
-                  <Input
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="bg-panel border-panel-border font-mono"
-                    placeholder="9876543210"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <div className="rounded-lg border border-panel-border bg-panel/60 p-3 space-y-2">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 text-xs">
-                    <MapPin className="size-4 text-cyan" />
-                    {latitude != null && longitude != null ? (
-                      <span className="font-mono text-emerald">
-                        Pinned: {latitude.toFixed(5)}, {longitude.toFixed(5)}
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground">No location pinned yet</span>
-                    )}
-                  </div>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={useCurrentLocation}
-                    disabled={locLoading}
-                    className="border-cyan/40 text-cyan hover:bg-cyan/10"
-                  >
-                    {locLoading ? <Loader2 className="mr-1 size-4 animate-spin" /> : <MapPin className="mr-1 size-4" />}
-                    {latitude != null ? "Re-capture location" : "Use current location"}
-                  </Button>
-                </div>
-                <p className="text-[11px] text-muted-foreground">
-                  Stand at the branch entrance and tap the button. We'll auto-fill the address, area and city from
-                  Google Maps.
-                </p>
-              </div>
-              <div className="space-y-2">
-                <Label>Complete Address</Label>
-                <Textarea
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  className="bg-panel border-panel-border min-h-[80px]"
-                  placeholder="Full street address..."
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Google Maps Share Link</Label>
-                <Input
-                  value={googleMapsUrl}
-                  onChange={(e) => setGoogleMapsUrl(e.target.value)}
-                  className="bg-panel border-panel-border"
-                  placeholder="https://maps.app.goo.gl/..."
-                />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label>Area / Locality</Label>
-                  <Input
-                    value={zone}
-                    onChange={(e) => setZone(e.target.value)}
-                    className="bg-panel border-panel-border"
-                    placeholder="e.g. Malviya Nagar"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>City</Label>
-                  <Input
-                    value={city}
-                    onChange={(e) => setCity(e.target.value)}
-                    className="bg-panel border-panel-border"
-                    placeholder="e.g. Jaipur"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === "schedule" && (
-          <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
-            {/* Opening Hours */}
-            <div className="space-y-2 rounded-lg border border-panel-border bg-panel/40 p-4">
-              <div className="flex items-center justify-between border-b border-panel-border/50 pb-2 mb-2">
-                <Label className="text-sm font-semibold">Opening Hours</Label>
-                <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
-                  <Switch checked={open24} onCheckedChange={setOpen24} />
-                  <span>Open 24 hours</span>
-                </label>
-              </div>
-              {!open24 && (
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Opens at</Label>
-                    <Input
-                      type="time"
-                      value={openTime}
-                      onChange={(e) => setOpenTime(e.target.value)}
-                      className="bg-panel border-panel-border font-mono"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Closes at</Label>
-                    <Input
-                      type="time"
-                      value={closeTime}
-                      onChange={(e) => setCloseTime(e.target.value)}
-                      className="bg-panel border-panel-border font-mono"
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Closed On */}
-            <div className="space-y-2 rounded-lg border border-panel-border bg-panel/40 p-4">
-              <div className="flex items-center justify-between border-b border-panel-border/50 pb-2 mb-2">
-                <Label className="text-sm font-semibold">Weekly Off</Label>
-                <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
-                  <Switch
-                    checked={openAllDays}
-                    onCheckedChange={(v) => {
-                      setOpenAllDays(v);
-                      if (v) setClosedDays(new Set());
-                    }}
-                  />
-                  <span>Open all days</span>
-                </label>
-              </div>
-              {!openAllDays && (
-                <div className="flex flex-wrap gap-2 pt-2">
-                  {WEEK_DAYS.map((d) => {
-                    const on = closedDays.has(d);
-                    return (
-                      <button
-                        key={d}
-                        type="button"
-                        onClick={() => {
-                          const s = new Set(closedDays);
-                          if (on) s.delete(d);
-                          else s.add(d);
-                          setClosedDays(s);
-                        }}
-                        className={`rounded-full border px-4 py-1.5 text-xs transition-colors ${on ? "border-rose bg-rose/20 text-rose" : "border-panel-border bg-black/20 text-muted-foreground hover:text-white"}`}
-                      >
-                        {d}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            {/* Shifts */}
-            <div className="space-y-3 rounded-lg border border-panel-border bg-panel/40 p-4">
-              <Label className="text-sm font-semibold block border-b border-panel-border/50 pb-2 mb-2">
-                Specific Shifts
-              </Label>
-              <div className="space-y-3">
-                <label className="flex items-center gap-2 text-sm cursor-pointer">
-                  <Switch checked={hasMorning} onCheckedChange={setHasMorning} />
-                  <span className="font-medium text-slate-300">Morning shift</span>
-                </label>
-                {hasMorning && (
-                  <div className="grid grid-cols-2 gap-4 pl-10">
-                    <div className="space-y-1">
-                      <Label className="text-[11px] text-muted-foreground">Starts</Label>
-                      <Input
-                        type="time"
-                        value={morningStart}
-                        onChange={(e) => setMorningStart(e.target.value)}
-                        className="bg-panel border-panel-border font-mono"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[11px] text-muted-foreground">Ends</Label>
-                      <Input
-                        type="time"
-                        value={morningEnd}
-                        onChange={(e) => setMorningEnd(e.target.value)}
-                        className="bg-panel border-panel-border font-mono"
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-              <div className="space-y-3 pt-3">
-                <label className="flex items-center gap-2 text-sm cursor-pointer">
-                  <Switch checked={hasEvening} onCheckedChange={setHasEvening} />
-                  <span className="font-medium text-slate-300">Evening shift</span>
-                </label>
-                {hasEvening && (
-                  <div className="grid grid-cols-2 gap-4 pl-10">
-                    <div className="space-y-1">
-                      <Label className="text-[11px] text-muted-foreground">Starts</Label>
-                      <Input
-                        type="time"
-                        value={eveningStart}
-                        onChange={(e) => setEveningStart(e.target.value)}
-                        className="bg-panel border-panel-border font-mono"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[11px] text-muted-foreground">Ends</Label>
-                      <Input
-                        type="time"
-                        value={eveningEnd}
-                        onChange={(e) => setEveningEnd(e.target.value)}
-                        className="bg-panel border-panel-border font-mono"
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === "features" && (
-          <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
-            <div className="space-y-3">
-              <h4 className="text-sm font-semibold border-b border-panel-border/50 pb-2">Targeted Exams</h4>
-              <div className="flex max-h-48 flex-wrap gap-2 overflow-y-auto rounded-lg border border-panel-border bg-black/20 p-4 custom-scrollbar">
-                {(exams ?? []).map((e) => {
-                  const on = selectedExams.has(e.id);
-                  return (
-                    <button
-                      key={e.id}
-                      type="button"
-                      onClick={() => {
-                        const s = new Set(selectedExams);
-                        if (on) s.delete(e.id);
-                        else s.add(e.id);
-                        setSelectedExams(s);
-                      }}
-                      className={`rounded-full border px-3 py-1.5 text-xs transition-colors ${on ? "border-violet bg-violet/20 text-violet" : "border-panel-border bg-black/40 text-muted-foreground hover:bg-panel hover:text-white"}`}
-                    >
-                      {e.name}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="space-y-3 pt-2">
-              <div className="flex items-center justify-between border-b border-panel-border/50 pb-2">
-                <h4 className="text-sm font-semibold">Facilities & Amenities</h4>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setLang(lang === "en" ? "hi" : "en")}
-                  className="h-8 text-xs bg-panel border-panel-border"
-                >
-                  <Languages className="size-3 mr-1.5" />
-                  {lang === "en" ? "Switch to Hindi" : "Switch to English"}
-                </Button>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 rounded-lg bg-black/20 p-4 border border-panel-border">
-                {Object.entries(AMENITIES_DICT).map(([key, translations]) => (
-                  <div
-                    key={key}
-                    className="flex items-center justify-between gap-4 p-2 rounded-md hover:bg-black/20 transition-colors"
-                  >
-                    <Label
-                      className="text-sm font-normal text-slate-300 leading-tight cursor-pointer"
-                      onClick={() => handleToggleAmenity(key)}
-                    >
-                      {translations[lang]}
-                    </Label>
-                    <Switch
-                      checked={!!amenities[key]}
-                      onCheckedChange={() => handleToggleAmenity(key)}
-                      className="shrink-0"
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="pt-4 border-t border-panel-border/50 shrink-0 mt-auto sticky bottom-0 bg-background/95 backdrop-blur-sm z-10 py-4">
-          <Button
-            disabled={loading}
-            type="submit"
-            className="w-full bg-white text-slate-900 hover:bg-white/90 py-6 text-sm font-medium"
-          >
-            {loading ? "Saving..." : existingLib ? "Save All Changes" : "Complete Onboarding & Create Branch"}
-          </Button>
-        </div>
-      </form>
-    </DialogContent>
-  );
-}
-
-// New OTP Deletion Component
 function DeleteBranchDialog({ lib, onDone }: { lib: any; onDone: () => void }) {
   const [step, setStep] = useState<"warning" | "otp">("warning");
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
-  const { data: session } = useSession();
 
   const handleRequestOtp = async () => {
     setLoading(true);
