@@ -120,24 +120,25 @@ function PaymentsPage() {
             />
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center sm:items-end justify-center gap-3 w-full xl:w-auto">
-            <div className="flex flex-row items-end justify-center gap-3 w-full">
-              <div className="space-y-1 w-1/2 max-w-[160px] sm:w-36 shrink-0">
+          {/* Stack vertically on mobile, side-by-side on sm screens and up */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-end justify-start sm:justify-end gap-3 w-full xl:w-auto">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3 w-full sm:w-auto">
+              <div className="space-y-1 w-full sm:w-36 shrink-0">
                 <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">From</Label>
                 <Input
                   type="date"
                   value={fromDate}
                   onChange={(e) => setFromDate(e.target.value)}
-                  className="bg-panel border-panel-border font-mono text-xs w-full px-2"
+                  className="bg-panel border-panel-border font-mono text-xs w-full"
                 />
               </div>
-              <div className="space-y-1 w-1/2 max-w-[160px] sm:w-36 shrink-0">
+              <div className="space-y-1 w-full sm:w-36 shrink-0">
                 <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">To</Label>
                 <Input
                   type="date"
                   value={toDate}
                   onChange={(e) => setToDate(e.target.value)}
-                  className="bg-panel border-panel-border font-mono text-xs w-full px-2"
+                  className="bg-panel border-panel-border font-mono text-xs w-full"
                 />
               </div>
             </div>
@@ -402,7 +403,7 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
           <Switch checked={isLegacy} onCheckedChange={setIsLegacy} />
         </div>
 
-        {/* Enhanced Autocomplete Search Bar */}
+        {/* Enhanced Autocomplete Search Bar - SOLID BACKGROUND */}
         <div className="space-y-2 relative z-50">
           <Label>Find Active Allocation</Label>
           <div className="relative">
@@ -419,11 +420,11 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
               className="pl-9 bg-black/20 border-panel-border focus-visible:ring-1 focus-visible:ring-cyan/50"
             />
             {isSearchFocused && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-panel border border-panel-border rounded-md shadow-2xl max-h-60 overflow-y-auto custom-scrollbar">
+              <div className="absolute top-full left-0 right-0 mt-1 bg-slate-900 border border-slate-700 rounded-md shadow-[0_10px_40px_-10px_rgba(0,0,0,0.8)] max-h-60 overflow-y-auto custom-scrollbar z-[60]">
                 {filteredAllocations.map((a: any) => (
                   <div
                     key={a.id}
-                    className="p-3 text-sm hover:bg-cyan/10 cursor-pointer border-b border-panel-border/30 last:border-0 transition-colors"
+                    className="p-3 text-sm hover:bg-slate-800 cursor-pointer border-b border-slate-800/50 last:border-0 transition-colors"
                     onMouseDown={(e) => e.preventDefault()} // Prevents input blur before click registers
                     onClick={() => {
                       setAllocId(a.id);
