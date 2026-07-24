@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
@@ -33,6 +33,8 @@ import {
   Star,
   Map,
   FilterX,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { StarBar } from "@/components/RatingStars";
 
@@ -291,7 +293,7 @@ function Marketplace() {
                 <input
                   type="range"
                   min={1}
-                  max={50}
+                  max={10}
                   step={1}
                   value={radiusKm}
                   onChange={(e) => setRadiusKm(Number(e.target.value))}
@@ -554,6 +556,8 @@ function LibraryDetailsDialog({
 }) {
   const [lang, setLang] = useState<"en" | "hi">("en");
   const [showRatings, setShowRatings] = useState(false);
+  const [activeSlideIndex, setActiveSlideIndex] = useState(0);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const photos = useQuery({
     queryKey: ["library-photos", lib?.id],
@@ -580,6 +584,25 @@ function LibraryDetailsDialog({
     ? (gallery as any)
     : fallback;
 
+  // Update dots when scrolling
+  const handleScroll = () => {
+    if (!scrollRef.current) return;
+    const index = Math.round(scrollRef.current.scrollLeft / scrollRef.current.clientWidth);
+    setActiveSlideIndex(index);
+  };
+
+  const scrollPrev = () => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollBy({ left: -scrollRef.current.clientWidth, behavior: "smooth" });
+    }
+  };
+
+  const scrollNext = () => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollBy({ left: scrollRef.current.clientWidth, behavior: "smooth" });
+    }
+  };
+
   return (
     <>
       <Dialog open={!!lib} onOpenChange={(o) => !o && onClose()}>
@@ -587,29 +610,64 @@ function LibraryDetailsDialog({
           <DialogTitle className="sr-only">Library Details: {lib.name}</DialogTitle>
           <DialogDescription className="sr-only">Details, schedule, and amenities for {lib.name}</DialogDescription>
 
-          {/* Swipeable Photo Gallery */}
+          {/* Swipeable Photo Gallery with Arrows & Dots */}
           <div className="w-full h-56 sm:h-72 relative bg-gradient-to-br from-violet/20 via-cyan/10 to-magenta/20 flex-shrink-0 group">
             {slides.length ? (
-              <div className="flex h-full w-full snap-x snap-mandatory overflow-x-auto scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                {slides.map((p) => (
-                  <div key={p.id} className="relative h-full w-full flex-shrink-0 snap-center">
-                    <img src={p.image_url} alt={p.section_name} className="size-full object-cover" loading="lazy" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent pointer-events-none" />
-                    <div className="absolute left-4 bottom-4 inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-black/40 px-3 py-1.5 text-xs font-medium text-white backdrop-blur">
-                      {p.section_name}
+              <>
+                <div
+                  ref={scrollRef}
+                  onScroll={handleScroll}
+                  className="flex h-full w-full snap-x snap-mandatory overflow-x-auto scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                >
+                  {slides.map((p) => (
+                    <div key={p.id} className="relative h-full w-full flex-shrink-0 snap-center">
+                      <img src={p.image_url} alt={p.section_name} className="size-full object-cover" loading="lazy" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent pointer-events-none" />
+                      <div className="absolute left-4 bottom-5 inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-black/40 px-3 py-1.5 text-xs font-medium text-white backdrop-blur z-10">
+                        {p.section_name}
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+
+                {/* Navigation Arrows (Hidden if only 1 slide, disabled at edges) */}
+                {slides.length > 1 && (
+                  <>
+                    <button
+                      onClick={scrollPrev}
+                      disabled={activeSlideIndex === 0}
+                      className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/40 text-white backdrop-blur-sm border border-white/10 hover:bg-black/60 transition-colors disabled:opacity-0 disabled:pointer-events-none"
+                      aria-label="Previous photo"
+                    >
+                      <ChevronLeft className="size-5" />
+                    </button>
+                    <button
+                      onClick={scrollNext}
+                      disabled={activeSlideIndex === slides.length - 1}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/40 text-white backdrop-blur-sm border border-white/10 hover:bg-black/60 transition-colors disabled:opacity-0 disabled:pointer-events-none"
+                      aria-label="Next photo"
+                    >
+                      <ChevronRight className="size-5" />
+                    </button>
+
+                    {/* Pagination Dots */}
+                    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-10">
+                      {slides.map((_, i) => (
+                        <div
+                          key={i}
+                          className={cn(
+                            "rounded-full transition-all duration-300",
+                            activeSlideIndex === i ? "bg-white w-4 h-1.5" : "bg-white/40 w-1.5 h-1.5",
+                          )}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
+              </>
             ) : (
               <div className="grid size-full place-items-center">
                 <BookOpen className="size-12 text-white/30" />
-              </div>
-            )}
-
-            {slides.length > 1 && (
-              <div className="absolute top-4 right-4 rounded-full bg-black/60 px-3 py-1.5 text-[10px] font-mono font-medium text-white backdrop-blur border border-white/10 shadow-lg">
-                {slides.length} Photos · Swipe <ArrowRight className="inline size-3 ml-0.5" />
               </div>
             )}
           </div>
