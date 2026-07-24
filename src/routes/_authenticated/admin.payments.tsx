@@ -8,7 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { inr, fmtDate } from "@/lib/format";
@@ -79,10 +86,15 @@ function PaymentsPage() {
 
   return (
     <div className="space-y-6">
-      <SectionHeader
-        title="Payments"
-        hint="Log payments with proof, and drill into full history."
-        right={
+      {/* 
+        Modified header layout for responsiveness. 
+        Title takes full width on mobile, action button drops below. 
+      */}
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div className="flex-1 w-full">
+          <SectionHeader title="Payments" hint="Log payments with proof, and drill into full history." />
+        </div>
+        <div className="w-full sm:w-auto shrink-0 mt-2 sm:mt-0">
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button className="w-full sm:w-auto bg-white text-slate-900 hover:bg-white/90">
@@ -97,43 +109,50 @@ function PaymentsPage() {
               }}
             />
           </Dialog>
-        }
-      />
+        </div>
+      </div>
 
-      <GlassPanel className="p-4 overflow-hidden">
-        <div className="mb-4 flex flex-col sm:flex-row sm:items-end gap-3">
-          <div className="relative w-full sm:w-80">
+      <GlassPanel className="p-4 overflow-hidden flex flex-col min-w-0">
+        <div className="mb-4 flex flex-col xl:flex-row xl:items-end justify-between gap-4">
+          <div className="relative w-full xl:max-w-sm shrink-0">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
             <Input
-              placeholder="Name, mobile, or txn reference…"
+              placeholder="Name, mobile, or txn ref…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 bg-panel border-panel-border"
+              className="pl-9 bg-panel border-panel-border w-full"
             />
           </div>
-          <div className="flex items-end gap-2">
-            <div className="space-y-1">
-              <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">From</Label>
-              <Input
-                type="date"
-                value={fromDate}
-                onChange={(e) => setFromDate(e.target.value)}
-                className="bg-panel border-panel-border font-mono text-xs"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">To</Label>
-              <Input
-                type="date"
-                value={toDate}
-                onChange={(e) => setToDate(e.target.value)}
-                className="bg-panel border-panel-border font-mono text-xs"
-              />
+
+          {/* 
+            Date pickers are structured to stack on very small screens, 
+            sit side-by-side on medium screens, and align right on large screens. 
+          */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3 w-full xl:w-auto">
+            <div className="flex flex-row items-end gap-2 w-full sm:w-auto">
+              <div className="space-y-1 flex-1 sm:w-32">
+                <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">From</Label>
+                <Input
+                  type="date"
+                  value={fromDate}
+                  onChange={(e) => setFromDate(e.target.value)}
+                  className="bg-panel border-panel-border font-mono text-xs w-full px-2"
+                />
+              </div>
+              <div className="space-y-1 flex-1 sm:w-32">
+                <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">To</Label>
+                <Input
+                  type="date"
+                  value={toDate}
+                  onChange={(e) => setToDate(e.target.value)}
+                  className="bg-panel border-panel-border font-mono text-xs w-full px-2"
+                />
+              </div>
             </div>
             <Button
               variant="ghost"
               size="sm"
-              className="text-muted-foreground"
+              className="text-muted-foreground shrink-0 sm:h-9"
               onClick={() => {
                 setFromDate(addDaysISO(todayISO(), -30));
                 setToDate(todayISO());
@@ -144,7 +163,7 @@ function PaymentsPage() {
           </div>
         </div>
 
-        <div className="w-full overflow-x-auto pb-4 custom-scrollbar">
+        <div className="w-full overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 pb-4 custom-scrollbar">
           <table className="w-full text-left text-sm min-w-[800px]">
             <thead>
               <tr className="border-b border-panel-border text-[10px] uppercase tracking-widest text-muted-foreground whitespace-nowrap">
@@ -202,7 +221,11 @@ function PaymentsPage() {
                     )}
                   </td>
                   <td className="py-3 px-2">
-                    {p.receipt_url ? <FileImage className="size-4 text-emerald" /> : <span className="text-muted-foreground">—</span>}
+                    {p.receipt_url ? (
+                      <FileImage className="size-4 text-emerald" />
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
                   </td>
                   <td className="py-3 px-2 font-mono text-emerald">{fmtDate(p.covers_until)}</td>
                 </tr>
@@ -291,9 +314,7 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
     setEndDate(d.toISOString().split("T")[0]);
   }, [startDate, amount, chosen]);
 
-  const dueSoon = chosen?.next_due_date
-    ? (new Date(chosen.next_due_date).getTime() - Date.now()) / 86400000
-    : null;
+  const dueSoon = chosen?.next_due_date ? (new Date(chosen.next_due_date).getTime() - Date.now()) / 86400000 : null;
   const statusColor =
     chosen?.status === "paid" && dueSoon !== null && dueSoon > 7
       ? "text-emerald"
@@ -316,7 +337,7 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
           const effectiveMethod = isLegacy ? "offline_legacy" : method;
           const effectiveAmount = isLegacy ? 0 : Number(amount || 0);
           const effectiveCoversUntil = isLegacy ? legacyDueDate : endDate;
-          const effectiveNote = isLegacy ? "Legacy offline payment onboarding" : (note || null);
+          const effectiveNote = isLegacy ? "Legacy offline payment onboarding" : note || null;
 
           if (isLegacy) {
             if (!legacyDueDate) {
@@ -342,9 +363,7 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
                 allocation_id: chosen.id,
                 amount_paid: effectiveAmount,
                 method: effectiveMethod,
-                transaction_reference: isLegacy
-                  ? null
-                  : (method === "cash" ? (txnRef.trim() || null) : txnRef.trim()),
+                transaction_reference: isLegacy ? null : method === "cash" ? txnRef.trim() || null : txnRef.trim(),
                 reference_note: effectiveNote,
                 covers_until: effectiveCoversUntil,
                 collected_by_staff_id: session?.staffId ?? null,
@@ -383,7 +402,8 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
           <div className="min-w-0">
             <div className="text-sm font-medium">Existing Student (Already Paid Offline)</div>
             <p className="mt-0.5 text-[11px] text-muted-foreground">
-              Use this for students who paid before you started using the app. This will not add to your revenue dashboard.
+              Use this for students who paid before you started using the app. This will not add to your revenue
+              dashboard.
             </p>
           </div>
           <Switch checked={isLegacy} onCheckedChange={setIsLegacy} />
@@ -445,7 +465,9 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
                   Legacy Onboarding — no revenue recorded
                 </div>
                 <div className="space-y-2">
-                  <Label>Next Due Date <span className="text-red-400">*</span></Label>
+                  <Label>
+                    Next Due Date <span className="text-red-400">*</span>
+                  </Label>
                   <Input
                     required
                     type="date"
@@ -462,7 +484,9 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
             ) : (
               <div className="p-4 border border-panel-border rounded-lg bg-black/10 space-y-4">
                 <div className="flex justify-between items-center bg-panel p-2 rounded-md border border-panel-border/50">
-                  <Label className="text-xs uppercase tracking-widest text-muted-foreground">Standard Monthly Fee</Label>
+                  <Label className="text-xs uppercase tracking-widest text-muted-foreground">
+                    Standard Monthly Fee
+                  </Label>
                   <span className="font-mono font-bold text-cyan">{inr(chosen.monthly_fee)}</span>
                 </div>
 
@@ -509,79 +533,79 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
 
         {!isLegacy && (
           <>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div className="space-y-2">
-            <Label>Payment Method</Label>
-            <Select value={method} onValueChange={(v: any) => setMethod(v)}>
-              <SelectTrigger className="bg-panel border-panel-border">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="upi">UPI</SelectItem>
-                <SelectItem value="cash">Cash</SelectItem>
-                <SelectItem value="card">Card</SelectItem>
-                <SelectItem value="bank_transfer">Bank transfer</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label>
-              Transaction Reference {method !== "cash" && <span className="text-red-400">*</span>}
-              {method === "cash" && <span className="text-muted-foreground text-[10px]"> (optional)</span>}
-            </Label>
-            <Input
-              required={method !== "cash"}
-              value={txnRef}
-              onChange={(e) => setTxnRef(e.target.value)}
-              placeholder={method === "cash" ? "Receipt # (optional)" : "UPI ref / txn id"}
-              className="bg-panel border-panel-border font-mono w-full"
-            />
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <Label>Note (optional)</Label>
-          <Input
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="Any extra context"
-            className="bg-panel border-panel-border w-full"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label>Proof / Receipt (optional)</Label>
-          <div className="flex items-center gap-2">
-            <label className="flex-1 cursor-pointer">
-              <div className="flex items-center gap-2 rounded-md border border-dashed border-panel-border bg-black/20 px-3 py-2 hover:bg-black/30 transition">
-                <Upload className="size-4 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground truncate">
-                  {receiptFile ? receiptFile.name : "Screenshot or cash receipt (JPG/PNG, max 5MB)"}
-                </span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Payment Method</Label>
+                <Select value={method} onValueChange={(v: any) => setMethod(v)}>
+                  <SelectTrigger className="bg-panel border-panel-border">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="upi">UPI</SelectItem>
+                    <SelectItem value="cash">Cash</SelectItem>
+                    <SelectItem value="card">Card</SelectItem>
+                    <SelectItem value="bank_transfer">Bank transfer</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (!f) return;
-                  if (f.size > 5 * 1024 * 1024) {
-                    toast.error("File must be under 5MB");
-                    return;
-                  }
-                  setReceiptFile(f);
-                }}
+
+              <div className="space-y-2">
+                <Label>
+                  Transaction Reference {method !== "cash" && <span className="text-red-400">*</span>}
+                  {method === "cash" && <span className="text-muted-foreground text-[10px]"> (optional)</span>}
+                </Label>
+                <Input
+                  required={method !== "cash"}
+                  value={txnRef}
+                  onChange={(e) => setTxnRef(e.target.value)}
+                  placeholder={method === "cash" ? "Receipt # (optional)" : "UPI ref / txn id"}
+                  className="bg-panel border-panel-border font-mono w-full"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Note (optional)</Label>
+              <Input
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="Any extra context"
+                className="bg-panel border-panel-border w-full"
               />
-            </label>
-            {receiptFile && (
-              <Button type="button" variant="ghost" size="sm" onClick={() => setReceiptFile(null)}>
-                <X className="size-3" />
-              </Button>
-            )}
-          </div>
-        </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Proof / Receipt (optional)</Label>
+              <div className="flex items-center gap-2">
+                <label className="flex-1 cursor-pointer">
+                  <div className="flex items-center gap-2 rounded-md border border-dashed border-panel-border bg-black/20 px-3 py-2 hover:bg-black/30 transition">
+                    <Upload className="size-4 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground truncate">
+                      {receiptFile ? receiptFile.name : "Screenshot or cash receipt (JPG/PNG, max 5MB)"}
+                    </span>
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (!f) return;
+                      if (f.size > 5 * 1024 * 1024) {
+                        toast.error("File must be under 5MB");
+                        return;
+                      }
+                      setReceiptFile(f);
+                    }}
+                  />
+                </label>
+                {receiptFile && (
+                  <Button type="button" variant="ghost" size="sm" onClick={() => setReceiptFile(null)}>
+                    <X className="size-3" />
+                  </Button>
+                )}
+              </div>
+            </div>
           </>
         )}
 
@@ -642,11 +666,7 @@ function PaymentDetailDialog({ paymentId, onClose }: { paymentId: string; onClos
             <Row label="Method" value={p.method?.toUpperCase()} />
             <Row label="Txn reference" value={p.transaction_reference ?? "—"} mono />
             <Row label="Payment date" value={fmtDate(p.payment_date) ?? "—"} mono />
-            <Row
-              label="Logged at"
-              value={p.logged_at ? new Date(p.logged_at).toLocaleString() : "—"}
-              mono
-            />
+            <Row label="Logged at" value={p.logged_at ? new Date(p.logged_at).toLocaleString() : "—"} mono />
             <Row label="Covers until" value={fmtDate(p.covers_until) ?? "—"} mono />
             <Row label="Note" value={p.reference_note ?? "—"} />
             {p.receipt_url && (
@@ -680,4 +700,3 @@ function Row({ label, value, mono }: { label: string; value: string; mono?: bool
     </div>
   );
 }
-
