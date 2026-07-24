@@ -17,6 +17,12 @@ import {
   DialogTrigger,
   DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import {
@@ -37,6 +43,7 @@ import {
   MapPin,
   Loader2,
   ArrowRightLeft,
+  MoreVertical,
 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { uploadLibraryPhoto, deleteLibraryPhoto, reorderLibraryPhotos } from "@/lib/libraries.functions";
@@ -218,7 +225,7 @@ function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <SectionHeader title="Settings" hint="Organization and branch configuration." />
+      <SectionHeader title="Branch Settings" hint="Organization and branch configuration." />
       <PendingBranchesBanner orgId={orgId} />
 
       <GlassPanel className="p-5">
@@ -351,37 +358,57 @@ function BranchCard({ lib, onChanged, orgId }: { lib: any; onChanged: () => void
 
         {/* Clean Action Footer */}
         <div className="pt-3 border-t border-panel-border/50 flex items-center gap-2">
-          <Dialog open={editOpen} onOpenChange={setEditOpen}>
-            <DialogTrigger asChild>
+          <div className="flex-1">
+            <Dialog open={editOpen} onOpenChange={setEditOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full text-xs text-muted-foreground hover:text-cyan hover:bg-cyan/10"
+                >
+                  <Edit2 className="size-3.5 mr-1.5" /> Manage
+                </Button>
+              </DialogTrigger>
+              <LibraryFormDialog
+                orgId={orgId}
+                existingLib={lib}
+                onDone={() => {
+                  onChanged();
+                  setEditOpen(false);
+                }}
+              />
+            </Dialog>
+          </div>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
-                size="sm"
-                className="flex-1 text-xs text-muted-foreground hover:text-cyan hover:bg-cyan/10 px-0"
+                size="icon"
+                className="shrink-0 size-8 text-muted-foreground hover:text-white hover:bg-panel border border-transparent"
               >
-                <Edit2 className="size-3.5 mr-1.5" /> Manage
+                <MoreVertical className="size-4" />
               </Button>
-            </DialogTrigger>
-            <LibraryFormDialog
-              orgId={orgId}
-              existingLib={lib}
-              onDone={() => {
-                onChanged();
-                setEditOpen(false);
-              }}
-            />
-          </Dialog>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="bg-panel border-panel-border min-w-[180px]">
+              <DropdownMenuItem
+                disabled={hasPending}
+                onSelect={() => setTransferOpen(true)}
+                className="text-xs cursor-pointer focus:bg-amber-400/10 focus:text-amber-300"
+              >
+                <ArrowRightLeft className="mr-2 size-3.5" />
+                {hasPending ? "Transfer Pending" : "Transfer Ownership"}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={() => setDeleteOpen(true)}
+                className="text-xs text-rose focus:bg-rose/10 focus:text-rose cursor-pointer"
+              >
+                <Trash2 className="mr-2 size-3.5" /> Delete Branch
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           <Dialog open={transferOpen} onOpenChange={setTransferOpen}>
-            <DialogTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={hasPending}
-                className="flex-1 text-xs text-muted-foreground hover:text-amber-300 hover:bg-amber-400/10 px-0 disabled:opacity-50"
-              >
-                <ArrowRightLeft className="size-3.5 mr-1.5" /> Transfer
-              </Button>
-            </DialogTrigger>
             {!hasPending && (
               <TransferOwnershipDialog
                 lib={lib}
@@ -395,11 +422,6 @@ function BranchCard({ lib, onChanged, orgId }: { lib: any; onChanged: () => void
           </Dialog>
 
           <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-            <DialogTrigger asChild>
-              <Button variant="ghost" size="sm" className="px-3 text-muted-foreground hover:text-rose hover:bg-rose/10">
-                <Trash2 className="size-4" />
-              </Button>
-            </DialogTrigger>
             <DeleteBranchDialog
               lib={lib}
               onDone={() => {
@@ -415,7 +437,7 @@ function BranchCard({ lib, onChanged, orgId }: { lib: any; onChanged: () => void
 }
 
 // -----------------------------------------------------------------------------
-// Core View Component for Photo Management (now embedded in the tab)
+// Core View Component for Photo Management (embedded in the tab)
 // -----------------------------------------------------------------------------
 function PhotoManagerView({ lib }: { lib: any }) {
   const qc = useQueryClient();
@@ -910,9 +932,9 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
 
               <div className="rounded-lg border border-panel-border bg-panel/40 p-4 mt-2 flex items-center justify-between">
                 <div>
-                  <Label className="text-sm font-semibold">Public Marketplace</Label>
+                  <Label className="text-sm font-semibold">Seat Availability on Marketplace</Label>
                   <p className="text-[11px] text-muted-foreground mt-0.5">
-                    Allow students to discover this branch online.
+                    Show live seat availability for this branch online.
                   </p>
                 </div>
                 <Switch checked={showPublic} onCheckedChange={setShowPublic} />
@@ -1212,7 +1234,7 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
         )}
       </form>
 
-      {/* Footer Wizard Controls (Fixed dark border styling) */}
+      {/* Footer Wizard Controls */}
       <div className="border-t border-panel-border bg-panel p-4 flex items-center justify-between shrink-0">
         <Button
           type="button"
