@@ -318,73 +318,78 @@ function LayoutBuilderPage() {
         title="Layout Builder"
         hint="Build your floor plan, setup seats, and define custom areas."
         right={
-          <div className="flex flex-wrap items-center gap-2">
-            <Select
-              value={currentLibId ?? ""}
-              onValueChange={(v) => {
-                setLibraryId(v);
-                setSectionId(undefined);
-                setSelectedSeat(null);
-              }}
-            >
-              <SelectTrigger className="w-40 md:w-52 bg-panel border-panel-border">
-                <SelectValue placeholder="Branch" />
-              </SelectTrigger>
-              <SelectContent>
-                {(libs ?? []).map((l) => (
-                  <SelectItem key={l.id} value={l.id}>
-                    {l.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={currentSectionId ?? ""}
-              onValueChange={(v) => {
-                setSectionId(v);
-                setSelectedSeat(null);
-              }}
-            >
-              <SelectTrigger className="w-40 md:w-52 bg-panel border-panel-border">
-                <SelectValue placeholder="Section" />
-              </SelectTrigger>
-              <SelectContent>
-                {(sectionsQ.data ?? []).map((s: any) => (
-                  <SelectItem key={s.id} value={s.id}>
-                    {s.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <AddSectionDialog
-              open={addSectionOpen}
-              onOpenChange={setAddSectionOpen}
-              libraryId={currentLibId}
-              orgId={orgId}
-              onCreated={(id) => {
-                qc.invalidateQueries({ queryKey: ["sections", currentLibId] });
-                setSectionId(id);
-              }}
-            />
-            {currentSection && (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="border-panel-border bg-panel"
-                  onClick={() => setEditSectionOpen(true)}
-                  title="Section settings"
-                >
-                  <Settings2 className="size-4" />
-                </Button>
-                <EditSectionDialog
-                  open={editSectionOpen}
-                  onOpenChange={setEditSectionOpen}
-                  section={currentSection}
-                  onSaved={() => qc.invalidateQueries({ queryKey: ["sections", currentLibId] })}
-                />
-              </>
-            )}
+          <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-3 w-full sm:w-auto mt-4 sm:mt-0">
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+              <Select
+                value={currentLibId ?? ""}
+                onValueChange={(v) => {
+                  setLibraryId(v);
+                  setSectionId(undefined);
+                  setSelectedSeat(null);
+                }}
+              >
+                <SelectTrigger className="w-full sm:w-40 md:w-48 bg-panel border-panel-border">
+                  <SelectValue placeholder="Branch" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(libs ?? []).map((l) => (
+                    <SelectItem key={l.id} value={l.id}>
+                      {l.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={currentSectionId ?? ""}
+                onValueChange={(v) => {
+                  setSectionId(v);
+                  setSelectedSeat(null);
+                }}
+              >
+                <SelectTrigger className="w-full sm:w-40 md:w-48 bg-panel border-panel-border">
+                  <SelectValue placeholder="Section" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(sectionsQ.data ?? []).map((s: any) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-start sm:justify-end">
+              <AddSectionDialog
+                open={addSectionOpen}
+                onOpenChange={setAddSectionOpen}
+                libraryId={currentLibId}
+                orgId={orgId}
+                onCreated={(id) => {
+                  qc.invalidateQueries({ queryKey: ["sections", currentLibId] });
+                  setSectionId(id);
+                }}
+              />
+              {currentSection && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-panel-border bg-panel shrink-0"
+                    onClick={() => setEditSectionOpen(true)}
+                    title="Section settings"
+                  >
+                    <Settings2 className="size-4" />
+                  </Button>
+                  <EditSectionDialog
+                    open={editSectionOpen}
+                    onOpenChange={setEditSectionOpen}
+                    section={currentSection}
+                    onSaved={() => qc.invalidateQueries({ queryKey: ["sections", currentLibId] })}
+                  />
+                </>
+              )}
+            </div>
           </div>
         }
       />
@@ -423,7 +428,7 @@ function LayoutBuilderPage() {
                     setSelectedCells([]);
                   }}
                   className={cn(
-                    "bg-panel transition-colors",
+                    "bg-panel transition-colors shrink-0",
                     multiSelectMode &&
                       "bg-cyan text-cyan-950 hover:bg-cyan/90 border-cyan/50 shadow-[0_0_15px_rgba(34,211,238,0.2)]",
                   )}
@@ -437,7 +442,7 @@ function LayoutBuilderPage() {
             {/* Unified Selection Action Banner */}
             {multiSelectMode && selectedCells.length > 0 && (
               <div className="bg-cyan/10 border border-cyan/30 rounded-lg p-3 mb-4 mx-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in zoom-in slide-in-from-top-4">
-                <span className="text-sm font-medium text-cyan">{selectedCells.length} cells selected</span>
+                <span className="text-sm font-medium text-cyan shrink-0">{selectedCells.length} cells selected</span>
                 <div className="flex flex-wrap gap-2">
                   <Button
                     size="sm"
@@ -452,7 +457,7 @@ function LayoutBuilderPage() {
                     className="bg-emerald text-emerald-950 hover:bg-emerald/90"
                     onClick={() => setBulkSeatOpen(true)}
                   >
-                    <Grid3X3 className="size-3.5 mr-1.5" /> Generate Seats
+                    <Grid3X3 className="size-3.5 mr-1.5" /> Generate
                   </Button>
                   <Button
                     size="sm"
@@ -466,7 +471,7 @@ function LayoutBuilderPage() {
                     className="bg-amber-500 text-amber-950 hover:bg-amber-400"
                     onClick={() => setBulkEditOpen(true)}
                   >
-                    <Settings2 className="size-3.5 mr-1.5" /> Edit Seats
+                    <Settings2 className="size-3.5 mr-1.5" /> Edit
                   </Button>
                   <Button size="sm" variant="destructive" onClick={handleBulkDelete} disabled={isShifting}>
                     <Trash2 className="size-3.5 mr-1.5" /> Delete
@@ -476,9 +481,9 @@ function LayoutBuilderPage() {
             )}
 
             {/* INTERACTIVE RESPONSIVE GRID WRAPPER */}
-            <div className="relative w-full overflow-auto rounded-lg bg-black/30 p-4 ring-1 ring-panel-border touch-pan-x touch-pan-y custom-scrollbar flex justify-center">
+            <div className="relative w-full overflow-x-auto rounded-lg bg-black/30 p-4 ring-1 ring-panel-border touch-pan-x touch-pan-y custom-scrollbar">
               {grid && (
-                <div className="flex flex-col items-center min-w-max p-4">
+                <div className="flex flex-col items-center min-w-max p-2 sm:p-4">
                   {/* Top Controls */}
                   <div className="flex items-center gap-2 mb-4 border-b border-panel-border/30 pb-4">
                     <Button
@@ -486,7 +491,7 @@ function LayoutBuilderPage() {
                       size="sm"
                       variant="outline"
                       onClick={handleAddTop}
-                      className="rounded-full bg-panel hover:bg-panel-strong"
+                      className="rounded-full bg-panel hover:bg-panel-strong shrink-0"
                     >
                       <Plus className="size-3 mr-1" /> Top Row
                     </Button>
@@ -495,7 +500,7 @@ function LayoutBuilderPage() {
                       size="sm"
                       variant="outline"
                       onClick={handleRemoveTop}
-                      className="rounded-full bg-panel hover:bg-rose/20 hover:text-rose hover:border-rose/30"
+                      className="rounded-full bg-panel hover:bg-rose/20 hover:text-rose hover:border-rose/30 shrink-0"
                     >
                       <Minus className="size-3 mr-1" /> Top Row
                     </Button>
@@ -510,7 +515,7 @@ function LayoutBuilderPage() {
                         variant="outline"
                         onClick={handleAddLeft}
                         title="Add Col Left"
-                        className="size-8 rounded-full bg-panel hover:bg-panel-strong"
+                        className="size-8 rounded-full bg-panel hover:bg-panel-strong shrink-0"
                       >
                         <Plus className="size-4" />
                       </Button>
@@ -520,7 +525,7 @@ function LayoutBuilderPage() {
                         variant="outline"
                         onClick={handleRemoveLeft}
                         title="Remove Col Left"
-                        className="size-8 rounded-full bg-panel hover:bg-rose/20 hover:text-rose hover:border-rose/30"
+                        className="size-8 rounded-full bg-panel hover:bg-rose/20 hover:text-rose hover:border-rose/30 shrink-0"
                       >
                         <Minus className="size-4" />
                       </Button>
@@ -529,7 +534,7 @@ function LayoutBuilderPage() {
                     {/* The Grid */}
                     <div
                       className="grid gap-1.5"
-                      style={{ gridTemplateColumns: `repeat(${currentSection?.grid_cols ?? 15}, minmax(40px, 1fr))` }}
+                      style={{ gridTemplateColumns: `repeat(${currentSection?.grid_cols ?? 15}, minmax(36px, 1fr))` }}
                     >
                       {grid.map((row, r) =>
                         row.map((cell, c) => {
@@ -556,7 +561,7 @@ function LayoutBuilderPage() {
                         variant="outline"
                         onClick={handleAddRight}
                         title="Add Col Right"
-                        className="size-8 rounded-full bg-panel hover:bg-panel-strong"
+                        className="size-8 rounded-full bg-panel hover:bg-panel-strong shrink-0"
                       >
                         <Plus className="size-4" />
                       </Button>
@@ -566,7 +571,7 @@ function LayoutBuilderPage() {
                         variant="outline"
                         onClick={handleRemoveRight}
                         title="Remove Col Right"
-                        className="size-8 rounded-full bg-panel hover:bg-rose/20 hover:text-rose hover:border-rose/30"
+                        className="size-8 rounded-full bg-panel hover:bg-rose/20 hover:text-rose hover:border-rose/30 shrink-0"
                       >
                         <Minus className="size-4" />
                       </Button>
@@ -580,7 +585,7 @@ function LayoutBuilderPage() {
                       size="sm"
                       variant="outline"
                       onClick={handleAddBottom}
-                      className="rounded-full bg-panel hover:bg-panel-strong"
+                      className="rounded-full bg-panel hover:bg-panel-strong shrink-0"
                     >
                       <Plus className="size-3 mr-1" /> Bottom Row
                     </Button>
@@ -589,7 +594,7 @@ function LayoutBuilderPage() {
                       size="sm"
                       variant="outline"
                       onClick={handleRemoveBottom}
-                      className="rounded-full bg-panel hover:bg-rose/20 hover:text-rose hover:border-rose/30"
+                      className="rounded-full bg-panel hover:bg-rose/20 hover:text-rose hover:border-rose/30 shrink-0"
                     >
                       <Minus className="size-3 mr-1" /> Bottom Row
                     </Button>
@@ -848,8 +853,6 @@ function InspectorPanel({
   );
 }
 
-// Dialogs ...
-
 // 7 supported shift types — order defines display order.
 const SHIFT_META: { key: string; label: string; allow: string; fee: string }[] = [
   { key: "full_day", label: "Full day", allow: "allow_full_day", fee: "full_day_fee" },
@@ -905,9 +908,7 @@ function SectionShiftAndFeeFields({
     <>
       <div className="space-y-4 pt-2">
         <div>
-          <Label className="text-xs text-muted-foreground uppercase tracking-widest mb-2 block">
-            Available Shifts
-          </Label>
+          <Label className="text-xs text-muted-foreground uppercase tracking-widest mb-2 block">Available Shifts</Label>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-sm">
             {SHIFT_META.map((s) => (
               <label key={s.key} className="flex items-center gap-2">
@@ -919,20 +920,14 @@ function SectionShiftAndFeeFields({
         </div>
 
         <div>
-          <Label className="text-xs text-muted-foreground uppercase tracking-widest mb-2 block">
-            Available Types
-          </Label>
+          <Label className="text-xs text-muted-foreground uppercase tracking-widest mb-2 block">Available Types</Label>
           <div className="grid grid-cols-2 gap-2 text-sm">
             <label className="flex items-center gap-2">
               <input type="checkbox" checked={allowReserved} onChange={(e) => setAllowReserved(e.target.checked)} />
               Reserved
             </label>
             <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={allowUnreserved}
-                onChange={(e) => setAllowUnreserved(e.target.checked)}
-              />
+              <input type="checkbox" checked={allowUnreserved} onChange={(e) => setAllowUnreserved(e.target.checked)} />
               Unreserved
             </label>
           </div>
@@ -977,8 +972,8 @@ function SectionShiftAndFeeFields({
         </div>
 
         <p className="text-[10px] text-muted-foreground leading-relaxed mt-2">
-          These fees auto-fill when allocating a seat. The extra reservation charge is automatically added to the
-          base shift fee if the student chooses a Reserved seat.
+          These fees auto-fill when allocating a seat. The extra reservation charge is automatically added to the base
+          shift fee if the student chooses a Reserved seat.
         </p>
       </div>
     </>
@@ -1021,8 +1016,6 @@ function buildSectionPayload(
   return p;
 }
 
-// Map a shift row's name back to a SHIFT_META key using the same rules as
-// classifyShiftByName in allocations. Ensures we don't create duplicates.
 function shiftNameToKey(name: string): ShiftKey | null {
   const n = (name || "").toLowerCase();
   const hasM = n.includes("morning");
@@ -1038,10 +1031,6 @@ function shiftNameToKey(name: string): ShiftKey | null {
   return null;
 }
 
-// Sync shift rows for a section so allocation dropdowns reflect the section's
-// enabled shifts. Full-day has no shift row. Disabled shifts are left in place
-// (allocations may still reference them); the allocation UI filters them by
-// the section's allow_ flags.
 async function syncSectionShifts(
   sectionId: string,
   libraryId: string,
@@ -1049,10 +1038,7 @@ async function syncSectionShifts(
   allows: Record<ShiftKey, boolean>,
   fees: Record<ShiftKey, string>,
 ) {
-  const { data: existing } = await supabase
-    .from("shifts")
-    .select("id, name, base_fee")
-    .eq("section_id", sectionId);
+  const { data: existing } = await supabase.from("shifts").select("id, name, base_fee").eq("section_id", sectionId);
   const byKey = new Map<ShiftKey, { id: string; base_fee: number | null }>();
   for (const r of existing ?? []) {
     const k = shiftNameToKey(r.name);
