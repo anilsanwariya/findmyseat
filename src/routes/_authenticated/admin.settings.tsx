@@ -19,7 +19,25 @@ import {
 } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Plus, Building2, Globe, Languages, Edit2, Trash2, Mail, AlertTriangle, Image as ImageIcon, X as XIcon, Upload, ArrowUp, ArrowDown, Star, MapPin, Loader2, ArrowRightLeft } from "lucide-react";
+import {
+  Plus,
+  Building2,
+  Globe,
+  Languages,
+  Edit2,
+  Trash2,
+  Mail,
+  AlertTriangle,
+  Image as ImageIcon,
+  X as XIcon,
+  Upload,
+  ArrowUp,
+  ArrowDown,
+  Star,
+  MapPin,
+  Loader2,
+  ArrowRightLeft,
+} from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { uploadLibraryPhoto, deleteLibraryPhoto, reorderLibraryPhotos } from "@/lib/libraries.functions";
 import { reverseGeocode } from "@/lib/geocode.functions";
@@ -51,19 +69,26 @@ export const AMENITIES_DICT: Record<string, { en: string; hi: string }> = {
 
 // ============ Schedule helpers (structured pickers <-> stored strings) ============
 const WEEK_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
-const DAY_LONG: Record<string, string> = { Mon: "Monday", Tue: "Tuesday", Wed: "Wednesday", Thu: "Thursday", Fri: "Friday", Sat: "Saturday", Sun: "Sunday" };
+const DAY_LONG: Record<string, string> = {
+  Mon: "Monday",
+  Tue: "Tuesday",
+  Wed: "Wednesday",
+  Thu: "Thursday",
+  Fri: "Friday",
+  Sat: "Saturday",
+  Sun: "Sunday",
+};
 
 function to12h(t: string): string {
-  // "HH:MM" -> "h:MM AM/PM"
   if (!t || !/^\d{2}:\d{2}$/.test(t)) return "";
   const [hStr, m] = t.split(":");
   let h = parseInt(hStr, 10);
   const ap = h >= 12 ? "PM" : "AM";
-  h = h % 12; if (h === 0) h = 12;
+  h = h % 12;
+  if (h === 0) h = 12;
   return `${h}:${m} ${ap}`;
 }
 function from12h(s: string): string {
-  // "h:MM AM/PM" or "hAM" -> "HH:MM"
   const m = s.trim().match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM|am|pm)$/);
   if (!m) return "";
   let h = parseInt(m[1], 10);
@@ -74,7 +99,15 @@ function from12h(s: string): string {
   return `${String(h).padStart(2, "0")}:${min}`;
 }
 
-function serializeOpeningHours({ open24, openTime, closeTime }: { open24: boolean; openTime: string; closeTime: string }): string | null {
+function serializeOpeningHours({
+  open24,
+  openTime,
+  closeTime,
+}: {
+  open24: boolean;
+  openTime: string;
+  closeTime: string;
+}): string | null {
   if (open24) return "Open 24 hours";
   if (!openTime || !closeTime) return null;
   return `${to12h(openTime)} - ${to12h(closeTime)}`;
@@ -106,30 +139,63 @@ function parseClosedOn(s: string): { openAllDays: boolean; days: string[] } {
   return { openAllDays: false, days };
 }
 
-function serializeShifts(v: { hasMorning: boolean; morningStart: string; morningEnd: string; hasEvening: boolean; eveningStart: string; eveningEnd: string }): string | null {
+function serializeShifts(v: {
+  hasMorning: boolean;
+  morningStart: string;
+  morningEnd: string;
+  hasEvening: boolean;
+  eveningStart: string;
+  eveningEnd: string;
+}): string | null {
   const parts: string[] = [];
-  if (v.hasMorning && v.morningStart && v.morningEnd) parts.push(`Morning: ${to12h(v.morningStart)} - ${to12h(v.morningEnd)}`);
-  if (v.hasEvening && v.eveningStart && v.eveningEnd) parts.push(`Evening: ${to12h(v.eveningStart)} - ${to12h(v.eveningEnd)}`);
+  if (v.hasMorning && v.morningStart && v.morningEnd)
+    parts.push(`Morning: ${to12h(v.morningStart)} - ${to12h(v.morningEnd)}`);
+  if (v.hasEvening && v.eveningStart && v.eveningEnd)
+    parts.push(`Evening: ${to12h(v.eveningStart)} - ${to12h(v.eveningEnd)}`);
   return parts.length ? parts.join(", ") : null;
 }
-function parseShifts(s: string): { hasMorning: boolean; morningStart: string; morningEnd: string; hasEvening: boolean; eveningStart: string; eveningEnd: string } {
+function parseShifts(s: string): {
+  hasMorning: boolean;
+  morningStart: string;
+  morningEnd: string;
+  hasEvening: boolean;
+  eveningStart: string;
+  eveningEnd: string;
+} {
   const raw = (s || "").trim();
-  const out = { hasMorning: false, morningStart: "", morningEnd: "", hasEvening: false, eveningStart: "", eveningEnd: "" };
+  const out = {
+    hasMorning: false,
+    morningStart: "",
+    morningEnd: "",
+    hasEvening: false,
+    eveningStart: "",
+    eveningEnd: "",
+  };
   if (!raw) return out;
-  const mm = raw.match(/morning[^0-9]*(\d{1,2}(?::\d{2})?\s*(?:AM|PM|am|pm))\s*[-–to]+\s*(\d{1,2}(?::\d{2})?\s*(?:AM|PM|am|pm))/i);
-  if (mm) { out.hasMorning = true; out.morningStart = from12h(mm[1]); out.morningEnd = from12h(mm[2]); }
-  const em = raw.match(/evening[^0-9]*(\d{1,2}(?::\d{2})?\s*(?:AM|PM|am|pm))\s*[-–to]+\s*(\d{1,2}(?::\d{2})?\s*(?:AM|PM|am|pm))/i);
-  if (em) { out.hasEvening = true; out.eveningStart = from12h(em[1]); out.eveningEnd = from12h(em[2]); }
+  const mm = raw.match(
+    /morning[^0-9]*(\d{1,2}(?::\d{2})?\s*(?:AM|PM|am|pm))\s*[-–to]+\s*(\d{1,2}(?::\d{2})?\s*(?:AM|PM|am|pm))/i,
+  );
+  if (mm) {
+    out.hasMorning = true;
+    out.morningStart = from12h(mm[1]);
+    out.morningEnd = from12h(mm[2]);
+  }
+  const em = raw.match(
+    /evening[^0-9]*(\d{1,2}(?::\d{2})?\s*(?:AM|PM|am|pm))\s*[-–to]+\s*(\d{1,2}(?::\d{2})?\s*(?:AM|PM|am|pm))/i,
+  );
+  if (em) {
+    out.hasEvening = true;
+    out.eveningStart = from12h(em[1]);
+    out.eveningEnd = from12h(em[2]);
+  }
   return out;
 }
-
 
 function SettingsPage() {
   const { data: session, isLoading } = useSession();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
 
-  // Safely extract orgId
   const orgId = session?.orgId;
 
   const org = useQuery({
@@ -139,7 +205,6 @@ function SettingsPage() {
   });
   const { data: libs } = useLibraries();
 
-  // STRICT SAFETY CHECK: Do not render the page until the session has loaded the orgId
   if (isLoading) {
     return <div className="p-10 text-center text-muted-foreground animate-pulse">Loading settings...</div>;
   }
@@ -155,8 +220,6 @@ function SettingsPage() {
     <div className="space-y-6">
       <SectionHeader title="Settings" hint="Organization and branch configuration." />
       <PendingBranchesBanner orgId={orgId} />
-
-
 
       <GlassPanel className="p-5">
         <h3 className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Organization</h3>
@@ -263,9 +326,11 @@ function BranchCard({ lib, onChanged, orgId }: { lib: any; onChanged: () => void
           </span>
           <span
             className={`rounded px-2 py-0.5 font-mono text-[9px] uppercase tracking-widest ${
-              lib.approval_status === "approved" ? "bg-emerald/10 text-emerald" :
-              lib.approval_status === "rejected" ? "bg-rose/10 text-rose" :
-              "bg-gold/10 text-gold"
+              lib.approval_status === "approved"
+                ? "bg-emerald/10 text-emerald"
+                : lib.approval_status === "rejected"
+                  ? "bg-rose/10 text-rose"
+                  : "bg-gold/10 text-gold"
             }`}
           >
             {lib.approval_status ?? "pending"}
@@ -451,7 +516,6 @@ function TransferOwnershipDialog({ lib, orgId, onDone }: { lib: any; orgId: stri
   );
 }
 
-
 function PhotoManagerDialog({ lib }: { lib: any }) {
   const qc = useQueryClient();
   const [uploading, setUploading] = useState(false);
@@ -467,7 +531,10 @@ function PhotoManagerDialog({ lib }: { lib: any }) {
     [list[index], list[target]] = [list[target], list[index]];
     const ids = list.map((p: any) => p.id);
     // Optimistic update
-    qc.setQueryData(["library-photos-admin", lib.id], list.map((p: any, i: number) => ({ ...p, display_order: i })));
+    qc.setQueryData(
+      ["library-photos-admin", lib.id],
+      list.map((p: any, i: number) => ({ ...p, display_order: i })),
+    );
     try {
       await reorderFn({ data: { library_id: lib.id, photo_ids: ids } });
       qc.invalidateQueries({ queryKey: ["library-photos"] });
@@ -483,7 +550,10 @@ function PhotoManagerDialog({ lib }: { lib: any }) {
     const [picked] = list.splice(index, 1);
     list.unshift(picked);
     const ids = list.map((p: any) => p.id);
-    qc.setQueryData(["library-photos-admin", lib.id], list.map((p: any, i: number) => ({ ...p, display_order: i })));
+    qc.setQueryData(
+      ["library-photos-admin", lib.id],
+      list.map((p: any, i: number) => ({ ...p, display_order: i })),
+    );
     try {
       await reorderFn({ data: { library_id: lib.id, photo_ids: ids } });
       toast.success("Cover photo updated");
@@ -548,7 +618,9 @@ function PhotoManagerDialog({ lib }: { lib: any }) {
           <ImageIcon className="size-4 text-cyan" /> Photos · {lib.name}
         </DialogTitle>
         <DialogDescription>
-          Photos appear in the marketplace gallery for students to swipe through. The first photo is used as the cover on your marketplace card — drag order or use the star to change it. Max 5MB each. Uploading a new photo puts the branch back into the super-admin approval queue.
+          Photos appear in the marketplace gallery for students to swipe through. The first photo is used as the cover
+          on your marketplace card — drag order or use the star to change it. Max 5MB each. Uploading a new photo puts
+          the branch back into the super-admin approval queue.
         </DialogDescription>
       </DialogHeader>
 
@@ -600,7 +672,10 @@ function PhotoManagerDialog({ lib }: { lib: any }) {
                 const isCover = idx === 0;
                 const isLast = idx === (photos.data?.length ?? 0) - 1;
                 return (
-                  <div key={p.id} className="group relative overflow-hidden rounded-lg border border-panel-border bg-panel">
+                  <div
+                    key={p.id}
+                    className="group relative overflow-hidden rounded-lg border border-panel-border bg-panel"
+                  >
                     <img src={p.image_url} alt={p.section_name} className="aspect-[4/3] w-full object-cover" />
                     {isCover && (
                       <div className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full border border-gold/40 bg-black/70 px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-gold">
@@ -676,10 +751,11 @@ function PhotoManagerDialog({ lib }: { lib: any }) {
   );
 }
 
-// Unified Dialog for both Creating and Editing a Library
+// Unified Dialog with Tabs for Creating and Editing a Library
 function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; existingLib?: any; onDone: () => void }) {
   const [loading, setLoading] = useState(false);
   const [lang, setLang] = useState<"en" | "hi">("en");
+  const [activeTab, setActiveTab] = useState<"basic" | "schedule" | "features">("basic");
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -687,6 +763,7 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
   const [googleMapsUrl, setGoogleMapsUrl] = useState("");
   const [zone, setZone] = useState("");
   const [city, setCity] = useState("");
+
   // Structured schedule state
   const [open24, setOpen24] = useState(false);
   const [openTime, setOpenTime] = useState(""); // "HH:MM"
@@ -758,7 +835,9 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
           if (res.area) setZone(res.area);
           if (res.city) setCity(res.city);
           if (!googleMapsUrl) {
-            setGoogleMapsUrl(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}&query_place_id=${res.place_id}`);
+            setGoogleMapsUrl(
+              `https://www.google.com/maps/search/?api=1&query=${lat},${lng}&query_place_id=${res.place_id}`,
+            );
           }
           toast.success("Location captured — please verify the address");
         } catch (err: any) {
@@ -780,18 +859,64 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
   };
 
   return (
-    <DialogContent className="glass-strong border-panel-border w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto">
-      <DialogHeader>
-        <DialogTitle>{existingLib ? "Edit Library Details" : "New branch onboarding"}</DialogTitle>
-      </DialogHeader>
+    <DialogContent className="glass-strong border-panel-border w-[95vw] max-w-2xl max-h-[90vh] overflow-hidden flex flex-col p-0">
+      <div className="p-4 md:p-6 pb-2 shrink-0">
+        <DialogHeader>
+          <DialogTitle>{existingLib ? "Edit Branch" : "New Branch Onboarding"}</DialogTitle>
+          <DialogDescription className="sr-only">Configure branch details, schedule, and amenities.</DialogDescription>
+        </DialogHeader>
+
+        {/* Tab Navigation */}
+        <div className="flex w-full overflow-x-auto border-b border-panel-border/50 mt-4 custom-scrollbar">
+          <button
+            type="button"
+            onClick={() => setActiveTab("basic")}
+            className={`px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors border-b-2 ${
+              activeTab === "basic"
+                ? "border-cyan text-cyan"
+                : "border-transparent text-muted-foreground hover:text-slate-300"
+            }`}
+          >
+            Basic & Location
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("schedule")}
+            className={`px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors border-b-2 ${
+              activeTab === "schedule"
+                ? "border-cyan text-cyan"
+                : "border-transparent text-muted-foreground hover:text-slate-300"
+            }`}
+          >
+            Timings & Schedule
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("features")}
+            className={`px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors border-b-2 ${
+              activeTab === "features"
+                ? "border-cyan text-cyan"
+                : "border-transparent text-muted-foreground hover:text-slate-300"
+            }`}
+          >
+            Exams & Amenities
+          </button>
+        </div>
+      </div>
+
       <form
-        className="space-y-6"
+        className="flex-1 overflow-y-auto p-4 md:p-6 pt-0 space-y-6 custom-scrollbar"
         onSubmit={async (e) => {
           e.preventDefault();
 
-          // Double check to ensure orgId exists before processing
           if (!orgId) {
             toast.error("Security error: Organization ID missing. Please refresh.");
+            return;
+          }
+
+          if (!name.trim()) {
+            toast.error("Branch name is required.");
+            setActiveTab("basic");
             return;
           }
 
@@ -833,282 +958,315 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
           onDone();
         }}
       >
-        <div className="space-y-3">
-          <h4 className="text-xs font-mono uppercase tracking-widest text-cyan border-b border-panel-border/50 pb-1">
-            Basic Info
-          </h4>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label>Branch name</Label>
-              <Input
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="bg-panel border-panel-border"
-                placeholder="e.g. LibraryBandhu Main Branch"
-              />
+        {activeTab === "basic" && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>
+                    Branch name <span className="text-red-400">*</span>
+                  </Label>
+                  <Input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="bg-panel border-panel-border"
+                    placeholder="e.g. LibraryBandhu Main Branch"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Contact phone</Label>
+                  <Input
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="bg-panel border-panel-border font-mono"
+                    placeholder="9876543210"
+                  />
+                </div>
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label>Contact phone</Label>
-              <Input
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="bg-panel border-panel-border font-mono"
-                placeholder="9876543210"
-              />
+
+            <div className="space-y-3">
+              <div className="rounded-lg border border-panel-border bg-panel/60 p-3 space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 text-xs">
+                    <MapPin className="size-4 text-cyan" />
+                    {latitude != null && longitude != null ? (
+                      <span className="font-mono text-emerald">
+                        Pinned: {latitude.toFixed(5)}, {longitude.toFixed(5)}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">No location pinned yet</span>
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={useCurrentLocation}
+                    disabled={locLoading}
+                    className="border-cyan/40 text-cyan hover:bg-cyan/10"
+                  >
+                    {locLoading ? <Loader2 className="mr-1 size-4 animate-spin" /> : <MapPin className="mr-1 size-4" />}
+                    {latitude != null ? "Re-capture location" : "Use current location"}
+                  </Button>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Stand at the branch entrance and tap the button. We'll auto-fill the address, area and city from
+                  Google Maps.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label>Complete Address</Label>
+                <Textarea
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  className="bg-panel border-panel-border min-h-[80px]"
+                  placeholder="Full street address..."
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Google Maps Share Link</Label>
+                <Input
+                  value={googleMapsUrl}
+                  onChange={(e) => setGoogleMapsUrl(e.target.value)}
+                  className="bg-panel border-panel-border"
+                  placeholder="https://maps.app.goo.gl/..."
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>Area / Locality</Label>
+                  <Input
+                    value={zone}
+                    onChange={(e) => setZone(e.target.value)}
+                    className="bg-panel border-panel-border"
+                    placeholder="e.g. Malviya Nagar"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>City</Label>
+                  <Input
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    className="bg-panel border-panel-border"
+                    placeholder="e.g. Jaipur"
+                  />
+                </div>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
-        <div className="space-y-3">
-          <h4 className="text-xs font-mono uppercase tracking-widest text-cyan border-b border-panel-border/50 pb-1">
-            Location Details
-          </h4>
-          <div className="rounded-lg border border-panel-border bg-panel/60 p-3 space-y-2">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2 text-xs">
-                <MapPin className="size-4 text-cyan" />
-                {latitude != null && longitude != null ? (
-                  <span className="font-mono text-emerald">
-                    Pinned: {latitude.toFixed(5)}, {longitude.toFixed(5)}
-                  </span>
-                ) : (
-                  <span className="text-muted-foreground">No location pinned yet</span>
+        {activeTab === "schedule" && (
+          <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
+            {/* Opening Hours */}
+            <div className="space-y-2 rounded-lg border border-panel-border bg-panel/40 p-4">
+              <div className="flex items-center justify-between border-b border-panel-border/50 pb-2 mb-2">
+                <Label className="text-sm font-semibold">Opening Hours</Label>
+                <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+                  <Switch checked={open24} onCheckedChange={setOpen24} />
+                  <span>Open 24 hours</span>
+                </label>
+              </div>
+              {!open24 && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Opens at</Label>
+                    <Input
+                      type="time"
+                      value={openTime}
+                      onChange={(e) => setOpenTime(e.target.value)}
+                      className="bg-panel border-panel-border font-mono"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Closes at</Label>
+                    <Input
+                      type="time"
+                      value={closeTime}
+                      onChange={(e) => setCloseTime(e.target.value)}
+                      className="bg-panel border-panel-border font-mono"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Closed On */}
+            <div className="space-y-2 rounded-lg border border-panel-border bg-panel/40 p-4">
+              <div className="flex items-center justify-between border-b border-panel-border/50 pb-2 mb-2">
+                <Label className="text-sm font-semibold">Weekly Off</Label>
+                <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+                  <Switch
+                    checked={openAllDays}
+                    onCheckedChange={(v) => {
+                      setOpenAllDays(v);
+                      if (v) setClosedDays(new Set());
+                    }}
+                  />
+                  <span>Open all days</span>
+                </label>
+              </div>
+              {!openAllDays && (
+                <div className="flex flex-wrap gap-2 pt-2">
+                  {WEEK_DAYS.map((d) => {
+                    const on = closedDays.has(d);
+                    return (
+                      <button
+                        key={d}
+                        type="button"
+                        onClick={() => {
+                          const s = new Set(closedDays);
+                          if (on) s.delete(d);
+                          else s.add(d);
+                          setClosedDays(s);
+                        }}
+                        className={`rounded-full border px-4 py-1.5 text-xs transition-colors ${on ? "border-rose bg-rose/20 text-rose" : "border-panel-border bg-black/20 text-muted-foreground hover:text-white"}`}
+                      >
+                        {d}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Shifts */}
+            <div className="space-y-3 rounded-lg border border-panel-border bg-panel/40 p-4">
+              <Label className="text-sm font-semibold block border-b border-panel-border/50 pb-2 mb-2">
+                Specific Shifts
+              </Label>
+              <div className="space-y-3">
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <Switch checked={hasMorning} onCheckedChange={setHasMorning} />
+                  <span className="font-medium text-slate-300">Morning shift</span>
+                </label>
+                {hasMorning && (
+                  <div className="grid grid-cols-2 gap-4 pl-10">
+                    <div className="space-y-1">
+                      <Label className="text-[11px] text-muted-foreground">Starts</Label>
+                      <Input
+                        type="time"
+                        value={morningStart}
+                        onChange={(e) => setMorningStart(e.target.value)}
+                        className="bg-panel border-panel-border font-mono"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[11px] text-muted-foreground">Ends</Label>
+                      <Input
+                        type="time"
+                        value={morningEnd}
+                        onChange={(e) => setMorningEnd(e.target.value)}
+                        className="bg-panel border-panel-border font-mono"
+                      />
+                    </div>
+                  </div>
                 )}
               </div>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={useCurrentLocation}
-                disabled={locLoading}
-                className="border-cyan/40 text-cyan hover:bg-cyan/10"
-              >
-                {locLoading ? <Loader2 className="mr-1 size-4 animate-spin" /> : <MapPin className="mr-1 size-4" />}
-                {latitude != null ? "Re-capture location" : "Use current location"}
-              </Button>
-            </div>
-            <p className="text-[11px] text-muted-foreground">
-              Stand at the branch entrance and tap the button. We'll auto-fill the address, area and city from Google Maps — you can still edit any field below.
-            </p>
-          </div>
-          <div className="space-y-2">
-            <Label>Complete Address</Label>
-            <Textarea
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              className="bg-panel border-panel-border min-h-[80px]"
-              placeholder="Full street address..."
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Google Maps Share Link</Label>
-            <Input
-              value={googleMapsUrl}
-              onChange={(e) => setGoogleMapsUrl(e.target.value)}
-              className="bg-panel border-panel-border"
-              placeholder="https://maps.app.goo.gl/..."
-            />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label>Area / Locality</Label>
-              <Input
-                value={zone}
-                onChange={(e) => setZone(e.target.value)}
-                className="bg-panel border-panel-border"
-                placeholder="e.g. Malviya Nagar"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>City</Label>
-              <Input
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-                className="bg-panel border-panel-border"
-                placeholder="e.g. Jaipur"
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          <h4 className="text-xs font-mono uppercase tracking-widest text-cyan border-b border-panel-border/50 pb-1">
-            Timings & Schedule
-          </h4>
-
-          {/* Opening Hours */}
-          <div className="space-y-2 rounded-lg border border-panel-border bg-panel/40 p-3">
-            <div className="flex items-center justify-between">
-              <Label className="text-sm">Opening Hours</Label>
-              <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
-                <Switch checked={open24} onCheckedChange={setOpen24} />
-                <span>Open 24 hours</span>
-              </label>
-            </div>
-            {!open24 && (
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label className="text-[11px] text-muted-foreground">Opens at</Label>
-                  <Input
-                    type="time"
-                    value={openTime}
-                    onChange={(e) => setOpenTime(e.target.value)}
-                    className="bg-panel border-panel-border font-mono"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[11px] text-muted-foreground">Closes at</Label>
-                  <Input
-                    type="time"
-                    value={closeTime}
-                    onChange={(e) => setCloseTime(e.target.value)}
-                    className="bg-panel border-panel-border font-mono"
-                  />
-                </div>
+              <div className="space-y-3 pt-3">
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <Switch checked={hasEvening} onCheckedChange={setHasEvening} />
+                  <span className="font-medium text-slate-300">Evening shift</span>
+                </label>
+                {hasEvening && (
+                  <div className="grid grid-cols-2 gap-4 pl-10">
+                    <div className="space-y-1">
+                      <Label className="text-[11px] text-muted-foreground">Starts</Label>
+                      <Input
+                        type="time"
+                        value={eveningStart}
+                        onChange={(e) => setEveningStart(e.target.value)}
+                        className="bg-panel border-panel-border font-mono"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[11px] text-muted-foreground">Ends</Label>
+                      <Input
+                        type="time"
+                        value={eveningEnd}
+                        onChange={(e) => setEveningEnd(e.target.value)}
+                        className="bg-panel border-panel-border font-mono"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-
-          {/* Closed On */}
-          <div className="space-y-2 rounded-lg border border-panel-border bg-panel/40 p-3">
-            <div className="flex items-center justify-between">
-              <Label className="text-sm">Closed On</Label>
-              <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
-                <Switch
-                  checked={openAllDays}
-                  onCheckedChange={(v) => {
-                    setOpenAllDays(v);
-                    if (v) setClosedDays(new Set());
-                  }}
-                />
-                <span>Open all days</span>
-              </label>
             </div>
-            {!openAllDays && (
-              <div className="flex flex-wrap gap-1.5">
-                {WEEK_DAYS.map((d) => {
-                  const on = closedDays.has(d);
+          </div>
+        )}
+
+        {activeTab === "features" && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
+            <div className="space-y-3">
+              <h4 className="text-sm font-semibold border-b border-panel-border/50 pb-2">Targeted Exams</h4>
+              <div className="flex max-h-48 flex-wrap gap-2 overflow-y-auto rounded-lg border border-panel-border bg-black/20 p-4 custom-scrollbar">
+                {(exams ?? []).map((e) => {
+                  const on = selectedExams.has(e.id);
                   return (
                     <button
-                      key={d}
+                      key={e.id}
                       type="button"
                       onClick={() => {
-                        const s = new Set(closedDays);
-                        if (on) s.delete(d);
-                        else s.add(d);
-                        setClosedDays(s);
+                        const s = new Set(selectedExams);
+                        if (on) s.delete(e.id);
+                        else s.add(e.id);
+                        setSelectedExams(s);
                       }}
-                      className={`rounded-full border px-3 py-1 text-xs transition-colors ${on ? "border-rose bg-rose/20 text-rose" : "border-panel-border text-muted-foreground hover:text-white"}`}
+                      className={`rounded-full border px-3 py-1.5 text-xs transition-colors ${on ? "border-violet bg-violet/20 text-violet" : "border-panel-border bg-black/40 text-muted-foreground hover:bg-panel hover:text-white"}`}
                     >
-                      {d}
+                      {e.name}
                     </button>
                   );
                 })}
               </div>
-            )}
-          </div>
-
-          {/* Shifts */}
-          <div className="space-y-3 rounded-lg border border-panel-border bg-panel/40 p-3">
-            <Label className="text-sm">Shifts</Label>
-            <div className="space-y-2">
-              <label className="flex items-center gap-2 text-xs cursor-pointer">
-                <Switch checked={hasMorning} onCheckedChange={setHasMorning} />
-                <span className="font-medium">Morning shift</span>
-              </label>
-              {hasMorning && (
-                <div className="grid grid-cols-2 gap-3 pl-9">
-                  <div className="space-y-1">
-                    <Label className="text-[11px] text-muted-foreground">Starts</Label>
-                    <Input type="time" value={morningStart} onChange={(e) => setMorningStart(e.target.value)} className="bg-panel border-panel-border font-mono" />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-[11px] text-muted-foreground">Ends</Label>
-                    <Input type="time" value={morningEnd} onChange={(e) => setMorningEnd(e.target.value)} className="bg-panel border-panel-border font-mono" />
-                  </div>
-                </div>
-              )}
             </div>
-            <div className="space-y-2">
-              <label className="flex items-center gap-2 text-xs cursor-pointer">
-                <Switch checked={hasEvening} onCheckedChange={setHasEvening} />
-                <span className="font-medium">Evening shift</span>
-              </label>
-              {hasEvening && (
-                <div className="grid grid-cols-2 gap-3 pl-9">
-                  <div className="space-y-1">
-                    <Label className="text-[11px] text-muted-foreground">Starts</Label>
-                    <Input type="time" value={eveningStart} onChange={(e) => setEveningStart(e.target.value)} className="bg-panel border-panel-border font-mono" />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-[11px] text-muted-foreground">Ends</Label>
-                    <Input type="time" value={eveningEnd} onChange={(e) => setEveningEnd(e.target.value)} className="bg-panel border-panel-border font-mono" />
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
 
-        <div className="space-y-3">
-          <h4 className="text-xs font-mono uppercase tracking-widest text-cyan border-b border-panel-border/50 pb-1">
-            Targeted Exams
-          </h4>
-          <div className="flex max-h-40 flex-wrap gap-1.5 overflow-y-auto rounded-lg border border-panel-border bg-black/20 p-3">
-            {(exams ?? []).map((e) => {
-              const on = selectedExams.has(e.id);
-              return (
-                <button
-                  key={e.id}
+            <div className="space-y-3 pt-2">
+              <div className="flex items-center justify-between border-b border-panel-border/50 pb-2">
+                <h4 className="text-sm font-semibold">Facilities & Amenities</h4>
+                <Button
                   type="button"
-                  onClick={() => {
-                    const s = new Set(selectedExams);
-                    if (on) s.delete(e.id);
-                    else s.add(e.id);
-                    setSelectedExams(s);
-                  }}
-                  className={`rounded-full border px-3 py-1 text-xs transition-colors ${on ? "border-violet bg-violet/20 text-violet" : "border-panel-border text-muted-foreground hover:text-white"}`}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setLang(lang === "en" ? "hi" : "en")}
+                  className="h-8 text-xs bg-panel border-panel-border"
                 >
-                  {e.name}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="space-y-4 pt-2">
-          <div className="flex items-center justify-between border-b border-panel-border/50 pb-2">
-            <h4 className="text-xs font-mono uppercase tracking-widest text-cyan">Facilities & Amenities</h4>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setLang(lang === "en" ? "hi" : "en")}
-              className="h-7 text-xs bg-panel border-panel-border"
-            >
-              <Languages className="size-3 mr-1.5" />
-              {lang === "en" ? "Switch to Hindi" : "Switch to English"}
-            </Button>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 rounded-lg bg-black/20 p-4 border border-panel-border">
-            {Object.entries(AMENITIES_DICT).map(([key, translations]) => (
-              <div key={key} className="flex items-center justify-between gap-4">
-                <Label
-                  className="text-sm font-normal text-slate-300 leading-tight cursor-pointer"
-                  onClick={() => handleToggleAmenity(key)}
-                >
-                  {translations[lang]}
-                </Label>
-                <Switch checked={!!amenities[key]} onCheckedChange={() => handleToggleAmenity(key)} />
+                  <Languages className="size-3 mr-1.5" />
+                  {lang === "en" ? "Switch to Hindi" : "Switch to English"}
+                </Button>
               </div>
-            ))}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 rounded-lg bg-black/20 p-4 border border-panel-border">
+                {Object.entries(AMENITIES_DICT).map(([key, translations]) => (
+                  <div
+                    key={key}
+                    className="flex items-center justify-between gap-4 p-2 rounded-md hover:bg-black/20 transition-colors"
+                  >
+                    <Label
+                      className="text-sm font-normal text-slate-300 leading-tight cursor-pointer"
+                      onClick={() => handleToggleAmenity(key)}
+                    >
+                      {translations[lang]}
+                    </Label>
+                    <Switch
+                      checked={!!amenities[key]}
+                      onCheckedChange={() => handleToggleAmenity(key)}
+                      className="shrink-0"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
-        </div>
+        )}
 
-        <div className="pt-4 border-t border-panel-border/50">
-          <Button disabled={loading} type="submit" className="w-full bg-white text-slate-900 hover:bg-white/90">
-            {loading ? "Saving..." : existingLib ? "Save Changes" : "Complete Onboarding & Create Branch"}
+        <div className="pt-4 border-t border-panel-border/50 shrink-0 mt-auto sticky bottom-0 bg-background/95 backdrop-blur-sm z-10 py-4">
+          <Button
+            disabled={loading}
+            type="submit"
+            className="w-full bg-white text-slate-900 hover:bg-white/90 py-6 text-sm font-medium"
+          >
+            {loading ? "Saving..." : existingLib ? "Save All Changes" : "Complete Onboarding & Create Branch"}
           </Button>
         </div>
       </form>
