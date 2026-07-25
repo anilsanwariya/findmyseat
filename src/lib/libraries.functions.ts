@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
+import { createHash } from "crypto";
 
 async function assertOrgAdminForLibrary(ctx: { supabase: any; userId: string }, library_id: string) {
   const { data: adminRow } = await ctx.supabase
