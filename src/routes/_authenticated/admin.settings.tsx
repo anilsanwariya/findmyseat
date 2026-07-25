@@ -1256,6 +1256,7 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
           <Button
             disabled={loading}
             type="submit"
+            form="library-form-wizard"
             className="bg-white text-slate-900 hover:bg-white/90 font-medium px-6"
           >
             {loading ? "Saving..." : existingLib ? "Save All Changes" : "Complete Onboarding"}
