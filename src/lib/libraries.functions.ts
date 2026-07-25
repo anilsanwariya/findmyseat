@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
+import { createHash } from "crypto";
 
 async function assertOrgAdminForLibrary(ctx: { supabase: any; userId: string }, library_id: string) {
   const { data: adminRow } = await ctx.supabase
@@ -134,5 +135,121 @@ export const deleteLibraryPhoto = createServerFn({ method: "POST" })
     }
     const { error } = await supabaseAdmin.from("library_photos").delete().eq("id", photo.id);
     if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+// ============================================================================
+// Branch deletion with email OTP verification
+// ============================================================================
+
+const RequestDeleteOtpSchema = z.object({ library_id: z.string().uuid() });
+export const requestLibraryDeleteOtp = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => RequestDeleteOtpSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    await assertOrgAdminForLibrary(context, data.library_id);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: userData, error: userErr } = await supabaseAdmin.auth.admin.getUserById(context.userId);
+    if (userErr) throw new Error(userErr.message);
+    const email = userData?.user?.email;
+    if (!email) throw new Error("No email on file for your account");
+
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const code_hash = createHash("sha256").update(code).digest("hex");
+    const expires_at = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+
+    await supabaseAdmin
+      .from("library_delete_otps")
+      .delete()
+      .eq("library_id", data.library_id)
+      .eq("user_id", context.userId);
+
+    const { error: insErr } = await supabaseAdmin.from("library_delete_otps").insert({
+      library_id: data.library_id,
+      user_id: context.userId,
+      code_hash,
+      expires_at,
+    });
+    if (insErr) throw new Error(insErr.message);
+
+    const { sendTemplateEmail } = await import("@/lib/email-templates/send-email");
+    await sendTemplateEmail("student-email-otp", email, {
+      templateData: { code, siteName: "LibraryBandhu" },
+    });
+    return { ok: true, email };
+  });
+
+const DeleteLibrarySchema = z.object({
+  library_id: z.string().uuid(),
+  otp_code: z.string().regex(/^\d{6}$/),
+});
+export const deleteLibrary = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => DeleteLibrarySchema.parse(d))
+  .handler(async ({ data, context }) => {
+    await assertOrgAdminForLibrary(context, data.library_id);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const code_hash = createHash("sha256").update(data.otp_code).digest("hex");
+
+    const { data: otp } = await supabaseAdmin
+      .from("library_delete_otps")
+      .select("id, expires_at, code_hash")
+      .eq("library_id", data.library_id)
+      .eq("user_id", context.userId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!otp) throw new Error("No verification code found. Please request a new one.");
+    if (new Date(otp.expires_at) < new Date()) throw new Error("Verification code expired");
+    if (otp.code_hash !== code_hash) throw new Error("Invalid verification code");
+
+    const libId = data.library_id;
+
+    // Remove storage photos first.
+    const { data: photos } = await supabaseAdmin.from("library_photos").select("image_url").eq("library_id", libId);
+    if (photos?.length) {
+      const marker = "/library-photos/";
+      const paths = photos
+        .map((p: any) => {
+          const idx = p.image_url.indexOf(marker);
+          return idx === -1 ? null : p.image_url.slice(idx + marker.length);
+        })
+        .filter(Boolean) as string[];
+      if (paths.length) {
+        await supabaseAdmin.storage.from("library-photos").remove(paths).catch(() => {});
+      }
+    }
+
+    // layout_objects references sections — delete before sections.
+    const { data: secs } = await supabaseAdmin.from("sections").select("id").eq("library_id", libId);
+    const secIds = (secs ?? []).map((s: any) => s.id);
+    if (secIds.length) await supabaseAdmin.from("layout_objects").delete().in("section_id", secIds);
+
+    for (const t of [
+      "payments",
+      "allocations",
+      "tickets",
+      "seat_requests",
+      "library_ratings",
+      "library_photos",
+      "library_change_log",
+      "seats",
+      "shifts",
+      "sections",
+      "notices",
+      "staff_branch_assignments",
+      "bidding_promotions",
+      "expenditures",
+      "branch_transfer_requests",
+    ] as const) {
+      const { error } = await supabaseAdmin.from(t).delete().eq("library_id", libId);
+      if (error) throw new Error(`Failed to clean ${t}: ${error.message}`);
+    }
+
+    const { error: delErr } = await supabaseAdmin.from("libraries").delete().eq("id", libId);
+    if (delErr) throw new Error(delErr.message);
+
+    await supabaseAdmin.from("library_delete_otps").delete().eq("id", otp.id);
     return { ok: true };
   });

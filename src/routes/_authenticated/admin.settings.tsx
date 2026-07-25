@@ -46,7 +46,13 @@ import {
   MoreVertical,
 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
-import { uploadLibraryPhoto, deleteLibraryPhoto, reorderLibraryPhotos } from "@/lib/libraries.functions";
+import {
+  uploadLibraryPhoto,
+  deleteLibraryPhoto,
+  reorderLibraryPhotos,
+  requestLibraryDeleteOtp,
+  deleteLibrary,
+} from "@/lib/libraries.functions";
 import { reverseGeocode } from "@/lib/geocode.functions";
 
 export const Route = createFileRoute("/_authenticated/admin/settings")({
@@ -597,7 +603,7 @@ function PhotoManagerView({ lib }: { lib: any }) {
                   )}
                   <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-gradient-to-t from-black/80 to-transparent p-2">
                     <div className="min-w-0 text-[11px] font-medium truncate">{p.section_name}</div>
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                       <button
                         type="button"
                         disabled={idx === 0}
@@ -616,7 +622,7 @@ function PhotoManagerView({ lib }: { lib: any }) {
                       </button>
                     </div>
                   </div>
-                  <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="absolute top-2 right-2 flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                     {!isCover && (
                       <button
                         type="button"
@@ -846,6 +852,7 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
       </div>
 
       <form
+        id="library-form-wizard"
         className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 custom-scrollbar"
         onSubmit={async (e) => {
           e.preventDefault();
@@ -1249,6 +1256,7 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
           <Button
             disabled={loading}
             type="submit"
+            form="library-form-wizard"
             className="bg-white text-slate-900 hover:bg-white/90 font-medium px-6"
           >
             {loading ? "Saving..." : existingLib ? "Save All Changes" : "Complete Onboarding"}
@@ -1351,14 +1359,13 @@ function DeleteBranchDialog({ lib, onDone }: { lib: any; onDone: () => void }) {
   const [step, setStep] = useState<"warning" | "otp">("warning");
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
+  const requestOtpFn = useServerFn(requestLibraryDeleteOtp);
+  const deleteFn = useServerFn(deleteLibrary);
 
   const handleRequestOtp = async () => {
     setLoading(true);
     try {
-      const { error } = await supabase.functions.invoke("send-library-delete-otp", {
-        body: { library_id: lib.id },
-      });
-      if (error) throw error;
+      await requestOtpFn({ data: { library_id: lib.id } });
       toast.success("Verification code sent to your registered email");
       setStep("otp");
     } catch (err: any) {
@@ -1372,11 +1379,7 @@ function DeleteBranchDialog({ lib, onDone }: { lib: any; onDone: () => void }) {
     e.preventDefault();
     setLoading(true);
     try {
-      const { error } = await supabase.functions.invoke("verify-library-delete-otp", {
-        body: { library_id: lib.id, otp_code: otp },
-      });
-      if (error) throw error;
-
+      await deleteFn({ data: { library_id: lib.id, otp_code: otp } });
       toast.success(`${lib.name} has been permanently deleted`);
       onDone();
     } catch (err: any) {
@@ -1385,6 +1388,7 @@ function DeleteBranchDialog({ lib, onDone }: { lib: any; onDone: () => void }) {
       setLoading(false);
     }
   };
+
 
   return (
     <DialogContent className="glass-strong border-rose/30 max-w-md">

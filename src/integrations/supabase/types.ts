@@ -531,6 +531,41 @@ export type Database = {
           },
         ]
       }
+      library_delete_otps: {
+        Row: {
+          code_hash: string
+          created_at: string
+          expires_at: string
+          id: string
+          library_id: string
+          user_id: string
+        }
+        Insert: {
+          code_hash: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          library_id: string
+          user_id: string
+        }
+        Update: {
+          code_hash?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          library_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "library_delete_otps_library_id_fkey"
+            columns: ["library_id"]
+            isOneToOne: false
+            referencedRelation: "libraries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       library_photos: {
         Row: {
           created_at: string
