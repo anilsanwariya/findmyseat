@@ -1359,14 +1359,13 @@ function DeleteBranchDialog({ lib, onDone }: { lib: any; onDone: () => void }) {
   const [step, setStep] = useState<"warning" | "otp">("warning");
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
+  const requestOtpFn = useServerFn(requestLibraryDeleteOtp);
+  const deleteFn = useServerFn(deleteLibrary);
 
   const handleRequestOtp = async () => {
     setLoading(true);
     try {
-      const { error } = await supabase.functions.invoke("send-library-delete-otp", {
-        body: { library_id: lib.id },
-      });
-      if (error) throw error;
+      await requestOtpFn({ data: { library_id: lib.id } });
       toast.success("Verification code sent to your registered email");
       setStep("otp");
     } catch (err: any) {
@@ -1380,11 +1379,7 @@ function DeleteBranchDialog({ lib, onDone }: { lib: any; onDone: () => void }) {
     e.preventDefault();
     setLoading(true);
     try {
-      const { error } = await supabase.functions.invoke("verify-library-delete-otp", {
-        body: { library_id: lib.id, otp_code: otp },
-      });
-      if (error) throw error;
-
+      await deleteFn({ data: { library_id: lib.id, otp_code: otp } });
       toast.success(`${lib.name} has been permanently deleted`);
       onDone();
     } catch (err: any) {
@@ -1393,6 +1388,7 @@ function DeleteBranchDialog({ lib, onDone }: { lib: any; onDone: () => void }) {
       setLoading(false);
     }
   };
+
 
   return (
     <DialogContent className="glass-strong border-rose/30 max-w-md">
