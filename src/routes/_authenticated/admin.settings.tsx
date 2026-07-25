@@ -603,7 +603,7 @@ function PhotoManagerView({ lib }: { lib: any }) {
                   )}
                   <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-gradient-to-t from-black/80 to-transparent p-2">
                     <div className="min-w-0 text-[11px] font-medium truncate">{p.section_name}</div>
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                       <button
                         type="button"
                         disabled={idx === 0}
@@ -622,7 +622,7 @@ function PhotoManagerView({ lib }: { lib: any }) {
                       </button>
                     </div>
                   </div>
-                  <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="absolute top-2 right-2 flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                     {!isCover && (
                       <button
                         type="button"
