@@ -46,7 +46,13 @@ import {
   MoreVertical,
 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
-import { uploadLibraryPhoto, deleteLibraryPhoto, reorderLibraryPhotos } from "@/lib/libraries.functions";
+import {
+  uploadLibraryPhoto,
+  deleteLibraryPhoto,
+  reorderLibraryPhotos,
+  requestLibraryDeleteOtp,
+  deleteLibrary,
+} from "@/lib/libraries.functions";
 import { reverseGeocode } from "@/lib/geocode.functions";
 
 export const Route = createFileRoute("/_authenticated/admin/settings")({
