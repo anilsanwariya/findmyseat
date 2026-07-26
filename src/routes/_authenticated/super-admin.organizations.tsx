@@ -104,15 +104,17 @@ function OrganizationsPage() {
                   <TableCell className="font-medium">{o.company_name}</TableCell>
                   <TableCell className="text-muted-foreground">{o.owner_name}</TableCell>
                   <TableCell className="text-muted-foreground text-xs">{o.contact_email ?? o.contact_phone ?? "—"}</TableCell>
-                  <TableCell><span className="rounded-full border border-panel-border bg-panel px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest">{o.subscription_plan}</span></TableCell>
-                  <TableCell className="text-muted-foreground">{o.next_billing_date ? fmtDate(o.next_billing_date) : "—"}</TableCell>
+                  <TableCell><span className="rounded-full border border-panel-border bg-panel px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest">{o.plan_name}</span></TableCell>
+                  <TableCell className="text-muted-foreground">{o.sub_end ? fmtDate(o.sub_end) : o.next_billing_date ? fmtDate(o.next_billing_date) : "—"}</TableCell>
                   <TableCell>
                     <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest",
-                      o.subscription_status === "active" && "bg-emerald/15 text-emerald",
-                      o.subscription_status === "trial" && "bg-cyan/15 text-cyan",
-                      o.subscription_status === "suspended" && "bg-rose/15 text-rose",
+                      o.state === "active" && "bg-emerald/15 text-emerald",
+                      o.state === "trial" && "bg-cyan/15 text-cyan",
+                      o.state === "grace" && "bg-amber-400/15 text-amber-300",
+                      o.state === "expired" && "bg-rose/15 text-rose",
+                      o.state === "suspended" && "bg-rose/15 text-rose",
                     )}>
-                      <span className="size-1.5 rounded-full bg-current" /> {o.subscription_status}
+                      <span className="size-1.5 rounded-full bg-current" /> {o.state_label}
                     </span>
                   </TableCell>
                   <TableCell className="text-right">
