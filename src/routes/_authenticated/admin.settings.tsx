@@ -54,6 +54,7 @@ import {
   deleteLibrary,
 } from "@/lib/libraries.functions";
 import { reverseGeocode } from "@/lib/geocode.functions";
+import { computeOrgState } from "@/routes/_authenticated/super-admin.organizations";
 
 export const Route = createFileRoute("/_authenticated/admin/settings")({
   component: SettingsPage,
@@ -214,7 +215,7 @@ function SettingsPage() {
   const org = useQuery({
     queryKey: ["org", orgId],
     enabled: !!orgId,
-    queryFn: async () => (await supabase.from("organizations").select("*").eq("id", orgId!).maybeSingle()).data,
+    queryFn: async () => (await supabase.from("organizations").select("*, owner_subscriptions(status, current_period_end, subscription_plans(name))").eq("id", orgId!).maybeSingle()).data,
   });
   const { data: libs } = useLibraries();
 
@@ -248,11 +249,11 @@ function SettingsPage() {
             </div>
             <div>
               <div className="text-xs text-muted-foreground">Plan</div>
-              <div className="text-base capitalize">{org.data.subscription_plan.replace("_", " ")}</div>
+              <div className="text-base">{computeOrgState(org.data as any).plan_name}</div>
             </div>
             <div>
               <div className="text-xs text-muted-foreground">Status</div>
-              <div className="text-base capitalize">{org.data.subscription_status}</div>
+              <div className="text-base">{computeOrgState(org.data as any).state_label}</div>
             </div>
           </div>
         )}

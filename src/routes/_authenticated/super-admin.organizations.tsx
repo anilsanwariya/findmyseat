@@ -24,12 +24,35 @@ type Org = {
   contact_email: string | null; contact_phone: string | null;
   subscription_plan: "single_branch" | "multi_branch"; subscription_status: "active" | "suspended" | "trial";
   next_billing_date: string | null; created_at: string;
+  trial_ends_at: string | null;
+  plan_name: string;
+  state: "trial" | "active" | "grace" | "expired" | "suspended";
+  state_label: string;
+  sub_end: string | null;
 };
 
-const PLAN_OPTIONS: { value: Org["subscription_plan"]; label: string }[] = [
-  { value: "single_branch", label: "Single branch" },
-  { value: "multi_branch", label: "Multi branch" },
-];
+export function computeOrgState(o: {
+  subscription_status: string;
+  trial_ends_at: string | null;
+  owner_subscriptions?: Array<{ status: string; current_period_end: string | null; subscription_plans: { name: string } | null }> | null;
+}): { plan_name: string; state: "trial" | "active" | "grace" | "expired" | "suspended"; state_label: string; sub_end: string | null } {
+  if (o.subscription_status === "suspended") {
+    return { plan_name: "—", state: "suspended", state_label: "Suspended", sub_end: null };
+  }
+  const now = Date.now();
+  const activeSub = (o.owner_subscriptions ?? []).find(s => ["active", "trialing", "authenticated"].includes(s.status));
+  if (activeSub) {
+    const end = activeSub.current_period_end ? new Date(activeSub.current_period_end).getTime() : null;
+    const planName = activeSub.subscription_plans?.name ?? "Subscribed";
+    if (!end || end > now) return { plan_name: planName, state: "active", state_label: "Active", sub_end: activeSub.current_period_end };
+    if (now < end + 7 * 86400_000) return { plan_name: planName, state: "grace", state_label: "Grace period", sub_end: activeSub.current_period_end };
+    return { plan_name: planName, state: "expired", state_label: "Expired", sub_end: activeSub.current_period_end };
+  }
+  const trialEnd = o.trial_ends_at ? new Date(o.trial_ends_at).getTime() : null;
+  if (!trialEnd || trialEnd > now) return { plan_name: "Trial", state: "trial", state_label: "Trial", sub_end: o.trial_ends_at };
+  if (now < trialEnd + 7 * 86400_000) return { plan_name: "Trial", state: "grace", state_label: "Grace period", sub_end: o.trial_ends_at };
+  return { plan_name: "Trial (expired)", state: "expired", state_label: "Expired", sub_end: o.trial_ends_at };
+}
 
 function OrganizationsPage() {
   const qc = useQueryClient();
@@ -38,9 +61,15 @@ function OrganizationsPage() {
   const { data: orgs, isLoading } = useQuery({
     queryKey: ["super-admin", "orgs"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("organizations").select("*").order("created_at", { ascending: false });
+      const { data, error } = await supabase
+        .from("organizations")
+        .select("*, owner_subscriptions(status, current_period_end, subscription_plans(name))")
+        .order("created_at", { ascending: false });
       if (error) throw error;
-      return data as Org[];
+      return (data ?? []).map((o: any) => {
+        const c = computeOrgState(o);
+        return { ...o, ...c } as Org;
+      });
     },
   });
 
@@ -75,15 +104,17 @@ function OrganizationsPage() {
                   <TableCell className="font-medium">{o.company_name}</TableCell>
                   <TableCell className="text-muted-foreground">{o.owner_name}</TableCell>
                   <TableCell className="text-muted-foreground text-xs">{o.contact_email ?? o.contact_phone ?? "—"}</TableCell>
-                  <TableCell><span className="rounded-full border border-panel-border bg-panel px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest">{o.subscription_plan}</span></TableCell>
-                  <TableCell className="text-muted-foreground">{o.next_billing_date ? fmtDate(o.next_billing_date) : "—"}</TableCell>
+                  <TableCell><span className="rounded-full border border-panel-border bg-panel px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest">{o.plan_name}</span></TableCell>
+                  <TableCell className="text-muted-foreground">{o.sub_end ? fmtDate(o.sub_end) : o.next_billing_date ? fmtDate(o.next_billing_date) : "—"}</TableCell>
                   <TableCell>
                     <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest",
-                      o.subscription_status === "active" && "bg-emerald/15 text-emerald",
-                      o.subscription_status === "trial" && "bg-cyan/15 text-cyan",
-                      o.subscription_status === "suspended" && "bg-rose/15 text-rose",
+                      o.state === "active" && "bg-emerald/15 text-emerald",
+                      o.state === "trial" && "bg-cyan/15 text-cyan",
+                      o.state === "grace" && "bg-amber-400/15 text-amber-300",
+                      o.state === "expired" && "bg-rose/15 text-rose",
+                      o.state === "suspended" && "bg-rose/15 text-rose",
                     )}>
-                      <span className="size-1.5 rounded-full bg-current" /> {o.subscription_status}
+                      <span className="size-1.5 rounded-full bg-current" /> {o.state_label}
                     </span>
                   </TableCell>
                   <TableCell className="text-right">
@@ -111,14 +142,12 @@ function OrganizationsPage() {
 }
 
 function SubscriptionEditDialog({ org, onClose, onSaved }: { org: Org | null; onClose: () => void; onSaved: () => void }) {
-  const [plan, setPlan] = useState<Org["subscription_plan"]>(org?.subscription_plan ?? "single_branch");
   const [status, setStatus] = useState<Org["subscription_status"]>(org?.subscription_status ?? "trial");
   const [nextBilling, setNextBilling] = useState("");
 
-  const key = `${org?.id ?? ""}|${org?.subscription_plan ?? ""}|${org?.subscription_status ?? ""}|${org?.next_billing_date ?? ""}`;
+  const key = `${org?.id ?? ""}|${org?.subscription_status ?? ""}|${org?.next_billing_date ?? ""}`;
   useSyncOnChange(key, () => {
     if (org) {
-      setPlan(org.subscription_plan);
       setStatus(org.subscription_status);
       setNextBilling(org.next_billing_date ? org.next_billing_date.slice(0, 10) : "");
     }
@@ -131,7 +160,6 @@ function SubscriptionEditDialog({ org, onClose, onSaved }: { org: Org | null; on
       const { error } = await supabase
         .from("organizations")
         .update({
-          subscription_plan: plan,
           subscription_status: status,
           next_billing_date: nextBillingDate,
         })
@@ -155,39 +183,28 @@ function SubscriptionEditDialog({ org, onClose, onSaved }: { org: Org | null; on
               <div className="text-xs text-muted-foreground">{org.owner_name} · {org.contact_email ?? org.contact_phone ?? "—"}</div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="mb-1 block font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Plan</Label>
-                <Select value={plan} onValueChange={(v) => setPlan(v as Org["subscription_plan"])}>
-                  <SelectTrigger className="bg-panel border-panel-border">
-                    <SelectValue placeholder="Select plan" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-panel border-panel-border">
-                    {PLAN_OPTIONS.map((p) => (
-                      <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="mb-1 block font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Status</Label>
-                <Select value={status} onValueChange={(v) => setStatus(v as Org["subscription_status"])}>
-                  <SelectTrigger className="bg-panel border-panel-border">
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-panel border-panel-border">
-                    <SelectItem value="trial">Trial</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="suspended">Suspended</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <div>
+              <Label className="mb-1 block font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Status</Label>
+              <Select value={status} onValueChange={(v) => setStatus(v as Org["subscription_status"])}>
+                <SelectTrigger className="bg-panel border-panel-border">
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent className="bg-panel border-panel-border">
+                  <SelectItem value="trial">Trial</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="suspended">Suspended</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                The current plan (Starter / Growth / Enterprise) is driven by the owner's active subscription and cannot be changed here.
+              </p>
             </div>
 
             <div>
               <Label className="mb-1 block font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Next billing date</Label>
               <Input type="date" value={nextBilling} onChange={(e) => setNextBilling(e.target.value)} className="bg-panel border-panel-border" />
             </div>
+
 
             <p className="rounded-md border border-panel-border/60 bg-panel/40 p-2 text-[11px] text-muted-foreground">
               Global plan discounts are configured on the <span className="text-foreground font-medium">Subscriptions › Plans</span> page and apply to all organizations.
