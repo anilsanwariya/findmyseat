@@ -214,7 +214,7 @@ function SettingsPage() {
   const org = useQuery({
     queryKey: ["org", orgId],
     enabled: !!orgId,
-    queryFn: async () => (await supabase.from("organizations").select("*").eq("id", orgId!).maybeSingle()).data,
+    queryFn: async () => (await supabase.from("organizations").select("*, owner_subscriptions(status, current_period_end, subscription_plans(name))").eq("id", orgId!).maybeSingle()).data,
   });
   const { data: libs } = useLibraries();
 
