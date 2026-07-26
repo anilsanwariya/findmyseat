@@ -24,12 +24,35 @@ type Org = {
   contact_email: string | null; contact_phone: string | null;
   subscription_plan: "single_branch" | "multi_branch"; subscription_status: "active" | "suspended" | "trial";
   next_billing_date: string | null; created_at: string;
+  trial_ends_at: string | null;
+  plan_name: string;
+  state: "trial" | "active" | "grace" | "expired" | "suspended";
+  state_label: string;
+  sub_end: string | null;
 };
 
-const PLAN_OPTIONS: { value: Org["subscription_plan"]; label: string }[] = [
-  { value: "single_branch", label: "Single branch" },
-  { value: "multi_branch", label: "Multi branch" },
-];
+export function computeOrgState(o: {
+  subscription_status: string;
+  trial_ends_at: string | null;
+  owner_subscriptions?: Array<{ status: string; current_period_end: string | null; subscription_plans: { name: string } | null }> | null;
+}): { plan_name: string; state: "trial" | "active" | "grace" | "expired" | "suspended"; state_label: string; sub_end: string | null } {
+  if (o.subscription_status === "suspended") {
+    return { plan_name: "—", state: "suspended", state_label: "Suspended", sub_end: null };
+  }
+  const now = Date.now();
+  const activeSub = (o.owner_subscriptions ?? []).find(s => ["active", "trialing", "authenticated"].includes(s.status));
+  if (activeSub) {
+    const end = activeSub.current_period_end ? new Date(activeSub.current_period_end).getTime() : null;
+    const planName = activeSub.subscription_plans?.name ?? "Subscribed";
+    if (!end || end > now) return { plan_name: planName, state: "active", state_label: "Active", sub_end: activeSub.current_period_end };
+    if (now < end + 7 * 86400_000) return { plan_name: planName, state: "grace", state_label: "Grace period", sub_end: activeSub.current_period_end };
+    return { plan_name: planName, state: "expired", state_label: "Expired", sub_end: activeSub.current_period_end };
+  }
+  const trialEnd = o.trial_ends_at ? new Date(o.trial_ends_at).getTime() : null;
+  if (!trialEnd || trialEnd > now) return { plan_name: "Trial", state: "trial", state_label: "Trial", sub_end: o.trial_ends_at };
+  if (now < trialEnd + 7 * 86400_000) return { plan_name: "Trial", state: "grace", state_label: "Grace period", sub_end: o.trial_ends_at };
+  return { plan_name: "Trial (expired)", state: "expired", state_label: "Expired", sub_end: o.trial_ends_at };
+}
 
 function OrganizationsPage() {
   const qc = useQueryClient();
@@ -38,9 +61,15 @@ function OrganizationsPage() {
   const { data: orgs, isLoading } = useQuery({
     queryKey: ["super-admin", "orgs"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("organizations").select("*").order("created_at", { ascending: false });
+      const { data, error } = await supabase
+        .from("organizations")
+        .select("*, owner_subscriptions(status, current_period_end, subscription_plans(name))")
+        .order("created_at", { ascending: false });
       if (error) throw error;
-      return data as Org[];
+      return (data ?? []).map((o: any) => {
+        const c = computeOrgState(o);
+        return { ...o, ...c } as Org;
+      });
     },
   });
 
