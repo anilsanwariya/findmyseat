@@ -248,11 +248,11 @@ function SettingsPage() {
             </div>
             <div>
               <div className="text-xs text-muted-foreground">Plan</div>
-              <div className="text-base capitalize">{org.data.subscription_plan.replace("_", " ")}</div>
+              <div className="text-base">{computeOrgState(org.data as any).plan_name}</div>
             </div>
             <div>
               <div className="text-xs text-muted-foreground">Status</div>
-              <div className="text-base capitalize">{org.data.subscription_status}</div>
+              <div className="text-base">{computeOrgState(org.data as any).state_label}</div>
             </div>
           </div>
         )}
