@@ -142,14 +142,12 @@ function OrganizationsPage() {
 }
 
 function SubscriptionEditDialog({ org, onClose, onSaved }: { org: Org | null; onClose: () => void; onSaved: () => void }) {
-  const [plan, setPlan] = useState<Org["subscription_plan"]>(org?.subscription_plan ?? "single_branch");
   const [status, setStatus] = useState<Org["subscription_status"]>(org?.subscription_status ?? "trial");
   const [nextBilling, setNextBilling] = useState("");
 
-  const key = `${org?.id ?? ""}|${org?.subscription_plan ?? ""}|${org?.subscription_status ?? ""}|${org?.next_billing_date ?? ""}`;
+  const key = `${org?.id ?? ""}|${org?.subscription_status ?? ""}|${org?.next_billing_date ?? ""}`;
   useSyncOnChange(key, () => {
     if (org) {
-      setPlan(org.subscription_plan);
       setStatus(org.subscription_status);
       setNextBilling(org.next_billing_date ? org.next_billing_date.slice(0, 10) : "");
     }
@@ -162,7 +160,6 @@ function SubscriptionEditDialog({ org, onClose, onSaved }: { org: Org | null; on
       const { error } = await supabase
         .from("organizations")
         .update({
-          subscription_plan: plan,
           subscription_status: status,
           next_billing_date: nextBillingDate,
         })
