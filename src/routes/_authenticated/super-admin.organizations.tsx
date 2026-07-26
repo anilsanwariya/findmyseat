@@ -186,39 +186,28 @@ function SubscriptionEditDialog({ org, onClose, onSaved }: { org: Org | null; on
               <div className="text-xs text-muted-foreground">{org.owner_name} · {org.contact_email ?? org.contact_phone ?? "—"}</div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="mb-1 block font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Plan</Label>
-                <Select value={plan} onValueChange={(v) => setPlan(v as Org["subscription_plan"])}>
-                  <SelectTrigger className="bg-panel border-panel-border">
-                    <SelectValue placeholder="Select plan" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-panel border-panel-border">
-                    {PLAN_OPTIONS.map((p) => (
-                      <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="mb-1 block font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Status</Label>
-                <Select value={status} onValueChange={(v) => setStatus(v as Org["subscription_status"])}>
-                  <SelectTrigger className="bg-panel border-panel-border">
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-panel border-panel-border">
-                    <SelectItem value="trial">Trial</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="suspended">Suspended</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <div>
+              <Label className="mb-1 block font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Status</Label>
+              <Select value={status} onValueChange={(v) => setStatus(v as Org["subscription_status"])}>
+                <SelectTrigger className="bg-panel border-panel-border">
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent className="bg-panel border-panel-border">
+                  <SelectItem value="trial">Trial</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="suspended">Suspended</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                The current plan (Starter / Growth / Enterprise) is driven by the owner's active subscription and cannot be changed here.
+              </p>
             </div>
 
             <div>
               <Label className="mb-1 block font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Next billing date</Label>
               <Input type="date" value={nextBilling} onChange={(e) => setNextBilling(e.target.value)} className="bg-panel border-panel-border" />
             </div>
+
 
             <p className="rounded-md border border-panel-border/60 bg-panel/40 p-2 text-[11px] text-muted-foreground">
               Global plan discounts are configured on the <span className="text-foreground font-medium">Subscriptions › Plans</span> page and apply to all organizations.
