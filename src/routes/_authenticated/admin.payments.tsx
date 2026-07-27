@@ -378,10 +378,12 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
               await supabase.from("payments").update({ receipt_url: path }).eq("id", inserted.id);
             }
 
+            const isOverdue = !!effectiveCoversUntil && effectiveCoversUntil < todayISO();
             await supabase
               .from("allocations")
-              .update({ next_due_date: effectiveCoversUntil, status: "paid" })
+              .update({ next_due_date: effectiveCoversUntil, status: isOverdue ? "overdue" : "paid" })
               .eq("id", chosen.id);
+
 
             toast.success(isLegacy ? "Existing student onboarded." : "Payment logged successfully.");
             onDone();
@@ -482,13 +484,14 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
                     required
                     type="date"
                     value={legacyDueDate}
-                    min={todayISO()}
                     onChange={(e) => setLegacyDueDate(e.target.value)}
                     className="bg-panel border-panel-border font-mono w-full text-emerald font-semibold"
                   />
                   <p className="text-[10px] text-muted-foreground">
-                    The date when this student's current offline cycle ends. They will be marked paid until then.
+                    The date when this student's current offline cycle ends. Pick a past date if the student already
+                    has dues pending — they'll show up as overdue.
                   </p>
+
                 </div>
               </div>
             ) : (

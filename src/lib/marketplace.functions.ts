@@ -189,9 +189,22 @@ export const listPublicZones = createServerFn({ method: "GET" }).handler(async (
     .eq("is_active", true)
     .eq("approval_status", "approved")
     .not("zone_area", "is", null);
-  const zones = Array.from(new Set((data ?? []).map((r: any) => r.zone_area).filter(Boolean))).sort();
+  const zones = Array.from(new Set((data ?? []).map((r: any) => (r.zone_area ?? "").trim()).filter(Boolean))).sort();
   return zones as string[];
 });
+
+export const listPublicCities = createServerFn({ method: "GET" }).handler(async () => {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data } = await supabaseAdmin
+    .from("libraries")
+    .select("city")
+    .eq("is_active", true)
+    .eq("approval_status", "approved")
+    .not("city", "is", null);
+  const cities = Array.from(new Set((data ?? []).map((r: any) => (r.city ?? "").trim()).filter(Boolean))).sort();
+  return cities as string[];
+});
+
 
 export const submitSeatRequest = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>

@@ -38,7 +38,7 @@ import {
 } from "lucide-react";
 import { StarBar } from "@/components/RatingStars";
 
-import { marketplaceSearch, listPublicExams, listPublicZones, submitSeatRequest } from "@/lib/marketplace.functions";
+import { marketplaceSearch, listPublicExams, listPublicZones, listPublicCities, submitSeatRequest } from "@/lib/marketplace.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -97,25 +97,17 @@ function Marketplace() {
   const search = useServerFn(marketplaceSearch);
   const examsFn = useServerFn(listPublicExams);
   const zonesFn = useServerFn(listPublicZones);
+  const citiesFn = useServerFn(listPublicCities);
 
-  // Fetch unique cities directly from active public libraries
   const publicCities = useQuery({
     queryKey: ["public-cities"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("libraries")
-        .select("city")
-        .eq("show_public_availability", true)
-        .eq("is_active", true);
-      if (!data) return [];
-      const uniqueCities = Array.from(new Set(data.map((d: any) => d.city).filter(Boolean)));
-      return uniqueCities.sort() as string[];
-    },
+    queryFn: () => citiesFn(),
     staleTime: 10 * 60_000,
   });
 
   const exams = useQuery({ queryKey: ["public-exams"], queryFn: () => examsFn(), staleTime: 10 * 60_000 });
   const zones = useQuery({ queryKey: ["public-zones"], queryFn: () => zonesFn(), staleTime: 10 * 60_000 });
+
 
   const results = useQuery({
     queryKey: [
@@ -145,8 +137,10 @@ function Marketplace() {
   const libs = useMemo(() => {
     let list = results.data?.libraries ?? [];
     if (city) {
-      list = list.filter((l: any) => l.city && l.city.toLowerCase() === city.toLowerCase());
+      const c = city.trim().toLowerCase();
+      list = list.filter((l: any) => (l.city ?? "").trim().toLowerCase() === c);
     }
+
     return list;
   }, [results.data, city]);
 
@@ -235,7 +229,7 @@ function Marketplace() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__all">Any city</SelectItem>
-                  {(publicCities.data ?? []).map((c) => (
+                  {((publicCities.data ?? []) as string[]).map((c: string) => (
                     <SelectItem key={c} value={c}>
                       {c}
                     </SelectItem>
