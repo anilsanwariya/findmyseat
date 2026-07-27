@@ -97,25 +97,17 @@ function Marketplace() {
   const search = useServerFn(marketplaceSearch);
   const examsFn = useServerFn(listPublicExams);
   const zonesFn = useServerFn(listPublicZones);
+  const citiesFn = useServerFn(listPublicCities);
 
-  // Fetch unique cities directly from active public libraries
   const publicCities = useQuery({
     queryKey: ["public-cities"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("libraries")
-        .select("city")
-        .eq("show_public_availability", true)
-        .eq("is_active", true);
-      if (!data) return [];
-      const uniqueCities = Array.from(new Set(data.map((d: any) => d.city).filter(Boolean)));
-      return uniqueCities.sort() as string[];
-    },
+    queryFn: () => citiesFn(),
     staleTime: 10 * 60_000,
   });
 
   const exams = useQuery({ queryKey: ["public-exams"], queryFn: () => examsFn(), staleTime: 10 * 60_000 });
   const zones = useQuery({ queryKey: ["public-zones"], queryFn: () => zonesFn(), staleTime: 10 * 60_000 });
+
 
   const results = useQuery({
     queryKey: [
