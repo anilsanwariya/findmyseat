@@ -378,10 +378,12 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
               await supabase.from("payments").update({ receipt_url: path }).eq("id", inserted.id);
             }
 
+            const isOverdue = !!effectiveCoversUntil && effectiveCoversUntil < todayISO();
             await supabase
               .from("allocations")
-              .update({ next_due_date: effectiveCoversUntil, status: "paid" })
+              .update({ next_due_date: effectiveCoversUntil, status: isOverdue ? "overdue" : "paid" })
               .eq("id", chosen.id);
+
 
             toast.success(isLegacy ? "Existing student onboarded." : "Payment logged successfully.");
             onDone();
