@@ -227,7 +227,7 @@ function Marketplace() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__all">Any city</SelectItem>
-                  {(publicCities.data ?? []).map((c) => (
+                  {((publicCities.data ?? []) as string[]).map((c: string) => (
                     <SelectItem key={c} value={c}>
                       {c}
                     </SelectItem>
