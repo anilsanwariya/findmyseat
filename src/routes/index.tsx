@@ -137,8 +137,10 @@ function Marketplace() {
   const libs = useMemo(() => {
     let list = results.data?.libraries ?? [];
     if (city) {
-      list = list.filter((l: any) => l.city && l.city.toLowerCase() === city.toLowerCase());
+      const c = city.trim().toLowerCase();
+      list = list.filter((l: any) => (l.city ?? "").trim().toLowerCase() === c);
     }
+
     return list;
   }, [results.data, city]);
 
