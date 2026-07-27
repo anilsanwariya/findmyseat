@@ -38,7 +38,7 @@ import {
 } from "lucide-react";
 import { StarBar } from "@/components/RatingStars";
 
-import { marketplaceSearch, listPublicExams, listPublicZones, submitSeatRequest } from "@/lib/marketplace.functions";
+import { marketplaceSearch, listPublicExams, listPublicZones, listPublicCities, submitSeatRequest } from "@/lib/marketplace.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
