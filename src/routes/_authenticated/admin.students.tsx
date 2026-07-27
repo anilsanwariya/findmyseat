@@ -17,6 +17,8 @@ import { toast } from "sonner";
 import { fmtDate } from "@/lib/format";
 import { createStudent, updateStudent, setStudentActive } from "@/lib/students.functions";
 import { Plus, Search, Pencil, UserX, UserCheck } from "lucide-react";
+import { StudentDocInput, uploadStudentDoc } from "@/components/admin/StudentDocInput";
+import { StudentProfileDialog } from "@/components/admin/StudentProfileDialog";
 
 export const Route = createFileRoute("/_authenticated/admin/students")({
   component: StudentsPage,
@@ -31,6 +33,7 @@ function StudentsPage() {
   const [libraryFilter, setLibraryFilter] = useState<string>("all");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
+  const [viewing, setViewing] = useState<string | null>(null);
   const qc = useQueryClient();
   const setActive = useServerFn(setStudentActive);
 
@@ -41,7 +44,7 @@ function StudentsPage() {
       let query = supabase
         .from("students")
         .select(
-          "id, full_name, mobile_number, dob, requires_pin_change, is_active, created_at, library_id, target_exam_id, address, notes, libraries(name), master_exams(name), allocations(is_active)",
+          "id, full_name, mobile_number, dob, requires_pin_change, is_active, created_at, library_id, target_exam_id, address, notes, photo_url, id_card_url, libraries(name), master_exams(name), allocations(is_active)",
         )
         .eq("org_id", orgId!)
         .eq("is_active", tab === "active")
@@ -144,7 +147,15 @@ function StudentsPage() {
                     key={s.id}
                     className="border-b border-panel-border/50 hover:bg-white/[0.02] transition-colors whitespace-nowrap"
                   >
-                    <td className="py-3 px-2 font-medium">{s.full_name}</td>
+                    <td className="py-3 px-2 font-medium">
+                      <button
+                        type="button"
+                        className="text-left hover:text-cyan hover:underline"
+                        onClick={() => setViewing(s.id)}
+                      >
+                        {s.full_name}
+                      </button>
+                    </td>
                     <td className="py-3 px-2 font-mono">{s.mobile_number}</td>
                     <td className="py-3 px-2 text-muted-foreground">{s.libraries?.name ?? "—"}</td>
                     {tab === "active" && (
@@ -232,6 +243,8 @@ function StudentsPage() {
         </div>
       </GlassPanel>
 
+      {viewing && <StudentProfileDialog studentId={viewing} onClose={() => setViewing(null)} />}
+
       <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
         {editing && (
           <StudentFormDialog
@@ -257,7 +270,12 @@ function StudentFormDialog({ existing, onDone }: { existing?: any; onDone: () =>
   const [examId, setExamId] = useState<string>(existing?.target_exam_id ?? "");
   const [address, setAddress] = useState(existing?.address ?? "");
   const [notes, setNotes] = useState(existing?.notes ?? "");
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [idCardFile, setIdCardFile] = useState<File | null>(null);
+  const [photoPath, setPhotoPath] = useState<string | null>(existing?.photo_url ?? null);
+  const [idCardPath, setIdCardPath] = useState<string | null>(existing?.id_card_url ?? null);
   const [loading, setLoading] = useState(false);
+  const { data: session } = useSession();
 
   const create = useServerFn(createStudent);
   const update = useServerFn(updateStudent);
@@ -274,6 +292,11 @@ function StudentFormDialog({ existing, onDone }: { existing?: any; onDone: () =>
           e.preventDefault();
           setLoading(true);
           try {
+            const orgId = session?.orgId;
+            let photo = photoPath;
+            let idCard = idCardPath;
+            if (orgId && photoFile) photo = await uploadStudentDoc(orgId, "photo", photoFile);
+            if (orgId && idCardFile) idCard = await uploadStudentDoc(orgId, "id-card", idCardFile);
             if (isEdit) {
               await update({
                 data: {
@@ -285,6 +308,8 @@ function StudentFormDialog({ existing, onDone }: { existing?: any; onDone: () =>
                   target_exam_id: examId || null,
                   address: address || null,
                   notes: notes || null,
+                  photo_url: photo,
+                  id_card_url: idCard,
                 },
               });
               toast.success("Student updated");
@@ -296,6 +321,10 @@ function StudentFormDialog({ existing, onDone }: { existing?: any; onDone: () =>
                   dob,
                   library_id: libraryId,
                   target_exam_id: examId || null,
+                  address: address || null,
+                  notes: notes || null,
+                  photo_url: photo,
+                  id_card_url: idCard,
                 },
               });
               toast.success("Student onboarded");
@@ -376,26 +405,40 @@ function StudentFormDialog({ existing, onDone }: { existing?: any; onDone: () =>
           </div>
         </div>
 
-        {isEdit && (
-          <>
-            <div className="space-y-2">
-              <Label>Address (optional)</Label>
-              <Textarea
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                className="bg-panel border-panel-border min-h-[70px]"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Internal notes (optional)</Label>
-              <Textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                className="bg-panel border-panel-border min-h-[70px]"
-              />
-            </div>
-          </>
-        )}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <StudentDocInput
+            label="Student photo"
+            value={photoFile}
+            existingPath={photoPath}
+            onChange={setPhotoFile}
+            onClearExisting={() => setPhotoPath(null)}
+          />
+          <StudentDocInput
+            label="ID card photo"
+            hint="Aadhaar / college ID. JPG/PNG, max 5MB."
+            value={idCardFile}
+            existingPath={idCardPath}
+            onChange={setIdCardFile}
+            onClearExisting={() => setIdCardPath(null)}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Address (optional)</Label>
+          <Textarea
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            className="bg-panel border-panel-border min-h-[70px]"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Internal notes (optional)</Label>
+          <Textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            className="bg-panel border-panel-border min-h-[70px]"
+          />
+        </div>
 
         {!isEdit && (
           <div className="rounded-lg border border-panel-border bg-panel p-3 text-xs text-muted-foreground leading-relaxed">

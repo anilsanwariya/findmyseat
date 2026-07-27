@@ -1406,6 +1406,7 @@ export type Database = {
           email: string | null
           full_name: string
           id: string
+          id_card_url: string | null
           is_active: boolean
           library_id: string | null
           mobile_number: string
@@ -1424,6 +1425,7 @@ export type Database = {
           email?: string | null
           full_name: string
           id?: string
+          id_card_url?: string | null
           is_active?: boolean
           library_id?: string | null
           mobile_number: string
@@ -1442,6 +1444,7 @@ export type Database = {
           email?: string | null
           full_name?: string
           id?: string
+          id_card_url?: string | null
           is_active?: boolean
           library_id?: string | null
           mobile_number?: string
@@ -1686,6 +1689,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_access_org_storage: { Args: { _org_id: string }; Returns: boolean }
       create_owner_organization: {
         Args: {
           _company_name: string

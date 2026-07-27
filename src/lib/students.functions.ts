@@ -17,6 +17,10 @@ const CreateStudentSchema = z.object({
   email: z.string().trim().email().max(255).optional().nullable(),
   subscription_start: z.string().optional().nullable(),
   subscription_end: z.string().optional().nullable(),
+  address: z.string().max(500).optional().nullable(),
+  notes: z.string().max(1000).optional().nullable(),
+  photo_url: z.string().max(500).optional().nullable(),
+  id_card_url: z.string().max(500).optional().nullable(),
 });
 
 async function assertOrgAdmin(ctx: { supabase: any; userId: string }) {
@@ -83,6 +87,10 @@ export const createStudent = createServerFn({ method: "POST" })
           dob: existing.dob,
           target_exam_id: data.target_exam_id ?? null,
           email: data.email ?? null,
+          address: data.address ?? null,
+          notes: data.notes ?? null,
+          photo_url: data.photo_url ?? null,
+          id_card_url: data.id_card_url ?? null,
           requires_pin_change: false,
         })
         .select("id")
@@ -113,6 +121,10 @@ export const createStudent = createServerFn({ method: "POST" })
         dob: data.dob,
         target_exam_id: data.target_exam_id ?? null,
         email: data.email ?? null,
+        address: data.address ?? null,
+        notes: data.notes ?? null,
+        photo_url: data.photo_url ?? null,
+        id_card_url: data.id_card_url ?? null,
         requires_pin_change: true,
       })
       .select("id")
@@ -160,6 +172,8 @@ const UpdateStudentSchema = z.object({
   target_exam_id: z.string().uuid().optional().nullable(),
   address: z.string().max(500).optional().nullable(),
   notes: z.string().max(1000).optional().nullable(),
+  photo_url: z.string().max(500).optional().nullable(),
+  id_card_url: z.string().max(500).optional().nullable(),
 });
 export const updateStudent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -207,6 +221,8 @@ export const updateStudent = createServerFn({ method: "POST" })
         target_exam_id: data.target_exam_id ?? null,
         address: data.address ?? null,
         notes: data.notes ?? null,
+        photo_url: data.photo_url ?? null,
+        id_card_url: data.id_card_url ?? null,
       })
       .eq("id", s.id);
     if (error) {
