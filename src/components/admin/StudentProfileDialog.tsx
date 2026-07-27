@@ -46,7 +46,7 @@ export function StudentProfileDialog({ studentId, onClose }: { studentId: string
       const { data } = await supabase
         .from("students")
         .select(
-          "id, full_name, mobile_number, dob, email, address, notes, photo_url, id_card_url, is_active, created_at, library_id, libraries(name), master_exams(name), allocations(id, is_active, monthly_fee, next_due_date, reservation_type, status, seats(seat_number), shifts(name), sections:seats(sections(name)))",
+          "id, full_name, mobile_number, dob, email, address, notes, photo_url, id_card_url, is_active, created_at, library_id, libraries(name), master_exams(name), allocations(id, is_active, monthly_fee, next_due_date, reservation_type, status, seats(seat_number), shifts(name))",
         )
         .eq("id", studentId)
         .maybeSingle();
