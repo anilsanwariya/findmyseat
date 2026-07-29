@@ -1,17 +1,24 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { GlassPanel, SectionHeader } from "@/components/glass";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { CheckCircle2, XCircle, Sparkles, ReceiptText, TagIcon, CreditCard, ShieldCheck } from "lucide-react";
+import { CheckCircle2, XCircle, Sparkles, ReceiptText, TagIcon, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  getOwnerBilling,
+  createOwnerSubscription,
+  cancelOwnerSubscription,
+  validateCoupon,
+} from "@/lib/billing.functions";
+import { loadRazorpayScript } from "@/lib/razorpay";
 import { fmtDate } from "@/lib/format";
 import { useSession } from "@/lib/auth";
-import { loadRazorpayScript } from "@/lib/razorpay";
 
 export const Route = createFileRoute("/_authenticated/admin/subscription")({
   component: SubscriptionPage,
@@ -35,43 +42,18 @@ function SubscriptionPage() {
 
 function SubscriptionPageInner() {
   const qc = useQueryClient();
-  const { data: session } = useSession();
+  const getBilling = useServerFn(getOwnerBilling);
+  const createSub = useServerFn(createOwnerSubscription);
+  const cancelSub = useServerFn(cancelOwnerSubscription);
+  const checkCoupon = useServerFn(validateCoupon);
 
   const [cycle, setCycle] = useState<"monthly" | "annual">("monthly");
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<any | null>(null);
 
   const billing = useQuery({
-    queryKey: ["owner-billing", session?.orgId],
-    enabled: !!session?.orgId,
-    queryFn: async () => {
-      // Get current subscription
-      const { data: sub } = await supabase
-        .from("owner_subscriptions")
-        .select(
-          `
-          *,
-          plan:subscription_plans(*)
-        `,
-        )
-        .eq("org_id", session!.orgId)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      // Get invoices (dummy table or from actual DB if you have owner_invoices)
-      const { data: invoices } = await supabase
-        .from("owner_subscriptions") // Replace with invoices table if you have one
-        .select("*")
-        .eq("org_id", session!.orgId)
-        .order("created_at", { ascending: false });
-
-      return {
-        subscription: sub,
-        plan: sub?.plan,
-        invoices: invoices ?? [],
-      };
-    },
+    queryKey: ["owner-billing"],
+    queryFn: () => getBilling(),
   });
 
   const plans = useQuery({
@@ -81,18 +63,7 @@ function SubscriptionPageInner() {
   });
 
   const applyMut = useMutation({
-    mutationFn: async (code: string) => {
-      const { data, error } = await supabase
-        .from("discount_coupons")
-        .select("*")
-        .eq("code", code)
-        .eq("is_active", true)
-        .single();
-
-      if (error || !data) throw new Error("Invalid or expired coupon");
-      if (data.valid_until && new Date(data.valid_until) < new Date()) throw new Error("Coupon expired");
-      return data;
-    },
+    mutationFn: (code: string) => checkCoupon({ data: { code } }),
     onSuccess: (r) => {
       setAppliedCoupon(r);
       toast.success(`Coupon ${r.code} applied`);
@@ -104,73 +75,64 @@ function SubscriptionPageInner() {
   });
 
   const subscribe = useMutation({
-    mutationFn: async (plan: any) => {
-      if (!session?.orgId) throw new Error("Organization missing");
-
-      const isRazorpayLoaded = await loadRazorpayScript();
-      if (!isRazorpayLoaded) throw new Error("Razorpay SDK failed to load. Are you online?");
-
-      // Step 1: Tell backend to generate a Razorpay Subscription ID
-      const { data: rzpData, error } = await supabase.functions.invoke("rzp-checkout", {
-        body: {
-          org_id: session.orgId,
-          plan_code: plan.plan_code,
-          cycle: cycle,
+    mutationFn: async (planId: string) => {
+      // 1. Call Backend to Create Subscription ID
+      const r = await createSub({
+        data: {
+          plan_id: planId,
+          billing_cycle: cycle,
+          coupon_code: appliedCoupon?.code ?? null,
         },
       });
 
-      if (error) throw error;
-      if (!rzpData?.subscription_id) throw new Error("Failed to generate subscription");
+      // 2. Load Razorpay Script dynamically
+      const loaded = await loadRazorpayScript();
+      if (!loaded) throw new Error("Failed to load Razorpay SDK. Check your network.");
 
-      // Step 2: Open Razorpay UI
+      // 3. Open Razorpay Checkout
       return new Promise<void>((resolve, reject) => {
-        const options = {
-          key: import.meta.env.VITE_RAZORPAY_KEY_ID || "",
-          subscription_id: rzpData.subscription_id,
+        const options: any = {
+          key: import.meta.env.VITE_RAZORPAY_KEY_ID || r.key_id,
+          subscription_id: r.subscription_id,
           name: "LibraryBandhu",
-          description: `${plan.name} (${cycle})`,
-          theme: { color: "#06b6d4" },
-          handler: async (response: any) => {
-            // Step 3: Verify the signature via backend edge function
-            try {
-              const verifyRes = await supabase.functions.invoke("rzp-verify", { body: response });
-              if (verifyRes.error) throw verifyRes.error;
+          description: "Owner subscription",
+          handler: (response: any) => {
+            // We don't need a manual verify edge function here,
+            // because the Webhook automatically listens to 'subscription.charged'
+            // and updates the database asynchronously.
+            toast.success("Payment authorized! Validating and activating subscription...");
 
-              toast.success("Subscription activated successfully!");
-              resolve();
-            } catch (err: any) {
-              reject(err);
-            }
+            // Refetch to see the updated status
+            setTimeout(() => {
+              qc.invalidateQueries({ queryKey: ["owner-billing"] });
+            }, 3000); // Give the webhook a few seconds to process
+
+            resolve();
           },
           modal: {
-            ondismiss: () => reject(new Error("Payment cancelled by user")),
+            ondismiss: () => reject(new Error("Checkout closed by user")),
           },
+          theme: { color: "#06b6d4" }, // Cyan theme
         };
 
-        const rzp = new (window as any).Razorpay(options);
-        rzp.on("payment.failed", function (response: any) {
-          toast.error(`Payment failed: ${response.error.description}`);
+        const rz = new (window as any).Razorpay(options);
+        rz.on("payment.failed", function (response: any) {
+          reject(new Error(response.error.description || "Payment failed"));
         });
-        rzp.open();
+        rz.open();
       });
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["owner-billing"] }),
+    onSuccess: () => {
+      // Invalidate queries so the UI updates
+      qc.invalidateQueries({ queryKey: ["owner-billing"] });
+    },
     onError: (e: any) => toast.error(e?.message ?? "Subscription failed"),
   });
 
   const cancel = useMutation({
-    mutationFn: async () => {
-      // You should have an Edge Function for this so you can cancel it in Razorpay too.
-      // For now, setting status to cancelled locally.
-      const subId = billing.data?.subscription?.id;
-      if (!subId) throw new Error("No active subscription");
-
-      const { error } = await supabase.from("owner_subscriptions").update({ status: "cancelled" }).eq("id", subId);
-
-      if (error) throw error;
-    },
+    mutationFn: () => cancelSub({ data: { at_cycle_end: true } }),
     onSuccess: () => {
-      toast.success("Subscription cancelled");
+      toast.success("Cancellation scheduled at cycle end");
       qc.invalidateQueries({ queryKey: ["owner-billing"] });
     },
     onError: (e: any) => toast.error(e?.message ?? "Cancel failed"),
@@ -251,16 +213,16 @@ function SubscriptionPageInner() {
                     · Next renewal <span className="text-foreground">{fmtDate(sub.current_period_end)}</span>
                   </>
                 )}
-                {sub.status === "cancelled" && <span className="ml-2 text-rose">· Cancelled</span>}
+                {sub.cancel_at_period_end && <span className="ml-2 text-rose">· Cancelling at period end</span>}
               </div>
             )}
           </div>
-          {sub && sub.status === "active" && (
+          {sub && sub.status === "active" && !sub.cancel_at_period_end && (
             <Button
               variant="outline"
               className="border-rose/40 text-rose hover:bg-rose/10"
               onClick={() => {
-                if (confirm("Cancel subscription? This will stop future billing.")) cancel.mutate();
+                if (confirm("Cancel at end of current period?")) cancel.mutate();
               }}
               disabled={cancel.isPending}
             >
@@ -339,11 +301,7 @@ function SubscriptionPageInner() {
               : 0;
             const finalPrice = Math.max(0, afterCustom - couponOff);
             const hasDiscount = finalPrice < basePrice;
-
-            // Allow active subscribers to switch billing cycles
-            const isExactCurrent = sub?.plan_id === p.id && sub?.billing_cycle === cycle && sub?.status === "active";
-            const isDifferentCycleCurrent =
-              sub?.plan_id === p.id && sub?.billing_cycle !== cycle && sub?.status === "active";
+            const isCurrent = sub?.plan_id === p.id && sub?.billing_cycle === cycle && sub?.status === "active";
 
             // Annual savings vs paying standard monthly for 12 months
             const stdMonthly = Number(p.monthly_price) || 0;
@@ -357,8 +315,8 @@ function SubscriptionPageInner() {
                 key={p.id}
                 className={cn(
                   "relative flex flex-col p-6 transition-all duration-300",
-                  isExactCurrent && "ring-2 ring-emerald/60 bg-emerald/5",
-                  hasDiscount && !isExactCurrent && "border-gold/40 shadow-[0_0_36px_-10px_rgba(212,175,55,0.55)]",
+                  isCurrent && "ring-2 ring-emerald/60 bg-emerald/5",
+                  hasDiscount && !isCurrent && "border-gold/40 shadow-[0_0_36px_-10px_rgba(212,175,55,0.55)]",
                 )}
               >
                 {cycle === "annual" && annualSavingsPct > 0 && (
@@ -411,25 +369,19 @@ function SubscriptionPageInner() {
                 <Button
                   className={cn(
                     "mt-6 w-full font-semibold transition-all",
-                    isExactCurrent
+                    isCurrent
                       ? "bg-emerald/10 text-emerald border border-emerald/20 hover:bg-emerald/20"
                       : "bg-cyan text-cyan-950 hover:bg-cyan/90",
                   )}
-                  disabled={subscribe.isPending || isExactCurrent || finalPrice <= 0}
-                  onClick={() => subscribe.mutate(p)}
+                  disabled={subscribe.isPending || isCurrent || finalPrice <= 0}
+                  onClick={() => subscribe.mutate(p.id)}
                 >
-                  {subscribe.isPending
-                    ? "Connecting to Razorpay..."
-                    : isExactCurrent
-                      ? "Current plan"
-                      : isDifferentCycleCurrent
-                        ? `Switch to ${cycle}`
-                        : "Subscribe Securely"}
+                  {subscribe.isPending ? "Connecting..." : isCurrent ? "Current plan" : "Subscribe Securely"}
                 </Button>
 
-                {!isExactCurrent && (
+                {!isCurrent && (
                   <div className="mt-2 flex items-center justify-center gap-1 text-[9px] text-muted-foreground uppercase tracking-widest">
-                    <ShieldCheck className="size-3" /> Secure Razorpay Checkout
+                    <ShieldCheck className="size-3" /> Razorpay Checkout
                   </div>
                 )}
               </GlassPanel>
@@ -451,18 +403,22 @@ function SubscriptionPageInner() {
           <TableHeader>
             <TableRow className="border-panel-border hover:bg-transparent">
               <TableHead>Date</TableHead>
+              <TableHead>Invoice</TableHead>
+              <TableHead>Amount</TableHead>
               <TableHead>Status</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {(billing.data?.invoices ?? []).map((inv: any) => (
               <TableRow key={inv.id} className="border-panel-border">
-                <TableCell className="text-muted-foreground">{fmtDate(inv.created_at)}</TableCell>
+                <TableCell className="text-muted-foreground">{fmtDate(inv.paid_at ?? inv.created_at)}</TableCell>
+                <TableCell className="font-mono text-xs">{inv.razorpay_invoice_id ?? "—"}</TableCell>
+                <TableCell className="font-mono">₹{Number(inv.amount).toLocaleString("en-IN")}</TableCell>
                 <TableCell>
                   <span
                     className={cn(
                       "rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest",
-                      inv.status === "active" ? "bg-emerald/15 text-emerald" : "bg-cyan/15 text-cyan",
+                      inv.status === "paid" ? "bg-emerald/15 text-emerald" : "bg-cyan/15 text-cyan",
                     )}
                   >
                     {inv.status}
@@ -472,9 +428,9 @@ function SubscriptionPageInner() {
             ))}
             {!billing.data?.invoices?.length && (
               <TableRow>
-                <TableCell colSpan={2} className="py-8 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={4} className="py-8 text-center text-sm text-muted-foreground">
                   <XCircle className="mx-auto mb-2 size-4" />
-                  No billing history yet.
+                  No invoices yet — they'll appear here after your first billing cycle.
                 </TableCell>
               </TableRow>
             )}
