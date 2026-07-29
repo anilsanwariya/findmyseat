@@ -72,6 +72,9 @@ function classifyShiftByName(name: string): { allowKey: string; feeKey: string }
   return null;
 }
 
+const todayISO = () => new Date().toISOString().split("T")[0];
+
+
 // Derive fee status: if the next due date has passed, treat as overdue
 // regardless of the stored status (which only updates on payment events).
 function effectiveStatus(a: { status?: string | null; next_due_date?: string | null }): string {
