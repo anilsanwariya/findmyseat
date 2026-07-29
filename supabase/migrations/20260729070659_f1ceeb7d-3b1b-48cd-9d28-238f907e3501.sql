@@ -1,0 +1,1 @@
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS is_partial boolean NOT NULL DEFAULT false;
