@@ -24,7 +24,7 @@ export function StudentPaymentHistoryDialog({
     queryFn: async () => {
       let q = supabase
         .from("payments")
-        .select("id, amount_paid, payment_date, method, transaction_reference, covers_until, receipt_url")
+        .select("id, amount_paid, payment_date, method, transaction_reference, covers_until, receipt_url, is_partial")
         .eq("student_id", student.id)
         .order("payment_date", { ascending: false });
       if (student.library_id) q = q.eq("library_id", student.library_id);
@@ -94,7 +94,7 @@ function PaymentDetail({ paymentId, onClose }: { paymentId: string; onClose: () 
         await supabase
           .from("payments")
           .select(
-            "id, amount_paid, payment_date, logged_at, method, reference_note, transaction_reference, receipt_url, covers_until, students(full_name, mobile_number), libraries(name), allocations(seats(seat_number))",
+            "id, amount_paid, payment_date, logged_at, method, reference_note, transaction_reference, receipt_url, covers_until, is_partial, students(full_name, mobile_number), libraries(name), allocations(seats(seat_number))",
           )
           .eq("id", paymentId)
           .single()
@@ -136,6 +136,7 @@ function PaymentDetail({ paymentId, onClose }: { paymentId: string; onClose: () 
               mono
             />
             <Row label="Covers until" value={fmtDate(p.covers_until) ?? "—"} mono />
+            <Row label="Payment status" value={p.is_partial ? "Partially paid (due date unchanged)" : "Full payment"} />
             <Row label="Note" value={p.reference_note ?? "—"} />
             {p.receipt_url && (
               <div className="space-y-1">

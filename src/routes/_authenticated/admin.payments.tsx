@@ -55,7 +55,7 @@ function PaymentsPage() {
       let q = sb
         .from("payments")
         .select(
-          "id, amount_paid, payment_date, method, reference_note, transaction_reference, receipt_url, covers_until, student_id, library_id, collected_by_staff_id, students(full_name, mobile_number), libraries(name), collector:staff_profiles!payments_collected_by_staff_id_fkey(full_name, employee_id)",
+          "id, amount_paid, payment_date, method, reference_note, transaction_reference, receipt_url, covers_until, is_partial, student_id, library_id, collected_by_staff_id, students(full_name, mobile_number), libraries(name), collector:staff_profiles!payments_collected_by_staff_id_fkey(full_name, employee_id)",
         )
         .eq("org_id", orgId!)
         .gte("payment_date", fromDate)
@@ -696,7 +696,7 @@ function PaymentDetailDialog({ paymentId, onClose }: { paymentId: string; onClos
         await supabase
           .from("payments")
           .select(
-            "id, amount_paid, payment_date, logged_at, method, reference_note, transaction_reference, receipt_url, covers_until, students(full_name, mobile_number), libraries(name), allocations(seats(seat_number))",
+            "id, amount_paid, payment_date, logged_at, method, reference_note, transaction_reference, receipt_url, covers_until, is_partial, students(full_name, mobile_number), libraries(name), allocations(seats(seat_number))",
           )
           .eq("id", paymentId)
           .single()
@@ -735,6 +735,7 @@ function PaymentDetailDialog({ paymentId, onClose }: { paymentId: string; onClos
             <Row label="Payment date" value={fmtDate(p.payment_date) ?? "—"} mono />
             <Row label="Logged at" value={p.logged_at ? new Date(p.logged_at).toLocaleString() : "—"} mono />
             <Row label="Covers until" value={fmtDate(p.covers_until) ?? "—"} mono />
+            <Row label="Payment status" value={p.is_partial ? "Partially paid (due date unchanged)" : "Full payment"} />
             <Row label="Note" value={p.reference_note ?? "—"} />
             {p.receipt_url && (
               <div className="space-y-1">
