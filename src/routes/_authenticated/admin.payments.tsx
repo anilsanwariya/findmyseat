@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { inr, fmtDate } from "@/lib/format";
+import { inr, fmtDate, addCalendarMonthsISO } from "@/lib/format";
 import { Plus, Search, Upload, FileImage, Calendar as CalendarIcon, X } from "lucide-react";
 import { StudentPaymentHistoryDialog } from "@/components/admin/StudentPaymentHistoryDialog";
 
@@ -55,7 +55,7 @@ function PaymentsPage() {
       let q = sb
         .from("payments")
         .select(
-          "id, amount_paid, payment_date, method, reference_note, transaction_reference, receipt_url, covers_until, student_id, library_id, collected_by_staff_id, students(full_name, mobile_number), libraries(name), collector:staff_profiles!payments_collected_by_staff_id_fkey(full_name, employee_id)",
+          "id, amount_paid, payment_date, method, reference_note, transaction_reference, receipt_url, covers_until, is_partial, student_id, library_id, collected_by_staff_id, students(full_name, mobile_number), libraries(name), collector:staff_profiles!payments_collected_by_staff_id_fkey(full_name, employee_id)",
         )
         .eq("org_id", orgId!)
         .gte("payment_date", fromDate)
@@ -196,10 +196,18 @@ function PaymentsPage() {
                     <span className="text-muted-foreground text-xs font-mono ml-2">({p.students?.mobile_number})</span>
                   </td>
                   <td className="py-3 px-2 text-muted-foreground">{p.libraries?.name ?? "—"}</td>
-                  <td className="py-3 px-2 font-mono">{inr(p.amount_paid)}</td>
+                  <td className="py-3 px-2 font-mono">
+                    {inr(p.amount_paid)}
+                    {p.is_partial && (
+                      <span className="ml-2 rounded bg-amber-400/10 px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-amber-300 font-sans">
+                        Partial
+                      </span>
+                    )}
+                  </td>
                   <td className="py-3 px-2">
                     <span className="rounded bg-panel px-2 py-1 text-[10px] uppercase tracking-wider">{p.method}</span>
                   </td>
+
                   <td className="py-3 px-2 font-mono text-xs text-muted-foreground">
                     {p.transaction_reference ?? (p.method === "cash" ? "—" : "—")}
                   </td>
@@ -287,26 +295,43 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
     );
   }, [active.data, studentSearch]);
 
+  // Partial payments already logged against the current (unmoved) due date
+  const cycleDue = chosen?.next_due_date ? String(chosen.next_due_date).split("T")[0] : null;
+  const priorPartials = useQuery({
+    queryKey: ["cycle-partials", chosen?.id, cycleDue],
+    enabled: !!chosen?.id && !!cycleDue,
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from("payments")
+        .select("amount_paid")
+        .eq("allocation_id", chosen!.id)
+        .eq("is_partial", true)
+        .eq("covers_until", cycleDue);
+      return (data ?? []).reduce((s: number, p: any) => s + Number(p.amount_paid || 0), 0) as number;
+    },
+  });
+  const paidBefore = priorPartials.data ?? 0;
+
   useEffect(() => {
     if (chosen) {
-      setAmount(chosen.monthly_fee);
+      setAmount(Math.max(Number(chosen.monthly_fee) - paidBefore, 0));
       setStartDate(chosen.next_due_date ? chosen.next_due_date.split("T")[0] : todayISO());
     } else {
       setAmount("");
       setEndDate("");
     }
-  }, [chosen]);
+  }, [chosen, paidBefore]);
+
+  const fee = Number(chosen?.monthly_fee) || 0;
+  const totalTowardsCycle = paidBefore + (Number(amount) || 0);
+  const monthsCovered = fee > 0 ? Math.floor(totalTowardsCycle / fee) : 0;
+  const isPartial = !!chosen && monthsCovered < 1;
+  const shortfall = Math.max(fee - totalTowardsCycle, 0);
 
   useEffect(() => {
     if (!chosen || !startDate) return;
-    const baseFee = Number(chosen.monthly_fee) || 1;
-    const amt = Number(amount) || 0;
-    const d = new Date(startDate);
-    if (isNaN(d.getTime())) return;
-    const days = Math.round((amt / baseFee) * 30);
-    d.setDate(d.getDate() + days);
-    setEndDate(d.toISOString().split("T")[0]);
-  }, [startDate, amount, chosen]);
+    setEndDate(isPartial ? startDate : addCalendarMonthsISO(startDate, monthsCovered));
+  }, [startDate, chosen, isPartial, monthsCovered]);
 
   const dueSoon = chosen?.next_due_date ? (new Date(chosen.next_due_date).getTime() - Date.now()) / 86400000 : null;
   const statusColor =
@@ -315,6 +340,7 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
       : chosen?.status === "paid" && dueSoon !== null && dueSoon >= 0
         ? "text-amber-400"
         : "text-red-400";
+
 
   return (
     <DialogContent className="glass-strong border-panel-border w-[95vw] max-w-lg max-h-[90vh] overflow-y-auto p-4 md:p-6">
@@ -360,6 +386,7 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
                 transaction_reference: isLegacy ? null : method === "cash" ? txnRef.trim() || null : txnRef.trim(),
                 reference_note: effectiveNote,
                 covers_until: effectiveCoversUntil,
+                is_partial: !isLegacy && isPartial,
                 collected_by_staff_id: session?.staffId ?? null,
               } as any)
               .select("id")
@@ -381,11 +408,20 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
             const isOverdue = !!effectiveCoversUntil && effectiveCoversUntil < todayISO();
             await supabase
               .from("allocations")
-              .update({ next_due_date: effectiveCoversUntil, status: isOverdue ? "overdue" : "paid" })
+              .update({
+                next_due_date: effectiveCoversUntil,
+                status: !isLegacy && isPartial ? (isOverdue ? "overdue" : "pending") : isOverdue ? "overdue" : "paid",
+              })
               .eq("id", chosen.id);
 
+            toast.success(
+              isLegacy
+                ? "Existing student onboarded."
+                : isPartial
+                  ? `Partial payment logged. ${inr(shortfall)} still due — due date unchanged.`
+                  : "Payment logged successfully.",
+            );
 
-            toast.success(isLegacy ? "Existing student onboarded." : "Payment logged successfully.");
             onDone();
           } catch (err: any) {
             toast.error(err.message ?? "Failed to log payment");
@@ -503,6 +539,13 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
                   <span className="font-mono font-bold text-cyan">{inr(chosen.monthly_fee)}</span>
                 </div>
 
+                {paidBefore > 0 && (
+                  <div className="flex justify-between items-center rounded-md border border-amber-400/30 bg-amber-400/5 p-2 text-xs">
+                    <span className="text-amber-300/90">Already paid this cycle</span>
+                    <span className="font-mono font-semibold text-amber-300">{inr(paidBefore)}</span>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-2">
                     <Label>Amount Paid (₹)</Label>
@@ -527,18 +570,29 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Calculated New Due Date</Label>
+                  <Label>{isPartial ? "Due Date (unchanged)" : "Calculated New Due Date"}</Label>
                   <Input
                     required
                     type="date"
                     value={endDate}
                     disabled
-                    className="bg-black/20 border-transparent text-emerald font-semibold text-sm block w-full opacity-90 cursor-not-allowed"
+                    className={`bg-black/20 border-transparent font-semibold text-sm block w-full opacity-90 cursor-not-allowed ${
+                      isPartial ? "text-amber-300" : "text-emerald"
+                    }`}
                   />
-                  <p className="text-[10px] text-muted-foreground mt-1">
-                    Pro-rated automatically based on the amount paid vs the standard monthly fee (1 month = 30 days).
-                  </p>
+                  {isPartial ? (
+                    <p className="text-[10px] text-amber-300/90 mt-1">
+                      Partial payment — the due date stays on {fmtDate(endDate)}. {inr(shortfall)} still pending for
+                      this month.
+                    </p>
+                  ) : (
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      Date-to-date monthly cycle — {monthsCovered} month{monthsCovered > 1 ? "s" : ""} added, the due
+                      day stays the same each month.
+                    </p>
+                  )}
                 </div>
+
               </div>
             )}
           </>
@@ -642,7 +696,7 @@ function PaymentDetailDialog({ paymentId, onClose }: { paymentId: string; onClos
         await supabase
           .from("payments")
           .select(
-            "id, amount_paid, payment_date, logged_at, method, reference_note, transaction_reference, receipt_url, covers_until, students(full_name, mobile_number), libraries(name), allocations(seats(seat_number))",
+            "id, amount_paid, payment_date, logged_at, method, reference_note, transaction_reference, receipt_url, covers_until, is_partial, students(full_name, mobile_number), libraries(name), allocations(seats(seat_number))",
           )
           .eq("id", paymentId)
           .single()
@@ -681,6 +735,7 @@ function PaymentDetailDialog({ paymentId, onClose }: { paymentId: string; onClos
             <Row label="Payment date" value={fmtDate(p.payment_date) ?? "—"} mono />
             <Row label="Logged at" value={p.logged_at ? new Date(p.logged_at).toLocaleString() : "—"} mono />
             <Row label="Covers until" value={fmtDate(p.covers_until) ?? "—"} mono />
+            <Row label="Payment status" value={p.is_partial ? "Partially paid (due date unchanged)" : "Full payment"} />
             <Row label="Note" value={p.reference_note ?? "—"} />
             {p.receipt_url && (
               <div className="space-y-1">

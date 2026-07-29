@@ -896,6 +896,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          is_partial: boolean
           library_id: string | null
           logged_at: string
           method: Database["public"]["Enums"]["payment_method"]
@@ -914,6 +915,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          is_partial?: boolean
           library_id?: string | null
           logged_at?: string
           method?: Database["public"]["Enums"]["payment_method"]
@@ -932,6 +934,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          is_partial?: boolean
           library_id?: string | null
           logged_at?: string
           method?: Database["public"]["Enums"]["payment_method"]
