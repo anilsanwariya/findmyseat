@@ -72,6 +72,9 @@ function classifyShiftByName(name: string): { allowKey: string; feeKey: string }
   return null;
 }
 
+const todayISO = () => new Date().toISOString().split("T")[0];
+
+
 // Derive fee status: if the next due date has passed, treat as overdue
 // regardless of the stored status (which only updates on payment events).
 function effectiveStatus(a: { status?: string | null; next_due_date?: string | null }): string {
@@ -1161,6 +1164,16 @@ function NewAllocDialog({
 
           setLoading(true);
 
+          // Carry over any existing paid coverage so a seat change doesn't reset the student to "pending".
+          const { data: prevAllocs } = await supabase
+            .from("allocations")
+            .select("next_due_date, start_date, status")
+            .eq("student_id", studentId)
+            .eq("is_active", true)
+            .order("created_at", { ascending: false })
+            .limit(1);
+          const prev = prevAllocs?.[0];
+
           // Release any existing active allocation(s) for this student so they only occupy one seat.
           const { error: releaseErr } = await supabase
             .from("allocations")
@@ -1173,6 +1186,13 @@ function NewAllocDialog({
             return;
           }
 
+          const carriedDue = prev?.next_due_date ?? null;
+          const carriedStatus = carriedDue
+            ? carriedDue < todayISO()
+              ? "overdue"
+              : "paid"
+            : "pending";
+
           const { error } = await supabase.from("allocations").insert({
             org_id: orgId!,
             library_id: libraryId,
@@ -1181,8 +1201,11 @@ function NewAllocDialog({
             shift_id: shiftId === "none" || !shiftId ? null : shiftId,
             monthly_fee: Number(fee || 0),
             reservation_type: reservationType,
-            status: "pending",
+            start_date: prev?.start_date ?? null,
+            next_due_date: carriedDue,
+            status: carriedStatus as any,
           });
+
 
           setLoading(false);
           if (error) {
