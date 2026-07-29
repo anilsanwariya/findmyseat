@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { inr, fmtDate } from "@/lib/format";
+import { inr, fmtDate, addCalendarMonthsISO } from "@/lib/format";
 import { Plus, Search, Upload, FileImage, Calendar as CalendarIcon, X } from "lucide-react";
 import { StudentPaymentHistoryDialog } from "@/components/admin/StudentPaymentHistoryDialog";
 
