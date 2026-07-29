@@ -378,6 +378,7 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
                 transaction_reference: isLegacy ? null : method === "cash" ? txnRef.trim() || null : txnRef.trim(),
                 reference_note: effectiveNote,
                 covers_until: effectiveCoversUntil,
+                is_partial: !isLegacy && isPartial,
                 collected_by_staff_id: session?.staffId ?? null,
               } as any)
               .select("id")
@@ -399,11 +400,20 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
             const isOverdue = !!effectiveCoversUntil && effectiveCoversUntil < todayISO();
             await supabase
               .from("allocations")
-              .update({ next_due_date: effectiveCoversUntil, status: isOverdue ? "overdue" : "paid" })
+              .update({
+                next_due_date: effectiveCoversUntil,
+                status: !isLegacy && isPartial ? (isOverdue ? "overdue" : "pending") : isOverdue ? "overdue" : "paid",
+              })
               .eq("id", chosen.id);
 
+            toast.success(
+              isLegacy
+                ? "Existing student onboarded."
+                : isPartial
+                  ? `Partial payment logged. ${inr(shortfall)} still due — due date unchanged.`
+                  : "Payment logged successfully.",
+            );
 
-            toast.success(isLegacy ? "Existing student onboarded." : "Payment logged successfully.");
             onDone();
           } catch (err: any) {
             toast.error(err.message ?? "Failed to log payment");
