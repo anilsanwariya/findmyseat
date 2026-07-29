@@ -287,26 +287,43 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
     );
   }, [active.data, studentSearch]);
 
+  // Partial payments already logged against the current (unmoved) due date
+  const cycleDue = chosen?.next_due_date ? String(chosen.next_due_date).split("T")[0] : null;
+  const priorPartials = useQuery({
+    queryKey: ["cycle-partials", chosen?.id, cycleDue],
+    enabled: !!chosen?.id && !!cycleDue,
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from("payments")
+        .select("amount_paid")
+        .eq("allocation_id", chosen!.id)
+        .eq("is_partial", true)
+        .eq("covers_until", cycleDue);
+      return (data ?? []).reduce((s: number, p: any) => s + Number(p.amount_paid || 0), 0) as number;
+    },
+  });
+  const paidBefore = priorPartials.data ?? 0;
+
   useEffect(() => {
     if (chosen) {
-      setAmount(chosen.monthly_fee);
+      setAmount(Math.max(Number(chosen.monthly_fee) - paidBefore, 0));
       setStartDate(chosen.next_due_date ? chosen.next_due_date.split("T")[0] : todayISO());
     } else {
       setAmount("");
       setEndDate("");
     }
-  }, [chosen]);
+  }, [chosen, paidBefore]);
+
+  const fee = Number(chosen?.monthly_fee) || 0;
+  const totalTowardsCycle = paidBefore + (Number(amount) || 0);
+  const monthsCovered = fee > 0 ? Math.floor(totalTowardsCycle / fee) : 0;
+  const isPartial = !!chosen && monthsCovered < 1;
+  const shortfall = Math.max(fee - totalTowardsCycle, 0);
 
   useEffect(() => {
     if (!chosen || !startDate) return;
-    const baseFee = Number(chosen.monthly_fee) || 1;
-    const amt = Number(amount) || 0;
-    const d = new Date(startDate);
-    if (isNaN(d.getTime())) return;
-    const days = Math.round((amt / baseFee) * 30);
-    d.setDate(d.getDate() + days);
-    setEndDate(d.toISOString().split("T")[0]);
-  }, [startDate, amount, chosen]);
+    setEndDate(isPartial ? startDate : addCalendarMonthsISO(startDate, monthsCovered));
+  }, [startDate, chosen, isPartial, monthsCovered]);
 
   const dueSoon = chosen?.next_due_date ? (new Date(chosen.next_due_date).getTime() - Date.now()) / 86400000 : null;
   const statusColor =
@@ -315,6 +332,7 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
       : chosen?.status === "paid" && dueSoon !== null && dueSoon >= 0
         ? "text-amber-400"
         : "text-red-400";
+
 
   return (
     <DialogContent className="glass-strong border-panel-border w-[95vw] max-w-lg max-h-[90vh] overflow-y-auto p-4 md:p-6">
