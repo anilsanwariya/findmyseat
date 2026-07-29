@@ -531,6 +531,13 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
                   <span className="font-mono font-bold text-cyan">{inr(chosen.monthly_fee)}</span>
                 </div>
 
+                {paidBefore > 0 && (
+                  <div className="flex justify-between items-center rounded-md border border-amber-400/30 bg-amber-400/5 p-2 text-xs">
+                    <span className="text-amber-300/90">Already paid this cycle</span>
+                    <span className="font-mono font-semibold text-amber-300">{inr(paidBefore)}</span>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-2">
                     <Label>Amount Paid (₹)</Label>
@@ -555,18 +562,29 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Calculated New Due Date</Label>
+                  <Label>{isPartial ? "Due Date (unchanged)" : "Calculated New Due Date"}</Label>
                   <Input
                     required
                     type="date"
                     value={endDate}
                     disabled
-                    className="bg-black/20 border-transparent text-emerald font-semibold text-sm block w-full opacity-90 cursor-not-allowed"
+                    className={`bg-black/20 border-transparent font-semibold text-sm block w-full opacity-90 cursor-not-allowed ${
+                      isPartial ? "text-amber-300" : "text-emerald"
+                    }`}
                   />
-                  <p className="text-[10px] text-muted-foreground mt-1">
-                    Pro-rated automatically based on the amount paid vs the standard monthly fee (1 month = 30 days).
-                  </p>
+                  {isPartial ? (
+                    <p className="text-[10px] text-amber-300/90 mt-1">
+                      Partial payment — the due date stays on {fmtDate(endDate)}. {inr(shortfall)} still pending for
+                      this month.
+                    </p>
+                  ) : (
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      Date-to-date monthly cycle — {monthsCovered} month{monthsCovered > 1 ? "s" : ""} added, the due
+                      day stays the same each month.
+                    </p>
+                  )}
                 </div>
+
               </div>
             )}
           </>
