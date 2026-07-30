@@ -172,11 +172,12 @@ export const createOwnerSubscription = createServerFn({ method: "POST" })
     const baseAmount = customActive ? Math.max(0, basePrice * (1 - customPct / 100)) : basePrice;
 
     // Coupon calculation
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     let couponId: string | null = null;
     let discounted = baseAmount;
     if (data.coupon_code) {
       const code = data.coupon_code.toUpperCase();
-      const { data: c } = await supabase.from("discount_coupons").select("*").ilike("code", code).maybeSingle();
+      const { data: c } = await supabaseAdmin.from("discount_coupons").select("*").ilike("code", code).maybeSingle();
       if (
         c &&
         c.is_active &&
