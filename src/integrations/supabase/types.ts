@@ -831,6 +831,7 @@ export type Database = {
           org_id: string
           plan_id: string
           razorpay_customer_id: string | null
+          razorpay_signature: string | null
           razorpay_subscription_id: string | null
           status: string
           updated_at: string
@@ -845,6 +846,7 @@ export type Database = {
           org_id: string
           plan_id: string
           razorpay_customer_id?: string | null
+          razorpay_signature?: string | null
           razorpay_subscription_id?: string | null
           status?: string
           updated_at?: string
@@ -859,6 +861,7 @@ export type Database = {
           org_id?: string
           plan_id?: string
           razorpay_customer_id?: string | null
+          razorpay_signature?: string | null
           razorpay_subscription_id?: string | null
           status?: string
           updated_at?: string
