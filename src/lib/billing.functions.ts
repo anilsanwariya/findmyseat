@@ -109,10 +109,10 @@ export const getOrgSubscriptionState = createServerFn({ method: "GET" })
 export const validateCoupon = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ code: z.string().trim().min(1).max(64) }).parse(d))
-  .handler(async ({ data, context }) => {
-    const { supabase } = context;
+  .handler(async ({ data }) => {
     const code = data.code.toUpperCase();
-    const { data: c } = await supabase.from("discount_coupons").select("*").ilike("code", code).maybeSingle();
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: c } = await supabaseAdmin.from("discount_coupons").select("*").ilike("code", code).maybeSingle();
     if (!c || !c.is_active) throw new Error("Invalid or inactive coupon");
     if (c.valid_until && new Date(c.valid_until) < new Date()) throw new Error("Coupon expired");
     if (c.max_uses != null && (c.current_uses ?? 0) >= c.max_uses) throw new Error("Coupon usage limit reached");
