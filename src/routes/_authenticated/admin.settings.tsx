@@ -215,7 +215,14 @@ function SettingsPage() {
   const org = useQuery({
     queryKey: ["org", orgId],
     enabled: !!orgId,
-    queryFn: async () => (await supabase.from("organizations").select("*, owner_subscriptions(status, current_period_end, subscription_plans(name))").eq("id", orgId!).maybeSingle()).data,
+    queryFn: async () =>
+      (
+        await supabase
+          .from("organizations")
+          .select("*, owner_subscriptions(status, current_period_end, subscription_plans(name))")
+          .eq("id", orgId!)
+          .maybeSingle()
+      ).data,
   });
   const { data: libs } = useLibraries();
 
@@ -358,8 +365,8 @@ function BranchCard({ lib, onChanged, orgId }: { lib: any; onChanged: () => void
           </div>
         )}
         {!lib.show_public_availability && (
-          <div className="rounded-lg border border-panel-border bg-black/20 px-3 py-1.5 text-[10px] text-muted-foreground text-center">
-            Hidden from public marketplace
+          <div className="rounded-lg border border-panel-border bg-black/20 px-3 py-1.5 text-[08px] text-muted-foreground text-center">
+            Available seats are hidden from the public marketplace
           </div>
         )}
 
@@ -1389,7 +1396,6 @@ function DeleteBranchDialog({ lib, onDone }: { lib: any; onDone: () => void }) {
       setLoading(false);
     }
   };
-
 
   return (
     <DialogContent className="glass-strong border-rose/30 max-w-md">
