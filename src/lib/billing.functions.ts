@@ -28,13 +28,29 @@ export const getOwnerBilling = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
-    const { data: roleRow } = await supabase.from("user_roles").select("org_id").eq("user_id", userId).eq("role", "org_admin").maybeSingle();
+    const { data: roleRow } = await supabase
+      .from("user_roles")
+      .select("org_id")
+      .eq("user_id", userId)
+      .eq("role", "org_admin")
+      .maybeSingle();
     const orgId = roleRow?.org_id;
     if (!orgId) return { subscription: null, invoices: [], plan: null, org: null };
 
     const [{ data: sub }, { data: invoices }] = await Promise.all([
-      supabase.from("owner_subscriptions").select("*").eq("org_id", orgId).order("created_at", { ascending: false }).limit(1).maybeSingle(),
-      supabase.from("subscription_invoices").select("*").eq("org_id", orgId).order("created_at", { ascending: false }).limit(50),
+      supabase
+        .from("owner_subscriptions")
+        .select("*")
+        .eq("org_id", orgId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("subscription_invoices")
+        .select("*")
+        .eq("org_id", orgId)
+        .order("created_at", { ascending: false })
+        .limit(50),
     ]);
     let plan = null;
     if (sub?.plan_id) {
@@ -51,17 +67,34 @@ export const getOrgSubscriptionState = createServerFn({ method: "GET" })
     const { supabase, userId } = context;
     // Resolve org via owner role first, staff fallback
     let orgId: string | null = null;
-    const { data: ownerRow } = await supabase.from("user_roles").select("org_id").eq("user_id", userId).eq("role", "org_admin").maybeSingle();
+    const { data: ownerRow } = await supabase
+      .from("user_roles")
+      .select("org_id")
+      .eq("user_id", userId)
+      .eq("role", "org_admin")
+      .maybeSingle();
     orgId = ownerRow?.org_id ?? null;
     if (!orgId) {
-      const { data: staff } = await supabase.from("staff_profiles").select("org_id").eq("user_id", userId).maybeSingle();
+      const { data: staff } = await supabase
+        .from("staff_profiles")
+        .select("org_id")
+        .eq("user_id", userId)
+        .maybeSingle();
       orgId = staff?.org_id ?? null;
     }
-    if (!orgId) return { state: null as string | null, trial_ends_at: null as string | null, ref_end: null as string | null };
+    if (!orgId)
+      return { state: null as string | null, trial_ends_at: null as string | null, ref_end: null as string | null };
 
     const [{ data: org }, { data: sub }, { data: stateRes }] = await Promise.all([
       supabase.from("organizations").select("trial_ends_at").eq("id", orgId).maybeSingle(),
-      supabase.from("owner_subscriptions").select("current_period_end, status").eq("org_id", orgId).in("status", ["active", "trialing", "authenticated"]).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+      supabase
+        .from("owner_subscriptions")
+        .select("current_period_end, status")
+        .eq("org_id", orgId)
+        .in("status", ["active", "trialing", "authenticated"])
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
       supabase.rpc("org_subscription_state", { _org_id: orgId }),
     ]);
     const state = (stateRes as unknown as string) ?? null;
@@ -95,43 +128,61 @@ export const validateCoupon = createServerFn({ method: "POST" })
 export const createOwnerSubscription = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
-    z.object({
-      plan_id: z.string().uuid(),
-      billing_cycle: z.enum(["monthly", "annual"]),
-      coupon_code: z.string().trim().max(64).optional().nullable(),
-    }).parse(d),
+    z
+      .object({
+        plan_id: z.string().uuid(),
+        billing_cycle: z.enum(["monthly", "annual"]),
+        coupon_code: z.string().trim().max(64).optional().nullable(),
+      })
+      .parse(d),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const { data: roleRow } = await supabase.from("user_roles").select("org_id").eq("user_id", userId).eq("role", "org_admin").maybeSingle();
+    const { data: roleRow } = await supabase
+      .from("user_roles")
+      .select("org_id")
+      .eq("user_id", userId)
+      .eq("role", "org_admin")
+      .maybeSingle();
     const orgId = roleRow?.org_id;
     if (!orgId) throw new Error("Not an organization admin");
 
     const [{ data: plan }, { data: org }] = await Promise.all([
       supabase.from("subscription_plans").select("*").eq("id", data.plan_id).eq("is_active", true).maybeSingle(),
-      supabase.from("organizations").select("company_name, contact_email, contact_phone, owner_name").eq("id", orgId).maybeSingle(),
+      supabase
+        .from("organizations")
+        .select("company_name, contact_email, contact_phone, owner_name")
+        .eq("id", orgId)
+        .maybeSingle(),
     ]);
     if (!plan) throw new Error("Plan not found");
     if (!org) throw new Error("Organization missing");
 
-    const basePrice = Number(data.billing_cycle === "monthly" ? plan.monthly_price : plan.annual_price) || Number(plan.price) || 0;
+    const basePrice =
+      Number(data.billing_cycle === "monthly" ? plan.monthly_price : plan.annual_price) || Number(plan.price) || 0;
     if (basePrice <= 0) throw new Error("Plan price is not set");
 
     // Apply plan-level global discount if valid
-    const customPct = Number(
-      data.billing_cycle === "monthly" ? (plan as any).discount_monthly_pct : (plan as any).discount_annual_pct,
-    ) || 0;
+    const customPct =
+      Number(
+        data.billing_cycle === "monthly" ? (plan as any).discount_monthly_pct : (plan as any).discount_annual_pct,
+      ) || 0;
     const validUntil = (plan as any).discount_valid_until;
     const customActive = customPct > 0 && validUntil && new Date(validUntil) > new Date();
     const baseAmount = customActive ? Math.max(0, basePrice * (1 - customPct / 100)) : basePrice;
 
-    // Coupon
+    // Coupon calculation
     let couponId: string | null = null;
     let discounted = baseAmount;
     if (data.coupon_code) {
       const code = data.coupon_code.toUpperCase();
       const { data: c } = await supabase.from("discount_coupons").select("*").ilike("code", code).maybeSingle();
-      if (c && c.is_active && (!c.valid_until || new Date(c.valid_until) > new Date()) && (c.max_uses == null || (c.current_uses ?? 0) < c.max_uses)) {
+      if (
+        c &&
+        c.is_active &&
+        (!c.valid_until || new Date(c.valid_until) > new Date()) &&
+        (c.max_uses == null || (c.current_uses ?? 0) < c.max_uses)
+      ) {
         couponId = c.id;
         const dv = Number(c.discount_value ?? c.discount_pct ?? 0);
         if (c.discount_type === "flat") discounted = Math.max(0, baseAmount - dv);
@@ -144,23 +195,48 @@ export const createOwnerSubscription = createServerFn({ method: "POST" })
     const amountPaise = Math.round(discounted * 100);
     const period = data.billing_cycle === "monthly" ? "monthly" : "yearly";
 
-    // Create a Razorpay plan on demand
-    const rzpPlan = await rzp("/plans", "POST", {
-      period,
-      interval: 1,
-      item: {
-        name: `${plan.name} (${data.billing_cycle})`,
-        amount: amountPaise,
-        currency: "INR",
-        description: plan.description ?? plan.name,
-      },
-      notes: { org_id: orgId, plan_id: plan.id, cycle: data.billing_cycle, coupon: couponId ?? "" },
-    });
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    // Create subscription
+    // --- SMART PLAN RE-USE LOGIC ---
+    // 1. Check if a Razorpay plan for this exact base plan, cycle, and price already exists
+    const { data: cachedPlan } = await supabaseAdmin
+      .from("razorpay_plan_cache")
+      .select("razorpay_plan_id")
+      .eq("base_plan_id", plan.id)
+      .eq("billing_cycle", data.billing_cycle)
+      .eq("amount_paise", amountPaise)
+      .maybeSingle();
+
+    let rzpPlanId = cachedPlan?.razorpay_plan_id;
+
+    // 2. If it does not exist, create it in Razorpay and save it to the cache
+    if (!rzpPlanId) {
+      const rzpPlan = await rzp("/plans", "POST", {
+        period,
+        interval: 1,
+        item: {
+          name: `${plan.name} (${data.billing_cycle}) - ₹${discounted}`,
+          amount: amountPaise,
+          currency: "INR",
+          description: plan.description ?? plan.name,
+        },
+        notes: { plan_id: plan.id, cycle: data.billing_cycle },
+      });
+
+      rzpPlanId = rzpPlan.id;
+
+      await supabaseAdmin.from("razorpay_plan_cache").insert({
+        base_plan_id: plan.id,
+        billing_cycle: data.billing_cycle,
+        amount_paise: amountPaise,
+        razorpay_plan_id: rzpPlanId,
+      });
+    }
+
+    // 3. Create the subscription using the cached (or newly created) Plan ID
     const totalCount = data.billing_cycle === "monthly" ? 120 : 10; // ~10y horizon
     const rzpSub = await rzp("/subscriptions", "POST", {
-      plan_id: rzpPlan.id,
+      plan_id: rzpPlanId,
       total_count: totalCount,
       customer_notify: 1,
       notes: {
@@ -171,8 +247,7 @@ export const createOwnerSubscription = createServerFn({ method: "POST" })
       },
     });
 
-    // Persist locally
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // 4. Persist locally
     const { data: row, error } = await supabaseAdmin
       .from("owner_subscriptions")
       .insert({
@@ -201,19 +276,35 @@ export const cancelOwnerSubscription = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ at_cycle_end: z.boolean().default(true) }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const { data: roleRow } = await supabase.from("user_roles").select("org_id").eq("user_id", userId).eq("role", "org_admin").maybeSingle();
+    const { data: roleRow } = await supabase
+      .from("user_roles")
+      .select("org_id")
+      .eq("user_id", userId)
+      .eq("role", "org_admin")
+      .maybeSingle();
     const orgId = roleRow?.org_id;
     if (!orgId) throw new Error("Not an organization admin");
-    const { data: sub } = await supabase.from("owner_subscriptions").select("*").eq("org_id", orgId).order("created_at", { ascending: false }).limit(1).maybeSingle();
+    const { data: sub } = await supabase
+      .from("owner_subscriptions")
+      .select("*")
+      .eq("org_id", orgId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
     if (!sub?.razorpay_subscription_id) throw new Error("No active subscription");
 
-    await rzp(`/subscriptions/${sub.razorpay_subscription_id}/cancel`, "POST", { cancel_at_cycle_end: data.at_cycle_end ? 1 : 0 });
+    await rzp(`/subscriptions/${sub.razorpay_subscription_id}/cancel`, "POST", {
+      cancel_at_cycle_end: data.at_cycle_end ? 1 : 0,
+    });
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    await supabaseAdmin.from("owner_subscriptions").update({
-      cancel_at_period_end: data.at_cycle_end,
-      status: data.at_cycle_end ? sub.status : "cancelled",
-    }).eq("id", sub.id);
+    await supabaseAdmin
+      .from("owner_subscriptions")
+      .update({
+        cancel_at_period_end: data.at_cycle_end,
+        status: data.at_cycle_end ? sub.status : "cancelled",
+      })
+      .eq("id", sub.id);
     return { ok: true };
   });
 
@@ -240,22 +331,29 @@ export const getPendingLibraries = createServerFn({ method: "GET" })
 
 export const reviewLibrary = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({
-    library_id: z.string().uuid(),
-    decision: z.enum(["approved", "rejected"]),
-    reason: z.string().trim().max(1000).optional().nullable(),
-  }).parse(d))
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        library_id: z.string().uuid(),
+        decision: z.enum(["approved", "rejected"]),
+        reason: z.string().trim().max(1000).optional().nullable(),
+      })
+      .parse(d),
+  )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { data: isSuper } = await supabase.rpc("has_role", { _user_id: userId, _role: "super_admin" });
     if (!isSuper) throw new Error("Forbidden");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin.from("libraries").update({
-      approval_status: data.decision,
-      rejection_reason: data.decision === "rejected" ? (data.reason ?? null) : null,
-      reviewed_at: new Date().toISOString(),
-      reviewed_by: userId,
-    }).eq("id", data.library_id);
+    const { error } = await supabaseAdmin
+      .from("libraries")
+      .update({
+        approval_status: data.decision,
+        rejection_reason: data.decision === "rejected" ? (data.reason ?? null) : null,
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: userId,
+      })
+      .eq("id", data.library_id);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
@@ -272,7 +370,9 @@ export const getLibraryDetailWithLog = createServerFn({ method: "POST" })
     // Fetch library + photos
     const { data: lib, error: libErr } = await supabaseAdmin
       .from("libraries")
-      .select("*, library_photos(id, image_url, section_name, display_order), organizations(company_name, owner_name, contact_email, contact_phone)")
+      .select(
+        "*, library_photos(id, image_url, section_name, display_order), organizations(company_name, owner_name, contact_email, contact_phone)",
+      )
       .eq("id", data.library_id)
       .single();
     if (libErr || !lib) throw new Error(libErr?.message ?? "Branch not found");
@@ -300,8 +400,10 @@ export const getLibraryDetailWithLog = createServerFn({ method: "POST" })
         if (actorIds.includes(u.id)) actorMap[u.id] = u.email ?? u.id;
       }
     }
-    const enriched = (log ?? []).map((r: any) => ({ ...r, actor: r.changed_by ? (actorMap[r.changed_by] ?? "unknown") : "system" }));
+    const enriched = (log ?? []).map((r: any) => ({
+      ...r,
+      actor: r.changed_by ? (actorMap[r.changed_by] ?? "unknown") : "system",
+    }));
 
     return { library: lib, log: enriched };
   });
-
