@@ -207,7 +207,7 @@ export const createOwnerSubscription = createServerFn({ method: "POST" })
       .eq("amount_paise", amountPaise)
       .maybeSingle();
 
-    let rzpPlanId = cachedPlan?.razorpay_plan_id;
+    let rzpPlanId: string = cachedPlan?.razorpay_plan_id ?? "";
 
     // 2. If it does not exist, create it in Razorpay and save it to the cache
     if (!rzpPlanId) {
