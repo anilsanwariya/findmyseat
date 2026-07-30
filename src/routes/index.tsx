@@ -445,7 +445,7 @@ function LibraryCard({
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
         {lib.social_proof && (
-          <div className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full border border-gold/40 bg-gradient-to-r from-gold/20 to-magenta/20 px-2.5 py-1 text-[10px] font-bold text-gold shadow-[0_0_20px_-5px_rgba(236,72,153,0.6)] backdrop-blur">
+          <div className="absolute bottom-3 left-3 inline-flex items-center gap-1.5 rounded-full border border-gold/60 bg-gradient-to-r from-gold/45 to-magenta/45 px-2.5 py-1 text-[10px] font-bold text-gold shadow-[0_0_20px_-5px_rgba(236,72,153,0.6)] backdrop-blur-md">
             <Flame className="size-3" /> Preferred by {lib.social_proof.exam_name} aspirants
           </div>
         )}
