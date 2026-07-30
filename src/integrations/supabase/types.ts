@@ -1027,6 +1027,41 @@ export type Database = {
           },
         ]
       }
+      razorpay_plan_cache: {
+        Row: {
+          amount_paise: number
+          base_plan_id: string
+          billing_cycle: string
+          created_at: string
+          id: string
+          razorpay_plan_id: string
+        }
+        Insert: {
+          amount_paise: number
+          base_plan_id: string
+          billing_cycle: string
+          created_at?: string
+          id?: string
+          razorpay_plan_id: string
+        }
+        Update: {
+          amount_paise?: number
+          base_plan_id?: string
+          billing_cycle?: string
+          created_at?: string
+          id?: string
+          razorpay_plan_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "razorpay_plan_cache_base_plan_id_fkey"
+            columns: ["base_plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       seat_requests: {
         Row: {
           admin_notes: string | null
