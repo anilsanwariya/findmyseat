@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/lib/auth";
@@ -77,7 +77,11 @@ const todayISO = () => new Date().toISOString().split("T")[0];
 
 // Derive fee status: if the next due date has passed, treat as overdue
 // regardless of the stored status (which only updates on payment events).
-function effectiveStatus(a: { status?: string | null; next_due_date?: string | null }): string {
+// A part-payment logged against the current cycle surfaces as "partial".
+function effectiveStatus(
+  a: { status?: string | null; next_due_date?: string | null },
+  partialPaid = 0,
+): string {
   const s = a?.status ?? "pending";
   if (a?.next_due_date) {
     const due = new Date(a.next_due_date);
@@ -86,8 +90,21 @@ function effectiveStatus(a: { status?: string | null; next_due_date?: string | n
     due.setHours(0, 0, 0, 0);
     if (due.getTime() < today.getTime()) return "overdue";
   }
+  if (s !== "paid" && partialPaid > 0) return "partial";
   return s;
 }
+
+const statusClass = (st: string) =>
+  st === "paid"
+    ? "bg-emerald/10 text-emerald"
+    : st === "overdue"
+      ? "bg-rose/10 text-rose"
+      : st === "partial"
+        ? "bg-cyan/10 text-cyan"
+        : "bg-amber-500/10 text-amber-400";
+
+const statusText = (st: string) =>
+  st === "paid" ? "text-emerald" : st === "overdue" ? "text-rose" : st === "partial" ? "text-cyan" : "text-amber-400";
 
 function AllocationsPage() {
   const { data: session } = useSession();
@@ -144,6 +161,36 @@ function AllocationsPage() {
     },
   });
 
+  // Part-payments logged against the current (unmoved) due date of each allocation
+  const partials = useQuery({
+    queryKey: ["allocation-partials", orgId, currentLibId],
+    enabled: !!orgId && !!currentLibId,
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from("payments")
+        .select("allocation_id, amount_paid, covers_until")
+        .eq("org_id", orgId!)
+        .eq("library_id", currentLibId!)
+        .eq("is_partial", true);
+      const map: Record<string, number> = {};
+      (data ?? []).forEach((p: any) => {
+        if (!p.allocation_id || !p.covers_until) return;
+        const key = `${p.allocation_id}|${String(p.covers_until).split("T")[0]}`;
+        map[key] = (map[key] ?? 0) + Number(p.amount_paid || 0);
+      });
+      return map;
+    },
+  });
+
+  const partialPaidFor = useCallback(
+    (a: any) => {
+      if (!a?.id || !a?.next_due_date) return 0;
+      const key = `${a.id}|${String(a.next_due_date).split("T")[0]}`;
+      return partials.data?.[key] ?? 0;
+    },
+    [partials.data],
+  );
+
   // Filter the allocations for the data table based on search and status
   const filteredAllocations = useMemo(() => {
     if (!allocations.data) return [];
@@ -153,14 +200,14 @@ function AllocationsPage() {
         a.students?.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         a.students?.mobile_number?.includes(searchQuery);
 
-      const matchesStatus = statusFilter === "all" || effectiveStatus(a) === statusFilter;
+      const matchesStatus = statusFilter === "all" || effectiveStatus(a, partialPaidFor(a)) === statusFilter;
 
       const shiftName = a.shifts?.name ?? "__full_day__";
       const matchesShift = shiftFilter === "all" || shiftName === shiftFilter;
 
       return matchesSearch && matchesStatus && matchesShift;
     });
-  }, [allocations.data, searchQuery, statusFilter, shiftFilter]);
+  }, [allocations.data, searchQuery, statusFilter, shiftFilter, partialPaidFor]);
 
   const shiftOptions = useMemo(() => {
     const set = new Set<string>();
@@ -486,6 +533,7 @@ function AllocationsPage() {
                 <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="paid">Paid</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="partial">Partial</SelectItem>
                 <SelectItem value="overdue">Overdue</SelectItem>
               </SelectContent>
             </Select>
@@ -545,12 +593,15 @@ function AllocationsPage() {
                   <td className="py-3 px-2 font-mono">{a.next_due_date ? fmtDate(a.next_due_date) : "—"}</td>
                   <td className="py-3 px-2">
                     {(() => {
-                      const st = effectiveStatus(a);
+                      const paid = partialPaidFor(a);
+                      const st = effectiveStatus(a, paid);
                       return (
                         <span
-                          className={`rounded px-2 py-1 text-[10px] ${st === "paid" ? "bg-emerald/10 text-emerald" : st === "overdue" ? "bg-rose/10 text-rose" : "bg-amber-500/10 text-amber-400"}`}
+                          className={`rounded px-2 py-1 text-[10px] ${statusClass(st)}`}
+                          title={paid > 0 ? `Part-paid ${inr(paid)} of ${inr(a.monthly_fee)} this cycle` : undefined}
                         >
                           {st.toUpperCase()}
+                          {paid > 0 && st !== "partial" ? " · PART-PAID" : ""}
                         </span>
                       );
                     })()}
@@ -661,6 +712,24 @@ function AllocationsPage() {
                         : "—"}
                     </div>
                   </div>
+                  {(() => {
+                    const a = selectedOccupiedSeat.allocation;
+                    const paid = partialPaidFor(a);
+                    const st = effectiveStatus(a, paid);
+                    return (
+                      <div className="col-span-2">
+                        <div className="text-[10px] uppercase text-muted-foreground">Fee Status</div>
+                        <div className={`text-sm font-semibold ${statusText(st)}`}>
+                          {st.toUpperCase()}
+                          {paid > 0 && (
+                            <span className="ml-2 font-mono text-[11px] font-normal text-muted-foreground">
+                              {inr(paid)} of {inr(a.monthly_fee)} paid this cycle
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
 
@@ -1280,9 +1349,7 @@ function NewAllocDialog({
                 <div className="flex items-center gap-4 rounded-md border border-panel-border bg-black/10 px-3 py-2 mt-2 text-xs">
                   <div>
                     <span className="text-muted-foreground mr-1">Status:</span>
-                    <span
-                      className={st === "paid" ? "text-emerald" : st === "overdue" ? "text-rose" : "text-amber-400"}
-                    >
+                    <span className={statusText(st)}>
                       {st.toUpperCase()}
                     </span>
                   </div>
