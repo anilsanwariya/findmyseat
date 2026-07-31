@@ -632,7 +632,16 @@ function AllocationsPage() {
               <div className="rounded-lg bg-panel p-4 space-y-3">
                 <div>
                   <div className="text-[10px] uppercase text-muted-foreground">Student</div>
-                  <div className="text-sm font-semibold">{selectedOccupiedSeat.allocation.students?.full_name}</div>
+                  <button
+                    type="button"
+                    className="text-sm font-semibold hover:text-cyan underline-offset-2 hover:underline"
+                    onClick={() => {
+                      setProfileStudentId(selectedOccupiedSeat.allocation.student_id);
+                      setSelectedOccupiedSeat(null);
+                    }}
+                  >
+                    {selectedOccupiedSeat.allocation.students?.full_name}
+                  </button>
                   <div className="text-xs font-mono text-muted-foreground">
                     {selectedOccupiedSeat.allocation.students?.mobile_number}
                   </div>
@@ -692,8 +701,8 @@ function AllocationsPage() {
         </DialogContent>
       </Dialog>
 
-      {historyStudent && (
-        <StudentPaymentHistoryDialog student={historyStudent} onClose={() => setHistoryStudent(null)} />
+      {profileStudentId && (
+        <StudentProfileDialog studentId={profileStudentId} onClose={() => setProfileStudentId(null)} />
       )}
     </div>
   );
