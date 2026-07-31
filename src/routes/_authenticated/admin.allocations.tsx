@@ -77,7 +77,11 @@ const todayISO = () => new Date().toISOString().split("T")[0];
 
 // Derive fee status: if the next due date has passed, treat as overdue
 // regardless of the stored status (which only updates on payment events).
-function effectiveStatus(a: { status?: string | null; next_due_date?: string | null }): string {
+// A part-payment logged against the current cycle surfaces as "partial".
+function effectiveStatus(
+  a: { status?: string | null; next_due_date?: string | null },
+  partialPaid = 0,
+): string {
   const s = a?.status ?? "pending";
   if (a?.next_due_date) {
     const due = new Date(a.next_due_date);
@@ -86,8 +90,21 @@ function effectiveStatus(a: { status?: string | null; next_due_date?: string | n
     due.setHours(0, 0, 0, 0);
     if (due.getTime() < today.getTime()) return "overdue";
   }
+  if (s !== "paid" && partialPaid > 0) return "partial";
   return s;
 }
+
+const statusClass = (st: string) =>
+  st === "paid"
+    ? "bg-emerald/10 text-emerald"
+    : st === "overdue"
+      ? "bg-rose/10 text-rose"
+      : st === "partial"
+        ? "bg-cyan/10 text-cyan"
+        : "bg-amber-500/10 text-amber-400";
+
+const statusText = (st: string) =>
+  st === "paid" ? "text-emerald" : st === "overdue" ? "text-rose" : st === "partial" ? "text-cyan" : "text-amber-400";
 
 function AllocationsPage() {
   const { data: session } = useSession();
