@@ -712,6 +712,24 @@ function AllocationsPage() {
                         : "—"}
                     </div>
                   </div>
+                  {(() => {
+                    const a = selectedOccupiedSeat.allocation;
+                    const paid = partialPaidFor(a);
+                    const st = effectiveStatus(a, paid);
+                    return (
+                      <div className="col-span-2">
+                        <div className="text-[10px] uppercase text-muted-foreground">Fee Status</div>
+                        <div className={`text-sm font-semibold ${statusText(st)}`}>
+                          {st.toUpperCase()}
+                          {paid > 0 && (
+                            <span className="ml-2 font-mono text-[11px] font-normal text-muted-foreground">
+                              {inr(paid)} of {inr(a.monthly_fee)} paid this cycle
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
 
