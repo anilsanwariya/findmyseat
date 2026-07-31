@@ -1,6 +1,6 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
-import { LayoutDashboard, Building2, CreditCard, LogOut, ShieldCheck, Menu, X, CheckSquare, Tags } from "lucide-react";
+import { LayoutDashboard, Building2, CreditCard, LogOut, ShieldCheck, Menu, X, CheckSquare, Tags, ArrowRightLeft } from "lucide-react";
 import { AuroraBackground } from "@/components/glass";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -12,9 +12,11 @@ const NAV: NavItem[] = [
   { to: "/super-admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { to: "/super-admin/organizations", label: "Organizations", icon: Building2 },
   { to: "/super-admin/approvals", label: "Branch Approvals", icon: CheckSquare },
+  { to: "/super-admin/transfers", label: "Transfer Requests", icon: ArrowRightLeft },
   { to: "/super-admin/categories", label: "Categories", icon: Tags },
   { to: "/super-admin/subscriptions", label: "Subscriptions", icon: CreditCard },
 ];
+
 
 export function SuperAdminShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });

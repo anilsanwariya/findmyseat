@@ -1,289 +1,181 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { GlassPanel, Kpi, SectionHeader } from "@/components/glass";
-import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
-import { ArrowRightLeft, CheckCircle2, XCircle, Eye, Mail, Phone, User, Building2 } from "lucide-react";
-import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { inr, fmtDate } from "@/lib/format";
+import { cn } from "@/lib/utils";
+import { Receipt, Repeat } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/super-admin/")({
   component: SuperAdminDashboard,
 });
 
-function SuperAdminDashboard() {
-  return (
-    <div className="space-y-8">
-      <SectionHeader title="Platform overview" hint="Global metrics across every tenant" />
-      <MetricsRow />
-      <PendingTransfers />
-    </div>
-  );
-}
+type Row = {
+  id: string;
+  amount: number;
+  status: string;
+  created_at: string;
+  paid_at: string | null;
+  razorpay_payment_id: string | null;
+  org_id: string;
+};
 
-function MetricsRow() {
-  const { data } = useQuery({
+function SuperAdminDashboard() {
+  const counts = useQuery({
     queryKey: ["super-admin", "metrics"],
     queryFn: async () => {
       const [orgs, libs, students] = await Promise.all([
-        supabase
-          .from("organizations")
-          .select("id", { count: "exact", head: true })
-          .neq("subscription_status", "suspended"),
+        supabase.from("organizations").select("id", { count: "exact", head: true }).neq("subscription_status", "suspended"),
         supabase.from("libraries").select("id", { count: "exact", head: true }).eq("is_active", true),
         supabase.from("students").select("id", { count: "exact", head: true }).eq("is_active", true),
       ]);
       return { orgs: orgs.count ?? 0, libs: libs.count ?? 0, students: students.count ?? 0 };
     },
   });
-  return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-      <Kpi label="Active organizations" value={String(data?.orgs ?? "—")} tone="violet" />
-      <Kpi label="Active branches" value={String(data?.libs ?? "—")} tone="cyan" />
-      <Kpi label="Registered students" value={String(data?.students ?? "—")} tone="gold" />
-    </div>
-  );
-}
 
-function PendingTransfers() {
-  const qc = useQueryClient();
-  const [busy, setBusy] = useState<string | null>(null);
-  const [details, setDetails] = useState<any | null>(null);
-  const sb: any = supabase;
-
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["super-admin", "pending-transfers"],
+  const billing = useQuery({
+    queryKey: ["super-admin", "billing"],
     queryFn: async () => {
-      const { data: rows, error } = await sb
-        .from("branch_transfer_requests")
-        .select("id, buyer_email, created_at, library_id, org_id")
-        .eq("status", "pending")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      const list = rows ?? [];
-      if (list.length === 0) return [];
-      const libIds = Array.from(new Set(list.map((r: any) => r.library_id).filter(Boolean)));
-      const orgIds = Array.from(new Set(list.map((r: any) => r.org_id).filter(Boolean)));
-      const [libsRes, orgsRes] = await Promise.all([
-        libIds.length
-          ? sb.from("libraries").select("id, name").in("id", libIds)
-          : Promise.resolve({ data: [] as any[] }),
-        orgIds.length
-          ? sb.from("organizations").select("id, company_name, owner_name, contact_phone, contact_email").in("id", orgIds)
-          : Promise.resolve({ data: [] as any[] }),
+      const [invRes, subRes, orgRes] = await Promise.all([
+        supabase
+          .from("subscription_invoices")
+          .select("id, amount, status, created_at, paid_at, razorpay_payment_id, org_id")
+          .order("created_at", { ascending: false })
+          .limit(200),
+        supabase
+          .from("owner_subscriptions")
+          .select("id, org_id, status, billing_cycle, current_period_end, created_at, subscription_plans(name)")
+          .order("created_at", { ascending: false }),
+        supabase.from("organizations").select("id, company_name"),
       ]);
-      const libMap = new Map((libsRes.data ?? []).map((l: any) => [l.id, l]));
-      const orgMap = new Map((orgsRes.data ?? []).map((o: any) => [o.id, o]));
-      return list.map((r: any) => ({
-        ...r,
-        libraries: libMap.get(r.library_id) ?? null,
-        organizations: orgMap.get(r.org_id) ?? null,
-      }));
+      if (invRes.error) throw invRes.error;
+      if (subRes.error) throw subRes.error;
+      const orgMap = new Map((orgRes.data ?? []).map((o: any) => [o.id, o.company_name]));
+      const invoices = (invRes.data ?? []) as Row[];
+      const paid = invoices.filter((i) => i.status === "paid" || !!i.paid_at);
+      const total = paid.reduce((s, i) => s + Number(i.amount), 0);
+      const startMonth = new Date();
+      startMonth.setDate(1);
+      startMonth.setHours(0, 0, 0, 0);
+      const month = paid
+        .filter((i) => new Date(i.paid_at ?? i.created_at) >= startMonth)
+        .reduce((s, i) => s + Number(i.amount), 0);
+      const subs = (subRes.data ?? []) as any[];
+      const active = subs.filter((s) => ["active", "trialing", "authenticated"].includes(s.status));
+      return { invoices, orgMap, total, month, subs, activeCount: active.length };
     },
   });
 
-
-  async function completeTransfer(row: any) {
-    if (!confirm(`Complete transfer of "${row.libraries?.name}" to ${row.buyer_email}?`)) return;
-    setBusy(row.id);
-    try {
-      const { data: newOrgId, error: findErr } = await sb.rpc("find_org_by_email", { _email: row.buyer_email });
-      if (findErr) throw findErr;
-      if (!newOrgId) {
-        toast.error("Buyer has not created an account yet.");
-        return;
-      }
-      const { error: rpcErr } = await sb.rpc("transfer_branch_ownership", {
-        _library_id: row.library_id,
-        _new_org_id: newOrgId,
-      });
-      if (rpcErr) throw rpcErr;
-      const { error: upErr } = await sb
-        .from("branch_transfer_requests")
-        .update({ status: "completed", completed_at: new Date().toISOString(), new_org_id: newOrgId })
-        .eq("id", row.id);
-      if (upErr) throw upErr;
-      toast.success("Transfer completed");
-      qc.invalidateQueries({ queryKey: ["super-admin", "pending-transfers"] });
-    } catch (e: any) {
-      toast.error(e.message || "Transfer failed");
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  async function rejectTransfer(row: any) {
-    const reason = prompt("Reason for rejection (optional):") ?? "";
-    setBusy(row.id);
-    const { error } = await sb
-      .from("branch_transfer_requests")
-      .update({ status: "rejected", notes: reason || null, completed_at: new Date().toISOString() })
-      .eq("id", row.id);
-    setBusy(null);
-    if (error) return toast.error(error.message);
-    toast.success("Request rejected");
-    qc.invalidateQueries({ queryKey: ["super-admin", "pending-transfers"] });
-  }
+  const b = billing.data;
 
   return (
-    <GlassPanel className="p-5">
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h3 className="flex items-center gap-2 text-base font-semibold">
-            <ArrowRightLeft className="size-4 text-amber-300" /> Pending branch transfers
-          </h3>
-          <p className="text-xs text-muted-foreground">Verify both parties offline before completing.</p>
-        </div>
-        <span className="rounded-full border border-amber-400/40 bg-amber-400/10 px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-widest text-amber-300">
-          {data?.length ?? 0} pending
-        </span>
+    <div className="space-y-8">
+      <SectionHeader title="Platform overview" hint="Global metrics across every tenant" />
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <Kpi label="Total revenue" value={inr(b?.total ?? 0)} tone="emerald" />
+        <Kpi label="Revenue this month" value={inr(b?.month ?? 0)} tone="gold" />
+        <Kpi label="Active subscriptions" value={String(b?.activeCount ?? 0)} tone="violet" />
       </div>
 
-      {isLoading ? (
-        <div className="py-8 text-center text-xs text-muted-foreground">Loading…</div>
-      ) : !data || data.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-panel-border bg-panel/40 py-8 text-center text-xs text-muted-foreground">
-          No pending transfer requests.
-        </div>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="text-left text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-              <tr className="border-b border-panel-border">
-                <th className="py-2 pr-3">Seller Org</th>
-                <th className="py-2 pr-3">Library</th>
-                <th className="py-2 pr-3">Buyer Email</th>
-                <th className="py-2 pr-3">Requested</th>
-                <th className="py-2 pr-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.map((row: any) => (
-                <tr key={row.id} className="border-b border-panel-border/50">
-                  <td className="py-3 pr-3">{row.organizations?.company_name ?? "—"}</td>
-                  <td className="py-3 pr-3 font-medium">
-                    <button
-                      onClick={() => setDetails(row)}
-                      className="text-left text-cyan hover:underline"
-                    >
-                      {row.libraries?.name ?? "—"}
-                    </button>
-                  </td>
-                  <td className="py-3 pr-3 font-mono text-xs text-cyan">{row.buyer_email}</td>
-                  <td className="py-3 pr-3 text-xs text-muted-foreground">
-                    {new Date(row.created_at).toLocaleDateString()}
-                  </td>
-                  <td className="py-3 pr-3">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setDetails(row)}
-                        className="h-7"
-                      >
-                        <Eye className="mr-1 size-3" /> Details
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={busy === row.id}
-                        onClick={() => rejectTransfer(row)}
-                        className="h-7 border-rose/40 text-rose hover:bg-rose/10"
-                      >
-                        <XCircle className="mr-1 size-3" /> Reject
-                      </Button>
-                      <Button
-                        size="sm"
-                        disabled={busy === row.id}
-                        onClick={() => completeTransfer(row)}
-                        className="h-7 bg-emerald text-slate-950 hover:bg-emerald/90"
-                      >
-                        <CheckCircle2 className="mr-1 size-3" />
-                        {busy === row.id ? "Working…" : "Complete Transfer"}
-                      </Button>
-                    </div>
-                  </td>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <Kpi label="Active organizations" value={String(counts.data?.orgs ?? "—")} tone="violet" />
+        <Kpi label="Active branches" value={String(counts.data?.libs ?? "—")} tone="cyan" />
+        <Kpi label="Registered students" value={String(counts.data?.students ?? "—")} tone="gold" />
+      </div>
+
+      <GlassPanel className="p-5">
+        <h3 className="mb-4 flex items-center gap-2 text-base font-semibold">
+          <Repeat className="size-4 text-violet" /> Active subscriptions
+        </h3>
+        {billing.isLoading ? (
+          <div className="py-8 text-center text-xs text-muted-foreground">Loading…</div>
+        ) : (b?.subs.filter((s: any) => ["active", "trialing", "authenticated"].includes(s.status)) ?? []).length === 0 ? (
+          <div className="rounded-lg border border-dashed border-panel-border bg-panel/40 py-8 text-center text-xs text-muted-foreground">
+            No active subscriptions yet.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-left font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                <tr className="border-b border-panel-border">
+                  <th className="py-2 pr-3">Organization</th>
+                  <th className="py-2 pr-3">Plan</th>
+                  <th className="py-2 pr-3">Cycle</th>
+                  <th className="py-2 pr-3">Status</th>
+                  <th className="py-2 pr-3">Renews</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+              </thead>
+              <tbody>
+                {b!.subs
+                  .filter((s: any) => ["active", "trialing", "authenticated"].includes(s.status))
+                  .map((s: any) => (
+                    <tr key={s.id} className="border-b border-panel-border/50">
+                      <td className="py-3 pr-3 font-medium">{b!.orgMap.get(s.org_id) ?? "—"}</td>
+                      <td className="py-3 pr-3">{s.subscription_plans?.name ?? "—"}</td>
+                      <td className="py-3 pr-3 text-xs capitalize text-muted-foreground">{s.billing_cycle}</td>
+                      <td className="py-3 pr-3">
+                        <span className="rounded-full bg-emerald/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest text-emerald">
+                          {s.status}
+                        </span>
+                      </td>
+                      <td className="py-3 pr-3 text-xs text-muted-foreground">
+                        {s.current_period_end ? fmtDate(s.current_period_end) : "—"}
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </GlassPanel>
 
-      <Dialog open={!!details} onOpenChange={(o) => !o && setDetails(null)}>
-        <DialogContent className="border-panel-border bg-background/95 backdrop-blur-xl sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Building2 className="size-4 text-amber-300" />
-              {details?.libraries?.name ?? "Branch"}
-            </DialogTitle>
-            <DialogDescription>
-              Contact both parties to verify the transfer before completing.
-            </DialogDescription>
-          </DialogHeader>
-
-          {details && (
-            <div className="space-y-4">
-              <section className="rounded-lg border border-panel-border bg-panel/40 p-4">
-                <div className="mb-3 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                  Current Owner (Seller)
-                </div>
-                <div className="space-y-2 text-sm">
-                  <div className="flex items-center gap-2">
-                    <Building2 className="size-3.5 text-muted-foreground" />
-                    <span>{details.organizations?.company_name ?? "—"}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <User className="size-3.5 text-muted-foreground" />
-                    <span>{details.organizations?.owner_name ?? "—"}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Mail className="size-3.5 text-muted-foreground" />
-                    {details.organizations?.contact_email ? (
-                      <a href={`mailto:${details.organizations.contact_email}`} className="text-cyan hover:underline">
-                        {details.organizations.contact_email}
-                      </a>
-                    ) : (
-                      <span>—</span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Phone className="size-3.5 text-muted-foreground" />
-                    {details.organizations?.contact_phone ? (
-                      <a href={`tel:${details.organizations.contact_phone}`} className="text-cyan hover:underline">
-                        {details.organizations.contact_phone}
-                      </a>
-                    ) : (
-                      <span>—</span>
-                    )}
-                  </div>
-                </div>
-              </section>
-
-              <section className="rounded-lg border border-emerald/30 bg-emerald/5 p-4">
-                <div className="mb-3 font-mono text-[10px] uppercase tracking-widest text-emerald">
-                  New Owner (Buyer)
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <Mail className="size-3.5 text-muted-foreground" />
-                  <a href={`mailto:${details.buyer_email}`} className="text-cyan hover:underline">
-                    {details.buyer_email}
-                  </a>
-                </div>
-                {details.notes && (
-                  <p className="mt-3 text-xs text-muted-foreground">Note: {details.notes}</p>
-                )}
-              </section>
-
-              <p className="text-[11px] text-muted-foreground">
-                Requested on {new Date(details.created_at).toLocaleString()}
-              </p>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-    </GlassPanel>
+      <GlassPanel className="p-5">
+        <h3 className="mb-4 flex items-center gap-2 text-base font-semibold">
+          <Receipt className="size-4 text-gold" /> All transactions
+        </h3>
+        {billing.isLoading ? (
+          <div className="py-8 text-center text-xs text-muted-foreground">Loading…</div>
+        ) : (b?.invoices ?? []).length === 0 ? (
+          <div className="rounded-lg border border-dashed border-panel-border bg-panel/40 py-8 text-center text-xs text-muted-foreground">
+            No transactions recorded yet.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-left font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                <tr className="border-b border-panel-border">
+                  <th className="py-2 pr-3">Date</th>
+                  <th className="py-2 pr-3">Organization</th>
+                  <th className="py-2 pr-3">Payment ref</th>
+                  <th className="py-2 pr-3">Status</th>
+                  <th className="py-2 pr-3 text-right">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {b!.invoices.map((i) => (
+                  <tr key={i.id} className="border-b border-panel-border/50">
+                    <td className="py-3 pr-3 text-xs text-muted-foreground">{fmtDate(i.paid_at ?? i.created_at)}</td>
+                    <td className="py-3 pr-3 font-medium">{b!.orgMap.get(i.org_id) ?? "—"}</td>
+                    <td className="py-3 pr-3 font-mono text-[11px] text-cyan">{i.razorpay_payment_id ?? "—"}</td>
+                    <td className="py-3 pr-3">
+                      <span
+                        className={cn(
+                          "rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest",
+                          i.status === "paid" ? "bg-emerald/15 text-emerald" : "bg-amber-400/15 text-amber-300",
+                        )}
+                      >
+                        {i.status}
+                      </span>
+                    </td>
+                    <td className="py-3 pr-3 text-right font-mono">{inr(Number(i.amount))}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </GlassPanel>
+    </div>
   );
 }
-
