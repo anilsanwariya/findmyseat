@@ -101,7 +101,12 @@ function OrganizationsPage() {
               {!isLoading && (!orgs || orgs.length === 0) && <TableRow><TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">No organizations yet.</TableCell></TableRow>}
               {orgs?.map((o) => (
                 <TableRow key={o.id} className="border-panel-border">
-                  <TableCell className="font-medium">{o.company_name}</TableCell>
+                  <TableCell className="font-medium">
+                    <button onClick={() => setDetailOrg(o)} className="text-left text-cyan hover:underline">
+                      {o.company_name}
+                    </button>
+                  </TableCell>
+
                   <TableCell className="text-muted-foreground">{o.owner_name}</TableCell>
                   <TableCell className="text-muted-foreground text-xs">{o.contact_email ?? o.contact_phone ?? "—"}</TableCell>
                   <TableCell><span className="rounded-full border border-panel-border bg-panel px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest">{o.plan_name}</span></TableCell>
