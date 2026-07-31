@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { toast } from "sonner";
 import { inr, fmtDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { StudentPaymentHistoryDialog } from "@/components/admin/StudentPaymentHistoryDialog";
+import { StudentProfileDialog } from "@/components/admin/StudentProfileDialog";
 import {
   Plus,
   ArrowUp,
@@ -107,7 +107,7 @@ function AllocationsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [shiftFilter, setShiftFilter] = useState<string>("all");
-  const [historyStudent, setHistoryStudent] = useState<{ id: string; library_id: string | null; name: string } | null>(
+  const [profileStudentId, setProfileStudentId] = useState<string | null>(
     null,
   );
 
@@ -530,13 +530,7 @@ function AllocationsPage() {
                     <button
                       type="button"
                       className="hover:text-cyan underline-offset-2 hover:underline"
-                      onClick={() =>
-                        setHistoryStudent({
-                          id: a.student_id,
-                          library_id: a.library_id,
-                          name: a.students?.full_name ?? "Student",
-                        })
-                      }
+                      onClick={() => setProfileStudentId(a.student_id)}
                     >
                       {a.students?.full_name}
                     </button>
