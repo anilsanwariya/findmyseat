@@ -1330,9 +1330,7 @@ function NewAllocDialog({
                 <div className="flex items-center gap-4 rounded-md border border-panel-border bg-black/10 px-3 py-2 mt-2 text-xs">
                   <div>
                     <span className="text-muted-foreground mr-1">Status:</span>
-                    <span
-                      className={st === "paid" ? "text-emerald" : st === "overdue" ? "text-rose" : "text-amber-400"}
-                    >
+                    <span className={statusText(st)}>
                       {st.toUpperCase()}
                     </span>
                   </div>
