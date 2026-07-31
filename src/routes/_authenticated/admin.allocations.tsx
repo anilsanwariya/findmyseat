@@ -592,12 +592,15 @@ function AllocationsPage() {
                   <td className="py-3 px-2 font-mono">{a.next_due_date ? fmtDate(a.next_due_date) : "—"}</td>
                   <td className="py-3 px-2">
                     {(() => {
-                      const st = effectiveStatus(a);
+                      const paid = partialPaidFor(a);
+                      const st = effectiveStatus(a, paid);
                       return (
                         <span
-                          className={`rounded px-2 py-1 text-[10px] ${st === "paid" ? "bg-emerald/10 text-emerald" : st === "overdue" ? "bg-rose/10 text-rose" : "bg-amber-500/10 text-amber-400"}`}
+                          className={`rounded px-2 py-1 text-[10px] ${statusClass(st)}`}
+                          title={paid > 0 ? `Part-paid ${inr(paid)} of ${inr(a.monthly_fee)} this cycle` : undefined}
                         >
                           {st.toUpperCase()}
+                          {paid > 0 && st !== "partial" ? " · PART-PAID" : ""}
                         </span>
                       );
                     })()}
