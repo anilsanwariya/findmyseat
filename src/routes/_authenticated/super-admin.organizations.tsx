@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { fmtDate } from "@/lib/format";
+import { fmtDate, inr } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Edit2 } from "lucide-react";
 
@@ -240,4 +240,139 @@ function useSyncOnChange(key: string, cb: () => void) {
       cb();
     }
   }, [key, cb]);
+}
+
+function OrgDetailsDialog({ org, onClose }: { org: Org | null; onClose: () => void }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["super-admin", "org-details", org?.id],
+    enabled: !!org?.id,
+    queryFn: async () => {
+      const [libs, students, invoices, subs] = await Promise.all([
+        supabase.from("libraries").select("id, name, city, zone_area, is_active, approval_status").eq("org_id", org!.id),
+        supabase.from("students").select("id", { count: "exact", head: true }).eq("org_id", org!.id).eq("is_active", true),
+        supabase
+          .from("subscription_invoices")
+          .select("id, amount, status, created_at, paid_at, razorpay_payment_id")
+          .eq("org_id", org!.id)
+          .order("created_at", { ascending: false })
+          .limit(20),
+        supabase
+          .from("owner_subscriptions")
+          .select("id, status, billing_cycle, current_period_end, created_at, subscription_plans(name)")
+          .eq("org_id", org!.id)
+          .order("created_at", { ascending: false }),
+      ]);
+      const paid = (invoices.data ?? []).filter((i: any) => i.status === "paid" || !!i.paid_at);
+      return {
+        libraries: libs.data ?? [],
+        studentCount: students.count ?? 0,
+        invoices: invoices.data ?? [],
+        subs: subs.data ?? [],
+        lifetime: paid.reduce((s: number, i: any) => s + Number(i.amount), 0),
+      };
+    },
+  });
+
+  return (
+    <Dialog open={!!org} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-h-[85vh] max-w-3xl overflow-y-auto border-panel-border bg-background/95 backdrop-blur-xl">
+        <DialogHeader>
+          <DialogTitle>{org?.company_name}</DialogTitle>
+        </DialogHeader>
+        {org && (
+          <div className="space-y-5">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {[
+                { l: "Plan", v: org.plan_name },
+                { l: "Status", v: org.state_label },
+                { l: "Branches", v: String(data?.libraries.length ?? "—") },
+                { l: "Active students", v: String(data?.studentCount ?? "—") },
+              ].map((k) => (
+                <div key={k.l} className="rounded-lg border border-panel-border bg-panel/50 p-3">
+                  <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">{k.l}</div>
+                  <div className="mt-1 text-sm font-semibold">{k.v}</div>
+                </div>
+              ))}
+            </div>
+
+            <div className="rounded-lg border border-panel-border bg-panel/40 p-4 text-sm">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Owner contact</div>
+              <div className="mt-2 space-y-1">
+                <div>{org.owner_name}</div>
+                <div className="text-muted-foreground">{org.contact_email ?? "—"}</div>
+                <div className="text-muted-foreground">{org.contact_phone ?? "—"}</div>
+                <div className="text-xs text-muted-foreground">Joined {fmtDate(org.created_at)}</div>
+              </div>
+            </div>
+
+            <div>
+              <div className="mb-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Branches</div>
+              {isLoading ? (
+                <p className="text-xs text-muted-foreground">Loading…</p>
+              ) : (data?.libraries ?? []).length === 0 ? (
+                <p className="text-xs text-muted-foreground">No branches yet.</p>
+              ) : (
+                <div className="divide-y divide-panel-border rounded-lg border border-panel-border">
+                  {data!.libraries.map((l: any) => (
+                    <div key={l.id} className="flex items-center justify-between px-3 py-2 text-sm">
+                      <div>
+                        <div className="font-medium">{l.name}</div>
+                        <div className="text-xs text-muted-foreground">{[l.zone_area, l.city].filter(Boolean).join(", ") || "—"}</div>
+                      </div>
+                      <span className="rounded-full border border-panel-border bg-panel px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest">
+                        {l.approval_status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <div className="mb-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Subscriptions</div>
+              {(data?.subs ?? []).length === 0 ? (
+                <p className="text-xs text-muted-foreground">No subscription records.</p>
+              ) : (
+                <div className="divide-y divide-panel-border rounded-lg border border-panel-border">
+                  {data!.subs.map((s: any) => (
+                    <div key={s.id} className="flex items-center justify-between px-3 py-2 text-sm">
+                      <div>
+                        <div className="font-medium">{s.subscription_plans?.name ?? "—"}</div>
+                        <div className="text-xs capitalize text-muted-foreground">
+                          {s.billing_cycle} · {s.current_period_end ? `until ${fmtDate(s.current_period_end)}` : "—"}
+                        </div>
+                      </div>
+                      <span className="rounded-full bg-panel px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest">{s.status}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <div className="mb-2 flex items-center justify-between">
+                <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Transactions</span>
+                <span className="text-xs text-muted-foreground">Lifetime {inr(data?.lifetime ?? 0)}</span>
+              </div>
+              {(data?.invoices ?? []).length === 0 ? (
+                <p className="text-xs text-muted-foreground">No transactions.</p>
+              ) : (
+                <div className="divide-y divide-panel-border rounded-lg border border-panel-border">
+                  {data!.invoices.map((i: any) => (
+                    <div key={i.id} className="flex items-center justify-between px-3 py-2 text-sm">
+                      <div>
+                        <div className="font-mono text-[11px] text-cyan">{i.razorpay_payment_id ?? "—"}</div>
+                        <div className="text-xs text-muted-foreground">{fmtDate(i.paid_at ?? i.created_at)} · {i.status}</div>
+                      </div>
+                      <div className="font-mono">{inr(Number(i.amount))}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
 }
