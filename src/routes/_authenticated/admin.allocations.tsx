@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { toast } from "sonner";
 import { inr, fmtDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { StudentPaymentHistoryDialog } from "@/components/admin/StudentPaymentHistoryDialog";
+import { StudentProfileDialog } from "@/components/admin/StudentProfileDialog";
 import {
   Plus,
   ArrowUp,
@@ -107,7 +107,7 @@ function AllocationsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [shiftFilter, setShiftFilter] = useState<string>("all");
-  const [historyStudent, setHistoryStudent] = useState<{ id: string; library_id: string | null; name: string } | null>(
+  const [profileStudentId, setProfileStudentId] = useState<string | null>(
     null,
   );
 
@@ -530,13 +530,7 @@ function AllocationsPage() {
                     <button
                       type="button"
                       className="hover:text-cyan underline-offset-2 hover:underline"
-                      onClick={() =>
-                        setHistoryStudent({
-                          id: a.student_id,
-                          library_id: a.library_id,
-                          name: a.students?.full_name ?? "Student",
-                        })
-                      }
+                      onClick={() => setProfileStudentId(a.student_id)}
                     >
                       {a.students?.full_name}
                     </button>
@@ -638,7 +632,16 @@ function AllocationsPage() {
               <div className="rounded-lg bg-panel p-4 space-y-3">
                 <div>
                   <div className="text-[10px] uppercase text-muted-foreground">Student</div>
-                  <div className="text-sm font-semibold">{selectedOccupiedSeat.allocation.students?.full_name}</div>
+                  <button
+                    type="button"
+                    className="text-sm font-semibold hover:text-cyan underline-offset-2 hover:underline"
+                    onClick={() => {
+                      setProfileStudentId(selectedOccupiedSeat.allocation.student_id);
+                      setSelectedOccupiedSeat(null);
+                    }}
+                  >
+                    {selectedOccupiedSeat.allocation.students?.full_name}
+                  </button>
                   <div className="text-xs font-mono text-muted-foreground">
                     {selectedOccupiedSeat.allocation.students?.mobile_number}
                   </div>
@@ -698,8 +701,8 @@ function AllocationsPage() {
         </DialogContent>
       </Dialog>
 
-      {historyStudent && (
-        <StudentPaymentHistoryDialog student={historyStudent} onClose={() => setHistoryStudent(null)} />
+      {profileStudentId && (
+        <StudentProfileDialog studentId={profileStudentId} onClose={() => setProfileStudentId(null)} />
       )}
     </div>
   );
