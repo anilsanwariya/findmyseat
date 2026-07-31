@@ -161,6 +161,36 @@ function AllocationsPage() {
     },
   });
 
+  // Part-payments logged against the current (unmoved) due date of each allocation
+  const partials = useQuery({
+    queryKey: ["allocation-partials", orgId, currentLibId],
+    enabled: !!orgId && !!currentLibId,
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from("payments")
+        .select("allocation_id, amount_paid, covers_until")
+        .eq("org_id", orgId!)
+        .eq("library_id", currentLibId!)
+        .eq("is_partial", true);
+      const map: Record<string, number> = {};
+      (data ?? []).forEach((p: any) => {
+        if (!p.allocation_id || !p.covers_until) return;
+        const key = `${p.allocation_id}|${String(p.covers_until).split("T")[0]}`;
+        map[key] = (map[key] ?? 0) + Number(p.amount_paid || 0);
+      });
+      return map;
+    },
+  });
+
+  const partialPaidFor = useCallback(
+    (a: any) => {
+      if (!a?.id || !a?.next_due_date) return 0;
+      const key = `${a.id}|${String(a.next_due_date).split("T")[0]}`;
+      return partials.data?.[key] ?? 0;
+    },
+    [partials.data],
+  );
+
   // Filter the allocations for the data table based on search and status
   const filteredAllocations = useMemo(() => {
     if (!allocations.data) return [];
@@ -170,14 +200,14 @@ function AllocationsPage() {
         a.students?.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         a.students?.mobile_number?.includes(searchQuery);
 
-      const matchesStatus = statusFilter === "all" || effectiveStatus(a) === statusFilter;
+      const matchesStatus = statusFilter === "all" || effectiveStatus(a, partialPaidFor(a)) === statusFilter;
 
       const shiftName = a.shifts?.name ?? "__full_day__";
       const matchesShift = shiftFilter === "all" || shiftName === shiftFilter;
 
       return matchesSearch && matchesStatus && matchesShift;
     });
-  }, [allocations.data, searchQuery, statusFilter, shiftFilter]);
+  }, [allocations.data, searchQuery, statusFilter, shiftFilter, partialPaidFor]);
 
   const shiftOptions = useMemo(() => {
     const set = new Set<string>();
