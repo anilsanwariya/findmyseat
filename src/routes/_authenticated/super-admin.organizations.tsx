@@ -144,6 +144,9 @@ function OrganizationsPage() {
         onClose={() => setEditingOrg(null)}
         onSaved={() => qc.invalidateQueries({ queryKey: ["super-admin", "orgs"] })}
       />
+
+      <OrgDetailsDialog org={detailOrg} onClose={() => setDetailOrg(null)} />
+
     </div>
   );
 }
