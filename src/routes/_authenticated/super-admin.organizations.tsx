@@ -57,6 +57,8 @@ export function computeOrgState(o: {
 function OrganizationsPage() {
   const qc = useQueryClient();
   const [editingOrg, setEditingOrg] = useState<Org | null>(null);
+  const [detailOrg, setDetailOrg] = useState<Org | null>(null);
+
 
   const { data: orgs, isLoading } = useQuery({
     queryKey: ["super-admin", "orgs"],
