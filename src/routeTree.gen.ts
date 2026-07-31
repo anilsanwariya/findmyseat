@@ -27,6 +27,7 @@ import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedSuperAdminIndexRouteImport } from './routes/_authenticated/super-admin.index'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin.index'
 import { Route as ApiPublicRazorpayWebhookRouteImport } from './routes/api/public/razorpay-webhook'
+import { Route as AuthenticatedSuperAdminTransfersRouteImport } from './routes/_authenticated/super-admin.transfers'
 import { Route as AuthenticatedSuperAdminSubscriptionsRouteImport } from './routes/_authenticated/super-admin.subscriptions'
 import { Route as AuthenticatedSuperAdminOrganizationsRouteImport } from './routes/_authenticated/super-admin.organizations'
 import { Route as AuthenticatedSuperAdminCategoriesRouteImport } from './routes/_authenticated/super-admin.categories'
@@ -137,6 +138,12 @@ const ApiPublicRazorpayWebhookRoute =
     id: '/api/public/razorpay-webhook',
     path: '/api/public/razorpay-webhook',
     getParentRoute: () => rootRouteImport,
+  } as any)
+const AuthenticatedSuperAdminTransfersRoute =
+  AuthenticatedSuperAdminTransfersRouteImport.update({
+    id: '/transfers',
+    path: '/transfers',
+    getParentRoute: () => AuthenticatedSuperAdminRoute,
   } as any)
 const AuthenticatedSuperAdminSubscriptionsRoute =
   AuthenticatedSuperAdminSubscriptionsRouteImport.update({
@@ -280,6 +287,7 @@ export interface FileRoutesByFullPath {
   '/super-admin/categories': typeof AuthenticatedSuperAdminCategoriesRoute
   '/super-admin/organizations': typeof AuthenticatedSuperAdminOrganizationsRoute
   '/super-admin/subscriptions': typeof AuthenticatedSuperAdminSubscriptionsRoute
+  '/super-admin/transfers': typeof AuthenticatedSuperAdminTransfersRoute
   '/api/public/razorpay-webhook': typeof ApiPublicRazorpayWebhookRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
   '/super-admin/': typeof AuthenticatedSuperAdminIndexRoute
@@ -316,6 +324,7 @@ export interface FileRoutesByTo {
   '/super-admin/categories': typeof AuthenticatedSuperAdminCategoriesRoute
   '/super-admin/organizations': typeof AuthenticatedSuperAdminOrganizationsRoute
   '/super-admin/subscriptions': typeof AuthenticatedSuperAdminSubscriptionsRoute
+  '/super-admin/transfers': typeof AuthenticatedSuperAdminTransfersRoute
   '/api/public/razorpay-webhook': typeof ApiPublicRazorpayWebhookRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
   '/super-admin': typeof AuthenticatedSuperAdminIndexRoute
@@ -356,6 +365,7 @@ export interface FileRoutesById {
   '/_authenticated/super-admin/categories': typeof AuthenticatedSuperAdminCategoriesRoute
   '/_authenticated/super-admin/organizations': typeof AuthenticatedSuperAdminOrganizationsRoute
   '/_authenticated/super-admin/subscriptions': typeof AuthenticatedSuperAdminSubscriptionsRoute
+  '/_authenticated/super-admin/transfers': typeof AuthenticatedSuperAdminTransfersRoute
   '/api/public/razorpay-webhook': typeof ApiPublicRazorpayWebhookRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
   '/_authenticated/super-admin/': typeof AuthenticatedSuperAdminIndexRoute
@@ -396,6 +406,7 @@ export interface FileRouteTypes {
     | '/super-admin/categories'
     | '/super-admin/organizations'
     | '/super-admin/subscriptions'
+    | '/super-admin/transfers'
     | '/api/public/razorpay-webhook'
     | '/admin/'
     | '/super-admin/'
@@ -432,6 +443,7 @@ export interface FileRouteTypes {
     | '/super-admin/categories'
     | '/super-admin/organizations'
     | '/super-admin/subscriptions'
+    | '/super-admin/transfers'
     | '/api/public/razorpay-webhook'
     | '/admin'
     | '/super-admin'
@@ -471,6 +483,7 @@ export interface FileRouteTypes {
     | '/_authenticated/super-admin/categories'
     | '/_authenticated/super-admin/organizations'
     | '/_authenticated/super-admin/subscriptions'
+    | '/_authenticated/super-admin/transfers'
     | '/api/public/razorpay-webhook'
     | '/_authenticated/admin/'
     | '/_authenticated/super-admin/'
@@ -625,6 +638,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/public/razorpay-webhook'
       preLoaderRoute: typeof ApiPublicRazorpayWebhookRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/super-admin/transfers': {
+      id: '/_authenticated/super-admin/transfers'
+      path: '/transfers'
+      fullPath: '/super-admin/transfers'
+      preLoaderRoute: typeof AuthenticatedSuperAdminTransfersRouteImport
+      parentRoute: typeof AuthenticatedSuperAdminRoute
     }
     '/_authenticated/super-admin/subscriptions': {
       id: '/_authenticated/super-admin/subscriptions'
@@ -802,6 +822,7 @@ interface AuthenticatedSuperAdminRouteChildren {
   AuthenticatedSuperAdminCategoriesRoute: typeof AuthenticatedSuperAdminCategoriesRoute
   AuthenticatedSuperAdminOrganizationsRoute: typeof AuthenticatedSuperAdminOrganizationsRoute
   AuthenticatedSuperAdminSubscriptionsRoute: typeof AuthenticatedSuperAdminSubscriptionsRoute
+  AuthenticatedSuperAdminTransfersRoute: typeof AuthenticatedSuperAdminTransfersRoute
   AuthenticatedSuperAdminIndexRoute: typeof AuthenticatedSuperAdminIndexRoute
 }
 
@@ -815,6 +836,8 @@ const AuthenticatedSuperAdminRouteChildren: AuthenticatedSuperAdminRouteChildren
       AuthenticatedSuperAdminOrganizationsRoute,
     AuthenticatedSuperAdminSubscriptionsRoute:
       AuthenticatedSuperAdminSubscriptionsRoute,
+    AuthenticatedSuperAdminTransfersRoute:
+      AuthenticatedSuperAdminTransfersRoute,
     AuthenticatedSuperAdminIndexRoute: AuthenticatedSuperAdminIndexRoute,
   }
 
@@ -859,3 +882,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
