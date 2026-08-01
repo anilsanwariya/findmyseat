@@ -64,7 +64,6 @@ function PaymentsPage() {
   const [fromDate, setFromDate] = useState<string>(addDaysISO(todayISO(), -30));
   const [toDate, setToDate] = useState<string>(todayISO());
   const [detailId, setDetailId] = useState<string | null>(null);
-  const [editId, setEditId] = useState<string | null>(null);
   const [historyStudent, setHistoryStudent] = useState<{ id: string; library_id: string | null; name: string } | null>(
     null,
   );
@@ -199,7 +198,8 @@ function PaymentsPage() {
               {filteredPayments.map((p: any) => (
                 <tr
                   key={p.id}
-                  className="border-b border-panel-border/50 hover:bg-white/[0.02] transition-colors whitespace-nowrap"
+                  className="border-b border-panel-border/50 hover:bg-white/[0.02] transition-colors whitespace-nowrap cursor-pointer"
+                  onClick={() => setDetailId(p.id)}
                 >
                   <td className="py-3 px-2 font-mono">{fmtDate(p.payment_date)}</td>
                   <td className="py-3 px-2 font-medium">
@@ -253,26 +253,18 @@ function PaymentsPage() {
                   </td>
                   <td className="py-3 px-2 font-mono text-emerald">{fmtDate(p.covers_until)}</td>
                   <td className="py-3 px-2 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
-                        onClick={() => setDetailId(p.id)}
-                      >
-                        View
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-7 px-2 text-xs border-panel-border"
-                        onClick={() => setEditId(p.id)}
-                      >
-                        <Pencil className="mr-1 size-3" /> Edit
-                      </Button>
-                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDetailId(p.id);
+                      }}
+                    >
+                      View
+                    </Button>
                   </td>
                 </tr>
               ))}
@@ -289,7 +281,6 @@ function PaymentsPage() {
       </GlassPanel>
 
       {detailId && <PaymentDetailDialog paymentId={detailId} onClose={() => setDetailId(null)} />}
-      {editId && <PaymentDetailDialog paymentId={editId} autoEdit onClose={() => setEditId(null)} />}
       {historyStudent && (
         <StudentPaymentHistoryDialog student={historyStudent} onClose={() => setHistoryStudent(null)} />
       )}
@@ -392,7 +383,6 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
       : chosen?.status === "paid" && dueSoon !== null && dueSoon >= 0
         ? "text-amber-400"
         : "text-red-400";
-
 
   return (
     <DialogContent className="glass-strong border-panel-border w-[95vw] max-w-lg max-h-[90vh] overflow-y-auto p-4 md:p-6">
@@ -584,10 +574,9 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
                     className="bg-panel border-panel-border font-mono w-full text-emerald font-semibold"
                   />
                   <p className="text-[10px] text-muted-foreground">
-                    The date when this student's current offline cycle ends. Pick a past date if the student already
-                    has dues pending — they'll show up as overdue.
+                    The date when this student's current offline cycle ends. Pick a past date if the student already has
+                    dues pending — they'll show up as overdue.
                   </p>
-
                 </div>
               </div>
             ) : (
@@ -667,7 +656,6 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
                     </p>
                   )}
                 </div>
-
               </div>
             )}
           </>
@@ -1018,7 +1006,6 @@ function PaymentDetailDialog({
     </Dialog>
   );
 }
-
 
 function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
