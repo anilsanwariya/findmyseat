@@ -1103,10 +1103,13 @@ function NewAllocDialog({
     queryFn: async () => {
       const { data } = await supabase
         .from("students")
-        .select("id, full_name, mobile_number, allocations(status, next_due_date, is_active)")
+        .select(
+          "id, full_name, mobile_number, created_at, allocations(status, next_due_date, is_active, reservation_type, seats(seat_number), shifts(name))",
+        )
         .eq("org_id", orgId!)
         .eq("library_id", libraryId)
-        .eq("is_active", true);
+        .eq("is_active", true)
+        .order("created_at", { ascending: false });
       return data ?? [];
     },
   });
@@ -1117,6 +1120,7 @@ function NewAllocDialog({
     const q = studentSearch.toLowerCase();
     return students.data.filter((s: any) => s.full_name?.toLowerCase().includes(q) || s.mobile_number?.includes(q));
   }, [students.data, studentSearch]);
+
 
   const sections = useQuery({
     queryKey: ["sections-for-alloc", libraryId],
