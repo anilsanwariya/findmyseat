@@ -1103,10 +1103,13 @@ function NewAllocDialog({
     queryFn: async () => {
       const { data } = await supabase
         .from("students")
-        .select("id, full_name, mobile_number, allocations(status, next_due_date, is_active)")
+        .select(
+          "id, full_name, mobile_number, created_at, allocations(status, next_due_date, is_active, reservation_type, seats(seat_number), shifts(name))",
+        )
         .eq("org_id", orgId!)
         .eq("library_id", libraryId)
-        .eq("is_active", true);
+        .eq("is_active", true)
+        .order("created_at", { ascending: false });
       return data ?? [];
     },
   });
@@ -1117,6 +1120,7 @@ function NewAllocDialog({
     const q = studentSearch.toLowerCase();
     return students.data.filter((s: any) => s.full_name?.toLowerCase().includes(q) || s.mobile_number?.includes(q));
   }, [students.data, studentSearch]);
+
 
   const sections = useQuery({
     queryKey: ["sections-for-alloc", libraryId],
@@ -1342,23 +1346,51 @@ function NewAllocDialog({
             />
             {isSearchFocused && (
               <div className="absolute top-full left-0 right-0 mt-1 bg-slate-900 border border-slate-700 rounded-md shadow-[0_10px_40px_-10px_rgba(0,0,0,0.8)] max-h-60 overflow-y-auto custom-scrollbar z-[60]">
-                {filteredStudents.map((s: any) => (
-                  <div
-                    key={s.id}
-                    className="p-3 text-sm hover:bg-slate-800 cursor-pointer border-b border-slate-800/50 last:border-0 transition-colors"
-                    onMouseDown={(e) => e.preventDefault()} // Prevents input blur before click registers
-                    onClick={() => {
-                      setStudentId(s.id);
-                      setStudentSearch(`${s.full_name} (${s.mobile_number})`);
-                      setIsSearchFocused(false);
-                    }}
-                  >
-                    <div className="font-medium text-slate-200">{s.full_name}</div>
-                    <div className="text-xs text-muted-foreground mt-0.5">
-                      <span className="font-mono text-cyan/80">{s.mobile_number}</span>
+                {filteredStudents.map((s: any) => {
+                  const act = (s.allocations ?? []).find((a: any) => a.is_active);
+                  const st = act ? effectiveStatus(act) : null;
+                  const isNew =
+                    s.created_at && Date.now() - new Date(s.created_at).getTime() < 7 * 86400000 && !act;
+                  return (
+                    <div
+                      key={s.id}
+                      className="p-3 text-sm hover:bg-slate-800 cursor-pointer border-b border-slate-800/50 last:border-0 transition-colors"
+                      onMouseDown={(e) => e.preventDefault()} // Prevents input blur before click registers
+                      onClick={() => {
+                        setStudentId(s.id);
+                        setStudentSearch(`${s.full_name} (${s.mobile_number})`);
+                        setIsSearchFocused(false);
+                      }}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-slate-200">{s.full_name}</span>
+                        {isNew && (
+                          <span className="rounded bg-cyan/10 px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-cyan">
+                            New
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-1.5">
+                        <span className="font-mono text-cyan/80">{s.mobile_number}</span>
+                        <span>·</span>
+                        {act ? (
+                          <>
+                            <span>
+                              {act.reservation_type === "unreserved"
+                                ? "Unreserved"
+                                : `Seat ${act.seats?.seat_number ?? "—"}`}
+                              {act.shifts?.name ? ` · ${act.shifts.name}` : ""}
+                            </span>
+                            {st && <span className={statusText(st)}>{st.toUpperCase()}</span>}
+                          </>
+                        ) : (
+                          <span className="text-amber-300">No seat assigned</span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
+
                 {filteredStudents.length === 0 && (
                   <div className="p-4 text-xs text-muted-foreground text-center">No students found.</div>
                 )}
