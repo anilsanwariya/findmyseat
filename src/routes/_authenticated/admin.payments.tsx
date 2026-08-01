@@ -251,11 +251,33 @@ function PaymentsPage() {
                     )}
                   </td>
                   <td className="py-3 px-2 font-mono text-emerald">{fmtDate(p.covers_until)}</td>
+                  <td className="py-3 px-2 text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                        onClick={() => setDetailId(p.id)}
+                      >
+                        View
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2 text-xs border-panel-border"
+                        onClick={() => setEditId(p.id)}
+                      >
+                        <Pencil className="mr-1 size-3" /> Edit
+                      </Button>
+                    </div>
+                  </td>
                 </tr>
               ))}
               {filteredPayments.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="py-8 text-center text-sm text-muted-foreground">
+                  <td colSpan={10} className="py-8 text-center text-sm text-muted-foreground">
                     No payments in this date range.
                   </td>
                 </tr>
