@@ -477,12 +477,18 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
                     }}
                   >
                     <div className="font-medium text-slate-200">{a.students?.full_name}</div>
-                    <div className="text-xs text-muted-foreground mt-0.5">
+                    <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5">
                       <span className="font-mono text-cyan/80">{a.students?.mobile_number}</span>
-                      <span className="mx-1.5">·</span>
-                      {a.reservation_type === "unreserved" ? "Unreserved" : `Seat ${a.seats?.seat_number ?? "—"}`}
-                      <span className="mx-1.5">·</span>
-                      <span className="uppercase tracking-wider">{a.status ?? "pending"}</span>
+                      <span>·</span>
+                      <span>
+                        {a.reservation_type === "unreserved" ? "Unreserved" : `Seat ${a.seats?.seat_number ?? "—"}`}
+                      </span>
+                      <span>·</span>
+                      <span
+                        className={`rounded px-1.5 py-0.5 text-[9px] uppercase tracking-wider font-semibold ${allocStatusClass(allocEffectiveStatus(a))}`}
+                      >
+                        {allocEffectiveStatus(a)}
+                      </span>
                     </div>
                   </div>
                 ))}
