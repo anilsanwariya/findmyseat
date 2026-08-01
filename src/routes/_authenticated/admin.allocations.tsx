@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { toast } from "sonner";
 import { inr, fmtDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -30,6 +32,8 @@ import {
   Utensils,
   Edit2,
   Search,
+  Check,
+  ChevronsUpDown,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/allocations")({
@@ -74,14 +78,10 @@ function classifyShiftByName(name: string): { allowKey: string; feeKey: string }
 
 const todayISO = () => new Date().toISOString().split("T")[0];
 
-
 // Derive fee status: if the next due date has passed, treat as overdue
 // regardless of the stored status (which only updates on payment events).
 // A part-payment logged against the current cycle surfaces as "partial".
-function effectiveStatus(
-  a: { status?: string | null; next_due_date?: string | null },
-  partialPaid = 0,
-): string {
+function effectiveStatus(a: { status?: string | null; next_due_date?: string | null }, partialPaid = 0): string {
   const s = a?.status ?? "pending";
   if (a?.next_due_date) {
     const due = new Date(a.next_due_date);
@@ -124,9 +124,7 @@ function AllocationsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [shiftFilter, setShiftFilter] = useState<string>("all");
-  const [profileStudentId, setProfileStudentId] = useState<string | null>(
-    null,
-  );
+  const [profileStudentId, setProfileStudentId] = useState<string | null>(null);
 
   const qc = useQueryClient();
   const currentLibId = libraryId ?? libs?.[0]?.id;
@@ -1088,6 +1086,7 @@ function NewAllocDialog({
 
   const [libraryId, setLibraryId] = useState(initialLibraryId || "");
   const [studentId, setStudentId] = useState("");
+  const [studentComboOpen, setStudentComboOpen] = useState(false);
   const [sectionId, setSectionId] = useState<string>(initialSectionId || "");
   const [seatId, setSeatId] = useState(initialSeatId || "");
   const [shiftId, setShiftId] = useState<string>("");
@@ -1259,11 +1258,7 @@ function NewAllocDialog({
           }
 
           const carriedDue = prev?.next_due_date ?? null;
-          const carriedStatus = carriedDue
-            ? carriedDue < todayISO()
-              ? "overdue"
-              : "paid"
-            : "pending";
+          const carriedStatus = carriedDue ? (carriedDue < todayISO() ? "overdue" : "paid") : "pending";
 
           const { error } = await supabase.from("allocations").insert({
             org_id: orgId!,
@@ -1277,7 +1272,6 @@ function NewAllocDialog({
             next_due_date: carriedDue,
             status: carriedStatus as any,
           });
-
 
           setLoading(false);
           if (error) {
@@ -1329,18 +1323,54 @@ function NewAllocDialog({
 
         <div className="space-y-2">
           <Label>Student</Label>
-          <Select value={studentId} onValueChange={setStudentId}>
-            <SelectTrigger className="bg-panel border-panel-border">
-              <SelectValue placeholder="Choose student" />
-            </SelectTrigger>
-            <SelectContent>
-              {(students.data ?? []).map((s: any) => (
-                <SelectItem key={s.id} value={s.id}>
-                  {s.full_name} · {s.mobile_number}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Popover open={studentComboOpen} onOpenChange={setStudentComboOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                aria-expanded={studentComboOpen}
+                className="w-full justify-between bg-panel border-panel-border font-normal text-left px-3 hover:bg-panel"
+              >
+                {studentId && students.data
+                  ? (() => {
+                      const st = students.data.find((s: any) => s.id === studentId);
+                      return st ? `${st.full_name} · ${st.mobile_number}` : "Choose student...";
+                    })()
+                  : "Search student..."}
+                <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent
+              style={{ width: "var(--radix-popover-trigger-width)" }}
+              className="p-0 bg-panel border-panel-border shadow-xl glass-strong"
+              align="start"
+            >
+              <Command className="bg-transparent">
+                <CommandInput placeholder="Search name or mobile..." className="border-none focus:ring-0" />
+                <CommandList className="max-h-[200px] overflow-y-auto custom-scrollbar">
+                  <CommandEmpty>No student found.</CommandEmpty>
+                  <CommandGroup>
+                    {(students.data ?? []).map((s: any) => (
+                      <CommandItem
+                        key={s.id}
+                        value={`${s.full_name} ${s.mobile_number}`}
+                        onSelect={() => {
+                          setStudentId(s.id);
+                          setStudentComboOpen(false);
+                        }}
+                        className="cursor-pointer aria-selected:bg-white/10"
+                      >
+                        <Check
+                          className={cn("mr-2 size-4 text-emerald", studentId === s.id ? "opacity-100" : "opacity-0")}
+                        />
+                        {s.full_name} <span className="text-muted-foreground ml-1">· {s.mobile_number}</span>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
 
           {activeAlloc &&
             (() => {
@@ -1349,9 +1379,7 @@ function NewAllocDialog({
                 <div className="flex items-center gap-4 rounded-md border border-panel-border bg-black/10 px-3 py-2 mt-2 text-xs">
                   <div>
                     <span className="text-muted-foreground mr-1">Status:</span>
-                    <span className={statusText(st)}>
-                      {st.toUpperCase()}
-                    </span>
+                    <span className={statusText(st)}>{st.toUpperCase()}</span>
                   </div>
                   <div>
                     <span className="text-muted-foreground mr-1">Due Date:</span>
