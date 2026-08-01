@@ -33,6 +33,28 @@ const addDaysISO = (base: string, days: number) => {
   return d.toISOString().split("T")[0];
 };
 
+// Match the allocation tab's colour coding for fee status.
+function allocEffectiveStatus(a: { status?: string | null; next_due_date?: string | null }): string {
+  const s = a?.status ?? "pending";
+  if (a?.next_due_date) {
+    const due = new Date(a.next_due_date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    due.setHours(0, 0, 0, 0);
+    if (due.getTime() < today.getTime()) return "overdue";
+  }
+  return s;
+}
+
+const allocStatusClass = (st: string) =>
+  st === "paid"
+    ? "bg-emerald/10 text-emerald"
+    : st === "overdue"
+      ? "bg-rose/10 text-rose"
+      : st === "partial"
+        ? "bg-cyan/10 text-cyan"
+        : "bg-amber-500/10 text-amber-400";
+
 function PaymentsPage() {
   const { data: session } = useSession();
   const orgId = session?.orgId;
@@ -42,6 +64,7 @@ function PaymentsPage() {
   const [fromDate, setFromDate] = useState<string>(addDaysISO(todayISO(), -30));
   const [toDate, setToDate] = useState<string>(todayISO());
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
   const [historyStudent, setHistoryStudent] = useState<{ id: string; library_id: string | null; name: string } | null>(
     null,
   );
@@ -169,14 +192,14 @@ function PaymentsPage() {
                 <th className="py-3 px-2 font-normal">Collected by</th>
                 <th className="py-3 px-2 font-normal">Proof</th>
                 <th className="py-3 px-2 font-normal">Covers until</th>
+                <th className="py-3 px-2 font-normal text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
               {filteredPayments.map((p: any) => (
                 <tr
                   key={p.id}
-                  className="border-b border-panel-border/50 hover:bg-white/[0.02] transition-colors whitespace-nowrap cursor-pointer"
-                  onClick={() => setDetailId(p.id)}
+                  className="border-b border-panel-border/50 hover:bg-white/[0.02] transition-colors whitespace-nowrap"
                 >
                   <td className="py-3 px-2 font-mono">{fmtDate(p.payment_date)}</td>
                   <td className="py-3 px-2 font-medium">
@@ -229,11 +252,33 @@ function PaymentsPage() {
                     )}
                   </td>
                   <td className="py-3 px-2 font-mono text-emerald">{fmtDate(p.covers_until)}</td>
+                  <td className="py-3 px-2 text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                        onClick={() => setDetailId(p.id)}
+                      >
+                        View
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2 text-xs border-panel-border"
+                        onClick={() => setEditId(p.id)}
+                      >
+                        <Pencil className="mr-1 size-3" /> Edit
+                      </Button>
+                    </div>
+                  </td>
                 </tr>
               ))}
               {filteredPayments.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="py-8 text-center text-sm text-muted-foreground">
+                  <td colSpan={10} className="py-8 text-center text-sm text-muted-foreground">
                     No payments in this date range.
                   </td>
                 </tr>
@@ -244,6 +289,7 @@ function PaymentsPage() {
       </GlassPanel>
 
       {detailId && <PaymentDetailDialog paymentId={detailId} onClose={() => setDetailId(null)} />}
+      {editId && <PaymentDetailDialog paymentId={editId} autoEdit onClose={() => setEditId(null)} />}
       {historyStudent && (
         <StudentPaymentHistoryDialog student={historyStudent} onClose={() => setHistoryStudent(null)} />
       )}
@@ -477,12 +523,18 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
                     }}
                   >
                     <div className="font-medium text-slate-200">{a.students?.full_name}</div>
-                    <div className="text-xs text-muted-foreground mt-0.5">
+                    <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5">
                       <span className="font-mono text-cyan/80">{a.students?.mobile_number}</span>
-                      <span className="mx-1.5">·</span>
-                      {a.reservation_type === "unreserved" ? "Unreserved" : `Seat ${a.seats?.seat_number ?? "—"}`}
-                      <span className="mx-1.5">·</span>
-                      <span className="uppercase tracking-wider">{a.status ?? "pending"}</span>
+                      <span>·</span>
+                      <span>
+                        {a.reservation_type === "unreserved" ? "Unreserved" : `Seat ${a.seats?.seat_number ?? "—"}`}
+                      </span>
+                      <span>·</span>
+                      <span
+                        className={`rounded px-1.5 py-0.5 text-[9px] uppercase tracking-wider font-semibold ${allocStatusClass(allocEffectiveStatus(a))}`}
+                      >
+                        {allocEffectiveStatus(a)}
+                      </span>
                     </div>
                   </div>
                 ))}
@@ -711,7 +763,15 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
   );
 }
 
-function PaymentDetailDialog({ paymentId, onClose }: { paymentId: string; onClose: () => void }) {
+function PaymentDetailDialog({
+  paymentId,
+  onClose,
+  autoEdit,
+}: {
+  paymentId: string;
+  onClose: () => void;
+  autoEdit?: boolean;
+}) {
   const qc = useQueryClient();
   const detail = useQuery({
     queryKey: ["payment-detail", paymentId],
@@ -756,6 +816,12 @@ function PaymentDetailDialog({ paymentId, onClose }: { paymentId: string; onClos
     setSyncDue(true);
     setEditing(true);
   };
+
+  useEffect(() => {
+    if (!autoEdit || !p || editing || form) return;
+    startEdit();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoEdit, p]);
 
   const save = async () => {
     if (!form.covers_until) {
