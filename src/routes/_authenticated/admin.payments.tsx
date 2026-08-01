@@ -765,6 +765,12 @@ function PaymentDetailDialog({
     setEditing(true);
   };
 
+  useEffect(() => {
+    if (!autoEdit || !p || editing || form) return;
+    startEdit();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoEdit, p]);
+
   const save = async () => {
     if (!form.covers_until) {
       toast.error("Covers until date is required.");
