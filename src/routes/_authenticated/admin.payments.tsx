@@ -19,7 +19,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { inr, fmtDate, addCalendarMonthsISO } from "@/lib/format";
-import { Plus, Search, Upload, FileImage, Calendar as CalendarIcon, X } from "lucide-react";
+import { Plus, Search, Upload, FileImage, Calendar as CalendarIcon, X, Pencil } from "lucide-react";
 import { StudentPaymentHistoryDialog } from "@/components/admin/StudentPaymentHistoryDialog";
 
 export const Route = createFileRoute("/_authenticated/admin/payments")({
