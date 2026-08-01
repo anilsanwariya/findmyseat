@@ -33,6 +33,28 @@ const addDaysISO = (base: string, days: number) => {
   return d.toISOString().split("T")[0];
 };
 
+// Match the allocation tab's colour coding for fee status.
+function allocEffectiveStatus(a: { status?: string | null; next_due_date?: string | null }): string {
+  const s = a?.status ?? "pending";
+  if (a?.next_due_date) {
+    const due = new Date(a.next_due_date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    due.setHours(0, 0, 0, 0);
+    if (due.getTime() < today.getTime()) return "overdue";
+  }
+  return s;
+}
+
+const allocStatusClass = (st: string) =>
+  st === "paid"
+    ? "bg-emerald/10 text-emerald"
+    : st === "overdue"
+      ? "bg-rose/10 text-rose"
+      : st === "partial"
+        ? "bg-cyan/10 text-cyan"
+        : "bg-amber-500/10 text-amber-400";
+
 function PaymentsPage() {
   const { data: session } = useSession();
   const orgId = session?.orgId;
