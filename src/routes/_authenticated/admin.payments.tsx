@@ -267,6 +267,7 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [isLegacy, setIsLegacy] = useState(false);
+  const [dueTouched, setDueTouched] = useState(false);
   const [legacyDueDate, setLegacyDueDate] = useState("");
 
   const active = useQuery({
@@ -281,6 +282,7 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
           )
           .eq("org_id", orgId!)
           .eq("is_active", true)
+          .order("created_at", { ascending: false })
       ).data ?? [],
   });
 
@@ -329,9 +331,13 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
   const shortfall = Math.max(fee - totalTowardsCycle, 0);
 
   useEffect(() => {
-    if (!chosen || !startDate) return;
+    setDueTouched(false);
+  }, [chosen?.id]);
+
+  useEffect(() => {
+    if (!chosen || !startDate || dueTouched) return;
     setEndDate(isPartial ? startDate : addCalendarMonthsISO(startDate, monthsCovered));
-  }, [startDate, chosen, isPartial, monthsCovered]);
+  }, [startDate, chosen, isPartial, monthsCovered, dueTouched]);
 
   const dueSoon = chosen?.next_due_date ? (new Date(chosen.next_due_date).getTime() - Date.now()) / 86400000 : null;
   const statusColor =
@@ -475,6 +481,8 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
                       <span className="font-mono text-cyan/80">{a.students?.mobile_number}</span>
                       <span className="mx-1.5">·</span>
                       {a.reservation_type === "unreserved" ? "Unreserved" : `Seat ${a.seats?.seat_number ?? "—"}`}
+                      <span className="mx-1.5">·</span>
+                      <span className="uppercase tracking-wider">{a.status ?? "pending"}</span>
                     </div>
                   </div>
                 ))}
@@ -570,16 +578,31 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>{isPartial ? "Due Date (unchanged)" : "Calculated New Due Date"}</Label>
+                  <Label>
+                    {isPartial ? "Due Date" : "New Due Date"}{" "}
+                    <span className="text-[10px] text-muted-foreground normal-case">(editable)</span>
+                  </Label>
                   <Input
                     required
                     type="date"
                     value={endDate}
-                    disabled
-                    className={`bg-black/20 border-transparent font-semibold text-sm block w-full opacity-90 cursor-not-allowed ${
+                    onChange={(e) => {
+                      setDueTouched(true);
+                      setEndDate(e.target.value);
+                    }}
+                    className={`bg-panel border-panel-border font-mono font-semibold text-sm block w-full ${
                       isPartial ? "text-amber-300" : "text-emerald"
                     }`}
                   />
+                  {dueTouched && (
+                    <button
+                      type="button"
+                      className="text-[10px] text-cyan hover:underline"
+                      onClick={() => setDueTouched(false)}
+                    >
+                      Reset to calculated date
+                    </button>
+                  )}
                   {isPartial ? (
                     <p className="text-[10px] text-amber-300/90 mt-1">
                       Partial payment — the due date stays on {fmtDate(endDate)}. {inr(shortfall)} still pending for
