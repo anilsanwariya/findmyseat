@@ -64,6 +64,7 @@ function PaymentsPage() {
   const [fromDate, setFromDate] = useState<string>(addDaysISO(todayISO(), -30));
   const [toDate, setToDate] = useState<string>(todayISO());
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
   const [historyStudent, setHistoryStudent] = useState<{ id: string; library_id: string | null; name: string } | null>(
     null,
   );
@@ -288,6 +289,7 @@ function PaymentsPage() {
       </GlassPanel>
 
       {detailId && <PaymentDetailDialog paymentId={detailId} onClose={() => setDetailId(null)} />}
+      {editId && <PaymentDetailDialog paymentId={editId} autoEdit onClose={() => setEditId(null)} />}
       {historyStudent && (
         <StudentPaymentHistoryDialog student={historyStudent} onClose={() => setHistoryStudent(null)} />
       )}
