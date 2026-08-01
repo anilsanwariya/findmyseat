@@ -191,14 +191,14 @@ function PaymentsPage() {
                 <th className="py-3 px-2 font-normal">Collected by</th>
                 <th className="py-3 px-2 font-normal">Proof</th>
                 <th className="py-3 px-2 font-normal">Covers until</th>
+                <th className="py-3 px-2 font-normal text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
               {filteredPayments.map((p: any) => (
                 <tr
                   key={p.id}
-                  className="border-b border-panel-border/50 hover:bg-white/[0.02] transition-colors whitespace-nowrap cursor-pointer"
-                  onClick={() => setDetailId(p.id)}
+                  className="border-b border-panel-border/50 hover:bg-white/[0.02] transition-colors whitespace-nowrap"
                 >
                   <td className="py-3 px-2 font-mono">{fmtDate(p.payment_date)}</td>
                   <td className="py-3 px-2 font-medium">
