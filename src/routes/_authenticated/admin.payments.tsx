@@ -711,7 +711,15 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
   );
 }
 
-function PaymentDetailDialog({ paymentId, onClose }: { paymentId: string; onClose: () => void }) {
+function PaymentDetailDialog({
+  paymentId,
+  onClose,
+  autoEdit,
+}: {
+  paymentId: string;
+  onClose: () => void;
+  autoEdit?: boolean;
+}) {
   const qc = useQueryClient();
   const detail = useQuery({
     queryKey: ["payment-detail", paymentId],
