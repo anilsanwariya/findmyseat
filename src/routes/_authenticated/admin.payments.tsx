@@ -712,6 +712,7 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
 }
 
 function PaymentDetailDialog({ paymentId, onClose }: { paymentId: string; onClose: () => void }) {
+  const qc = useQueryClient();
   const detail = useQuery({
     queryKey: ["payment-detail", paymentId],
     queryFn: async () =>
@@ -719,7 +720,7 @@ function PaymentDetailDialog({ paymentId, onClose }: { paymentId: string; onClos
         await supabase
           .from("payments")
           .select(
-            "id, amount_paid, payment_date, logged_at, method, reference_note, transaction_reference, receipt_url, covers_until, is_partial, students(full_name, mobile_number), libraries(name), allocations(seats(seat_number))",
+            "id, allocation_id, amount_paid, payment_date, logged_at, method, reference_note, transaction_reference, receipt_url, covers_until, is_partial, students(full_name, mobile_number), libraries(name), allocations(seats(seat_number))",
           )
           .eq("id", paymentId)
           .single()
@@ -727,6 +728,10 @@ function PaymentDetailDialog({ paymentId, onClose }: { paymentId: string; onClos
   });
 
   const [receiptSignedUrl, setReceiptSignedUrl] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState<any>(null);
+  const [syncDue, setSyncDue] = useState(true);
 
   useEffect(() => {
     if (!detail.data?.receipt_url) return;
@@ -738,15 +743,177 @@ function PaymentDetailDialog({ paymentId, onClose }: { paymentId: string; onClos
 
   const p: any = detail.data;
 
+  const startEdit = () => {
+    setForm({
+      amount_paid: Number(p.amount_paid ?? 0),
+      payment_date: p.payment_date ? String(p.payment_date).split("T")[0] : todayISO(),
+      covers_until: p.covers_until ? String(p.covers_until).split("T")[0] : "",
+      method: p.method ?? "cash",
+      transaction_reference: p.transaction_reference ?? "",
+      reference_note: p.reference_note ?? "",
+      is_partial: !!p.is_partial,
+    });
+    setSyncDue(true);
+    setEditing(true);
+  };
+
+  const save = async () => {
+    if (!form.covers_until) {
+      toast.error("Covers until date is required.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from("payments")
+        .update({
+          amount_paid: Number(form.amount_paid || 0),
+          payment_date: form.payment_date,
+          covers_until: form.covers_until,
+          method: form.method,
+          transaction_reference: form.transaction_reference.trim() || null,
+          reference_note: form.reference_note.trim() || null,
+          is_partial: form.is_partial,
+        } as any)
+        .eq("id", paymentId);
+      if (error) throw error;
+
+      if (syncDue && p.allocation_id) {
+        const isOverdue = form.covers_until < todayISO();
+        const { error: aErr } = await supabase
+          .from("allocations")
+          .update({
+            next_due_date: form.covers_until,
+            status: form.is_partial ? (isOverdue ? "overdue" : "pending") : isOverdue ? "overdue" : "paid",
+          } as any)
+          .eq("id", p.allocation_id);
+        if (aErr) throw aErr;
+      }
+
+      toast.success("Payment updated.");
+      qc.invalidateQueries({ queryKey: ["payment-detail", paymentId] });
+      qc.invalidateQueries({ queryKey: ["payments-list"] });
+      qc.invalidateQueries({ queryKey: ["student-payment-history"] });
+      qc.invalidateQueries({ queryKey: ["allocations"] });
+      setEditing(false);
+    } catch (err: any) {
+      toast.error(err.message ?? "Failed to update payment");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <Dialog open onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="glass-strong border-panel-border w-[95vw] max-w-lg max-h-[90vh] overflow-y-auto p-4 md:p-6">
         <DialogHeader>
-          <DialogTitle>Payment details</DialogTitle>
+          <DialogTitle>{editing ? "Edit payment" : "Payment details"}</DialogTitle>
           <DialogDescription className="sr-only">Full details of the recorded payment.</DialogDescription>
         </DialogHeader>
         {!p ? (
           <div className="py-6 text-center text-sm text-muted-foreground">Loading…</div>
+        ) : editing ? (
+          <form
+            className="space-y-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              save();
+            }}
+          >
+            <div className="rounded-lg border border-panel-border bg-black/20 p-3 text-sm">
+              <div className="font-semibold">{p.students?.full_name}</div>
+              <div className="text-xs font-mono text-muted-foreground">{p.students?.mobile_number}</div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Amount Paid (₹)</Label>
+                <Input
+                  type="number"
+                  value={form.amount_paid}
+                  onChange={(e) => setForm({ ...form, amount_paid: Number(e.target.value) })}
+                  className="bg-panel border-panel-border font-mono w-full"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Payment Date</Label>
+                <Input
+                  type="date"
+                  value={form.payment_date}
+                  onChange={(e) => setForm({ ...form, payment_date: e.target.value })}
+                  className="bg-panel border-panel-border font-mono w-full"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Covers Until / Due Date</Label>
+                <Input
+                  type="date"
+                  value={form.covers_until}
+                  onChange={(e) => setForm({ ...form, covers_until: e.target.value })}
+                  className="bg-panel border-panel-border font-mono w-full text-emerald font-semibold"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Payment Method</Label>
+                <Select value={form.method} onValueChange={(v) => setForm({ ...form, method: v })}>
+                  <SelectTrigger className="bg-panel border-panel-border">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="upi">UPI</SelectItem>
+                    <SelectItem value="cash">Cash</SelectItem>
+                    <SelectItem value="card">Card</SelectItem>
+                    <SelectItem value="bank_transfer">Bank transfer</SelectItem>
+                    <SelectItem value="offline_legacy">Offline legacy</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Transaction Reference</Label>
+              <Input
+                value={form.transaction_reference}
+                onChange={(e) => setForm({ ...form, transaction_reference: e.target.value })}
+                className="bg-panel border-panel-border font-mono w-full"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Note</Label>
+              <Input
+                value={form.reference_note}
+                onChange={(e) => setForm({ ...form, reference_note: e.target.value })}
+                className="bg-panel border-panel-border w-full"
+              />
+            </div>
+
+            <div className="flex items-center justify-between rounded-lg border border-panel-border bg-panel/60 p-3">
+              <div className="text-sm">Mark as partial payment</div>
+              <Switch checked={form.is_partial} onCheckedChange={(v) => setForm({ ...form, is_partial: v })} />
+            </div>
+
+            {p.allocation_id && (
+              <div className="flex items-start justify-between gap-3 rounded-lg border border-panel-border bg-panel/60 p-3">
+                <div className="min-w-0">
+                  <div className="text-sm">Update student's due date</div>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    Sets the allocation's next due date to the "covers until" date above.
+                  </p>
+                </div>
+                <Switch checked={syncDue} onCheckedChange={setSyncDue} />
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <Button type="button" variant="ghost" className="flex-1" onClick={() => setEditing(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={saving} className="flex-1 bg-white text-slate-900 hover:bg-white/90">
+                {saving ? "Saving…" : "Save changes"}
+              </Button>
+            </div>
+          </form>
         ) : (
           <div className="space-y-3 text-sm">
             <Row label="Student" value={`${p.students?.full_name} (${p.students?.mobile_number})`} />
@@ -776,12 +943,16 @@ function PaymentDetailDialog({ paymentId, onClose }: { paymentId: string; onClos
                 )}
               </div>
             )}
+            <Button type="button" className="w-full bg-white text-slate-900 hover:bg-white/90" onClick={startEdit}>
+              <Pencil className="mr-1 size-4" /> Edit payment
+            </Button>
           </div>
         )}
       </DialogContent>
     </Dialog>
   );
 }
+
 
 function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
