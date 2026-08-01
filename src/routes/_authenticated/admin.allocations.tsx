@@ -10,8 +10,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { toast } from "sonner";
 import { inr, fmtDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -32,8 +30,6 @@ import {
   Utensils,
   Edit2,
   Search,
-  Check,
-  ChevronsUpDown,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/allocations")({
@@ -1086,7 +1082,8 @@ function NewAllocDialog({
 
   const [libraryId, setLibraryId] = useState(initialLibraryId || "");
   const [studentId, setStudentId] = useState("");
-  const [studentComboOpen, setStudentComboOpen] = useState(false);
+  const [studentSearch, setStudentSearch] = useState("");
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [sectionId, setSectionId] = useState<string>(initialSectionId || "");
   const [seatId, setSeatId] = useState(initialSeatId || "");
   const [shiftId, setShiftId] = useState<string>("");
@@ -1113,6 +1110,13 @@ function NewAllocDialog({
       return data ?? [];
     },
   });
+
+  const filteredStudents = useMemo(() => {
+    if (!students.data) return [];
+    if (!studentSearch) return students.data;
+    const q = studentSearch.toLowerCase();
+    return students.data.filter((s: any) => s.full_name?.toLowerCase().includes(q) || s.mobile_number?.includes(q));
+  }, [students.data, studentSearch]);
 
   const sections = useQuery({
     queryKey: ["sections-for-alloc", libraryId],
@@ -1321,56 +1325,46 @@ function NewAllocDialog({
           </div>
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-2 relative z-50">
           <Label>Student</Label>
-          <Popover open={studentComboOpen} onOpenChange={setStudentComboOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                role="combobox"
-                aria-expanded={studentComboOpen}
-                className="w-full justify-between bg-panel border-panel-border font-normal text-left px-3 hover:bg-panel"
-              >
-                {studentId && students.data
-                  ? (() => {
-                      const st = students.data.find((s: any) => s.id === studentId);
-                      return st ? `${st.full_name} · ${st.mobile_number}` : "Choose student...";
-                    })()
-                  : "Search student..."}
-                <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent
-              style={{ width: "var(--radix-popover-trigger-width)" }}
-              className="p-0 bg-panel border-panel-border shadow-xl glass-strong"
-              align="start"
-            >
-              <Command className="bg-transparent">
-                <CommandInput placeholder="Search name or mobile..." className="border-none focus:ring-0" />
-                <CommandList className="max-h-[200px] overflow-y-auto custom-scrollbar">
-                  <CommandEmpty>No student found.</CommandEmpty>
-                  <CommandGroup>
-                    {(students.data ?? []).map((s: any) => (
-                      <CommandItem
-                        key={s.id}
-                        value={`${s.full_name} ${s.mobile_number}`}
-                        onSelect={() => {
-                          setStudentId(s.id);
-                          setStudentComboOpen(false);
-                        }}
-                        className="cursor-pointer aria-selected:bg-white/10"
-                      >
-                        <Check
-                          className={cn("mr-2 size-4 text-emerald", studentId === s.id ? "opacity-100" : "opacity-0")}
-                        />
-                        {s.full_name} <span className="text-muted-foreground ml-1">· {s.mobile_number}</span>
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground z-10" />
+            <Input
+              placeholder="Search name or mobile..."
+              value={studentSearch}
+              onChange={(e) => {
+                setStudentSearch(e.target.value);
+                if (studentId) setStudentId(""); // clear selection if they edit
+              }}
+              onFocus={() => setIsSearchFocused(true)}
+              onBlur={() => setIsSearchFocused(false)}
+              className="pl-9 bg-black/20 border-panel-border focus-visible:ring-1 focus-visible:ring-cyan/50"
+            />
+            {isSearchFocused && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-slate-900 border border-slate-700 rounded-md shadow-[0_10px_40px_-10px_rgba(0,0,0,0.8)] max-h-60 overflow-y-auto custom-scrollbar z-[60]">
+                {filteredStudents.map((s: any) => (
+                  <div
+                    key={s.id}
+                    className="p-3 text-sm hover:bg-slate-800 cursor-pointer border-b border-slate-800/50 last:border-0 transition-colors"
+                    onMouseDown={(e) => e.preventDefault()} // Prevents input blur before click registers
+                    onClick={() => {
+                      setStudentId(s.id);
+                      setStudentSearch(`${s.full_name} (${s.mobile_number})`);
+                      setIsSearchFocused(false);
+                    }}
+                  >
+                    <div className="font-medium text-slate-200">{s.full_name}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      <span className="font-mono text-cyan/80">{s.mobile_number}</span>
+                    </div>
+                  </div>
+                ))}
+                {filteredStudents.length === 0 && (
+                  <div className="p-4 text-xs text-muted-foreground text-center">No students found.</div>
+                )}
+              </div>
+            )}
+          </div>
 
           {activeAlloc &&
             (() => {
