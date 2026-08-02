@@ -1741,6 +1741,7 @@ export type Database = {
         Returns: string
       }
       current_user_org: { Args: never; Returns: string }
+      delete_seats_cascade: { Args: { p_seat_ids: string[] }; Returns: number }
       find_org_by_email: { Args: { _email: string }; Returns: string }
       get_current_staff: {
         Args: never
@@ -1781,6 +1782,10 @@ export type Database = {
       }
       is_staff_user: { Args: { _uid: string }; Returns: boolean }
       org_subscription_state: { Args: { _org_id: string }; Returns: string }
+      shift_section_layout: {
+        Args: { p_dc: number; p_dr: number; p_section_id: string }
+        Returns: undefined
+      }
       staff_lib_ok: {
         Args: { _library_id: string; _uid: string }
         Returns: boolean
