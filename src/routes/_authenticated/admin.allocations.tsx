@@ -1243,15 +1243,27 @@ function NewAllocDialog({
 
           setLoading(true);
 
-          // Carry over any existing paid coverage so a seat change doesn't reset the student to "pending".
+          // Carry over any existing paid coverage so a seat change (or re-allocation after
+          // removal) doesn't reset the student to "pending" and cause duplicate payments.
           const { data: prevAllocs } = await supabase
             .from("allocations")
-            .select("next_due_date, start_date, status")
+            .select("next_due_date, start_date, status, is_active, created_at")
             .eq("student_id", studentId)
-            .eq("is_active", true)
+            .order("is_active", { ascending: false })
             .order("created_at", { ascending: false })
+            .limit(10);
+          const prev = (prevAllocs ?? []).find((a: any) => a.next_due_date) ?? prevAllocs?.[0];
+
+          // Also consider the furthest paid coverage from logged payments.
+          const { data: lastPay } = await supabase
+            .from("payments")
+            .select("covers_until")
+            .eq("student_id", studentId)
+            .not("covers_until", "is", null)
+            .order("covers_until", { ascending: false })
             .limit(1);
-          const prev = prevAllocs?.[0];
+          const paidUntil = (lastPay?.[0] as any)?.covers_until ?? null;
+
 
           // Release any existing active allocation(s) for this student so they only occupy one seat.
           const { error: releaseErr } = await supabase
