@@ -1104,7 +1104,7 @@ function NewAllocDialog({
       const { data } = await supabase
         .from("students")
         .select(
-          "id, full_name, mobile_number, created_at, allocations(status, next_due_date, is_active, reservation_type, seats(seat_number), shifts(name))",
+          "id, full_name, mobile_number, created_at, allocations(id, created_at, status, next_due_date, is_active, reservation_type, shift_id, monthly_fee, seats(seat_number), shifts(name))",
         )
         .eq("org_id", orgId!)
         .eq("library_id", libraryId)
