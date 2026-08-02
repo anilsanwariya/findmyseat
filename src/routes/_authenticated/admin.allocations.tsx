@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/lib/auth";
@@ -1104,7 +1104,7 @@ function NewAllocDialog({
       const { data } = await supabase
         .from("students")
         .select(
-          "id, full_name, mobile_number, created_at, allocations(status, next_due_date, is_active, reservation_type, seats(seat_number), shifts(name))",
+          "id, full_name, mobile_number, created_at, allocations(id, created_at, status, next_due_date, is_active, reservation_type, shift_id, monthly_fee, seats(seat_number), shifts(name))",
         )
         .eq("org_id", orgId!)
         .eq("library_id", libraryId)
@@ -1189,9 +1189,16 @@ function NewAllocDialog({
     if (!currentSection.allow_full_day && (!shiftId || shiftId === "none")) setShiftId("");
   }, [currentSection?.id]);
 
+  // When a student is prefilled from their previous allocation, skip the next auto fee calc
+  const skipFeeCalc = useRef(false);
+
   // Dynamic Fee Calculator (Base Fee + Reservation Fee)
   useEffect(() => {
     if (!currentSection) return;
+    if (skipFeeCalc.current) {
+      skipFeeCalc.current = false;
+      return;
+    }
 
     let calculatedFee = 0;
 
@@ -1212,6 +1219,23 @@ function NewAllocDialog({
 
     setFee(calculatedFee);
   }, [currentSection?.id, shiftId, shifts.data, reservationType]);
+
+  // Prefill shift + fee from the student's existing / most recent allocation
+  const prefillFromStudent = (s: any) => {
+    const allocs = (s?.allocations ?? []) as any[];
+    if (allocs.length === 0) return;
+    const prior =
+      allocs.find((a) => a.is_active) ??
+      [...allocs].sort(
+        (a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime(),
+      )[0];
+    if (!prior) return;
+    const nextShift = prior.shift_id ?? "none";
+    const shiftAvailable = nextShift === "none" || (shifts.data ?? []).some((sh: any) => sh.id === nextShift);
+    skipFeeCalc.current = true;
+    if (shiftAvailable) setShiftId(nextShift);
+    if (prior.monthly_fee != null) setFee(Number(prior.monthly_fee));
+  };
 
   // Calculate selected student context
   const selectedStudent = students.data?.find((s: any) => s.id === studentId);
@@ -1375,6 +1399,7 @@ function NewAllocDialog({
                       onClick={() => {
                         setStudentId(s.id);
                         setStudentSearch(`${s.full_name} (${s.mobile_number})`);
+                        prefillFromStudent(s);
                         setIsSearchFocused(false);
                       }}
                     >
