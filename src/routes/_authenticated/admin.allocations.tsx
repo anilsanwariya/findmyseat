@@ -1277,8 +1277,12 @@ function NewAllocDialog({
             return;
           }
 
-          const carriedDue = prev?.next_due_date ?? null;
+          const prevDue = prev?.next_due_date ? String(prev.next_due_date).split("T")[0] : null;
+          const payDue = paidUntil ? String(paidUntil).split("T")[0] : null;
+          // Take the furthest coverage we know about
+          const carriedDue = prevDue && payDue ? (prevDue > payDue ? prevDue : payDue) : (prevDue ?? payDue);
           const carriedStatus = carriedDue ? (carriedDue < todayISO() ? "overdue" : "paid") : "pending";
+
 
           const { error } = await supabase.from("allocations").insert({
             org_id: orgId!,
