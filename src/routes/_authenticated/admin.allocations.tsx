@@ -1399,6 +1399,7 @@ function NewAllocDialog({
                       onClick={() => {
                         setStudentId(s.id);
                         setStudentSearch(`${s.full_name} (${s.mobile_number})`);
+                        prefillFromStudent(s);
                         setIsSearchFocused(false);
                       }}
                     >
