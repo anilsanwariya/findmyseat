@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/lib/auth";
@@ -10,6 +10,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
@@ -32,6 +42,7 @@ import {
   Utensils,
   Grid3X3,
   Settings2,
+  User,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/layout-builder")({
@@ -39,11 +50,20 @@ export const Route = createFileRoute("/_authenticated/admin/layout-builder")({
 });
 
 type Cell =
-  | { kind: "seat"; id: string; seat_number: string; facing: "north" | "south" | "east" | "west"; is_corner: boolean }
+  | {
+      kind: "seat";
+      id: string;
+      seat_number: string;
+      facing: "north" | "south" | "east" | "west";
+      is_corner: boolean;
+      occupants: string[];
+    }
   | { kind: "object"; id: string; object_type: string }
   | { kind: "empty" };
 
 const DIR_ICON = { north: ArrowUp, south: ArrowDown, east: ArrowRight, west: ArrowLeft };
+
+const key = (r: number, c: number) => `${r}:${c}`;
 
 // Enhanced Object Meta with Walls, Windows, and Custom Areas
 const OBJ_META: Record<string, { icon: any; label: string; color: string }> = {
@@ -60,6 +80,13 @@ const OBJ_META: Record<string, { icon: any; label: string; color: string }> = {
   dining: { icon: Utensils, label: "Dining", color: "bg-orange-500/20 text-orange-300 border-orange-500/30" },
 };
 
+type PendingDelete = {
+  seatIds: string[];
+  objIds: string[];
+  occupants: string[];
+  label: string;
+} | null;
+
 function LayoutBuilderPage() {
   const { data: session } = useSession();
   const orgId = session?.orgId;
@@ -74,13 +101,15 @@ function LayoutBuilderPage() {
   const [addSeatOpen, setAddSeatOpen] = useState(false);
   const [addSeatPos, setAddSeatPos] = useState<{ row: number; col: number } | null>(null);
 
-  // Unified Multi-select States
+  // Unified Multi-select States (Set for O(1) lookups — 225+ cells re-render on every click otherwise)
   const [multiSelectMode, setMultiSelectMode] = useState(false);
-  const [selectedCells, setSelectedCells] = useState<{ r: number; c: number }[]>([]);
+  const [selectedCells, setSelectedCells] = useState<Set<string>>(new Set());
+  const [dragging, setDragging] = useState<null | "add" | "remove">(null);
   const [bulkAreaOpen, setBulkAreaOpen] = useState(false);
   const [bulkSeatOpen, setBulkSeatOpen] = useState(false);
   const [bulkEditOpen, setBulkEditOpen] = useState(false);
   const [isShifting, setIsShifting] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<PendingDelete>(null);
 
   const qc = useQueryClient();
   const currentLibId = libraryId ?? libs?.[0]?.id;
@@ -88,6 +117,7 @@ function LayoutBuilderPage() {
   const sectionsQ = useQuery({
     queryKey: ["sections", currentLibId],
     enabled: !!currentLibId,
+    staleTime: 30_000,
     queryFn: async () => {
       const { data } = await supabase.from("sections").select("*").eq("library_id", currentLibId!).order("created_at");
       return data ?? [];
@@ -97,16 +127,34 @@ function LayoutBuilderPage() {
   const currentSectionId = sectionId ?? sectionsQ.data?.[0]?.id;
   const currentSection = sectionsQ.data?.find((s: any) => s.id === currentSectionId);
 
-  // Fetch only physical layout elements (Seats & Objects), NO allocations
+  // Fetch physical layout elements (Seats & Objects) + who currently occupies each seat
   const seatsQ = useQuery({
     queryKey: ["seats", currentSectionId],
     enabled: !!currentSectionId,
+    staleTime: 15_000,
     queryFn: async () => {
       const [seats, objs] = await Promise.all([
         supabase.from("seats").select("*").eq("section_id", currentSectionId!),
         supabase.from("layout_objects").select("*").eq("section_id", currentSectionId!),
       ]);
-      return { seats: seats.data ?? [], objs: objs.data ?? [] };
+      const seatRows = seats.data ?? [];
+      let occupancy: Record<string, string[]> = {};
+      if (seatRows.length) {
+        const { data: allocs } = await supabase
+          .from("allocations")
+          .select("seat_id, students(full_name)")
+          .eq("is_active", true)
+          .in(
+            "seat_id",
+            seatRows.map((s: any) => s.id),
+          );
+        for (const a of allocs ?? []) {
+          if (!a.seat_id) continue;
+          const name = (a as any).students?.full_name ?? "Student";
+          occupancy[a.seat_id] = [...(occupancy[a.seat_id] ?? []), name];
+        }
+      }
+      return { seats: seatRows, objs: objs.data ?? [], occupancy };
     },
   });
 
@@ -119,18 +167,19 @@ function LayoutBuilderPage() {
     );
 
     for (const s of seatsQ.data?.seats ?? []) {
-      g[s.row_position]?.[s.column_position] &&
-        (g[s.row_position][s.column_position] = {
-          kind: "seat",
-          id: s.id,
-          seat_number: s.seat_number,
-          facing: s.facing_direction,
-          is_corner: s.is_corner,
-        });
+      if (!g[s.row_position]?.[s.column_position]) continue;
+      g[s.row_position][s.column_position] = {
+        kind: "seat",
+        id: s.id,
+        seat_number: s.seat_number,
+        facing: s.facing_direction,
+        is_corner: s.is_corner,
+        occupants: seatsQ.data?.occupancy?.[s.id] ?? [],
+      };
     }
     for (const o of seatsQ.data?.objs ?? []) {
-      g[o.row_position]?.[o.column_position] &&
-        (g[o.row_position][o.column_position] = { kind: "object", id: o.id, object_type: o.object_type });
+      if (!g[o.row_position]?.[o.column_position]) continue;
+      g[o.row_position][o.column_position] = { kind: "object", id: o.id, object_type: o.object_type };
     }
     return g;
   }, [currentSection, seatsQ.data]);
@@ -140,55 +189,135 @@ function LayoutBuilderPage() {
     return seatsQ.data.seats.find((x: any) => x.id === selectedSeat) || null;
   }, [selectedSeat, seatsQ.data]);
 
-  async function handleCellClick(row: number, col: number) {
-    if (!grid) return;
-    const cell = grid[row][col];
-
-    // Multi-Select Handling (Allow selecting ANY cell now)
-    if (multiSelectMode) {
-      const isSelected = selectedCells.some((x) => x.r === row && x.c === col);
-      if (isSelected) {
-        setSelectedCells((prev) => prev.filter((x) => !(x.r === row && x.c === col)));
-      } else {
-        setSelectedCells((prev) => [...prev, { r: row, c: col }]);
-      }
-      return;
-    }
-
-    // Standard Single Handling
-    if (cell.kind === "seat") {
-      setSelectedSeat(cell.id);
-      return;
-    }
-    if (cell.kind === "object") return;
-    setAddSeatPos({ row, col });
-    setAddSeatOpen(true);
-  }
-
-  const handleBulkDelete = async () => {
-    if (!selectedCells.length) return;
-    if (!confirm("Are you sure you want to delete all seats and objects in the selected area?")) return;
-
-    setIsShifting(true);
-    toast.loading("Deleting selected area...");
-
-    const seatIds =
-      seatsQ.data?.seats
-        .filter((s) => selectedCells.some((c) => c.r === s.row_position && c.c === s.column_position))
-        .map((s) => s.id) || [];
-    const objIds =
-      seatsQ.data?.objs
-        .filter((o) => selectedCells.some((c) => c.r === o.row_position && c.c === o.column_position))
-        .map((o) => o.id) || [];
-
-    if (seatIds.length) await supabase.from("seats").delete().in("id", seatIds);
-    if (objIds.length) await supabase.from("layout_objects").delete().in("id", objIds);
-
-    toast.success("Area cleared successfully");
-    qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
-    setIsShifting(false);
-    setSelectedCells([]);
+  // Keep the inspector honest: clear selection when the seat disappears or section changes
+  useEffect(() => {
+    setSelectedSeat(null);
+    setSelectedCells(new Set());
     setMultiSelectMode(false);
+  }, [currentSectionId]);
+
+  const refreshLayout = useCallback(() => {
+    qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
+    qc.invalidateQueries({ queryKey: ["allocations"] });
+  }, [qc, currentSectionId]);
+
+  const toggleCell = useCallback((row: number, col: number, force?: "add" | "remove") => {
+    setSelectedCells((prev) => {
+      const k = key(row, col);
+      const has = prev.has(k);
+      const shouldAdd = force ? force === "add" : !has;
+      if (shouldAdd === has) return prev;
+      const next = new Set(prev);
+      if (shouldAdd) next.add(k);
+      else next.delete(k);
+      return next;
+    });
+  }, []);
+
+  const handleCellClick = useCallback(
+    (row: number, col: number) => {
+      if (!grid) return;
+      const cell = grid[row]?.[col];
+      if (!cell) return;
+
+      if (multiSelectMode) {
+        toggleCell(row, col);
+        return;
+      }
+
+      if (cell.kind === "seat") {
+        setSelectedSeat(cell.id);
+        return;
+      }
+      if (cell.kind === "object") {
+        setPendingDelete({
+          seatIds: [],
+          objIds: [cell.id],
+          occupants: [],
+          label: `Remove "${OBJ_META[cell.object_type]?.label ?? "object"}" from row ${row + 1}, col ${col + 1}?`,
+        });
+        return;
+      }
+      setAddSeatPos({ row, col });
+      setAddSeatOpen(true);
+    },
+    [grid, multiSelectMode, toggleCell],
+  );
+
+  const handleCellDragStart = useCallback(
+    (row: number, col: number) => {
+      if (!multiSelectMode) return;
+      const mode = selectedCells.has(key(row, col)) ? "remove" : "add";
+      setDragging(mode);
+      toggleCell(row, col, mode);
+    },
+    [multiSelectMode, selectedCells, toggleCell],
+  );
+
+  const handleCellDragEnter = useCallback(
+    (row: number, col: number) => {
+      if (!multiSelectMode || !dragging) return;
+      toggleCell(row, col, dragging);
+    },
+    [multiSelectMode, dragging, toggleCell],
+  );
+
+  useEffect(() => {
+    if (!dragging) return;
+    const stop = () => setDragging(null);
+    window.addEventListener("pointerup", stop);
+    window.addEventListener("pointercancel", stop);
+    return () => {
+      window.removeEventListener("pointerup", stop);
+      window.removeEventListener("pointercancel", stop);
+    };
+  }, [dragging]);
+
+  const requestBulkDelete = () => {
+    if (!selectedCells.size) return;
+    const seats = (seatsQ.data?.seats ?? []).filter((s: any) => selectedCells.has(key(s.row_position, s.column_position)));
+    const objs = (seatsQ.data?.objs ?? []).filter((o: any) => selectedCells.has(key(o.row_position, o.column_position)));
+    if (!seats.length && !objs.length) {
+      toast.info("Nothing to delete in the selected area.");
+      return;
+    }
+    const occupants = seats.flatMap((s: any) => seatsQ.data?.occupancy?.[s.id] ?? []);
+    setPendingDelete({
+      seatIds: seats.map((s: any) => s.id),
+      objIds: objs.map((o: any) => o.id),
+      occupants,
+      label: `Delete ${seats.length} seat(s) and ${objs.length} object(s) in the selected area?`,
+    });
+  };
+
+  const runDelete = async () => {
+    if (!pendingDelete) return;
+    const { seatIds, objIds } = pendingDelete;
+    setPendingDelete(null);
+    setIsShifting(true);
+    toast.loading("Removing…", { id: "layout-delete" });
+    try {
+      if (seatIds.length) {
+        const { data, error } = await (supabase as any).rpc("delete_seats_cascade", { p_seat_ids: seatIds });
+        if (error) throw error;
+        if (data && Number(data) > 0) {
+          toast.success(`${data} student allocation(s) were unseated`, { id: "layout-delete-alloc" });
+        }
+      }
+      if (objIds.length) {
+        const { error } = await supabase.from("layout_objects").delete().in("id", objIds);
+        if (error) throw error;
+      }
+      if (seatIds.includes(selectedSeat ?? "")) setSelectedSeat(null);
+      toast.success("Layout updated", { id: "layout-delete" });
+      setSelectedCells(new Set());
+      setMultiSelectMode(false);
+      refreshLayout();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Could not delete", { id: "layout-delete" });
+    } finally {
+      setIsShifting(false);
+    }
   };
 
   const updateDimensions = useMutation({
@@ -201,89 +330,95 @@ function LayoutBuilderPage() {
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["sections", currentLibId] }),
+    onError: (e: any) => toast.error(e?.message ?? "Could not resize grid"),
   });
 
+  // Single atomic DB call — the old per-seat loop broke the unique(row,col) constraint
+  // halfway through and corrupted layouts.
   async function shiftGridItems(dr: number, dc: number) {
-    const seats = seatsQ.data?.seats ?? [];
-    const objs = seatsQ.data?.objs ?? [];
-    for (const seat of seats)
-      await supabase
-        .from("seats")
-        .update({ row_position: seat.row_position + dr, column_position: seat.column_position + dc })
-        .eq("id", seat.id);
-    for (const obj of objs)
-      await supabase
-        .from("layout_objects")
-        .update({ row_position: obj.row_position + dr, column_position: obj.column_position + dc })
-        .eq("id", obj.id);
+    const { error } = await (supabase as any).rpc("shift_section_layout", {
+      p_section_id: currentSectionId,
+      p_dr: dr,
+      p_dc: dc,
+    });
+    if (error) throw error;
   }
 
-  const handleAddTop = async () => {
-    if (!currentSection || !currentSectionId) return;
+  async function runGridOp(msg: string, fn: () => Promise<void>) {
+    if (isShifting) return;
     setIsShifting(true);
-    toast.loading("Expanding map upwards...", { id: "shift" });
-    await supabase
-      .from("sections")
-      .update({ grid_rows: currentSection.grid_rows + 1 })
-      .eq("id", currentSectionId);
-    await shiftGridItems(1, 0);
-    qc.invalidateQueries({ queryKey: ["sections"] });
-    qc.invalidateQueries({ queryKey: ["seats"] });
-    toast.success("Row added to Top", { id: "shift" });
-    setIsShifting(false);
+    toast.loading(msg, { id: "shift" });
+    try {
+      await fn();
+      qc.invalidateQueries({ queryKey: ["sections", currentLibId] });
+      qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
+      toast.success("Grid updated", { id: "shift" });
+    } catch (e: any) {
+      toast.error(e?.message ?? "Grid update failed", { id: "shift" });
+      // Always resync from the server so the canvas never shows a half-applied state
+      qc.invalidateQueries({ queryKey: ["sections", currentLibId] });
+      qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
+    } finally {
+      setIsShifting(false);
+    }
+  }
+
+  const handleAddTop = () => {
+    if (!currentSection || !currentSectionId) return;
+    runGridOp("Expanding map upwards…", async () => {
+      const { error } = await supabase
+        .from("sections")
+        .update({ grid_rows: currentSection.grid_rows + 1 })
+        .eq("id", currentSectionId);
+      if (error) throw error;
+      await shiftGridItems(1, 0);
+    });
   };
 
-  const handleRemoveTop = async () => {
+  const handleRemoveTop = () => {
     if (!grid || !currentSection || !currentSectionId) return;
+    if (currentSection.grid_rows <= 1) return toast.error("Grid must keep at least one row.");
     if (grid[0].some((c) => c.kind !== "empty")) {
       toast.error("Cannot remove top row: It contains active seats or objects.");
       return;
     }
-    setIsShifting(true);
-    toast.loading("Shrinking map from top...", { id: "shift" });
-    await shiftGridItems(-1, 0);
-    await supabase
-      .from("sections")
-      .update({ grid_rows: currentSection.grid_rows - 1 })
-      .eq("id", currentSectionId);
-    qc.invalidateQueries({ queryKey: ["sections"] });
-    qc.invalidateQueries({ queryKey: ["seats"] });
-    toast.success("Row removed from Top", { id: "shift" });
-    setIsShifting(false);
+    runGridOp("Shrinking map from top…", async () => {
+      await shiftGridItems(-1, 0);
+      const { error } = await supabase
+        .from("sections")
+        .update({ grid_rows: currentSection.grid_rows - 1 })
+        .eq("id", currentSectionId);
+      if (error) throw error;
+    });
   };
 
-  const handleAddLeft = async () => {
+  const handleAddLeft = () => {
     if (!currentSection || !currentSectionId) return;
-    setIsShifting(true);
-    toast.loading("Expanding map leftwards...", { id: "shift" });
-    await supabase
-      .from("sections")
-      .update({ grid_cols: currentSection.grid_cols + 1 })
-      .eq("id", currentSectionId);
-    await shiftGridItems(0, 1);
-    qc.invalidateQueries({ queryKey: ["sections"] });
-    qc.invalidateQueries({ queryKey: ["seats"] });
-    toast.success("Column added to Left", { id: "shift" });
-    setIsShifting(false);
+    runGridOp("Expanding map leftwards…", async () => {
+      const { error } = await supabase
+        .from("sections")
+        .update({ grid_cols: currentSection.grid_cols + 1 })
+        .eq("id", currentSectionId);
+      if (error) throw error;
+      await shiftGridItems(0, 1);
+    });
   };
 
-  const handleRemoveLeft = async () => {
+  const handleRemoveLeft = () => {
     if (!grid || !currentSection || !currentSectionId) return;
+    if (currentSection.grid_cols <= 1) return toast.error("Grid must keep at least one column.");
     if (grid.some((row) => row[0].kind !== "empty")) {
       toast.error("Cannot remove left column: It contains active seats or objects.");
       return;
     }
-    setIsShifting(true);
-    toast.loading("Shrinking map from left...", { id: "shift" });
-    await shiftGridItems(0, -1);
-    await supabase
-      .from("sections")
-      .update({ grid_cols: currentSection.grid_cols - 1 })
-      .eq("id", currentSectionId);
-    qc.invalidateQueries({ queryKey: ["sections"] });
-    qc.invalidateQueries({ queryKey: ["seats"] });
-    toast.success("Column removed from Left", { id: "shift" });
-    setIsShifting(false);
+    runGridOp("Shrinking map from left…", async () => {
+      await shiftGridItems(0, -1);
+      const { error } = await supabase
+        .from("sections")
+        .update({ grid_cols: currentSection.grid_cols - 1 })
+        .eq("id", currentSectionId);
+      if (error) throw error;
+    });
   };
 
   const handleAddBottom = () => {
@@ -297,6 +432,7 @@ function LayoutBuilderPage() {
 
   const handleRemoveBottom = () => {
     if (!grid || !currentSection) return;
+    if (currentSection.grid_rows <= 1) return toast.error("Grid must keep at least one row.");
     if (grid[currentSection.grid_rows - 1].some((c) => c.kind !== "empty")) {
       toast.error("Cannot remove bottom row: It contains active seats or objects.");
       return;
@@ -305,12 +441,18 @@ function LayoutBuilderPage() {
   };
   const handleRemoveRight = () => {
     if (!grid || !currentSection) return;
+    if (currentSection.grid_cols <= 1) return toast.error("Grid must keep at least one column.");
     if (grid.some((row) => row[currentSection.grid_cols - 1].kind !== "empty")) {
       toast.error("Cannot remove rightmost column: It contains active seats or objects.");
       return;
     }
     updateDimensions.mutate({ rows: currentSection.grid_rows, cols: currentSection.grid_cols - 1 });
   };
+
+  const selectedCellList = useMemo(
+    () => Array.from(selectedCells).map((k) => ({ r: Number(k.split(":")[0]), c: Number(k.split(":")[1]) })),
+    [selectedCells],
+  );
 
   return (
     <div className="space-y-6">
@@ -436,7 +578,7 @@ function LayoutBuilderPage() {
                   variant={multiSelectMode ? "default" : "outline"}
                   onClick={() => {
                     setMultiSelectMode(!multiSelectMode);
-                    setSelectedCells([]);
+                    setSelectedCells(new Set());
                   }}
                   className={cn(
                     "w-full sm:w-auto bg-panel transition-colors shrink-0",
@@ -450,15 +592,21 @@ function LayoutBuilderPage() {
               </div>
             </div>
 
+            {multiSelectMode && selectedCells.size === 0 && (
+              <div className="mx-2 mb-3 rounded-lg border border-cyan/20 bg-cyan/5 px-3 py-2 text-[11px] text-cyan/90">
+                Tip: click and drag across the grid to select many cells at once.
+              </div>
+            )}
+
             {/* Unified Selection Action Banner */}
-            {multiSelectMode && selectedCells.length > 0 && (
+            {multiSelectMode && selectedCells.size > 0 && (
               <div className="bg-cyan/10 border border-cyan/30 rounded-lg p-3 mb-4 mx-2 flex flex-col xl:flex-row xl:items-center justify-between gap-3 animate-in fade-in zoom-in slide-in-from-top-4">
-                <span className="text-sm font-medium text-cyan shrink-0">{selectedCells.length} cells selected</span>
+                <span className="text-sm font-medium text-cyan shrink-0">{selectedCells.size} cells selected</span>
                 <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
                   <Button
                     size="sm"
                     variant="ghost"
-                    onClick={() => setSelectedCells([])}
+                    onClick={() => setSelectedCells(new Set())}
                     className="text-muted-foreground hover:text-white col-span-2 sm:col-span-1"
                   >
                     Clear
@@ -484,7 +632,7 @@ function LayoutBuilderPage() {
                   >
                     <Settings2 className="size-3.5 mr-1.5" /> Edit
                   </Button>
-                  <Button size="sm" variant="destructive" onClick={handleBulkDelete} disabled={isShifting}>
+                  <Button size="sm" variant="destructive" onClick={requestBulkDelete} disabled={isShifting}>
                     <Trash2 className="size-3.5 mr-1.5" /> Delete
                   </Button>
                 </div>
@@ -492,7 +640,7 @@ function LayoutBuilderPage() {
             )}
 
             {/* INTERACTIVE RESPONSIVE GRID WRAPPER */}
-            <div className="relative w-full overflow-x-auto rounded-lg bg-black/30 p-4 ring-1 ring-panel-border touch-pan-x touch-pan-y custom-scrollbar">
+            <div className="relative w-full overflow-x-auto rounded-lg bg-black/30 p-4 ring-1 ring-panel-border custom-scrollbar">
               {grid && (
                 <div className="flex flex-col items-center min-w-max p-2 sm:p-4">
                   {/* Top Controls */}
@@ -544,23 +692,22 @@ function LayoutBuilderPage() {
 
                     {/* The Grid */}
                     <div
-                      className="grid gap-1.5"
+                      className={cn("grid gap-1.5", multiSelectMode && "select-none touch-none")}
                       style={{ gridTemplateColumns: `repeat(${currentSection?.grid_cols ?? 15}, minmax(36px, 1fr))` }}
                     >
                       {grid.map((row, r) =>
-                        row.map((cell, c) => {
-                          const isSelected = selectedCells.some((x) => x.r === r && x.c === c);
-                          return (
-                            <CellView
-                              key={`${r}-${c}`}
-                              row={r}
-                              col={c}
-                              cell={cell}
-                              isSelected={isSelected}
-                              onClick={() => handleCellClick(r, c)}
-                            />
-                          );
-                        }),
+                        row.map((cell, c) => (
+                          <CellView
+                            key={`${r}-${c}`}
+                            row={r}
+                            col={c}
+                            cell={cell}
+                            isSelected={selectedCells.has(key(r, c))}
+                            onClick={handleCellClick}
+                            onDragStart={handleCellDragStart}
+                            onDragEnter={handleCellDragEnter}
+                          />
+                        )),
                       )}
                     </div>
 
@@ -617,6 +764,7 @@ function LayoutBuilderPage() {
 
           <InspectorPanel
             selected={selectedSeatObj}
+            occupants={selectedSeatObj ? (seatsQ.data?.occupancy?.[selectedSeatObj.id] ?? []) : []}
             onUpdate={async (updates) => {
               if (!selectedSeatObj) return;
               const { error } = await supabase.from("seats").update(updates).eq("id", selectedSeatObj.id);
@@ -627,20 +775,52 @@ function LayoutBuilderPage() {
               toast.success("Seat updated");
               qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
             }}
-            onDelete={async () => {
+            onDelete={() => {
               if (!selectedSeatObj) return;
-              const { error } = await supabase.from("seats").delete().eq("id", selectedSeatObj.id);
-              if (error) {
-                toast.error(error.message);
-                return;
-              }
-              toast.success("Seat removed");
-              setSelectedSeat(null);
-              qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
+              const occupants = seatsQ.data?.occupancy?.[selectedSeatObj.id] ?? [];
+              setPendingDelete({
+                seatIds: [selectedSeatObj.id],
+                objIds: [],
+                occupants,
+                label: `Delete seat ${selectedSeatObj.seat_number}?`,
+              });
             }}
           />
         </div>
       )}
+
+      {/* Confirm destructive layout changes (incl. seats with assigned students) */}
+      <AlertDialog open={!!pendingDelete} onOpenChange={(o) => !o && setPendingDelete(null)}>
+        <AlertDialogContent className="glass-strong border-panel-border">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{pendingDelete?.label}</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm">
+                {pendingDelete?.occupants.length ? (
+                  <div className="rounded-md border border-rose/30 bg-rose/10 p-3 text-rose">
+                    <div className="font-medium">
+                      {pendingDelete.occupants.length} student(s) are currently assigned here:
+                    </div>
+                    <div className="mt-1 text-xs leading-relaxed">{pendingDelete.occupants.join(", ")}</div>
+                    <div className="mt-2 text-xs text-rose/80">
+                      They will be unseated but keep their subscription, dues and payment history — you can re-assign
+                      them to another seat from Allocations.
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground">This removes the item from the floor plan permanently.</p>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-panel border-panel-border">Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={runDelete} className="bg-rose text-white hover:bg-rose/90">
+              Delete anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Normal Single Object/Seat Add */}
       <AddSeatDialog
@@ -657,19 +837,21 @@ function LayoutBuilderPage() {
       <BulkAreaDialog
         open={bulkAreaOpen}
         onOpenChange={setBulkAreaOpen}
-        cells={selectedCells}
+        cells={selectedCellList}
+        existingSeats={seatsQ.data?.seats || []}
+        existingObjs={seatsQ.data?.objs || []}
         section={currentSection}
         orgId={orgId!}
         onDone={() => {
           qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
           setMultiSelectMode(false);
-          setSelectedCells([]);
+          setSelectedCells(new Set());
         }}
       />
       <BulkSeatDialog
         open={bulkSeatOpen}
         onOpenChange={setBulkSeatOpen}
-        cells={selectedCells}
+        cells={selectedCellList}
         existingSeats={seatsQ.data?.seats || []}
         existingObjs={seatsQ.data?.objs || []}
         section={currentSection}
@@ -678,45 +860,57 @@ function LayoutBuilderPage() {
         onDone={() => {
           qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
           setMultiSelectMode(false);
-          setSelectedCells([]);
+          setSelectedCells(new Set());
         }}
       />
       <BulkEditSeatsDialog
         open={bulkEditOpen}
         onOpenChange={setBulkEditOpen}
-        cells={selectedCells}
+        cells={selectedCellList}
         existingSeats={seatsQ.data?.seats || []}
         onDone={() => {
           qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
           setMultiSelectMode(false);
-          setSelectedCells([]);
+          setSelectedCells(new Set());
         }}
       />
     </div>
   );
 }
 
-function CellView({
+const CellView = memo(function CellView({
   row,
   col,
   cell,
   isSelected,
   onClick,
+  onDragStart,
+  onDragEnter,
 }: {
   row: number;
   col: number;
   cell: Cell;
   isSelected: boolean;
-  onClick: () => void;
+  onClick: (r: number, c: number) => void;
+  onDragStart: (r: number, c: number) => void;
+  onDragEnter: (r: number, c: number) => void;
 }) {
+  const common = {
+    onClick: () => onClick(row, col),
+    onPointerDown: () => onDragStart(row, col),
+    onPointerEnter: () => onDragEnter(row, col),
+  };
+
   if (cell.kind === "seat") {
-    const Icon = DIR_ICON[cell.facing];
+    const Icon = DIR_ICON[cell.facing] ?? ArrowUp;
+    const occupied = cell.occupants.length > 0;
     return (
       <button
-        onClick={onClick}
-        title={`Seat ${cell.seat_number}`}
+        {...common}
+        type="button"
+        title={`Seat ${cell.seat_number}${occupied ? ` · ${cell.occupants.join(", ")}` : " · vacant"}`}
         className={cn(
-          "group flex size-10 min-w-0 flex-col items-center justify-center rounded border text-[9px] font-mono transition-all",
+          "group relative flex size-10 min-w-0 flex-col items-center justify-center rounded border text-[9px] font-mono transition-all",
           isSelected
             ? "border-cyan bg-cyan/20 shadow-[0_0_8px_rgba(34,211,238,0.5)] scale-[1.06]"
             : "hover:scale-[1.06]",
@@ -730,6 +924,11 @@ function CellView({
       >
         <Icon className="mb-0.5 size-2.5 opacity-70" />
         <span className="truncate font-bold">{cell.seat_number}</span>
+        {occupied && (
+          <span className="absolute -top-1 -right-1 flex size-3.5 items-center justify-center rounded-full bg-magenta text-[7px] text-white">
+            <User className="size-2" />
+          </span>
+        )}
       </button>
     );
   }
@@ -738,8 +937,9 @@ function CellView({
     const Icon = meta.icon;
     return (
       <button
-        onClick={onClick}
-        title={`${meta.label}`}
+        {...common}
+        type="button"
+        title={`${meta.label} — click to remove`}
         className={cn(
           "flex size-10 min-w-0 flex-col items-center justify-center rounded border text-[8px] font-mono transition-all",
           isSelected ? "border-cyan bg-cyan/20 shadow-[0_0_8px_rgba(34,211,238,0.5)] scale-105" : "hover:scale-105",
@@ -753,7 +953,8 @@ function CellView({
   }
   return (
     <button
-      onClick={onClick}
+      {...common}
+      type="button"
       title={`Row ${row + 1}, Col ${col + 1}`}
       className={cn(
         "size-10 min-w-0 rounded border transition-colors hover:scale-[1.03]",
@@ -763,7 +964,8 @@ function CellView({
       )}
     />
   );
-}
+});
+
 
 // --- PURE LAYOUT INSPECTOR (NO ALLOCATIONS) ---
 function InspectorPanel({
