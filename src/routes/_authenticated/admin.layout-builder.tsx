@@ -970,10 +970,12 @@ const CellView = memo(function CellView({
 // --- PURE LAYOUT INSPECTOR (NO ALLOCATIONS) ---
 function InspectorPanel({
   selected,
+  occupants = [],
   onUpdate,
   onDelete,
 }: {
   selected: any;
+  occupants?: string[];
   onUpdate: (updates: any) => void;
   onDelete: () => void;
 }) {
