@@ -38,6 +38,32 @@ function StudentsPage() {
   const [viewing, setViewing] = useState<string | null>(null);
   const qc = useQueryClient();
   const setActive = useServerFn(setStudentActive);
+  const [exporting, setExporting] = useState(false);
+
+  const exportExcel = async () => {
+    if (!orgId) return;
+    setExporting(true);
+    try {
+      const rows = await buildStudentExportRows({
+        orgId,
+        libraryId: libraryFilter === "all" ? null : libraryFilter,
+        isActive: tab === "active",
+      });
+      if (!rows.length) {
+        toast.info("No students to export for this filter.");
+        return;
+      }
+      const label =
+        libraryFilter === "all" ? "all-branches" : (libs ?? []).find((l) => l.id === libraryFilter)?.name ?? "branch";
+      downloadStudentWorkbook(rows, `${label.toLowerCase().replace(/\s+/g, "-")}-${tab}`);
+      toast.success(`Exported ${rows.length} students`);
+    } catch (e: any) {
+      toast.error(e?.message ?? "Export failed");
+    } finally {
+      setExporting(false);
+    }
+  };
+
 
   const students = useQuery({
     queryKey: ["students", orgId, tab, q, libraryFilter],
