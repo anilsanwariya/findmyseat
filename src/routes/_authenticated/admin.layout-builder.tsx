@@ -262,34 +262,66 @@ function LayoutBuilderPage() {
     [grid, multiSelectMode, toggleCell],
   );
 
-  const handleCellDragStart = useCallback(
-    (row: number, col: number) => {
-      if (!multiSelectMode) return;
-      const mode = selectedCells.has(key(row, col)) ? "remove" : "add";
-      setDragging(mode);
-      toggleCell(row, col, mode);
+  const pushAction = useCallback(
+    (action: LayoutAction) => {
+      setHistory((prev) => {
+        const next = [...prev, action].slice(-40);
+        if (currentSectionId) saveDraft(currentSectionId, sessionIdRef.current, next);
+        return next;
+      });
     },
-    [multiSelectMode, selectedCells, toggleCell],
+    [currentSectionId],
   );
 
-  const handleCellDragEnter = useCallback(
-    (row: number, col: number) => {
-      if (!multiSelectMode || !dragging) return;
-      toggleCell(row, col, dragging);
-    },
-    [multiSelectMode, dragging, toggleCell],
-  );
-
+  // Reset the journal per section and surface any draft left behind by a closed tab.
   useEffect(() => {
-    if (!dragging) return;
-    const stop = () => setDragging(null);
-    window.addEventListener("pointerup", stop);
-    window.addEventListener("pointercancel", stop);
-    return () => {
-      window.removeEventListener("pointerup", stop);
-      window.removeEventListener("pointercancel", stop);
-    };
-  }, [dragging]);
+    setHistory([]);
+    setSavedCount(0);
+    if (!currentSectionId) {
+      setRecoverable(null);
+      return;
+    }
+    const d = readDraft(currentSectionId);
+    setRecoverable(d && d.sessionId !== sessionIdRef.current ? d : null);
+  }, [currentSectionId]);
+
+  const unsaved = history.length - savedCount;
+
+  const handleSave = useCallback(async () => {
+    if (!currentSectionId) return;
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: ["seats", currentSectionId] }),
+      qc.invalidateQueries({ queryKey: ["sections", currentLibId] }),
+    ]);
+    setSavedCount(history.length);
+    clearDraft(currentSectionId);
+    setRecoverable(null);
+    toast.success(unsaved > 0 ? `Layout saved · ${unsaved} change(s) synced` : "Layout is up to date");
+  }, [currentSectionId, currentLibId, qc, history.length, unsaved]);
+
+  const handleUndo = useCallback(async () => {
+    const last = history[history.length - 1];
+    if (!last || undoing) return;
+    setUndoing(true);
+    toast.loading("Undoing…", { id: "layout-undo" });
+    try {
+      const msg = await undoAction(last);
+      const next = history.slice(0, -1);
+      setHistory(next);
+      setSavedCount((c) => Math.min(c, next.length));
+      if (currentSectionId) saveDraft(currentSectionId, sessionIdRef.current, next);
+      setSelectedSeat(null);
+      qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
+      qc.invalidateQueries({ queryKey: ["sections", currentLibId] });
+      qc.invalidateQueries({ queryKey: ["allocations"] });
+      toast.success(msg, { id: "layout-undo" });
+    } catch (e: any) {
+      toast.error(e?.message ?? "Could not undo", { id: "layout-undo" });
+    } finally {
+      setUndoing(false);
+    }
+  }, [history, undoing, currentSectionId, currentLibId, qc]);
+
 
   const requestBulkDelete = () => {
     if (!selectedCells.size) return;
