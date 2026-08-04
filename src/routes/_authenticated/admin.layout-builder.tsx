@@ -1932,17 +1932,18 @@ function BulkSeatDialog({
   const [facing, setFacing] = useState<"north" | "south" | "east" | "west">("north");
   const [isCorner, setIsCorner] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [order, setOrder] = useState<SeatOrder>("rows_ltr");
+  const [descending, setDescending] = useState(false);
 
-  // Filter to only true empty cells
+  // Filter to only true empty cells, then apply the chosen numbering traversal
   const emptyCells = useMemo(() => {
-    return cells
-      .filter((c: any) => {
-        const hasSeat = existingSeats.some((s: any) => s.row_position === c.r && s.column_position === c.c);
-        const hasObj = existingObjs.some((o: any) => o.row_position === c.r && o.column_position === c.c);
-        return !hasSeat && !hasObj;
-      })
-      .sort((a: any, b: any) => (a.r === b.r ? a.c - b.c : a.r - b.r)); // Sort Left-to-Right, Top-to-Bottom
-  }, [cells, existingSeats, existingObjs]);
+    const free = cells.filter((c: any) => {
+      const hasSeat = existingSeats.some((s: any) => s.row_position === c.r && s.column_position === c.c);
+      const hasObj = existingObjs.some((o: any) => o.row_position === c.r && o.column_position === c.c);
+      return !hasSeat && !hasObj;
+    });
+    return orderCells(free as any, order, descending);
+  }, [cells, existingSeats, existingObjs, order, descending]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1969,7 +1970,7 @@ function BulkSeatDialog({
                 facing_direction: facing,
                 is_corner: isCorner,
               }));
-              const { error } = await supabase.from("seats").insert(rows);
+              const { data, error } = await supabase.from("seats").insert(rows).select("id");
               setLoading(false);
               if (error) {
                 toast.error(error.message);
@@ -1977,7 +1978,12 @@ function BulkSeatDialog({
               }
               toast.success(`${rows.length} seats generated`);
               onOpenChange(false);
-              onDone();
+              onDone({
+                type: "add_seats",
+                at: Date.now(),
+                label: `Generated ${rows.length} seat(s)`,
+                seatIds: (data ?? []).map((r: any) => r.id),
+              });
             }}
             className="space-y-4"
           >
@@ -2020,6 +2026,27 @@ function BulkSeatDialog({
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Numbering order</Label>
+              <Select value={order} onValueChange={(v: any) => setOrder(v)}>
+                <SelectTrigger className="bg-panel border-panel-border">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="rows_ltr">Row by row · left → right</SelectItem>
+                  <SelectItem value="rows_rtl">Row by row · right → left</SelectItem>
+                  <SelectItem value="cols_ttb">Column by column · top → bottom</SelectItem>
+                  <SelectItem value="cols_btt">Column by column · bottom → top</SelectItem>
+                </SelectContent>
+              </Select>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={descending} onChange={(e) => setDescending(e.target.checked)} /> Reverse
+                (descending) order
+              </label>
+              <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                First seat: {emptyCells[0] ? `R${emptyCells[0].r + 1}C${emptyCells[0].c + 1}` : "—"}
+              </p>
             </div>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={isCorner} onChange={(e) => setIsCorner(e.target.checked)} /> Mark all as
