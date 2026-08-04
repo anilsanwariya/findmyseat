@@ -343,6 +343,9 @@ function LayoutBuilderPage() {
   const runDelete = async () => {
     if (!pendingDelete) return;
     const { seatIds, objIds } = pendingDelete;
+    // Snapshot the exact rows so Undo can restore them byte-for-byte.
+    const seatRows = (seatsQ.data?.seats ?? []).filter((s: any) => seatIds.includes(s.id));
+    const objRows = (seatsQ.data?.objs ?? []).filter((o: any) => objIds.includes(o.id));
     setPendingDelete(null);
     setIsShifting(true);
     toast.loading("Removing…", { id: "layout-delete" });
@@ -359,6 +362,13 @@ function LayoutBuilderPage() {
         if (error) throw error;
       }
       if (seatIds.includes(selectedSeat ?? "")) setSelectedSeat(null);
+      pushAction({
+        type: "delete",
+        at: Date.now(),
+        label: `Deleted ${seatRows.length} seat(s), ${objRows.length} area cell(s)`,
+        seats: seatRows,
+        objs: objRows,
+      });
       toast.success("Layout updated", { id: "layout-delete" });
       setSelectedCells(new Set());
       setMultiSelectMode(false);
@@ -373,15 +383,28 @@ function LayoutBuilderPage() {
   const updateDimensions = useMutation({
     mutationFn: async ({ rows, cols }: { rows: number; cols: number }) => {
       if (!currentSectionId) throw new Error("No section selected");
+      const prevRows = currentSection?.grid_rows ?? rows;
+      const prevCols = currentSection?.grid_cols ?? cols;
       const { error } = await supabase
         .from("sections")
         .update({ grid_rows: rows, grid_cols: cols })
         .eq("id", currentSectionId);
       if (error) throw error;
+      pushAction({
+        type: "resize",
+        at: Date.now(),
+        label: `Resized grid to ${rows}×${cols}`,
+        sectionId: currentSectionId,
+        prevRows,
+        prevCols,
+        dr: 0,
+        dc: 0,
+      });
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["sections", currentLibId] }),
     onError: (e: any) => toast.error(e?.message ?? "Could not resize grid"),
   });
+
 
   // Single atomic DB call — the old per-seat loop broke the unique(row,col) constraint
   // halfway through and corrupted layouts.
