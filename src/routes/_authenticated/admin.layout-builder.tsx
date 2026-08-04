@@ -417,12 +417,13 @@ function LayoutBuilderPage() {
     if (error) throw error;
   }
 
-  async function runGridOp(msg: string, fn: () => Promise<void>) {
+  async function runGridOp(msg: string, fn: () => Promise<void>, after?: () => void) {
     if (isShifting) return;
     setIsShifting(true);
     toast.loading(msg, { id: "shift" });
     try {
       await fn();
+      after?.();
       qc.invalidateQueries({ queryKey: ["sections", currentLibId] });
       qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
       toast.success("Grid updated", { id: "shift" });
@@ -436,17 +437,36 @@ function LayoutBuilderPage() {
     }
   }
 
-  const handleAddTop = () => {
+  const recordShift = (label: string, dr: number, dc: number) => {
     if (!currentSection || !currentSectionId) return;
-    runGridOp("Expanding map upwards…", async () => {
-      const { error } = await supabase
-        .from("sections")
-        .update({ grid_rows: currentSection.grid_rows + 1 })
-        .eq("id", currentSectionId);
-      if (error) throw error;
-      await shiftGridItems(1, 0);
+    pushAction({
+      type: "resize",
+      at: Date.now(),
+      label,
+      sectionId: currentSectionId,
+      prevRows: currentSection.grid_rows,
+      prevCols: currentSection.grid_cols,
+      dr,
+      dc,
     });
   };
+
+  const handleAddTop = () => {
+    if (!currentSection || !currentSectionId) return;
+    runGridOp(
+      "Expanding map upwards…",
+      async () => {
+        const { error } = await supabase
+          .from("sections")
+          .update({ grid_rows: currentSection.grid_rows + 1 })
+          .eq("id", currentSectionId);
+        if (error) throw error;
+        await shiftGridItems(1, 0);
+      },
+      () => recordShift("Added row on top", 1, 0),
+    );
+  };
+
 
   const handleRemoveTop = () => {
     if (!grid || !currentSection || !currentSectionId) return;
