@@ -1010,7 +1010,10 @@ function LayoutBuilderPage() {
         section={currentSection}
         orgId={orgId!}
         libraryId={currentLibId!}
-        onDone={() => qc.invalidateQueries({ queryKey: ["seats", currentSectionId] })}
+        onDone={(action?: LayoutAction) => {
+          if (action) pushAction(action);
+          qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
+        }}
       />
 
       {/* Unified Bulk Tools */}
@@ -1022,7 +1025,8 @@ function LayoutBuilderPage() {
         existingObjs={seatsQ.data?.objs || []}
         section={currentSection}
         orgId={orgId!}
-        onDone={() => {
+        onDone={(action?: LayoutAction) => {
+          if (action) pushAction(action);
           qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
           setMultiSelectMode(false);
           setSelectedCells(new Set());
@@ -1037,7 +1041,8 @@ function LayoutBuilderPage() {
         section={currentSection}
         libraryId={currentLibId!}
         orgId={orgId!}
-        onDone={() => {
+        onDone={(action?: LayoutAction) => {
+          if (action) pushAction(action);
           qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
           setMultiSelectMode(false);
           setSelectedCells(new Set());
@@ -1048,12 +1053,14 @@ function LayoutBuilderPage() {
         onOpenChange={setBulkEditOpen}
         cells={selectedCellList}
         existingSeats={seatsQ.data?.seats || []}
-        onDone={() => {
+        onDone={(action?: LayoutAction) => {
+          if (action) pushAction(action);
           qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
           setMultiSelectMode(false);
           setSelectedCells(new Set());
         }}
       />
+
     </div>
   );
 }
