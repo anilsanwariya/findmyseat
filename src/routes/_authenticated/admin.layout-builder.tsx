@@ -1,5 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type LayoutAction,
+  type LayoutDraft,
+  clearDraft,
+  orderCells,
+  readDraft,
+  saveDraft,
+  undoAction,
+} from "@/lib/layout-history";
+
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/lib/auth";
