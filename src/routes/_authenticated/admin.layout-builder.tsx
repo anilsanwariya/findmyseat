@@ -742,7 +742,7 @@ function LayoutBuilderPage() {
 
                     {/* The Grid */}
                     <div
-                      className={cn("grid gap-1.5", multiSelectMode && "select-none touch-none")}
+                      className={cn("grid gap-1.5", multiSelectMode && "select-none")}
                       style={{ gridTemplateColumns: `repeat(${currentSection?.grid_cols ?? 15}, minmax(36px, 1fr))` }}
                     >
                       {grid.map((row, r) =>
@@ -754,11 +754,10 @@ function LayoutBuilderPage() {
                             cell={cell}
                             isSelected={selectedCells.has(key(r, c))}
                             onClick={handleCellClick}
-                            onDragStart={handleCellDragStart}
-                            onDragEnter={handleCellDragEnter}
                           />
                         )),
                       )}
+
                     </div>
 
                     {/* Right Controls */}
