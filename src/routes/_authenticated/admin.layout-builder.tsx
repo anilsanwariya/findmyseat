@@ -53,6 +53,8 @@ import {
   Grid3X3,
   Settings2,
   User,
+  Undo2,
+  Save,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/layout-builder")({
@@ -764,7 +766,7 @@ function LayoutBuilderPage() {
 
             {multiSelectMode && selectedCells.size === 0 && (
               <div className="mx-2 mb-3 rounded-lg border border-cyan/20 bg-cyan/5 px-3 py-2 text-[11px] text-cyan/90">
-                Tip: click and drag across the grid to select many cells at once.
+                Tip: tap each cell you want to include — selection is tap-to-toggle, works on mobile and tablet.
               </div>
             )}
 
