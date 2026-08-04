@@ -1734,23 +1734,31 @@ function AddSeatDialog({ open, onOpenChange, pos, section, orgId, libraryId, onD
             onSubmit={async (e) => {
               e.preventDefault();
               if (!pos || !section) return;
-              const { error } = await supabase.from("seats").insert({
-                section_id: section.id,
-                library_id: libraryId,
-                org_id: orgId,
-                seat_number: seatNumber,
-                row_position: pos.row,
-                column_position: pos.col,
-                facing_direction: facing,
-                is_corner: isCorner,
-              });
+              const { data, error } = await supabase
+                .from("seats")
+                .insert({
+                  section_id: section.id,
+                  library_id: libraryId,
+                  org_id: orgId,
+                  seat_number: seatNumber,
+                  row_position: pos.row,
+                  column_position: pos.col,
+                  facing_direction: facing,
+                  is_corner: isCorner,
+                })
+                .select("id");
               if (error) {
                 toast.error(error.message);
                 return;
               }
               toast.success("Seat added");
               onOpenChange(false);
-              onDone();
+              onDone({
+                type: "add_seats",
+                at: Date.now(),
+                label: `Added seat ${seatNumber}`,
+                seatIds: (data ?? []).map((r: any) => r.id),
+              });
               setSeatNumber("");
             }}
             className="space-y-3"
@@ -1793,20 +1801,28 @@ function AddSeatDialog({ open, onOpenChange, pos, section, orgId, libraryId, onD
             onSubmit={async (e) => {
               e.preventDefault();
               if (!pos || !section) return;
-              const { error } = await supabase.from("layout_objects").insert({
-                section_id: section.id,
-                org_id: orgId,
-                object_type: objectType,
-                row_position: pos.row,
-                column_position: pos.col,
-              });
+              const { data, error } = await supabase
+                .from("layout_objects")
+                .insert({
+                  section_id: section.id,
+                  org_id: orgId,
+                  object_type: objectType,
+                  row_position: pos.row,
+                  column_position: pos.col,
+                })
+                .select("id");
               if (error) {
                 toast.error(error.message);
                 return;
               }
               toast.success("Object placed");
               onOpenChange(false);
-              onDone();
+              onDone({
+                type: "add_objects",
+                at: Date.now(),
+                label: `Placed ${OBJ_META[objectType]?.label ?? "object"}`,
+                objIds: (data ?? []).map((r: any) => r.id),
+              });
             }}
             className="space-y-3"
           >
@@ -1858,7 +1874,7 @@ function BulkAreaDialog({ open, onOpenChange, cells, section, orgId, onDone }: a
               row_position: pos.r,
               column_position: pos.c,
             }));
-            const { error } = await supabase.from("layout_objects").insert(insertions);
+            const { data, error } = await supabase.from("layout_objects").insert(insertions).select("id");
             setLoading(false);
             if (error) {
               toast.error(error.message);
@@ -1866,7 +1882,12 @@ function BulkAreaDialog({ open, onOpenChange, cells, section, orgId, onDone }: a
             }
             toast.success(`Filled ${cells.length} cells successfully`);
             onOpenChange(false);
-            onDone();
+            onDone({
+              type: "add_objects",
+              at: Date.now(),
+              label: `Filled ${cells.length} cell(s) with ${OBJ_META[objectType]?.label ?? "area"}`,
+              objIds: (data ?? []).map((r: any) => r.id),
+            });
           }}
           className="space-y-4"
         >
@@ -2044,6 +2065,14 @@ function BulkEditSeatsDialog({ open, onOpenChange, cells, existingSeats, onDone 
               if (facing !== "no_change") updates.facing_direction = facing;
               if (isCorner !== "no_change") updates.is_corner = isCorner === "true";
 
+              const prev = existingSeats
+                .filter((s: any) => selectedSeatIds.includes(s.id))
+                .map((s: any) => {
+                  const p: any = { id: s.id };
+                  for (const k of Object.keys(updates)) p[k] = s[k];
+                  return p;
+                });
+
               if (Object.keys(updates).length > 0) {
                 const { error } = await supabase.from("seats").update(updates).in("id", selectedSeatIds);
                 if (error) {
@@ -2055,7 +2084,12 @@ function BulkEditSeatsDialog({ open, onOpenChange, cells, existingSeats, onDone 
               setLoading(false);
               toast.success(`Updated ${selectedSeatIds.length} seats`);
               onOpenChange(false);
-              onDone();
+              onDone({
+                type: "update_seats",
+                at: Date.now(),
+                label: `Bulk edited ${prev.length} seat(s)`,
+                prev,
+              });
             }}
             className="space-y-4"
           >
