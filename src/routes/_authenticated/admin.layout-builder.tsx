@@ -938,14 +938,23 @@ function LayoutBuilderPage() {
             occupants={selectedSeatObj ? (seatsQ.data?.occupancy?.[selectedSeatObj.id] ?? []) : []}
             onUpdate={async (updates) => {
               if (!selectedSeatObj) return;
+              const prev: any = { id: selectedSeatObj.id };
+              for (const k of Object.keys(updates)) prev[k] = (selectedSeatObj as any)[k];
               const { error } = await supabase.from("seats").update(updates).eq("id", selectedSeatObj.id);
               if (error) {
                 toast.error(error.message);
                 return;
               }
+              pushAction({
+                type: "update_seats",
+                at: Date.now(),
+                label: `Edited seat ${selectedSeatObj.seat_number}`,
+                prev: [prev],
+              });
               toast.success("Seat updated");
               qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
             }}
+
             onDelete={() => {
               if (!selectedSeatObj) return;
               const occupants = seatsQ.data?.occupancy?.[selectedSeatObj.id] ?? [];
