@@ -679,7 +679,7 @@ function LayoutBuilderPage() {
               </div>
 
               {/* Map Tools */}
-              <div className="flex gap-2 w-full sm:w-auto">
+              <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                 <Button
                   variant={multiSelectMode ? "default" : "outline"}
                   onClick={() => {
@@ -687,7 +687,7 @@ function LayoutBuilderPage() {
                     setSelectedCells(new Set());
                   }}
                   className={cn(
-                    "w-full sm:w-auto bg-panel transition-colors shrink-0",
+                    "flex-1 sm:flex-none bg-panel transition-colors shrink-0",
                     multiSelectMode &&
                       "bg-cyan text-cyan-950 hover:bg-cyan/90 border-cyan/50 shadow-[0_0_15px_rgba(34,211,238,0.2)]",
                   )}
@@ -695,8 +695,72 @@ function LayoutBuilderPage() {
                 >
                   <MousePointer2 className="size-4 mr-2" /> {multiSelectMode ? "Cancel Selection" : "Select Area"}
                 </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!history.length || undoing || isShifting}
+                  onClick={handleUndo}
+                  className="flex-1 sm:flex-none bg-panel shrink-0"
+                  title={history[history.length - 1]?.label ?? "Nothing to undo"}
+                >
+                  <Undo2 className="size-4 mr-2" /> Undo
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleSave}
+                  className={cn(
+                    "flex-1 sm:flex-none shrink-0",
+                    unsaved > 0
+                      ? "bg-emerald text-emerald-950 hover:bg-emerald/90"
+                      : "bg-panel border border-panel-border text-muted-foreground hover:bg-panel-strong",
+                  )}
+                >
+                  <Save className="size-4 mr-2" /> {unsaved > 0 ? `Save (${unsaved})` : "Saved"}
+                </Button>
               </div>
             </div>
+
+            <div className="mx-2 mb-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+              <span className={cn("size-1.5 rounded-full", unsaved > 0 ? "bg-amber-400" : "bg-emerald")} />
+              {unsaved > 0
+                ? `${unsaved} change(s) synced to server · draft kept locally`
+                : "All layout changes synced"}
+            </div>
+
+            {recoverable && (
+              <div className="mx-2 mb-3 flex flex-col gap-2 rounded-lg border border-amber-400/30 bg-amber-400/10 p-3 text-[11px] text-amber-200 sm:flex-row sm:items-center sm:justify-between">
+                <span>
+                  A saved draft from an earlier session has {recoverable.actions.length} recorded action(s). Reopen it to
+                  keep undoing them.
+                </span>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    className="bg-amber-500 text-amber-950 hover:bg-amber-400"
+                    onClick={() => {
+                      setHistory(recoverable.actions);
+                      setSavedCount(recoverable.actions.length);
+                      sessionIdRef.current = recoverable.sessionId;
+                      setRecoverable(null);
+                      toast.success("Draft reopened");
+                    }}
+                  >
+                    Reopen draft
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      if (currentSectionId) clearDraft(currentSectionId);
+                      setRecoverable(null);
+                    }}
+                  >
+                    Discard
+                  </Button>
+                </div>
+              </div>
+            )}
+
 
             {multiSelectMode && selectedCells.size === 0 && (
               <div className="mx-2 mb-3 rounded-lg border border-cyan/20 bg-cyan/5 px-3 py-2 text-[11px] text-cyan/90">
