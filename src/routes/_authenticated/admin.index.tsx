@@ -80,11 +80,18 @@ function Dashboard() {
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Kpi
+          label="Expected revenue this month"
+          value={inr(stats.data?.expected ?? 0)}
+          delta={`${inr(stats.data?.revenue ?? 0)} collected · ${inr(stats.data?.upcoming ?? 0)} due`}
+          tone="cyan"
+        />
         <Kpi label="Revenue this month" value={inr(stats.data?.revenue ?? 0)} tone="violet" />
         <Kpi label="Outstanding dues" value={inr(stats.data?.dues ?? 0)} tone="rose" />
         <Kpi label="Expenditures" value={inr(stats.data?.expenses ?? 0)} tone="magenta" />
         <Kpi label="Net profit" value={inr(stats.data?.profit ?? 0)} tone="emerald" />
       </div>
+
 
       <div className="grid gap-6 lg:grid-cols-3">
         <GlassPanel className="p-5 lg:col-span-2">
