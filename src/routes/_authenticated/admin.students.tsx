@@ -16,9 +16,11 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { fmtDate } from "@/lib/format";
 import { createStudent, updateStudent, setStudentActive } from "@/lib/students.functions";
-import { Plus, Search, Pencil, UserX, UserCheck } from "lucide-react";
+import { Plus, Search, Pencil, UserX, UserCheck, Download } from "lucide-react";
 import { StudentDocInput, uploadStudentDoc } from "@/components/admin/StudentDocInput";
 import { StudentProfileDialog } from "@/components/admin/StudentProfileDialog";
+import { buildStudentExportRows, downloadStudentWorkbook } from "@/lib/export-students";
+
 
 export const Route = createFileRoute("/_authenticated/admin/students")({
   component: StudentsPage,
@@ -36,6 +38,32 @@ function StudentsPage() {
   const [viewing, setViewing] = useState<string | null>(null);
   const qc = useQueryClient();
   const setActive = useServerFn(setStudentActive);
+  const [exporting, setExporting] = useState(false);
+
+  const exportExcel = async () => {
+    if (!orgId) return;
+    setExporting(true);
+    try {
+      const rows = await buildStudentExportRows({
+        orgId,
+        libraryId: libraryFilter === "all" ? null : libraryFilter,
+        isActive: tab === "active",
+      });
+      if (!rows.length) {
+        toast.info("No students to export for this filter.");
+        return;
+      }
+      const label =
+        libraryFilter === "all" ? "all-branches" : (libs ?? []).find((l) => l.id === libraryFilter)?.name ?? "branch";
+      downloadStudentWorkbook(rows, `${label.toLowerCase().replace(/\s+/g, "-")}-${tab}`);
+      toast.success(`Exported ${rows.length} students`);
+    } catch (e: any) {
+      toast.error(e?.message ?? "Export failed");
+    } finally {
+      setExporting(false);
+    }
+  };
+
 
   const students = useQuery({
     queryKey: ["students", orgId, tab, q, libraryFilter],
@@ -71,8 +99,17 @@ function StudentsPage() {
         <div className="flex-1 w-full">
           <SectionHeader title="Student Directory" hint="Onboard, edit, and manage student profiles." />
         </div>
-        <div className="w-full sm:w-auto shrink-0 mt-2 sm:mt-0">
+        <div className="w-full sm:w-auto shrink-0 mt-2 sm:mt-0 flex flex-col sm:flex-row gap-2">
+          <Button
+            variant="outline"
+            disabled={exporting}
+            onClick={exportExcel}
+            className="w-full sm:w-auto bg-panel border-panel-border"
+          >
+            <Download className="mr-1 size-4" /> {exporting ? "Exporting…" : "Export Excel"}
+          </Button>
           <Dialog open={open} onOpenChange={setOpen}>
+
             <DialogTrigger asChild>
               <Button className="w-full sm:w-auto bg-white text-slate-900 hover:bg-white/90">
                 <Plus className="mr-1 size-4" /> New student

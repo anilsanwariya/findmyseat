@@ -1,5 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type LayoutAction,
+  type SeatOrder,
+
+  type LayoutDraft,
+  clearDraft,
+  orderCells,
+  readDraft,
+  saveDraft,
+  undoAction,
+} from "@/lib/layout-history";
+
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/lib/auth";
@@ -43,6 +55,8 @@ import {
   Grid3X3,
   Settings2,
   User,
+  Undo2,
+  Save,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/layout-builder")({
@@ -102,17 +116,25 @@ function LayoutBuilderPage() {
   const [addSeatPos, setAddSeatPos] = useState<{ row: number; col: number } | null>(null);
 
   // Unified Multi-select States (Set for O(1) lookups — 225+ cells re-render on every click otherwise)
+  // Selection is click-to-toggle only: drag-select was unusable on touch devices.
   const [multiSelectMode, setMultiSelectMode] = useState(false);
   const [selectedCells, setSelectedCells] = useState<Set<string>>(new Set());
-  const [dragging, setDragging] = useState<null | "add" | "remove">(null);
   const [bulkAreaOpen, setBulkAreaOpen] = useState(false);
   const [bulkSeatOpen, setBulkSeatOpen] = useState(false);
   const [bulkEditOpen, setBulkEditOpen] = useState(false);
   const [isShifting, setIsShifting] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<PendingDelete>(null);
 
+  // Action journal → powers Undo, the Save indicator and the recoverable local draft.
+  const sessionIdRef = useRef<string>(Math.random().toString(36).slice(2));
+  const [history, setHistory] = useState<LayoutAction[]>([]);
+  const [savedCount, setSavedCount] = useState(0);
+  const [recoverable, setRecoverable] = useState<LayoutDraft | null>(null);
+  const [undoing, setUndoing] = useState(false);
+
   const qc = useQueryClient();
   const currentLibId = libraryId ?? libs?.[0]?.id;
+
 
   const sectionsQ = useQuery({
     queryKey: ["sections", currentLibId],
@@ -244,34 +266,66 @@ function LayoutBuilderPage() {
     [grid, multiSelectMode, toggleCell],
   );
 
-  const handleCellDragStart = useCallback(
-    (row: number, col: number) => {
-      if (!multiSelectMode) return;
-      const mode = selectedCells.has(key(row, col)) ? "remove" : "add";
-      setDragging(mode);
-      toggleCell(row, col, mode);
+  const pushAction = useCallback(
+    (action: LayoutAction) => {
+      setHistory((prev) => {
+        const next = [...prev, action].slice(-40);
+        if (currentSectionId) saveDraft(currentSectionId, sessionIdRef.current, next);
+        return next;
+      });
     },
-    [multiSelectMode, selectedCells, toggleCell],
+    [currentSectionId],
   );
 
-  const handleCellDragEnter = useCallback(
-    (row: number, col: number) => {
-      if (!multiSelectMode || !dragging) return;
-      toggleCell(row, col, dragging);
-    },
-    [multiSelectMode, dragging, toggleCell],
-  );
-
+  // Reset the journal per section and surface any draft left behind by a closed tab.
   useEffect(() => {
-    if (!dragging) return;
-    const stop = () => setDragging(null);
-    window.addEventListener("pointerup", stop);
-    window.addEventListener("pointercancel", stop);
-    return () => {
-      window.removeEventListener("pointerup", stop);
-      window.removeEventListener("pointercancel", stop);
-    };
-  }, [dragging]);
+    setHistory([]);
+    setSavedCount(0);
+    if (!currentSectionId) {
+      setRecoverable(null);
+      return;
+    }
+    const d = readDraft(currentSectionId);
+    setRecoverable(d && d.sessionId !== sessionIdRef.current ? d : null);
+  }, [currentSectionId]);
+
+  const unsaved = history.length - savedCount;
+
+  const handleSave = useCallback(async () => {
+    if (!currentSectionId) return;
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: ["seats", currentSectionId] }),
+      qc.invalidateQueries({ queryKey: ["sections", currentLibId] }),
+    ]);
+    setSavedCount(history.length);
+    clearDraft(currentSectionId);
+    setRecoverable(null);
+    toast.success(unsaved > 0 ? `Layout saved · ${unsaved} change(s) synced` : "Layout is up to date");
+  }, [currentSectionId, currentLibId, qc, history.length, unsaved]);
+
+  const handleUndo = useCallback(async () => {
+    const last = history[history.length - 1];
+    if (!last || undoing) return;
+    setUndoing(true);
+    toast.loading("Undoing…", { id: "layout-undo" });
+    try {
+      const msg = await undoAction(last);
+      const next = history.slice(0, -1);
+      setHistory(next);
+      setSavedCount((c) => Math.min(c, next.length));
+      if (currentSectionId) saveDraft(currentSectionId, sessionIdRef.current, next);
+      setSelectedSeat(null);
+      qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
+      qc.invalidateQueries({ queryKey: ["sections", currentLibId] });
+      qc.invalidateQueries({ queryKey: ["allocations"] });
+      toast.success(msg, { id: "layout-undo" });
+    } catch (e: any) {
+      toast.error(e?.message ?? "Could not undo", { id: "layout-undo" });
+    } finally {
+      setUndoing(false);
+    }
+  }, [history, undoing, currentSectionId, currentLibId, qc]);
+
 
   const requestBulkDelete = () => {
     if (!selectedCells.size) return;
@@ -293,6 +347,9 @@ function LayoutBuilderPage() {
   const runDelete = async () => {
     if (!pendingDelete) return;
     const { seatIds, objIds } = pendingDelete;
+    // Snapshot the exact rows so Undo can restore them byte-for-byte.
+    const seatRows = (seatsQ.data?.seats ?? []).filter((s: any) => seatIds.includes(s.id));
+    const objRows = (seatsQ.data?.objs ?? []).filter((o: any) => objIds.includes(o.id));
     setPendingDelete(null);
     setIsShifting(true);
     toast.loading("Removing…", { id: "layout-delete" });
@@ -309,6 +366,13 @@ function LayoutBuilderPage() {
         if (error) throw error;
       }
       if (seatIds.includes(selectedSeat ?? "")) setSelectedSeat(null);
+      pushAction({
+        type: "delete",
+        at: Date.now(),
+        label: `Deleted ${seatRows.length} seat(s), ${objRows.length} area cell(s)`,
+        seats: seatRows,
+        objs: objRows,
+      });
       toast.success("Layout updated", { id: "layout-delete" });
       setSelectedCells(new Set());
       setMultiSelectMode(false);
@@ -323,15 +387,28 @@ function LayoutBuilderPage() {
   const updateDimensions = useMutation({
     mutationFn: async ({ rows, cols }: { rows: number; cols: number }) => {
       if (!currentSectionId) throw new Error("No section selected");
+      const prevRows = currentSection?.grid_rows ?? rows;
+      const prevCols = currentSection?.grid_cols ?? cols;
       const { error } = await supabase
         .from("sections")
         .update({ grid_rows: rows, grid_cols: cols })
         .eq("id", currentSectionId);
       if (error) throw error;
+      pushAction({
+        type: "resize",
+        at: Date.now(),
+        label: `Resized grid to ${rows}×${cols}`,
+        sectionId: currentSectionId,
+        prevRows,
+        prevCols,
+        dr: 0,
+        dc: 0,
+      });
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["sections", currentLibId] }),
     onError: (e: any) => toast.error(e?.message ?? "Could not resize grid"),
   });
+
 
   // Single atomic DB call — the old per-seat loop broke the unique(row,col) constraint
   // halfway through and corrupted layouts.
@@ -344,12 +421,13 @@ function LayoutBuilderPage() {
     if (error) throw error;
   }
 
-  async function runGridOp(msg: string, fn: () => Promise<void>) {
+  async function runGridOp(msg: string, fn: () => Promise<void>, after?: () => void) {
     if (isShifting) return;
     setIsShifting(true);
     toast.loading(msg, { id: "shift" });
     try {
       await fn();
+      after?.();
       qc.invalidateQueries({ queryKey: ["sections", currentLibId] });
       qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
       toast.success("Grid updated", { id: "shift" });
@@ -363,17 +441,36 @@ function LayoutBuilderPage() {
     }
   }
 
-  const handleAddTop = () => {
+  const recordShift = (label: string, dr: number, dc: number) => {
     if (!currentSection || !currentSectionId) return;
-    runGridOp("Expanding map upwards…", async () => {
-      const { error } = await supabase
-        .from("sections")
-        .update({ grid_rows: currentSection.grid_rows + 1 })
-        .eq("id", currentSectionId);
-      if (error) throw error;
-      await shiftGridItems(1, 0);
+    pushAction({
+      type: "resize",
+      at: Date.now(),
+      label,
+      sectionId: currentSectionId,
+      prevRows: currentSection.grid_rows,
+      prevCols: currentSection.grid_cols,
+      dr,
+      dc,
     });
   };
+
+  const handleAddTop = () => {
+    if (!currentSection || !currentSectionId) return;
+    runGridOp(
+      "Expanding map upwards…",
+      async () => {
+        const { error } = await supabase
+          .from("sections")
+          .update({ grid_rows: currentSection.grid_rows + 1 })
+          .eq("id", currentSectionId);
+        if (error) throw error;
+        await shiftGridItems(1, 0);
+      },
+      () => recordShift("Added row on top", 1, 0),
+    );
+  };
+
 
   const handleRemoveTop = () => {
     if (!grid || !currentSection || !currentSectionId) return;
@@ -382,26 +479,34 @@ function LayoutBuilderPage() {
       toast.error("Cannot remove top row: It contains active seats or objects.");
       return;
     }
-    runGridOp("Shrinking map from top…", async () => {
-      await shiftGridItems(-1, 0);
-      const { error } = await supabase
-        .from("sections")
-        .update({ grid_rows: currentSection.grid_rows - 1 })
-        .eq("id", currentSectionId);
-      if (error) throw error;
-    });
+    runGridOp(
+      "Shrinking map from top…",
+      async () => {
+        await shiftGridItems(-1, 0);
+        const { error } = await supabase
+          .from("sections")
+          .update({ grid_rows: currentSection.grid_rows - 1 })
+          .eq("id", currentSectionId);
+        if (error) throw error;
+      },
+      () => recordShift("Removed top row", -1, 0),
+    );
   };
 
   const handleAddLeft = () => {
     if (!currentSection || !currentSectionId) return;
-    runGridOp("Expanding map leftwards…", async () => {
-      const { error } = await supabase
-        .from("sections")
-        .update({ grid_cols: currentSection.grid_cols + 1 })
-        .eq("id", currentSectionId);
-      if (error) throw error;
-      await shiftGridItems(0, 1);
-    });
+    runGridOp(
+      "Expanding map leftwards…",
+      async () => {
+        const { error } = await supabase
+          .from("sections")
+          .update({ grid_cols: currentSection.grid_cols + 1 })
+          .eq("id", currentSectionId);
+        if (error) throw error;
+        await shiftGridItems(0, 1);
+      },
+      () => recordShift("Added column on left", 0, 1),
+    );
   };
 
   const handleRemoveLeft = () => {
@@ -411,15 +516,20 @@ function LayoutBuilderPage() {
       toast.error("Cannot remove left column: It contains active seats or objects.");
       return;
     }
-    runGridOp("Shrinking map from left…", async () => {
-      await shiftGridItems(0, -1);
-      const { error } = await supabase
-        .from("sections")
-        .update({ grid_cols: currentSection.grid_cols - 1 })
-        .eq("id", currentSectionId);
-      if (error) throw error;
-    });
+    runGridOp(
+      "Shrinking map from left…",
+      async () => {
+        await shiftGridItems(0, -1);
+        const { error } = await supabase
+          .from("sections")
+          .update({ grid_cols: currentSection.grid_cols - 1 })
+          .eq("id", currentSectionId);
+        if (error) throw error;
+      },
+      () => recordShift("Removed left column", 0, -1),
+    );
   };
+
 
   const handleAddBottom = () => {
     if (!currentSection) return;
@@ -573,7 +683,7 @@ function LayoutBuilderPage() {
               </div>
 
               {/* Map Tools */}
-              <div className="flex gap-2 w-full sm:w-auto">
+              <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                 <Button
                   variant={multiSelectMode ? "default" : "outline"}
                   onClick={() => {
@@ -581,7 +691,7 @@ function LayoutBuilderPage() {
                     setSelectedCells(new Set());
                   }}
                   className={cn(
-                    "w-full sm:w-auto bg-panel transition-colors shrink-0",
+                    "flex-1 sm:flex-none bg-panel transition-colors shrink-0",
                     multiSelectMode &&
                       "bg-cyan text-cyan-950 hover:bg-cyan/90 border-cyan/50 shadow-[0_0_15px_rgba(34,211,238,0.2)]",
                   )}
@@ -589,12 +699,76 @@ function LayoutBuilderPage() {
                 >
                   <MousePointer2 className="size-4 mr-2" /> {multiSelectMode ? "Cancel Selection" : "Select Area"}
                 </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!history.length || undoing || isShifting}
+                  onClick={handleUndo}
+                  className="flex-1 sm:flex-none bg-panel shrink-0"
+                  title={history[history.length - 1]?.label ?? "Nothing to undo"}
+                >
+                  <Undo2 className="size-4 mr-2" /> Undo
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleSave}
+                  className={cn(
+                    "flex-1 sm:flex-none shrink-0",
+                    unsaved > 0
+                      ? "bg-emerald text-emerald-950 hover:bg-emerald/90"
+                      : "bg-panel border border-panel-border text-muted-foreground hover:bg-panel-strong",
+                  )}
+                >
+                  <Save className="size-4 mr-2" /> {unsaved > 0 ? `Save (${unsaved})` : "Saved"}
+                </Button>
               </div>
             </div>
 
+            <div className="mx-2 mb-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+              <span className={cn("size-1.5 rounded-full", unsaved > 0 ? "bg-amber-400" : "bg-emerald")} />
+              {unsaved > 0
+                ? `${unsaved} change(s) synced to server · draft kept locally`
+                : "All layout changes synced"}
+            </div>
+
+            {recoverable && (
+              <div className="mx-2 mb-3 flex flex-col gap-2 rounded-lg border border-amber-400/30 bg-amber-400/10 p-3 text-[11px] text-amber-200 sm:flex-row sm:items-center sm:justify-between">
+                <span>
+                  A saved draft from an earlier session has {recoverable.actions.length} recorded action(s). Reopen it to
+                  keep undoing them.
+                </span>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    className="bg-amber-500 text-amber-950 hover:bg-amber-400"
+                    onClick={() => {
+                      setHistory(recoverable.actions);
+                      setSavedCount(recoverable.actions.length);
+                      sessionIdRef.current = recoverable.sessionId;
+                      setRecoverable(null);
+                      toast.success("Draft reopened");
+                    }}
+                  >
+                    Reopen draft
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      if (currentSectionId) clearDraft(currentSectionId);
+                      setRecoverable(null);
+                    }}
+                  >
+                    Discard
+                  </Button>
+                </div>
+              </div>
+            )}
+
+
             {multiSelectMode && selectedCells.size === 0 && (
               <div className="mx-2 mb-3 rounded-lg border border-cyan/20 bg-cyan/5 px-3 py-2 text-[11px] text-cyan/90">
-                Tip: click and drag across the grid to select many cells at once.
+                Tip: tap each cell you want to include — selection is tap-to-toggle, works on mobile and tablet.
               </div>
             )}
 
@@ -692,7 +866,7 @@ function LayoutBuilderPage() {
 
                     {/* The Grid */}
                     <div
-                      className={cn("grid gap-1.5", multiSelectMode && "select-none touch-none")}
+                      className={cn("grid gap-1.5", multiSelectMode && "select-none")}
                       style={{ gridTemplateColumns: `repeat(${currentSection?.grid_cols ?? 15}, minmax(36px, 1fr))` }}
                     >
                       {grid.map((row, r) =>
@@ -704,11 +878,10 @@ function LayoutBuilderPage() {
                             cell={cell}
                             isSelected={selectedCells.has(key(r, c))}
                             onClick={handleCellClick}
-                            onDragStart={handleCellDragStart}
-                            onDragEnter={handleCellDragEnter}
                           />
                         )),
                       )}
+
                     </div>
 
                     {/* Right Controls */}
@@ -767,14 +940,23 @@ function LayoutBuilderPage() {
             occupants={selectedSeatObj ? (seatsQ.data?.occupancy?.[selectedSeatObj.id] ?? []) : []}
             onUpdate={async (updates) => {
               if (!selectedSeatObj) return;
+              const prev: any = { id: selectedSeatObj.id };
+              for (const k of Object.keys(updates)) prev[k] = (selectedSeatObj as any)[k];
               const { error } = await supabase.from("seats").update(updates).eq("id", selectedSeatObj.id);
               if (error) {
                 toast.error(error.message);
                 return;
               }
+              pushAction({
+                type: "update_seats",
+                at: Date.now(),
+                label: `Edited seat ${selectedSeatObj.seat_number}`,
+                prev: [prev],
+              });
               toast.success("Seat updated");
               qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
             }}
+
             onDelete={() => {
               if (!selectedSeatObj) return;
               const occupants = seatsQ.data?.occupancy?.[selectedSeatObj.id] ?? [];
@@ -830,7 +1012,10 @@ function LayoutBuilderPage() {
         section={currentSection}
         orgId={orgId!}
         libraryId={currentLibId!}
-        onDone={() => qc.invalidateQueries({ queryKey: ["seats", currentSectionId] })}
+        onDone={(action?: LayoutAction) => {
+          if (action) pushAction(action);
+          qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
+        }}
       />
 
       {/* Unified Bulk Tools */}
@@ -842,7 +1027,8 @@ function LayoutBuilderPage() {
         existingObjs={seatsQ.data?.objs || []}
         section={currentSection}
         orgId={orgId!}
-        onDone={() => {
+        onDone={(action?: LayoutAction) => {
+          if (action) pushAction(action);
           qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
           setMultiSelectMode(false);
           setSelectedCells(new Set());
@@ -857,7 +1043,8 @@ function LayoutBuilderPage() {
         section={currentSection}
         libraryId={currentLibId!}
         orgId={orgId!}
-        onDone={() => {
+        onDone={(action?: LayoutAction) => {
+          if (action) pushAction(action);
           qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
           setMultiSelectMode(false);
           setSelectedCells(new Set());
@@ -868,12 +1055,14 @@ function LayoutBuilderPage() {
         onOpenChange={setBulkEditOpen}
         cells={selectedCellList}
         existingSeats={seatsQ.data?.seats || []}
-        onDone={() => {
+        onDone={(action?: LayoutAction) => {
+          if (action) pushAction(action);
           qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
           setMultiSelectMode(false);
           setSelectedCells(new Set());
         }}
       />
+
     </div>
   );
 }
@@ -884,22 +1073,17 @@ const CellView = memo(function CellView({
   cell,
   isSelected,
   onClick,
-  onDragStart,
-  onDragEnter,
 }: {
   row: number;
   col: number;
   cell: Cell;
   isSelected: boolean;
   onClick: (r: number, c: number) => void;
-  onDragStart: (r: number, c: number) => void;
-  onDragEnter: (r: number, c: number) => void;
 }) {
   const common = {
     onClick: () => onClick(row, col),
-    onPointerDown: () => onDragStart(row, col),
-    onPointerEnter: () => onDragEnter(row, col),
   };
+
 
   if (cell.kind === "seat") {
     const Icon = DIR_ICON[cell.facing] ?? ArrowUp;
@@ -1552,23 +1736,31 @@ function AddSeatDialog({ open, onOpenChange, pos, section, orgId, libraryId, onD
             onSubmit={async (e) => {
               e.preventDefault();
               if (!pos || !section) return;
-              const { error } = await supabase.from("seats").insert({
-                section_id: section.id,
-                library_id: libraryId,
-                org_id: orgId,
-                seat_number: seatNumber,
-                row_position: pos.row,
-                column_position: pos.col,
-                facing_direction: facing,
-                is_corner: isCorner,
-              });
+              const { data, error } = await supabase
+                .from("seats")
+                .insert({
+                  section_id: section.id,
+                  library_id: libraryId,
+                  org_id: orgId,
+                  seat_number: seatNumber,
+                  row_position: pos.row,
+                  column_position: pos.col,
+                  facing_direction: facing,
+                  is_corner: isCorner,
+                })
+                .select("id");
               if (error) {
                 toast.error(error.message);
                 return;
               }
               toast.success("Seat added");
               onOpenChange(false);
-              onDone();
+              onDone({
+                type: "add_seats",
+                at: Date.now(),
+                label: `Added seat ${seatNumber}`,
+                seatIds: (data ?? []).map((r: any) => r.id),
+              });
               setSeatNumber("");
             }}
             className="space-y-3"
@@ -1611,20 +1803,28 @@ function AddSeatDialog({ open, onOpenChange, pos, section, orgId, libraryId, onD
             onSubmit={async (e) => {
               e.preventDefault();
               if (!pos || !section) return;
-              const { error } = await supabase.from("layout_objects").insert({
-                section_id: section.id,
-                org_id: orgId,
-                object_type: objectType,
-                row_position: pos.row,
-                column_position: pos.col,
-              });
+              const { data, error } = await supabase
+                .from("layout_objects")
+                .insert({
+                  section_id: section.id,
+                  org_id: orgId,
+                  object_type: objectType,
+                  row_position: pos.row,
+                  column_position: pos.col,
+                })
+                .select("id");
               if (error) {
                 toast.error(error.message);
                 return;
               }
               toast.success("Object placed");
               onOpenChange(false);
-              onDone();
+              onDone({
+                type: "add_objects",
+                at: Date.now(),
+                label: `Placed ${OBJ_META[objectType]?.label ?? "object"}`,
+                objIds: (data ?? []).map((r: any) => r.id),
+              });
             }}
             className="space-y-3"
           >
@@ -1676,7 +1876,7 @@ function BulkAreaDialog({ open, onOpenChange, cells, section, orgId, onDone }: a
               row_position: pos.r,
               column_position: pos.c,
             }));
-            const { error } = await supabase.from("layout_objects").insert(insertions);
+            const { data, error } = await supabase.from("layout_objects").insert(insertions).select("id");
             setLoading(false);
             if (error) {
               toast.error(error.message);
@@ -1684,7 +1884,12 @@ function BulkAreaDialog({ open, onOpenChange, cells, section, orgId, onDone }: a
             }
             toast.success(`Filled ${cells.length} cells successfully`);
             onOpenChange(false);
-            onDone();
+            onDone({
+              type: "add_objects",
+              at: Date.now(),
+              label: `Filled ${cells.length} cell(s) with ${OBJ_META[objectType]?.label ?? "area"}`,
+              objIds: (data ?? []).map((r: any) => r.id),
+            });
           }}
           className="space-y-4"
         >
@@ -1729,17 +1934,18 @@ function BulkSeatDialog({
   const [facing, setFacing] = useState<"north" | "south" | "east" | "west">("north");
   const [isCorner, setIsCorner] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [order, setOrder] = useState<SeatOrder>("rows_ltr");
+  const [descending, setDescending] = useState(false);
 
-  // Filter to only true empty cells
+  // Filter to only true empty cells, then apply the chosen numbering traversal
   const emptyCells = useMemo(() => {
-    return cells
-      .filter((c: any) => {
-        const hasSeat = existingSeats.some((s: any) => s.row_position === c.r && s.column_position === c.c);
-        const hasObj = existingObjs.some((o: any) => o.row_position === c.r && o.column_position === c.c);
-        return !hasSeat && !hasObj;
-      })
-      .sort((a: any, b: any) => (a.r === b.r ? a.c - b.c : a.r - b.r)); // Sort Left-to-Right, Top-to-Bottom
-  }, [cells, existingSeats, existingObjs]);
+    const free = cells.filter((c: any) => {
+      const hasSeat = existingSeats.some((s: any) => s.row_position === c.r && s.column_position === c.c);
+      const hasObj = existingObjs.some((o: any) => o.row_position === c.r && o.column_position === c.c);
+      return !hasSeat && !hasObj;
+    });
+    return orderCells(free as any, order, descending);
+  }, [cells, existingSeats, existingObjs, order, descending]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1766,7 +1972,7 @@ function BulkSeatDialog({
                 facing_direction: facing,
                 is_corner: isCorner,
               }));
-              const { error } = await supabase.from("seats").insert(rows);
+              const { data, error } = await supabase.from("seats").insert(rows).select("id");
               setLoading(false);
               if (error) {
                 toast.error(error.message);
@@ -1774,7 +1980,12 @@ function BulkSeatDialog({
               }
               toast.success(`${rows.length} seats generated`);
               onOpenChange(false);
-              onDone();
+              onDone({
+                type: "add_seats",
+                at: Date.now(),
+                label: `Generated ${rows.length} seat(s)`,
+                seatIds: (data ?? []).map((r: any) => r.id),
+              });
             }}
             className="space-y-4"
           >
@@ -1817,6 +2028,27 @@ function BulkSeatDialog({
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Numbering order</Label>
+              <Select value={order} onValueChange={(v: any) => setOrder(v)}>
+                <SelectTrigger className="bg-panel border-panel-border">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="rows_ltr">Row by row · left → right</SelectItem>
+                  <SelectItem value="rows_rtl">Row by row · right → left</SelectItem>
+                  <SelectItem value="cols_ttb">Column by column · top → bottom</SelectItem>
+                  <SelectItem value="cols_btt">Column by column · bottom → top</SelectItem>
+                </SelectContent>
+              </Select>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={descending} onChange={(e) => setDescending(e.target.checked)} /> Reverse
+                (descending) order
+              </label>
+              <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                First seat: {emptyCells[0] ? `R${emptyCells[0].r + 1}C${emptyCells[0].c + 1}` : "—"}
+              </p>
             </div>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={isCorner} onChange={(e) => setIsCorner(e.target.checked)} /> Mark all as
@@ -1862,6 +2094,14 @@ function BulkEditSeatsDialog({ open, onOpenChange, cells, existingSeats, onDone 
               if (facing !== "no_change") updates.facing_direction = facing;
               if (isCorner !== "no_change") updates.is_corner = isCorner === "true";
 
+              const prev = existingSeats
+                .filter((s: any) => selectedSeatIds.includes(s.id))
+                .map((s: any) => {
+                  const p: any = { id: s.id };
+                  for (const k of Object.keys(updates)) p[k] = s[k];
+                  return p;
+                });
+
               if (Object.keys(updates).length > 0) {
                 const { error } = await supabase.from("seats").update(updates).in("id", selectedSeatIds);
                 if (error) {
@@ -1873,7 +2113,12 @@ function BulkEditSeatsDialog({ open, onOpenChange, cells, existingSeats, onDone 
               setLoading(false);
               toast.success(`Updated ${selectedSeatIds.length} seats`);
               onOpenChange(false);
-              onDone();
+              onDone({
+                type: "update_seats",
+                at: Date.now(),
+                label: `Bulk edited ${prev.length} seat(s)`,
+                prev,
+              });
             }}
             className="space-y-4"
           >
