@@ -102,17 +102,25 @@ function LayoutBuilderPage() {
   const [addSeatPos, setAddSeatPos] = useState<{ row: number; col: number } | null>(null);
 
   // Unified Multi-select States (Set for O(1) lookups — 225+ cells re-render on every click otherwise)
+  // Selection is click-to-toggle only: drag-select was unusable on touch devices.
   const [multiSelectMode, setMultiSelectMode] = useState(false);
   const [selectedCells, setSelectedCells] = useState<Set<string>>(new Set());
-  const [dragging, setDragging] = useState<null | "add" | "remove">(null);
   const [bulkAreaOpen, setBulkAreaOpen] = useState(false);
   const [bulkSeatOpen, setBulkSeatOpen] = useState(false);
   const [bulkEditOpen, setBulkEditOpen] = useState(false);
   const [isShifting, setIsShifting] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<PendingDelete>(null);
 
+  // Action journal → powers Undo, the Save indicator and the recoverable local draft.
+  const sessionIdRef = useRef<string>(Math.random().toString(36).slice(2));
+  const [history, setHistory] = useState<LayoutAction[]>([]);
+  const [savedCount, setSavedCount] = useState(0);
+  const [recoverable, setRecoverable] = useState<LayoutDraft | null>(null);
+  const [undoing, setUndoing] = useState(false);
+
   const qc = useQueryClient();
   const currentLibId = libraryId ?? libs?.[0]?.id;
+
 
   const sectionsQ = useQuery({
     queryKey: ["sections", currentLibId],
