@@ -22,28 +22,41 @@ function Dashboard() {
       const startOfMonth = new Date();
       startOfMonth.setDate(1);
       const iso = startOfMonth.toISOString().slice(0, 10);
-      const [payments, dues, expenses, students, seats, leads] = await Promise.all([
+      const endOfMonth = new Date(startOfMonth.getFullYear(), startOfMonth.getMonth() + 1, 0);
+      const isoEnd = `${endOfMonth.getFullYear()}-${String(endOfMonth.getMonth() + 1).padStart(2, "0")}-${String(endOfMonth.getDate()).padStart(2, "0")}`;
+      const [payments, dues, expenses, students, seats, leads, upcoming] = await Promise.all([
         supabase.from("payments").select("amount_paid").eq("org_id", orgId!).gte("payment_date", iso),
         supabase.from("allocations").select("monthly_fee, status").eq("org_id", orgId!).eq("status", "overdue"),
         supabase.from("expenditures").select("amount").eq("org_id", orgId!).gte("spent_on", iso),
         supabase.from("students").select("id", { count: "exact", head: true }).eq("org_id", orgId!).eq("is_active", true),
         supabase.from("seats").select("id", { count: "exact", head: true }).eq("org_id", orgId!).eq("is_active", true),
         supabase.from("seat_requests").select("id", { count: "exact", head: true }).eq("org_id", orgId!).eq("status", "pending"),
+        supabase
+          .from("allocations")
+          .select("monthly_fee, next_due_date, status, is_active")
+          .eq("org_id", orgId!)
+          .eq("is_active", true)
+          .gte("next_due_date", iso)
+          .lte("next_due_date", isoEnd),
       ]);
       const revenue = (payments.data ?? []).reduce((s, r) => s + Number(r.amount_paid), 0);
       const duesTotal = (dues.data ?? []).reduce((s, r) => s + Number(r.monthly_fee), 0);
       const expTotal = (expenses.data ?? []).reduce((s, r) => s + Number(r.amount), 0);
+      const upcomingTotal = (upcoming.data ?? []).reduce((s, r) => s + Number(r.monthly_fee), 0);
       return {
         revenue,
         dues: duesTotal,
         expenses: expTotal,
         profit: revenue - expTotal,
+        upcoming: upcomingTotal,
+        expected: revenue + upcomingTotal,
         studentCount: students.count ?? 0,
         seatCount: seats.count ?? 0,
         pendingLeads: leads.count ?? 0,
       };
     },
   });
+
 
   const recentPayments = useQuery({
     queryKey: ["recent-payments", orgId],
