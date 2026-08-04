@@ -99,8 +99,17 @@ function StudentsPage() {
         <div className="flex-1 w-full">
           <SectionHeader title="Student Directory" hint="Onboard, edit, and manage student profiles." />
         </div>
-        <div className="w-full sm:w-auto shrink-0 mt-2 sm:mt-0">
+        <div className="w-full sm:w-auto shrink-0 mt-2 sm:mt-0 flex flex-col sm:flex-row gap-2">
+          <Button
+            variant="outline"
+            disabled={exporting}
+            onClick={exportExcel}
+            className="w-full sm:w-auto bg-panel border-panel-border"
+          >
+            <Download className="mr-1 size-4" /> {exporting ? "Exporting…" : "Export Excel"}
+          </Button>
           <Dialog open={open} onOpenChange={setOpen}>
+
             <DialogTrigger asChild>
               <Button className="w-full sm:w-auto bg-white text-slate-900 hover:bg-white/90">
                 <Plus className="mr-1 size-4" /> New student
