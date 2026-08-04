@@ -933,22 +933,17 @@ const CellView = memo(function CellView({
   cell,
   isSelected,
   onClick,
-  onDragStart,
-  onDragEnter,
 }: {
   row: number;
   col: number;
   cell: Cell;
   isSelected: boolean;
   onClick: (r: number, c: number) => void;
-  onDragStart: (r: number, c: number) => void;
-  onDragEnter: (r: number, c: number) => void;
 }) {
   const common = {
     onClick: () => onClick(row, col),
-    onPointerDown: () => onDragStart(row, col),
-    onPointerEnter: () => onDragEnter(row, col),
   };
+
 
   if (cell.kind === "seat") {
     const Icon = DIR_ICON[cell.facing] ?? ArrowUp;
