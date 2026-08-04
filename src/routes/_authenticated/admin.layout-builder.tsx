@@ -475,26 +475,34 @@ function LayoutBuilderPage() {
       toast.error("Cannot remove top row: It contains active seats or objects.");
       return;
     }
-    runGridOp("Shrinking map from top…", async () => {
-      await shiftGridItems(-1, 0);
-      const { error } = await supabase
-        .from("sections")
-        .update({ grid_rows: currentSection.grid_rows - 1 })
-        .eq("id", currentSectionId);
-      if (error) throw error;
-    });
+    runGridOp(
+      "Shrinking map from top…",
+      async () => {
+        await shiftGridItems(-1, 0);
+        const { error } = await supabase
+          .from("sections")
+          .update({ grid_rows: currentSection.grid_rows - 1 })
+          .eq("id", currentSectionId);
+        if (error) throw error;
+      },
+      () => recordShift("Removed top row", -1, 0),
+    );
   };
 
   const handleAddLeft = () => {
     if (!currentSection || !currentSectionId) return;
-    runGridOp("Expanding map leftwards…", async () => {
-      const { error } = await supabase
-        .from("sections")
-        .update({ grid_cols: currentSection.grid_cols + 1 })
-        .eq("id", currentSectionId);
-      if (error) throw error;
-      await shiftGridItems(0, 1);
-    });
+    runGridOp(
+      "Expanding map leftwards…",
+      async () => {
+        const { error } = await supabase
+          .from("sections")
+          .update({ grid_cols: currentSection.grid_cols + 1 })
+          .eq("id", currentSectionId);
+        if (error) throw error;
+        await shiftGridItems(0, 1);
+      },
+      () => recordShift("Added column on left", 0, 1),
+    );
   };
 
   const handleRemoveLeft = () => {
@@ -504,15 +512,20 @@ function LayoutBuilderPage() {
       toast.error("Cannot remove left column: It contains active seats or objects.");
       return;
     }
-    runGridOp("Shrinking map from left…", async () => {
-      await shiftGridItems(0, -1);
-      const { error } = await supabase
-        .from("sections")
-        .update({ grid_cols: currentSection.grid_cols - 1 })
-        .eq("id", currentSectionId);
-      if (error) throw error;
-    });
+    runGridOp(
+      "Shrinking map from left…",
+      async () => {
+        await shiftGridItems(0, -1);
+        const { error } = await supabase
+          .from("sections")
+          .update({ grid_cols: currentSection.grid_cols - 1 })
+          .eq("id", currentSectionId);
+        if (error) throw error;
+      },
+      () => recordShift("Removed left column", 0, -1),
+    );
   };
+
 
   const handleAddBottom = () => {
     if (!currentSection) return;
