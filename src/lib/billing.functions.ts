@@ -37,14 +37,13 @@ export const getOwnerBilling = createServerFn({ method: "GET" })
     const orgId = roleRow?.org_id;
     if (!orgId) return { subscription: null, invoices: [], plan: null, org: null };
 
-    const [{ data: sub }, { data: invoices }] = await Promise.all([
+    const [{ data: subs }, { data: invoices }] = await Promise.all([
       supabase
         .from("owner_subscriptions")
         .select("*")
         .eq("org_id", orgId)
         .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
+        .limit(10),
       supabase
         .from("subscription_invoices")
         .select("*")
@@ -52,6 +51,11 @@ export const getOwnerBilling = createServerFn({ method: "GET" })
         .order("created_at", { ascending: false })
         .limit(50),
     ]);
+    // Ignore abandoned checkout attempts ("created"/"abandoned") so an unpaid
+    // attempt never appears as the org's current subscription.
+    const rows = subs ?? [];
+    const sub = rows.find((s: any) => !["created", "abandoned"].includes(String(s.status))) ?? null;
+
     let plan = null;
     if (sub?.plan_id) {
       const { data: p } = await supabase.from("subscription_plans").select("*").eq("id", sub.plan_id).maybeSingle();
