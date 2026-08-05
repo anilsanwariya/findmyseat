@@ -389,9 +389,11 @@ export const cancelOwnerSubscription = createServerFn({ method: "POST" })
       .from("owner_subscriptions")
       .select("*")
       .eq("org_id", orgId)
+      .not("status", "in", "(created,abandoned)")
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
+
     if (!sub?.razorpay_subscription_id) throw new Error("No active subscription");
 
     await rzp(`/subscriptions/${sub.razorpay_subscription_id}/cancel`, "POST", {
