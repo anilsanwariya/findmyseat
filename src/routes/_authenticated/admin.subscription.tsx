@@ -49,6 +49,9 @@ function SubscriptionPageInner() {
   const createSub = useServerFn(createOwnerSubscription);
   const cancelSub = useServerFn(cancelOwnerSubscription);
   const checkCoupon = useServerFn(validateCoupon);
+  const abandonAttempt = useServerFn(abandonSubscriptionAttempt);
+  const syncStatus = useServerFn(syncSubscriptionStatus);
+
 
   const [cycle, setCycle] = useState<"monthly" | "annual">("monthly");
   const [couponCode, setCouponCode] = useState("");
