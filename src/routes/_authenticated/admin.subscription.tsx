@@ -15,7 +15,10 @@ import {
   createOwnerSubscription,
   cancelOwnerSubscription,
   validateCoupon,
+  abandonSubscriptionAttempt,
+  syncSubscriptionStatus,
 } from "@/lib/billing.functions";
+
 import { loadRazorpayScript } from "@/lib/razorpay";
 import { fmtDate } from "@/lib/format";
 import { useSession } from "@/lib/auth";
@@ -46,6 +49,9 @@ function SubscriptionPageInner() {
   const createSub = useServerFn(createOwnerSubscription);
   const cancelSub = useServerFn(cancelOwnerSubscription);
   const checkCoupon = useServerFn(validateCoupon);
+  const abandonAttempt = useServerFn(abandonSubscriptionAttempt);
+  const syncStatus = useServerFn(syncSubscriptionStatus);
+
 
   const [cycle, setCycle] = useState<"monthly" | "annual">("monthly");
   const [couponCode, setCouponCode] = useState("");
@@ -90,26 +96,19 @@ function SubscriptionPageInner() {
       if (!loaded) throw new Error("Failed to load Razorpay SDK. Check your network.");
 
       // 3. Open Razorpay Checkout
-      return new Promise<void>((resolve, reject) => {
+      await new Promise<void>((resolve, reject) => {
         const options: any = {
           key: import.meta.env.VITE_RAZORPAY_KEY_ID || r.key_id,
           subscription_id: r.subscription_id,
           name: "LibraryBandhu",
           description: "Owner subscription",
-          handler: (response: any) => {
-            // We don't need a manual verify edge function here,
-            // because the Webhook automatically listens to 'subscription.charged'
-            // and updates the database asynchronously.
+          handler: () => {
             toast.success("Payment authorized! Validating and activating subscription...");
-
-            // Refetch to see the updated status
-            setTimeout(() => {
-              qc.invalidateQueries({ queryKey: ["owner-billing"] });
-            }, 3000); // Give the webhook a few seconds to process
-
             resolve();
           },
           modal: {
+            // Owner closed checkout without paying — release the pending attempt
+            // so it never sticks around as a "created" subscription.
             ondismiss: () => reject(new Error("Checkout closed by user")),
           },
           theme: { color: "#06b6d4" }, // Cyan theme
@@ -120,7 +119,19 @@ function SubscriptionPageInner() {
           reject(new Error(response.error.description || "Payment failed"));
         });
         rz.open();
+      }).catch(async (err) => {
+        await abandonAttempt({ data: { subscription_id: r.subscription_id } }).catch(() => {});
+        qc.invalidateQueries({ queryKey: ["owner-billing"] });
+        throw err;
       });
+
+      // 4. Pull the live status (fallback in case the webhook is delayed)
+      await syncStatus({ data: { subscription_id: r.subscription_id } }).catch(() => {});
+      setTimeout(() => {
+        syncStatus({ data: { subscription_id: r.subscription_id } })
+          .catch(() => {})
+          .finally(() => qc.invalidateQueries({ queryKey: ["owner-billing"] }));
+      }, 4000);
     },
     onSuccess: () => {
       // Invalidate queries so the UI updates
@@ -128,6 +139,7 @@ function SubscriptionPageInner() {
     },
     onError: (e: any) => toast.error(e?.message ?? "Subscription failed"),
   });
+
 
   const cancel = useMutation({
     mutationFn: () => cancelSub({ data: { at_cycle_end: true } }),

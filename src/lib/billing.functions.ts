@@ -37,14 +37,13 @@ export const getOwnerBilling = createServerFn({ method: "GET" })
     const orgId = roleRow?.org_id;
     if (!orgId) return { subscription: null, invoices: [], plan: null, org: null };
 
-    const [{ data: sub }, { data: invoices }] = await Promise.all([
+    const [{ data: subs }, { data: invoices }] = await Promise.all([
       supabase
         .from("owner_subscriptions")
         .select("*")
         .eq("org_id", orgId)
         .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
+        .limit(10),
       supabase
         .from("subscription_invoices")
         .select("*")
@@ -52,6 +51,11 @@ export const getOwnerBilling = createServerFn({ method: "GET" })
         .order("created_at", { ascending: false })
         .limit(50),
     ]);
+    // Ignore abandoned checkout attempts ("created"/"abandoned") so an unpaid
+    // attempt never appears as the org's current subscription.
+    const rows = subs ?? [];
+    const sub = rows.find((s: any) => !["created", "abandoned"].includes(String(s.status))) ?? null;
+
     let plan = null;
     if (sub?.plan_id) {
       const { data: p } = await supabase.from("subscription_plans").select("*").eq("id", sub.plan_id).maybeSingle();
@@ -173,6 +177,25 @@ export const createOwnerSubscription = createServerFn({ method: "POST" })
 
     // Coupon calculation
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Clear out previous checkout attempts that were never paid, so an
+    // abandoned "created" row can never linger as the org's subscription.
+    const { data: stale } = await supabaseAdmin
+      .from("owner_subscriptions")
+      .select("id, razorpay_subscription_id")
+      .eq("org_id", orgId)
+      .eq("status", "created");
+    for (const s of stale ?? []) {
+      if (s.razorpay_subscription_id) {
+        try {
+          await rzp(`/subscriptions/${s.razorpay_subscription_id}/cancel`, "POST", { cancel_at_cycle_end: 0 });
+        } catch {
+          /* already cancelled / expired on Razorpay — ignore */
+        }
+      }
+      await supabaseAdmin.from("owner_subscriptions").update({ status: "abandoned" }).eq("id", s.id);
+    }
+
     let couponId: string | null = null;
     let discounted = baseAmount;
     if (data.coupon_code) {
@@ -270,7 +293,85 @@ export const createOwnerSubscription = createServerFn({ method: "POST" })
     };
   });
 
+
+// -------- Abandon an unpaid checkout attempt ----------
+export const abandonSubscriptionAttempt = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ subscription_id: z.string().min(1) }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { data: roleRow } = await supabase
+      .from("user_roles")
+      .select("org_id")
+      .eq("user_id", userId)
+      .eq("role", "org_admin")
+      .maybeSingle();
+    const orgId = roleRow?.org_id;
+    if (!orgId) throw new Error("Not an organization admin");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: row } = await supabaseAdmin
+      .from("owner_subscriptions")
+      .select("id, status, razorpay_subscription_id")
+      .eq("org_id", orgId)
+      .eq("razorpay_subscription_id", data.subscription_id)
+      .maybeSingle();
+    if (!row || row.status !== "created") return { ok: true };
+
+    try {
+      await rzp(`/subscriptions/${data.subscription_id}/cancel`, "POST", { cancel_at_cycle_end: 0 });
+    } catch {
+      /* ignore */
+    }
+    await supabaseAdmin.from("owner_subscriptions").update({ status: "abandoned" }).eq("id", row.id);
+    return { ok: true };
+  });
+
+// -------- Pull live status from Razorpay (webhook fallback) ----------
+export const syncSubscriptionStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ subscription_id: z.string().min(1) }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { data: roleRow } = await supabase
+      .from("user_roles")
+      .select("org_id")
+      .eq("user_id", userId)
+      .eq("role", "org_admin")
+      .maybeSingle();
+    const orgId = roleRow?.org_id;
+    if (!orgId) throw new Error("Not an organization admin");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: row } = await supabaseAdmin
+      .from("owner_subscriptions")
+      .select("id")
+      .eq("org_id", orgId)
+      .eq("razorpay_subscription_id", data.subscription_id)
+      .maybeSingle();
+    if (!row) return { status: null as string | null };
+
+    const live = await rzp(`/subscriptions/${data.subscription_id}`, "GET");
+    const map: Record<string, string> = {
+      created: "created",
+      authenticated: "active",
+      active: "active",
+      pending: "past_due",
+      halted: "halted",
+      cancelled: "cancelled",
+      completed: "expired",
+      expired: "expired",
+      paused: "past_due",
+    };
+    const mapped = map[String(live.status)] ?? "created";
+    const patch: any = { status: mapped };
+    if (live.current_end) patch.current_period_end = new Date(live.current_end * 1000).toISOString();
+    await supabaseAdmin.from("owner_subscriptions").update(patch).eq("id", row.id);
+    return { status: mapped };
+  });
+
 // -------- Cancel ----------
+
 export const cancelOwnerSubscription = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ at_cycle_end: z.boolean().default(true) }).parse(d))
@@ -288,9 +389,11 @@ export const cancelOwnerSubscription = createServerFn({ method: "POST" })
       .from("owner_subscriptions")
       .select("*")
       .eq("org_id", orgId)
+      .not("status", "in", "(created,abandoned)")
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
+
     if (!sub?.razorpay_subscription_id) throw new Error("No active subscription");
 
     await rzp(`/subscriptions/${sub.razorpay_subscription_id}/cancel`, "POST", {
