@@ -158,8 +158,17 @@ function StudentsPage() {
                 placeholder="Search by name or mobile…"
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                className="bg-panel border-panel-border pl-9 w-full"
+                className="bg-panel border-panel-border pl-9 pr-9 w-full"
               />
+              {q && (
+                <button
+                  type="button"
+                  onClick={() => setQ("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <X className="size-4" />
+                </button>
+              )}
             </div>
           </div>
         </div>

@@ -217,14 +217,23 @@ function Marketplace() {
           </p>
 
           <GlassPanel className="mx-auto mt-8 flex flex-col lg:flex-row gap-3 p-3 items-stretch lg:items-center">
-            <div className="flex-1 flex items-center gap-2 rounded-lg bg-black/20 px-3 py-2.5 border border-panel-border focus-within:border-cyan/50 focus-within:ring-1 focus-within:ring-cyan/50 transition-all">
+            <div className="flex-1 flex items-center gap-2 rounded-lg bg-black/20 px-3 py-2.5 border border-panel-border focus-within:border-cyan/50 focus-within:ring-1 focus-within:ring-cyan/50 transition-all relative">
               <Search className="size-4 text-muted-foreground shrink-0" />
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Library name or keyword…"
-                className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground pr-8"
               />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => setQuery("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <XIcon className="size-4" />
+                </button>
+              )}
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:flex gap-3">

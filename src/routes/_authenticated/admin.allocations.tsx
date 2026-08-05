@@ -516,8 +516,17 @@ function AllocationsPage() {
               placeholder="Search name or mobile..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 bg-panel border-panel-border w-full"
+              className="pl-9 pr-9 bg-panel border-panel-border w-full"
             />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X className="size-4" />
+              </button>
+            )}
           </div>
           <div className="flex flex-row gap-3 w-full md:w-auto">
             <Select value={statusFilter} onValueChange={setStatusFilter}>
