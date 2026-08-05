@@ -177,6 +177,25 @@ export const createOwnerSubscription = createServerFn({ method: "POST" })
 
     // Coupon calculation
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Clear out previous checkout attempts that were never paid, so an
+    // abandoned "created" row can never linger as the org's subscription.
+    const { data: stale } = await supabaseAdmin
+      .from("owner_subscriptions")
+      .select("id, razorpay_subscription_id")
+      .eq("org_id", orgId)
+      .eq("status", "created");
+    for (const s of stale ?? []) {
+      if (s.razorpay_subscription_id) {
+        try {
+          await rzp(`/subscriptions/${s.razorpay_subscription_id}/cancel`, "POST", { cancel_at_cycle_end: 0 });
+        } catch {
+          /* already cancelled / expired on Razorpay — ignore */
+        }
+      }
+      await supabaseAdmin.from("owner_subscriptions").update({ status: "abandoned" }).eq("id", s.id);
+    }
+
     let couponId: string | null = null;
     let discounted = baseAmount;
     if (data.coupon_code) {
