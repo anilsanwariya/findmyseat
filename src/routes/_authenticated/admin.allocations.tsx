@@ -30,6 +30,7 @@ import {
   Utensils,
   Edit2,
   Search,
+  X,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/allocations")({

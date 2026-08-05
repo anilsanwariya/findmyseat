@@ -16,7 +16,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { fmtDate } from "@/lib/format";
 import { createStudent, updateStudent, setStudentActive } from "@/lib/students.functions";
-import { Plus, Search, Pencil, UserX, UserCheck, Download } from "lucide-react";
+import { Plus, Search, Pencil, UserX, UserCheck, Download, X } from "lucide-react";
 import { StudentDocInput, uploadStudentDoc } from "@/components/admin/StudentDocInput";
 import { StudentProfileDialog } from "@/components/admin/StudentProfileDialog";
 import { buildStudentExportRows, downloadStudentWorkbook } from "@/lib/export-students";
