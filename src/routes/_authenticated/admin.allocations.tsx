@@ -1392,8 +1392,21 @@ function NewAllocDialog({
               }}
               onFocus={() => setIsSearchFocused(true)}
               onBlur={() => setIsSearchFocused(false)}
-              className="pl-9 bg-black/20 border-panel-border focus-visible:ring-1 focus-visible:ring-cyan/50"
+              className="pl-9 pr-9 bg-black/20 border-panel-border focus-visible:ring-1 focus-visible:ring-cyan/50"
             />
+            {studentSearch && (
+              <button
+                type="button"
+                onClick={() => {
+                  setStudentSearch("");
+                  setStudentId("");
+                }}
+                onMouseDown={(e) => e.preventDefault()}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors z-10"
+              >
+                <X className="size-4" />
+              </button>
+            )}
             {isSearchFocused && (
               <div className="absolute top-full left-0 right-0 mt-1 bg-slate-900 border border-slate-700 rounded-md shadow-[0_10px_40px_-10px_rgba(0,0,0,0.8)] max-h-60 overflow-y-auto custom-scrollbar z-[60]">
                 {filteredStudents.map((s: any) => {
