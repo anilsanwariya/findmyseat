@@ -1,0 +1,2 @@
+ALTER TABLE public.owner_subscriptions DROP CONSTRAINT owner_subscriptions_status_check;
+ALTER TABLE public.owner_subscriptions ADD CONSTRAINT owner_subscriptions_status_check CHECK (status = ANY (ARRAY['created','authenticated','trialing','active','cancelled','past_due','halted','expired','abandoned']::text[]));
