@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,6 +24,9 @@ import { Plus, Search, Upload, FileImage, Calendar as CalendarIcon, X, Pencil } 
 import { StudentPaymentHistoryDialog } from "@/components/admin/StudentPaymentHistoryDialog";
 
 export const Route = createFileRoute("/_authenticated/admin/payments")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    newAllocId: typeof search.newAllocId === "string" ? search.newAllocId : undefined,
+  }),
   component: PaymentsPage,
 });
 
@@ -60,7 +63,9 @@ function PaymentsPage() {
   const { data: session } = useSession();
   const orgId = session?.orgId;
   const staffLibs = session?.staffLibraryIds;
-  const [open, setOpen] = useState(false);
+  const { newAllocId } = Route.useSearch();
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(!!newAllocId);
   const [searchQuery, setSearchQuery] = useState("");
   const [fromDate, setFromDate] = useState<string>(addDaysISO(todayISO(), -30));
   const [toDate, setToDate] = useState<string>(todayISO());
@@ -94,6 +99,14 @@ function PaymentsPage() {
     },
   });
 
+  useEffect(() => {
+    if (newAllocId) setOpen(true);
+  }, [newAllocId]);
+
+  const clearChain = () => {
+    if (newAllocId) navigate({ to: "/admin/payments", search: {}, replace: true });
+  };
+
   const filteredPayments = useMemo(() => {
     if (!payments.data) return [];
     if (!searchQuery) return payments.data;
@@ -114,17 +127,25 @@ function PaymentsPage() {
           <SectionHeader title="Payments" hint="Log payments with proof, and drill into full history." />
         </div>
         <div className="w-full sm:w-auto shrink-0 mt-2 sm:mt-0">
-          <Dialog open={open} onOpenChange={setOpen}>
+          <Dialog
+            open={open}
+            onOpenChange={(o) => {
+              setOpen(o);
+              if (!o) clearChain();
+            }}
+          >
             <DialogTrigger asChild>
               <Button className="w-full sm:w-auto bg-white text-slate-900 hover:bg-white/90">
                 <Plus className="mr-1 size-4" /> Log payment
               </Button>
             </DialogTrigger>
             <LogPaymentDialog
+              initialAllocId={newAllocId}
               onDone={() => {
                 qc.invalidateQueries({ queryKey: ["payments-list"] });
                 qc.invalidateQueries({ queryKey: ["allocations"] });
                 setOpen(false);
+                clearChain();
               }}
             />
           </Dialog>
@@ -298,13 +319,13 @@ function PaymentsPage() {
   );
 }
 
-function LogPaymentDialog({ onDone }: { onDone: () => void }) {
+function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => void; initialAllocId?: string }) {
   const { data: session } = useSession();
   const orgId = session?.orgId;
 
   const [studentSearch, setStudentSearch] = useState("");
   const [isSearchFocused, setIsSearchFocused] = useState(false);
-  const [allocId, setAllocId] = useState("");
+  const [allocId, setAllocId] = useState(initialAllocId ?? "");
   const [amount, setAmount] = useState<number | "">("");
   const [startDate, setStartDate] = useState(todayISO());
   const [endDate, setEndDate] = useState("");
@@ -334,6 +355,15 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
   });
 
   const chosen = active.data?.find((a: any) => a.id === allocId);
+
+  // Chained onboarding: preselect the allocation we just created and fill the search box.
+  useEffect(() => {
+    if (!initialAllocId || !active.data) return;
+    const match = active.data.find((a: any) => a.id === initialAllocId);
+    if (!match) return;
+    setAllocId(initialAllocId);
+    setStudentSearch((prev) => prev || ((match as any).students?.full_name ?? ""));
+  }, [initialAllocId, active.data]);
 
   const filteredAllocations = useMemo(() => {
     if (!active.data) return [];
