@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -39,6 +39,8 @@ function StudentsPage() {
   const qc = useQueryClient();
   const setActive = useServerFn(setStudentActive);
   const [exporting, setExporting] = useState(false);
+  const [chain, setChain] = useState<{ id: string; name: string } | null>(null);
+  const navigate = useNavigate();
 
   const exportExcel = async () => {
     if (!orgId) return;
@@ -120,6 +122,7 @@ function StudentsPage() {
                 await invalidate();
                 setOpen(false);
               }}
+              onCreated={(id, name) => setChain({ id, name })}
             />
           </Dialog>
         </div>
@@ -289,6 +292,35 @@ function StudentsPage() {
         </div>
       </GlassPanel>
 
+      <Dialog open={!!chain} onOpenChange={(o) => !o && setChain(null)}>
+        <DialogContent className="glass-strong border-panel-border w-[95vw] max-w-md p-5">
+          <DialogHeader>
+            <DialogTitle>Student added</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            {chain?.name} is onboarded. Assign a seat now and log the first payment in one go?
+          </p>
+          <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button variant="outline" className="bg-panel border-panel-border" onClick={() => setChain(null)}>
+              Not now
+            </Button>
+            <Button
+              className="bg-white text-slate-900 hover:bg-white/90"
+              onClick={() => {
+                const c = chain!;
+                setChain(null);
+                navigate({
+                  to: "/admin/allocations",
+                  search: { newStudentId: c.id, newStudentName: c.name },
+                });
+              }}
+            >
+              Assign seat
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {viewing && <StudentProfileDialog studentId={viewing} onClose={() => setViewing(null)} />}
 
       <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
@@ -306,7 +338,15 @@ function StudentsPage() {
   );
 }
 
-function StudentFormDialog({ existing, onDone }: { existing?: any; onDone: () => void }) {
+function StudentFormDialog({
+  existing,
+  onDone,
+  onCreated,
+}: {
+  existing?: any;
+  onDone: () => void;
+  onCreated?: (studentId: string, name: string) => void;
+}) {
   const { data: libs } = useLibraries();
   const { data: exams } = useMasterExams();
   const [name, setName] = useState(existing?.full_name ?? "");
@@ -360,7 +400,7 @@ function StudentFormDialog({ existing, onDone }: { existing?: any; onDone: () =>
               });
               toast.success("Student updated");
             } else {
-              await create({
+              const res: any = await create({
                 data: {
                   full_name: name,
                   mobile_number: mobile,
@@ -374,6 +414,9 @@ function StudentFormDialog({ existing, onDone }: { existing?: any; onDone: () =>
                 },
               });
               toast.success("Student onboarded");
+              onDone();
+              if (onCreated && res?.student_id) onCreated(res.student_id, name);
+              return;
             }
             onDone();
           } catch (err: any) {

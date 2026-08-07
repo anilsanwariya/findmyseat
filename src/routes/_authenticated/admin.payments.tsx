@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,6 +7,7 @@ import { GlassPanel, SectionHeader } from "@/components/glass";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DateInput } from "@/components/ui/date-input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Dialog,
@@ -23,6 +24,9 @@ import { Plus, Search, Upload, FileImage, Calendar as CalendarIcon, X, Pencil } 
 import { StudentPaymentHistoryDialog } from "@/components/admin/StudentPaymentHistoryDialog";
 
 export const Route = createFileRoute("/_authenticated/admin/payments")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    newAllocId: typeof search.newAllocId === "string" ? search.newAllocId : undefined,
+  }),
   component: PaymentsPage,
 });
 
@@ -59,7 +63,9 @@ function PaymentsPage() {
   const { data: session } = useSession();
   const orgId = session?.orgId;
   const staffLibs = session?.staffLibraryIds;
-  const [open, setOpen] = useState(false);
+  const { newAllocId } = Route.useSearch();
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(!!newAllocId);
   const [searchQuery, setSearchQuery] = useState("");
   const [fromDate, setFromDate] = useState<string>(addDaysISO(todayISO(), -30));
   const [toDate, setToDate] = useState<string>(todayISO());
@@ -93,6 +99,14 @@ function PaymentsPage() {
     },
   });
 
+  useEffect(() => {
+    if (newAllocId) setOpen(true);
+  }, [newAllocId]);
+
+  const clearChain = () => {
+    if (newAllocId) navigate({ to: "/admin/payments", search: { newAllocId: undefined }, replace: true });
+  };
+
   const filteredPayments = useMemo(() => {
     if (!payments.data) return [];
     if (!searchQuery) return payments.data;
@@ -113,17 +127,25 @@ function PaymentsPage() {
           <SectionHeader title="Payments" hint="Log payments with proof, and drill into full history." />
         </div>
         <div className="w-full sm:w-auto shrink-0 mt-2 sm:mt-0">
-          <Dialog open={open} onOpenChange={setOpen}>
+          <Dialog
+            open={open}
+            onOpenChange={(o) => {
+              setOpen(o);
+              if (!o) clearChain();
+            }}
+          >
             <DialogTrigger asChild>
               <Button className="w-full sm:w-auto bg-white text-slate-900 hover:bg-white/90">
                 <Plus className="mr-1 size-4" /> Log payment
               </Button>
             </DialogTrigger>
             <LogPaymentDialog
+              initialAllocId={newAllocId}
               onDone={() => {
                 qc.invalidateQueries({ queryKey: ["payments-list"] });
                 qc.invalidateQueries({ queryKey: ["allocations"] });
                 setOpen(false);
+                clearChain();
               }}
             />
           </Dialog>
@@ -156,8 +178,8 @@ function PaymentsPage() {
             <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3 w-full sm:w-auto">
               <div className="space-y-1 w-full sm:w-36 shrink-0">
                 <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">From</Label>
-                <Input
-                  type="date"
+                <DateInput
+                  
                   value={fromDate}
                   onChange={(e) => setFromDate(e.target.value)}
                   className="bg-panel border-panel-border font-mono text-xs w-full"
@@ -165,8 +187,8 @@ function PaymentsPage() {
               </div>
               <div className="space-y-1 w-full sm:w-36 shrink-0">
                 <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">To</Label>
-                <Input
-                  type="date"
+                <DateInput
+                  
                   value={toDate}
                   onChange={(e) => setToDate(e.target.value)}
                   className="bg-panel border-panel-border font-mono text-xs w-full"
@@ -297,13 +319,13 @@ function PaymentsPage() {
   );
 }
 
-function LogPaymentDialog({ onDone }: { onDone: () => void }) {
+function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => void; initialAllocId?: string }) {
   const { data: session } = useSession();
   const orgId = session?.orgId;
 
   const [studentSearch, setStudentSearch] = useState("");
   const [isSearchFocused, setIsSearchFocused] = useState(false);
-  const [allocId, setAllocId] = useState("");
+  const [allocId, setAllocId] = useState(initialAllocId ?? "");
   const [amount, setAmount] = useState<number | "">("");
   const [startDate, setStartDate] = useState(todayISO());
   const [endDate, setEndDate] = useState("");
@@ -333,6 +355,15 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
   });
 
   const chosen = active.data?.find((a: any) => a.id === allocId);
+
+  // Chained onboarding: preselect the allocation we just created and fill the search box.
+  useEffect(() => {
+    if (!initialAllocId || !active.data) return;
+    const match = active.data.find((a: any) => a.id === initialAllocId);
+    if (!match) return;
+    setAllocId(initialAllocId);
+    setStudentSearch((prev) => prev || ((match as any).students?.full_name ?? ""));
+  }, [initialAllocId, active.data]);
 
   const filteredAllocations = useMemo(() => {
     if (!active.data) return [];
@@ -588,9 +619,8 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
                   <Label>
                     Next Due Date <span className="text-red-400">*</span>
                   </Label>
-                  <Input
+                  <DateInput
                     required
-                    type="date"
                     value={legacyDueDate}
                     onChange={(e) => setLegacyDueDate(e.target.value)}
                     className="bg-panel border-panel-border font-mono w-full text-emerald font-semibold"
@@ -630,9 +660,8 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
                   </div>
                   <div className="space-y-2">
                     <Label>Coverage Start Date</Label>
-                    <Input
+                    <DateInput
                       required
-                      type="date"
                       value={startDate}
                       disabled
                       className="bg-black/20 border-transparent text-muted-foreground text-sm block w-full opacity-70 cursor-not-allowed"
@@ -645,9 +674,8 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
                     {isPartial ? "Due Date" : "New Due Date"}{" "}
                     <span className="text-[10px] text-muted-foreground normal-case">(editable)</span>
                   </Label>
-                  <Input
+                  <DateInput
                     required
-                    type="date"
                     value={endDate}
                     onChange={(e) => {
                       setDueTouched(true);
@@ -913,8 +941,8 @@ function PaymentDetailDialog({
               </div>
               <div className="space-y-2">
                 <Label>Payment Date</Label>
-                <Input
-                  type="date"
+                <DateInput
+                  
                   value={form.payment_date}
                   onChange={(e) => setForm({ ...form, payment_date: e.target.value })}
                   className="bg-panel border-panel-border font-mono w-full"
@@ -922,8 +950,8 @@ function PaymentDetailDialog({
               </div>
               <div className="space-y-2">
                 <Label>Covers Until / Due Date</Label>
-                <Input
-                  type="date"
+                <DateInput
+                  
                   value={form.covers_until}
                   onChange={(e) => setForm({ ...form, covers_until: e.target.value })}
                   className="bg-panel border-panel-border font-mono w-full text-emerald font-semibold"
