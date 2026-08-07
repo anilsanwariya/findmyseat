@@ -63,7 +63,7 @@ export function SuperAdminShell({ children }: { children: ReactNode }) {
       <AuroraBackground />
       <div className="relative z-10 flex min-h-screen">
         {/* Desktop sidebar */}
-        <aside className="hidden w-64 shrink-0 border-r border-panel-border bg-gradient-to-b from-background/80 via-panel/40 to-background/80 backdrop-blur-xl md:flex md:flex-col">
+        <aside className="hidden w-64 shrink-0 border-r border-panel-border bg-gradient-to-b from-background/80 via-panel/40 to-background/80 backdrop-blur-xl lg:flex lg:flex-col">
           <div className="p-6">
             <Link to="/super-admin" className="flex items-center gap-2">
               <div className="grid size-9 place-items-center rounded-xl bg-gradient-to-br from-gold to-magenta shadow-[0_0_24px_-4px_rgba(236,72,153,0.6)]">
@@ -92,7 +92,7 @@ export function SuperAdminShell({ children }: { children: ReactNode }) {
         </aside>
 
         {mobileOpen && (
-          <div className="fixed inset-0 z-40 md:hidden">
+          <div className="fixed inset-0 z-40 lg:hidden">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
             <aside className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col border-r border-panel-border bg-background/95 backdrop-blur-xl">
               <div className="flex items-center justify-between p-5">
@@ -123,7 +123,7 @@ export function SuperAdminShell({ children }: { children: ReactNode }) {
         )}
 
         <main className="min-w-0 flex-1">
-          <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-panel-border bg-background/70 px-4 backdrop-blur-xl md:hidden">
+          <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-panel-border bg-background/70 px-4 backdrop-blur-xl lg:hidden">
             <button
               onClick={() => setMobileOpen(true)}
               className="rounded-md p-1.5 text-muted-foreground hover:bg-panel"
@@ -141,7 +141,7 @@ export function SuperAdminShell({ children }: { children: ReactNode }) {
               Sign out
             </button>
           </header>
-          <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 md:py-8">{children}</div>
+          <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:py-8">{children}</div>
         </main>
       </div>
     </div>
