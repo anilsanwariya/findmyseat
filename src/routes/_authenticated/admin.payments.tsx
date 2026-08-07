@@ -104,7 +104,7 @@ function PaymentsPage() {
   }, [newAllocId]);
 
   const clearChain = () => {
-    if (newAllocId) navigate({ to: "/admin/payments", search: {}, replace: true });
+    if (newAllocId) navigate({ to: "/admin/payments", search: { newAllocId: undefined }, replace: true });
   };
 
   const filteredPayments = useMemo(() => {

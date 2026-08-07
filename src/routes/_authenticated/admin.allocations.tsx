@@ -123,7 +123,7 @@ function AllocationsPage() {
   }, [newStudentId]);
 
   const clearChain = () => {
-    if (newStudentId) navigate({ to: "/admin/allocations", search: {}, replace: true });
+    if (newStudentId) navigate({ to: "/admin/allocations", search: { newStudentId: undefined, newStudentName: undefined }, replace: true });
   };
 
   // States for interacting with the map and table
