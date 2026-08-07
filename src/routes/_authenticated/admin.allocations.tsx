@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -34,6 +34,10 @@ import {
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/allocations")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    newStudentId: typeof search.newStudentId === "string" ? search.newStudentId : undefined,
+    newStudentName: typeof search.newStudentName === "string" ? search.newStudentName : undefined,
+  }),
   component: AllocationsPage,
 });
 
@@ -110,7 +114,17 @@ function AllocationsPage() {
 
   const [libraryId, setLibraryId] = useState<string | undefined>();
   const [sectionId, setSectionId] = useState<string | undefined>();
-  const [openNewAlloc, setOpenNewAlloc] = useState(false);
+  const { newStudentId, newStudentName } = Route.useSearch();
+  const navigate = useNavigate();
+  const [openNewAlloc, setOpenNewAlloc] = useState(!!newStudentId);
+
+  useEffect(() => {
+    if (newStudentId) setOpenNewAlloc(true);
+  }, [newStudentId]);
+
+  const clearChain = () => {
+    if (newStudentId) navigate({ to: "/admin/allocations", search: {}, replace: true });
+  };
 
   // States for interacting with the map and table
   const [selectedVacantSeat, setSelectedVacantSeat] = useState<any>(null);
@@ -636,14 +650,31 @@ function AllocationsPage() {
       </GlassPanel>
 
       {/* Manual New Allocation Dialog */}
-      <Dialog open={openNewAlloc} onOpenChange={setOpenNewAlloc}>
+      <Dialog
+        open={openNewAlloc}
+        onOpenChange={(o) => {
+          setOpenNewAlloc(o);
+          if (!o) clearChain();
+        }}
+      >
         <NewAllocDialog
           initialLibraryId={currentLibId}
           initialSectionId={currentSectionId}
+          initialStudentId={newStudentId}
+          initialStudentName={newStudentName}
           onDone={() => {
             refreshData();
             setOpenNewAlloc(false);
           }}
+          onCreated={
+            newStudentId
+              ? (allocId) => {
+                  refreshData();
+                  setOpenNewAlloc(false);
+                  navigate({ to: "/admin/payments", search: { newAllocId: allocId }, replace: true });
+                }
+              : undefined
+          }
         />
       </Dialog>
 
@@ -1077,22 +1108,28 @@ function EditAllocationDialog({
 // -----------------------------------------------------------------------------------
 function NewAllocDialog({
   onDone,
+  onCreated,
   initialLibraryId,
   initialSectionId,
   initialSeatId,
+  initialStudentId,
+  initialStudentName,
 }: {
   onDone: () => void;
+  onCreated?: (allocationId: string) => void;
   initialLibraryId?: string;
   initialSectionId?: string;
   initialSeatId?: string;
+  initialStudentId?: string;
+  initialStudentName?: string;
 }) {
   const { data: session } = useSession();
   const orgId = session?.orgId;
   const { data: libs } = useLibraries();
 
   const [libraryId, setLibraryId] = useState(initialLibraryId || "");
-  const [studentId, setStudentId] = useState("");
-  const [studentSearch, setStudentSearch] = useState("");
+  const [studentId, setStudentId] = useState(initialStudentId ?? "");
+  const [studentSearch, setStudentSearch] = useState(initialStudentName ?? "");
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [sectionId, setSectionId] = useState<string>(initialSectionId || "");
   const [seatId, setSeatId] = useState(initialSeatId || "");
@@ -1318,7 +1355,9 @@ function NewAllocDialog({
           const carriedStatus = carriedDue ? (carriedDue < todayISO() ? "overdue" : "paid") : "pending";
 
 
-          const { error } = await supabase.from("allocations").insert({
+          const { data: createdAlloc, error } = await supabase
+            .from("allocations")
+            .insert({
             org_id: orgId!,
             library_id: libraryId,
             student_id: studentId,
@@ -1329,7 +1368,9 @@ function NewAllocDialog({
             start_date: prev?.start_date ?? null,
             next_due_date: carriedDue,
             status: carriedStatus as any,
-          });
+            })
+            .select("id")
+            .single();
 
           setLoading(false);
           if (error) {
@@ -1337,6 +1378,11 @@ function NewAllocDialog({
             return;
           }
 
+          if (onCreated && createdAlloc?.id) {
+            toast.success("Seat assigned. Log the first payment.");
+            onCreated(createdAlloc.id);
+            return;
+          }
           toast.success("Allocation created. Set dates in Payments view.");
           onDone();
         }}
