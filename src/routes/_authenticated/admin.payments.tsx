@@ -588,9 +588,8 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
                   <Label>
                     Next Due Date <span className="text-red-400">*</span>
                   </Label>
-                  <Input
+                  <DateInput
                     required
-                    type="date"
                     value={legacyDueDate}
                     onChange={(e) => setLegacyDueDate(e.target.value)}
                     className="bg-panel border-panel-border font-mono w-full text-emerald font-semibold"
@@ -630,9 +629,8 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
                   </div>
                   <div className="space-y-2">
                     <Label>Coverage Start Date</Label>
-                    <Input
+                    <DateInput
                       required
-                      type="date"
                       value={startDate}
                       disabled
                       className="bg-black/20 border-transparent text-muted-foreground text-sm block w-full opacity-70 cursor-not-allowed"
@@ -645,9 +643,8 @@ function LogPaymentDialog({ onDone }: { onDone: () => void }) {
                     {isPartial ? "Due Date" : "New Due Date"}{" "}
                     <span className="text-[10px] text-muted-foreground normal-case">(editable)</span>
                   </Label>
-                  <Input
+                  <DateInput
                     required
-                    type="date"
                     value={endDate}
                     onChange={(e) => {
                       setDueTouched(true);
