@@ -174,7 +174,7 @@ function PlanPriceDialog({ initial, onSubmit, pending }: { initial: any; onSubmi
           </div>
           <div className="mt-3">
             <Label className="text-xs text-muted-foreground">Offer valid until</Label>
-            <Input type="date" value={f.discount_valid_until} onChange={(e) => setF({ ...f, discount_valid_until: e.target.value })} className="bg-panel border-panel-border" />
+            <DateInput  value={f.discount_valid_until} onChange={(e) => setF({ ...f, discount_valid_until: e.target.value })} className="bg-panel border-panel-border" />
             <p className="mt-1 text-[11px] text-muted-foreground">Leave blank to disable the discount. Applies while today is before this date.</p>
           </div>
         </div>
@@ -269,7 +269,7 @@ function CouponFormDialog({ onSubmit, pending }: { onSubmit: (v: any) => void; p
           <div><Label>Value</Label><Input type="number" value={f.discount_value} onChange={(e) => setF({ ...f, discount_value: Number(e.target.value) })} className="bg-panel border-panel-border font-mono" /></div>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <div><Label>Expires on</Label><Input type="date" value={f.valid_until} onChange={(e) => setF({ ...f, valid_until: e.target.value })} className="bg-panel border-panel-border" /></div>
+          <div><Label>Expires on</Label><DateInput  value={f.valid_until} onChange={(e) => setF({ ...f, valid_until: e.target.value })} className="bg-panel border-panel-border" /></div>
           <div><Label>Max uses</Label><Input type="number" value={f.max_uses} onChange={(e) => setF({ ...f, max_uses: e.target.value })} className="bg-panel border-panel-border font-mono" placeholder="Unlimited" /></div>
         </div>
         <div className="flex items-center gap-2"><Switch checked={f.is_active} onCheckedChange={(v) => setF({ ...f, is_active: v })} /><Label>Active</Label></div>

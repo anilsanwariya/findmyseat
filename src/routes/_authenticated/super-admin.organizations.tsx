@@ -212,7 +212,7 @@ function SubscriptionEditDialog({ org, onClose, onSaved }: { org: Org | null; on
 
             <div>
               <Label className="mb-1 block font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Next billing date</Label>
-              <Input type="date" value={nextBilling} onChange={(e) => setNextBilling(e.target.value)} className="bg-panel border-panel-border" />
+              <DateInput  value={nextBilling} onChange={(e) => setNextBilling(e.target.value)} className="bg-panel border-panel-border" />
             </div>
 
 

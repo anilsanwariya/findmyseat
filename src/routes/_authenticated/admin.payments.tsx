@@ -156,8 +156,8 @@ function PaymentsPage() {
             <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3 w-full sm:w-auto">
               <div className="space-y-1 w-full sm:w-36 shrink-0">
                 <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">From</Label>
-                <Input
-                  type="date"
+                <DateInput
+                  
                   value={fromDate}
                   onChange={(e) => setFromDate(e.target.value)}
                   className="bg-panel border-panel-border font-mono text-xs w-full"
@@ -165,8 +165,8 @@ function PaymentsPage() {
               </div>
               <div className="space-y-1 w-full sm:w-36 shrink-0">
                 <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">To</Label>
-                <Input
-                  type="date"
+                <DateInput
+                  
                   value={toDate}
                   onChange={(e) => setToDate(e.target.value)}
                   className="bg-panel border-panel-border font-mono text-xs w-full"
@@ -913,8 +913,8 @@ function PaymentDetailDialog({
               </div>
               <div className="space-y-2">
                 <Label>Payment Date</Label>
-                <Input
-                  type="date"
+                <DateInput
+                  
                   value={form.payment_date}
                   onChange={(e) => setForm({ ...form, payment_date: e.target.value })}
                   className="bg-panel border-panel-border font-mono w-full"
@@ -922,8 +922,8 @@ function PaymentDetailDialog({
               </div>
               <div className="space-y-2">
                 <Label>Covers Until / Due Date</Label>
-                <Input
-                  type="date"
+                <DateInput
+                  
                   value={form.covers_until}
                   onChange={(e) => setForm({ ...form, covers_until: e.target.value })}
                   className="bg-panel border-panel-border font-mono w-full text-emerald font-semibold"
