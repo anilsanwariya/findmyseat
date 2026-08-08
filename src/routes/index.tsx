@@ -569,18 +569,12 @@ function LibraryDetailsDialog({
   const [activeSlideIndex, setActiveSlideIndex] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  const photosFn = useServerFn(listLibraryPhotos);
   const photos = useQuery({
     queryKey: ["library-photos", lib?.id],
     enabled: !!lib?.id,
     staleTime: 60_000,
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("library_photos")
-        .select("id, image_url, section_name, display_order")
-        .eq("library_id", lib!.id)
-        .order("display_order", { ascending: true });
-      return data ?? [];
-    },
+    queryFn: async () => (await photosFn({ data: { library_id: lib!.id } })) ?? [],
   });
 
   if (!lib) return null;
