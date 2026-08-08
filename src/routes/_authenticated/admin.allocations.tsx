@@ -830,15 +830,19 @@ function EditAllocationDialog({
   const [shiftId, setShiftId] = useState<string>("");
   const [fee, setFee] = useState<number | "">("");
   const [loading, setLoading] = useState(false);
+  // Keep the student's existing fee prefilled; only auto-recalculate after the
+  // owner manually changes section / type / shift.
+  const feeTouched = useRef(false);
 
   // Sync state when dialog opens
   useEffect(() => {
     if (alloc) {
+      feeTouched.current = false;
       setReservationType(alloc.reservation_type || "reserved");
       setSectionId(alloc.seats?.section_id || "");
       setSeatId(alloc.seat_id || "");
       setShiftId(alloc.shift_id || "none");
-      setFee(alloc.monthly_fee || 0);
+      setFee(alloc.monthly_fee ?? "");
     }
   }, [alloc]);
 
@@ -914,6 +918,8 @@ function EditAllocationDialog({
   // Dynamic Fee Calculator (Base Fee + Reservation Fee)
   useEffect(() => {
     if (!currentSection) return;
+    if (!feeTouched.current) return; // keep the student's current fee prefilled
+
 
     let calculatedFee = 0;
 
@@ -998,7 +1004,14 @@ function EditAllocationDialog({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label>Section</Label>
-              <Select value={sectionId} onValueChange={setSectionId} disabled={reservationType === "unreserved"}>
+              <Select
+                value={sectionId}
+                onValueChange={(v) => {
+                  feeTouched.current = true;
+                  setSectionId(v);
+                }}
+                disabled={reservationType === "unreserved"}
+              >
                 <SelectTrigger className="bg-panel border-panel-border">
                   <SelectValue placeholder="Choose section" />
                 </SelectTrigger>
@@ -1017,6 +1030,7 @@ function EditAllocationDialog({
               <Select
                 value={reservationType}
                 onValueChange={(v: any) => {
+                  feeTouched.current = true;
                   setReservationType(v);
                   if (v === "unreserved") setSeatId("");
                 }}
@@ -1056,7 +1070,13 @@ function EditAllocationDialog({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label>Shift</Label>
-              <Select value={shiftId} onValueChange={setShiftId}>
+              <Select
+                value={shiftId}
+                onValueChange={(v) => {
+                  feeTouched.current = true;
+                  setShiftId(v);
+                }}
+              >
                 <SelectTrigger className="bg-panel border-panel-border">
                   <SelectValue placeholder="Choose shift" />
                 </SelectTrigger>
