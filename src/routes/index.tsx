@@ -44,6 +44,8 @@ import {
   listPublicZones,
   listPublicCities,
   submitSeatRequest,
+  listLibraryPhotos,
+  getPublicRatingSummary,
 } from "@/lib/marketplace.functions";
 
 export const Route = createFileRoute("/")({
