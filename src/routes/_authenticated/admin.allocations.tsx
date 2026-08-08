@@ -1030,6 +1030,7 @@ function EditAllocationDialog({
               <Select
                 value={reservationType}
                 onValueChange={(v: any) => {
+                  feeTouched.current = true;
                   setReservationType(v);
                   if (v === "unreserved") setSeatId("");
                 }}
