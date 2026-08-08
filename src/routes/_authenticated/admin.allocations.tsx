@@ -830,15 +830,19 @@ function EditAllocationDialog({
   const [shiftId, setShiftId] = useState<string>("");
   const [fee, setFee] = useState<number | "">("");
   const [loading, setLoading] = useState(false);
+  // Keep the student's existing fee prefilled; only auto-recalculate after the
+  // owner manually changes section / type / shift.
+  const feeTouched = useRef(false);
 
   // Sync state when dialog opens
   useEffect(() => {
     if (alloc) {
+      feeTouched.current = false;
       setReservationType(alloc.reservation_type || "reserved");
       setSectionId(alloc.seats?.section_id || "");
       setSeatId(alloc.seat_id || "");
       setShiftId(alloc.shift_id || "none");
-      setFee(alloc.monthly_fee || 0);
+      setFee(alloc.monthly_fee ?? "");
     }
   }, [alloc]);
 
