@@ -238,3 +238,42 @@ export const submitSeatRequest = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+/** Public gallery for an approved, active library (anon has no direct read on library_photos). */
+export const listLibraryPhotos = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => z.object({ library_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: lib } = await supabaseAdmin
+      .from("libraries")
+      .select("id")
+      .eq("id", data.library_id)
+      .eq("is_active", true)
+      .eq("approval_status", "approved")
+      .maybeSingle();
+    if (!lib) return [] as any[];
+    const { data: photos } = await supabaseAdmin
+      .from("library_photos")
+      .select("id, image_url, section_name, display_order")
+      .eq("library_id", data.library_id)
+      .order("display_order", { ascending: true });
+    return photos ?? [];
+  });
+
+/** Public rating breakdown for an approved, active library. */
+export const getPublicRatingSummary = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => z.object({ library_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: lib } = await supabaseAdmin
+      .from("libraries")
+      .select("id")
+      .eq("id", data.library_id)
+      .eq("is_active", true)
+      .eq("approval_status", "approved")
+      .maybeSingle();
+    if (!lib) return null;
+    const { data: rows } = await supabaseAdmin.rpc("get_library_rating_summary", { _library_id: data.library_id });
+    const s = Array.isArray(rows) ? rows[0] : rows;
+    return (s ?? null) as any;
+  });
