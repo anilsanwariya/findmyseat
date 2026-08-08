@@ -918,6 +918,8 @@ function EditAllocationDialog({
   // Dynamic Fee Calculator (Base Fee + Reservation Fee)
   useEffect(() => {
     if (!currentSection) return;
+    if (!feeTouched.current) return; // keep the student's current fee prefilled
+
 
     let calculatedFee = 0;
 
