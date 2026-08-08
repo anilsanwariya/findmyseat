@@ -799,13 +799,11 @@ function RatingBreakdownDialog({
   open: boolean;
   onOpenChange: (o: boolean) => void;
 }) {
+  const summaryFn = useServerFn(getPublicRatingSummary);
   const summary = useQuery({
     queryKey: ["rating-summary", libraryId],
     enabled: open && !!libraryId,
-    queryFn: async () => {
-      const { data } = await (supabase as any).rpc("get_library_rating_summary", { _library_id: libraryId });
-      return Array.isArray(data) ? data[0] : data;
-    },
+    queryFn: async () => await summaryFn({ data: { library_id: libraryId } }),
   });
   const s = summary.data;
   const rows = [
