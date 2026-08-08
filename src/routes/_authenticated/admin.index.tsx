@@ -26,7 +26,13 @@ function Dashboard() {
       const isoEnd = `${endOfMonth.getFullYear()}-${String(endOfMonth.getMonth() + 1).padStart(2, "0")}-${String(endOfMonth.getDate()).padStart(2, "0")}`;
       const [payments, dues, expenses, students, seats, leads, upcoming] = await Promise.all([
         supabase.from("payments").select("amount_paid").eq("org_id", orgId!).gte("payment_date", iso),
-        supabase.from("allocations").select("monthly_fee, status").eq("org_id", orgId!).eq("status", "overdue"),
+        // Dues = active allocations whose due date has passed, or explicitly marked overdue.
+        // The stored status only updates on payment events, so date is the source of truth.
+        supabase
+          .from("allocations")
+          .select("monthly_fee, status, next_due_date")
+          .eq("org_id", orgId!)
+          .eq("is_active", true),
         supabase.from("expenditures").select("amount").eq("org_id", orgId!).gte("spent_on", iso),
         supabase.from("students").select("id", { count: "exact", head: true }).eq("org_id", orgId!).eq("is_active", true),
         supabase.from("seats").select("id", { count: "exact", head: true }).eq("org_id", orgId!).eq("is_active", true),
@@ -40,7 +46,10 @@ function Dashboard() {
           .lte("next_due_date", isoEnd),
       ]);
       const revenue = (payments.data ?? []).reduce((s, r) => s + Number(r.amount_paid), 0);
-      const duesTotal = (dues.data ?? []).reduce((s, r) => s + Number(r.monthly_fee), 0);
+      const todayISO = new Date().toISOString().slice(0, 10);
+      const duesTotal = (dues.data ?? [])
+        .filter((r: any) => r.status === "overdue" || (r.next_due_date && r.next_due_date < todayISO))
+        .reduce((s, r) => s + Number(r.monthly_fee), 0);
       const expTotal = (expenses.data ?? []).reduce((s, r) => s + Number(r.amount), 0);
       const upcomingTotal = (upcoming.data ?? []).reduce((s, r) => s + Number(r.monthly_fee), 0);
       return {

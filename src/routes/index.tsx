@@ -1,7 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useMemo, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
 import { AuroraBackground, GlassPanel } from "@/components/glass";
 import { Logo } from "@/components/Logo";
@@ -44,6 +43,8 @@ import {
   listPublicZones,
   listPublicCities,
   submitSeatRequest,
+  listLibraryPhotos,
+  getPublicRatingSummary,
 } from "@/lib/marketplace.functions";
 
 export const Route = createFileRoute("/")({
@@ -567,18 +568,12 @@ function LibraryDetailsDialog({
   const [activeSlideIndex, setActiveSlideIndex] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  const photosFn = useServerFn(listLibraryPhotos);
   const photos = useQuery({
     queryKey: ["library-photos", lib?.id],
     enabled: !!lib?.id,
     staleTime: 60_000,
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("library_photos")
-        .select("id, image_url, section_name, display_order")
-        .eq("library_id", lib!.id)
-        .order("display_order", { ascending: true });
-      return data ?? [];
-    },
+    queryFn: async () => (await photosFn({ data: { library_id: lib!.id } })) ?? [],
   });
 
   if (!lib) return null;
@@ -803,13 +798,11 @@ function RatingBreakdownDialog({
   open: boolean;
   onOpenChange: (o: boolean) => void;
 }) {
+  const summaryFn = useServerFn(getPublicRatingSummary);
   const summary = useQuery({
     queryKey: ["rating-summary", libraryId],
     enabled: open && !!libraryId,
-    queryFn: async () => {
-      const { data } = await (supabase as any).rpc("get_library_rating_summary", { _library_id: libraryId });
-      return Array.isArray(data) ? data[0] : data;
-    },
+    queryFn: async () => await summaryFn({ data: { library_id: libraryId } }),
   });
   const s = summary.data;
   const rows = [
