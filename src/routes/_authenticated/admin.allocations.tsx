@@ -1004,7 +1004,14 @@ function EditAllocationDialog({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label>Section</Label>
-              <Select value={sectionId} onValueChange={setSectionId} disabled={reservationType === "unreserved"}>
+              <Select
+                value={sectionId}
+                onValueChange={(v) => {
+                  feeTouched.current = true;
+                  setSectionId(v);
+                }}
+                disabled={reservationType === "unreserved"}
+              >
                 <SelectTrigger className="bg-panel border-panel-border">
                   <SelectValue placeholder="Choose section" />
                 </SelectTrigger>
