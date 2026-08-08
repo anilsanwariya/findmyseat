@@ -1070,7 +1070,13 @@ function EditAllocationDialog({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label>Shift</Label>
-              <Select value={shiftId} onValueChange={setShiftId}>
+              <Select
+                value={shiftId}
+                onValueChange={(v) => {
+                  feeTouched.current = true;
+                  setShiftId(v);
+                }}
+              >
                 <SelectTrigger className="bg-panel border-panel-border">
                   <SelectValue placeholder="Choose shift" />
                 </SelectTrigger>
