@@ -46,7 +46,10 @@ function Dashboard() {
           .lte("next_due_date", isoEnd),
       ]);
       const revenue = (payments.data ?? []).reduce((s, r) => s + Number(r.amount_paid), 0);
-      const duesTotal = (dues.data ?? []).reduce((s, r) => s + Number(r.monthly_fee), 0);
+      const todayISO = new Date().toISOString().slice(0, 10);
+      const duesTotal = (dues.data ?? [])
+        .filter((r: any) => r.status === "overdue" || (r.next_due_date && r.next_due_date < todayISO))
+        .reduce((s, r) => s + Number(r.monthly_fee), 0);
       const expTotal = (expenses.data ?? []).reduce((s, r) => s + Number(r.amount), 0);
       const upcomingTotal = (upcoming.data ?? []).reduce((s, r) => s + Number(r.monthly_fee), 0);
       return {
