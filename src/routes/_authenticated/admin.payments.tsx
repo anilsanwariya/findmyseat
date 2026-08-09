@@ -374,22 +374,33 @@ function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => void; init
     );
   }, [active.data, studentSearch]);
 
-  // Partial payments already logged against the current (unmoved) due date
+  // Partial payments towards the open cycle. A partial stores the cycle's TARGET end
+  // date in covers_until and never moves the allocation's next_due_date, so any partial
+  // with covers_until beyond the current due date belongs to the unfinished cycle.
   const cycleDue = chosen?.next_due_date ? String(chosen.next_due_date).split("T")[0] : null;
   const priorPartials = useQuery({
     queryKey: ["cycle-partials", chosen?.id, cycleDue],
-    enabled: !!chosen?.id && !!cycleDue,
+    enabled: !!chosen?.id,
     queryFn: async () => {
-      const { data } = await (supabase as any)
+      let q = (supabase as any)
         .from("payments")
-        .select("amount_paid")
+        .select("amount_paid, covers_until")
         .eq("allocation_id", chosen!.id)
-        .eq("is_partial", true)
-        .eq("covers_until", cycleDue);
-      return (data ?? []).reduce((s: number, p: any) => s + Number(p.amount_paid || 0), 0) as number;
+        .eq("is_partial", true);
+      if (cycleDue) q = q.gt("covers_until", cycleDue);
+      const { data } = await q;
+      const rows = (data ?? []) as { amount_paid: number; covers_until: string }[];
+      return {
+        paid: rows.reduce((s, p) => s + Number(p.amount_paid || 0), 0),
+        target: rows.reduce<string | null>((mx, p) => {
+          const d = p.covers_until ? String(p.covers_until).split("T")[0] : null;
+          return d && (!mx || d > mx) ? d : mx;
+        }, null),
+      };
     },
   });
-  const paidBefore = priorPartials.data ?? 0;
+  const paidBefore = priorPartials.data?.paid ?? 0;
+  const openTarget = priorPartials.data?.target ?? null;
 
   useEffect(() => {
     if (chosen) {
@@ -417,8 +428,12 @@ function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => void; init
 
   useEffect(() => {
     if (!chosen || !startDate || dueTouched) return;
-    setEndDate(isPartial ? startDate : addCalendarMonthsISO(startDate, monthsCovered));
-  }, [startDate, chosen, isPartial, monthsCovered, dueTouched]);
+    // The cycle being paid for ends one month after the coverage start, unless an earlier
+    // partial payment already fixed the target end date for this cycle.
+    const cycleEnd = openTarget ?? addCalendarMonthsISO(startDate, 1);
+    setEndDate(monthsCovered > 1 ? addCalendarMonthsISO(cycleEnd, monthsCovered - 1) : cycleEnd);
+  }, [startDate, chosen, monthsCovered, dueTouched, openTarget]);
+
 
   const dueSoon = chosen?.next_due_date ? (new Date(chosen.next_due_date).getTime() - Date.now()) / 86400000 : null;
   const statusColor =
