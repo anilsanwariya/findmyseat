@@ -506,14 +506,19 @@ function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => void; init
               await supabase.from("payments").update({ receipt_url: path }).eq("id", inserted.id);
             }
 
-            const isOverdue = !!effectiveCoversUntil && effectiveCoversUntil < todayISO();
+            // A partial payment never moves the due date — it only records money towards
+            // the open cycle (whose target end is stored on the payment itself).
+            const partialNow = !isLegacy && isPartial;
+            const newDue = partialNow ? (chosen.next_due_date ?? null) : effectiveCoversUntil;
+            const isOverdue = !!newDue && String(newDue).split("T")[0] < todayISO();
             await supabase
               .from("allocations")
               .update({
-                next_due_date: effectiveCoversUntil,
-                status: !isLegacy && isPartial ? (isOverdue ? "overdue" : "pending") : isOverdue ? "overdue" : "paid",
+                next_due_date: newDue,
+                status: partialNow ? (isOverdue ? "overdue" : "pending") : isOverdue ? "overdue" : "paid",
               })
               .eq("id", chosen.id);
+
 
             toast.success(
               isLegacy
