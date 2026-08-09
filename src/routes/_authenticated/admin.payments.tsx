@@ -695,7 +695,7 @@ function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => void; init
 
                 <div className="space-y-2">
                   <Label>
-                    {isPartial ? "Due Date" : "New Due Date"}{" "}
+                    {isPartial ? "Cycle Covers Until" : "New Due Date"}{" "}
                     <span className="text-[10px] text-muted-foreground normal-case">(editable)</span>
                   </Label>
                   <DateInput
@@ -720,16 +720,17 @@ function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => void; init
                   )}
                   {isPartial ? (
                     <p className="text-[10px] text-amber-300/90 mt-1">
-                      Partial payment — the due date stays on {fmtDate(endDate)}. {inr(shortfall)} still pending for
-                      this month.
+                      Partial payment towards the cycle ending {fmtDate(endDate)} — {inr(shortfall)} still pending. The
+                      due date stays {fmtDate(chosen.next_due_date) ?? "unchanged"} until the cycle is paid in full.
                     </p>
                   ) : (
                     <p className="text-[10px] text-muted-foreground mt-1">
-                      Date-to-date monthly cycle — {monthsCovered} month{monthsCovered > 1 ? "s" : ""} added, the due
-                      day stays the same each month.
+                      Date-to-date monthly cycle — {monthsCovered} month{monthsCovered > 1 ? "s" : ""} covered
+                      {openTarget ? ", continuing the part-paid cycle" : ""}, the due day stays the same each month.
                     </p>
                   )}
                 </div>
+
               </div>
             )}
           </>
