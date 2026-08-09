@@ -1355,10 +1355,12 @@ function NewAllocDialog({
           const prev = (prevAllocs ?? []).find((a: any) => a.next_due_date) ?? prevAllocs?.[0];
 
           // Also consider the furthest paid coverage from logged payments.
+          // Partial payments only hold a cycle TARGET, not paid coverage — ignore them.
           const { data: lastPay } = await supabase
             .from("payments")
             .select("covers_until")
             .eq("student_id", studentId)
+            .eq("is_partial", false)
             .not("covers_until", "is", null)
             .order("covers_until", { ascending: false })
             .limit(1);
