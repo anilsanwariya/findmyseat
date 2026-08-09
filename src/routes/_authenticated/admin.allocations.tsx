@@ -170,7 +170,10 @@ function AllocationsPage() {
     },
   });
 
-  // Part-payments logged against the current (unmoved) due date of each allocation
+  // Part-payments logged towards a cycle that has not been completed yet.
+  // A partial payment stores the cycle's TARGET end date in covers_until while the
+  // allocation's next_due_date stays put, so any partial with covers_until beyond the
+  // current due date belongs to the open (unfinished) cycle.
   const partials = useQuery({
     queryKey: ["allocation-partials", orgId, currentLibId],
     enabled: !!orgId && !!currentLibId,
@@ -181,11 +184,13 @@ function AllocationsPage() {
         .eq("org_id", orgId!)
         .eq("library_id", currentLibId!)
         .eq("is_partial", true);
-      const map: Record<string, number> = {};
+      const map: Record<string, { covers_until: string; amount: number }[]> = {};
       (data ?? []).forEach((p: any) => {
         if (!p.allocation_id || !p.covers_until) return;
-        const key = `${p.allocation_id}|${String(p.covers_until).split("T")[0]}`;
-        map[key] = (map[key] ?? 0) + Number(p.amount_paid || 0);
+        (map[p.allocation_id] ??= []).push({
+          covers_until: String(p.covers_until).split("T")[0],
+          amount: Number(p.amount_paid || 0),
+        });
       });
       return map;
     },
@@ -193,12 +198,16 @@ function AllocationsPage() {
 
   const partialPaidFor = useCallback(
     (a: any) => {
-      if (!a?.id || !a?.next_due_date) return 0;
-      const key = `${a.id}|${String(a.next_due_date).split("T")[0]}`;
-      return partials.data?.[key] ?? 0;
+      if (!a?.id) return 0;
+      const rows = partials.data?.[a.id] ?? [];
+      const due = a.next_due_date ? String(a.next_due_date).split("T")[0] : null;
+      return rows
+        .filter((r) => (due ? r.covers_until > due : true))
+        .reduce((s, r) => s + r.amount, 0);
     },
     [partials.data],
   );
+
 
   // Filter the allocations for the data table based on search and status
   const filteredAllocations = useMemo(() => {
@@ -1346,10 +1355,12 @@ function NewAllocDialog({
           const prev = (prevAllocs ?? []).find((a: any) => a.next_due_date) ?? prevAllocs?.[0];
 
           // Also consider the furthest paid coverage from logged payments.
+          // Partial payments only hold a cycle TARGET, not paid coverage — ignore them.
           const { data: lastPay } = await supabase
             .from("payments")
             .select("covers_until")
             .eq("student_id", studentId)
+            .eq("is_partial", false)
             .not("covers_until", "is", null)
             .order("covers_until", { ascending: false })
             .limit(1);

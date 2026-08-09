@@ -374,22 +374,33 @@ function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => void; init
     );
   }, [active.data, studentSearch]);
 
-  // Partial payments already logged against the current (unmoved) due date
+  // Partial payments towards the open cycle. A partial stores the cycle's TARGET end
+  // date in covers_until and never moves the allocation's next_due_date, so any partial
+  // with covers_until beyond the current due date belongs to the unfinished cycle.
   const cycleDue = chosen?.next_due_date ? String(chosen.next_due_date).split("T")[0] : null;
   const priorPartials = useQuery({
     queryKey: ["cycle-partials", chosen?.id, cycleDue],
-    enabled: !!chosen?.id && !!cycleDue,
+    enabled: !!chosen?.id,
     queryFn: async () => {
-      const { data } = await (supabase as any)
+      let q = (supabase as any)
         .from("payments")
-        .select("amount_paid")
+        .select("amount_paid, covers_until")
         .eq("allocation_id", chosen!.id)
-        .eq("is_partial", true)
-        .eq("covers_until", cycleDue);
-      return (data ?? []).reduce((s: number, p: any) => s + Number(p.amount_paid || 0), 0) as number;
+        .eq("is_partial", true);
+      if (cycleDue) q = q.gt("covers_until", cycleDue);
+      const { data } = await q;
+      const rows = (data ?? []) as { amount_paid: number; covers_until: string }[];
+      return {
+        paid: rows.reduce((s, p) => s + Number(p.amount_paid || 0), 0),
+        target: rows.reduce<string | null>((mx, p) => {
+          const d = p.covers_until ? String(p.covers_until).split("T")[0] : null;
+          return d && (!mx || d > mx) ? d : mx;
+        }, null),
+      };
     },
   });
-  const paidBefore = priorPartials.data ?? 0;
+  const paidBefore = priorPartials.data?.paid ?? 0;
+  const openTarget = priorPartials.data?.target ?? null;
 
   useEffect(() => {
     if (chosen) {
@@ -417,8 +428,12 @@ function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => void; init
 
   useEffect(() => {
     if (!chosen || !startDate || dueTouched) return;
-    setEndDate(isPartial ? startDate : addCalendarMonthsISO(startDate, monthsCovered));
-  }, [startDate, chosen, isPartial, monthsCovered, dueTouched]);
+    // The cycle being paid for ends one month after the coverage start, unless an earlier
+    // partial payment already fixed the target end date for this cycle.
+    const cycleEnd = openTarget ?? addCalendarMonthsISO(startDate, 1);
+    setEndDate(monthsCovered > 1 ? addCalendarMonthsISO(cycleEnd, monthsCovered - 1) : cycleEnd);
+  }, [startDate, chosen, monthsCovered, dueTouched, openTarget]);
+
 
   const dueSoon = chosen?.next_due_date ? (new Date(chosen.next_due_date).getTime() - Date.now()) / 86400000 : null;
   const statusColor =
@@ -491,14 +506,19 @@ function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => void; init
               await supabase.from("payments").update({ receipt_url: path }).eq("id", inserted.id);
             }
 
-            const isOverdue = !!effectiveCoversUntil && effectiveCoversUntil < todayISO();
+            // A partial payment never moves the due date — it only records money towards
+            // the open cycle (whose target end is stored on the payment itself).
+            const partialNow = !isLegacy && isPartial;
+            const newDue = partialNow ? (chosen.next_due_date ?? null) : effectiveCoversUntil;
+            const isOverdue = !!newDue && String(newDue).split("T")[0] < todayISO();
             await supabase
               .from("allocations")
               .update({
-                next_due_date: effectiveCoversUntil,
-                status: !isLegacy && isPartial ? (isOverdue ? "overdue" : "pending") : isOverdue ? "overdue" : "paid",
+                next_due_date: newDue,
+                status: partialNow ? (isOverdue ? "overdue" : "pending") : isOverdue ? "overdue" : "paid",
               })
               .eq("id", chosen.id);
+
 
             toast.success(
               isLegacy
@@ -675,7 +695,7 @@ function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => void; init
 
                 <div className="space-y-2">
                   <Label>
-                    {isPartial ? "Due Date" : "New Due Date"}{" "}
+                    {isPartial ? "Cycle Covers Until" : "New Due Date"}{" "}
                     <span className="text-[10px] text-muted-foreground normal-case">(editable)</span>
                   </Label>
                   <DateInput
@@ -700,16 +720,17 @@ function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => void; init
                   )}
                   {isPartial ? (
                     <p className="text-[10px] text-amber-300/90 mt-1">
-                      Partial payment — the due date stays on {fmtDate(endDate)}. {inr(shortfall)} still pending for
-                      this month.
+                      Partial payment towards the cycle ending {fmtDate(endDate)} — {inr(shortfall)} still pending. The
+                      due date stays {fmtDate(chosen.next_due_date) ?? "unchanged"} until the cycle is paid in full.
                     </p>
                   ) : (
                     <p className="text-[10px] text-muted-foreground mt-1">
-                      Date-to-date monthly cycle — {monthsCovered} month{monthsCovered > 1 ? "s" : ""} added, the due
-                      day stays the same each month.
+                      Date-to-date monthly cycle — {monthsCovered} month{monthsCovered > 1 ? "s" : ""} covered
+                      {openTarget ? ", continuing the part-paid cycle" : ""}, the due day stays the same each month.
                     </p>
                   )}
                 </div>
+
               </div>
             )}
           </>
