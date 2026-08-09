@@ -1385,7 +1385,7 @@ function NewAllocDialog({
             shift_id: shiftId === "none" || !shiftId ? null : shiftId,
             monthly_fee: Number(fee || 0),
             reservation_type: reservationType,
-            start_date: prev?.start_date ?? null,
+            start_date: prev?.start_date ?? todayISO(),
             next_due_date: carriedDue,
             status: carriedStatus as any,
             })
