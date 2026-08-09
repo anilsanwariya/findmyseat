@@ -346,7 +346,7 @@ function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => void; init
         await supabase
           .from("allocations")
           .select(
-            "id, monthly_fee, next_due_date, status, students(full_name, mobile_number), seats(seat_number), library_id, student_id, reservation_type",
+            "id, monthly_fee, next_due_date, start_date, status, students(full_name, mobile_number), seats(seat_number), library_id, student_id, reservation_type",
           )
           .eq("org_id", orgId!)
           .eq("is_active", true)
@@ -394,7 +394,11 @@ function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => void; init
   useEffect(() => {
     if (chosen) {
       setAmount(Math.max(Number(chosen.monthly_fee) - paidBefore, 0));
-      setStartDate(chosen.next_due_date ? chosen.next_due_date.split("T")[0] : todayISO());
+      // Coverage starts from the current due date; for a student with no coverage yet
+      // it starts from the date they were allocated (so payment can be collected later).
+      const startFrom =
+        (chosen as any).next_due_date ?? (chosen as any).start_date ?? null;
+      setStartDate(startFrom ? String(startFrom).split("T")[0] : todayISO());
     } else {
       setAmount("");
       setEndDate("");
