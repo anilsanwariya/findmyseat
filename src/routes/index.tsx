@@ -447,7 +447,7 @@ function LibraryCard({
           <img
             src={lib.cover_photo_url}
             alt={lib.name}
-            className="size-full object-cover transition-transform duration-500 group-hover:scale-105"
+            className="size-full object-contain transition-transform duration-500 group-hover:scale-105"
             loading="lazy"
             decoding="async"
           />
@@ -624,7 +624,7 @@ function LibraryDetailsDialog({
                 >
                   {slides.map((p) => (
                     <div key={p.id} className="relative h-full w-full flex-shrink-0 snap-center">
-                      <img src={p.image_url} alt={p.section_name} className="size-full object-cover" loading="lazy" />
+                      <img src={p.image_url} alt={p.section_name} className="size-full object-contain" loading="lazy" />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent pointer-events-none" />
                       <div className="absolute left-4 bottom-5 inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-black/40 px-3 py-1.5 text-xs font-medium text-white backdrop-blur z-10">
                         {p.section_name}
