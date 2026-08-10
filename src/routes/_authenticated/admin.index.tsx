@@ -19,39 +19,63 @@ function Dashboard() {
     queryKey: ["dashboard-stats", orgId],
     enabled: !!orgId,
     queryFn: async () => {
-      const startOfMonth = new Date();
-      startOfMonth.setDate(1);
-      const iso = startOfMonth.toISOString().slice(0, 10);
-      const endOfMonth = new Date(startOfMonth.getFullYear(), startOfMonth.getMonth() + 1, 0);
-      const isoEnd = `${endOfMonth.getFullYear()}-${String(endOfMonth.getMonth() + 1).padStart(2, "0")}-${String(endOfMonth.getDate()).padStart(2, "0")}`;
-      const [payments, dues, expenses, students, seats, leads, upcoming] = await Promise.all([
-        supabase.from("payments").select("amount_paid").eq("org_id", orgId!).gte("payment_date", iso),
+      const fmt = (d: Date) =>
+        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      const now = new Date();
+      const iso = fmt(new Date(now.getFullYear(), now.getMonth(), 1));
+      const isoEnd = fmt(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+      const todayISO = fmt(now);
+      const [payments, dues, expenses, students, seats, leads, upcoming, partialsRes] = await Promise.all([
+        supabase
+          .from("payments")
+          .select("amount_paid")
+          .eq("org_id", orgId!)
+          .gte("payment_date", iso)
+          .lte("payment_date", isoEnd),
         // Dues = active allocations whose due date has passed, or explicitly marked overdue.
         // The stored status only updates on payment events, so date is the source of truth.
         supabase
           .from("allocations")
-          .select("monthly_fee, status, next_due_date")
+          .select("id, monthly_fee, status, next_due_date")
           .eq("org_id", orgId!)
           .eq("is_active", true),
-        supabase.from("expenditures").select("amount").eq("org_id", orgId!).gte("spent_on", iso),
+        supabase.from("expenditures").select("amount").eq("org_id", orgId!).gte("spent_on", iso).lte("spent_on", isoEnd),
         supabase.from("students").select("id", { count: "exact", head: true }).eq("org_id", orgId!).eq("is_active", true),
         supabase.from("seats").select("id", { count: "exact", head: true }).eq("org_id", orgId!).eq("is_active", true),
         supabase.from("seat_requests").select("id", { count: "exact", head: true }).eq("org_id", orgId!).eq("status", "pending"),
         supabase
           .from("allocations")
-          .select("monthly_fee, next_due_date, status, is_active")
+          .select("id, monthly_fee, next_due_date, status, is_active")
           .eq("org_id", orgId!)
           .eq("is_active", true)
           .gte("next_due_date", iso)
           .lte("next_due_date", isoEnd),
+        // Partial payments already collected against a still-open cycle.
+        supabase
+          .from("payments")
+          .select("allocation_id, amount_paid, covers_until")
+          .eq("org_id", orgId!)
+          .not("allocation_id", "is", null)
+          .not("covers_until", "is", null),
       ]);
       const revenue = (payments.data ?? []).reduce((s, r) => s + Number(r.amount_paid), 0);
-      const todayISO = new Date().toISOString().slice(0, 10);
+      // Money already paid toward the cycle that is still open (next_due_date not advanced yet).
+      const dueByAlloc = new Map<string, string | null>(
+        (dues.data ?? []).map((r: any) => [r.id as string, r.next_due_date as string | null]),
+      );
+      const paidOpen = new Map<string, number>();
+      for (const p of (partialsRes.data ?? []) as any[]) {
+        const nd = dueByAlloc.get(p.allocation_id);
+        if (nd && p.covers_until && p.covers_until > nd) {
+          paidOpen.set(p.allocation_id, (paidOpen.get(p.allocation_id) ?? 0) + Number(p.amount_paid));
+        }
+      }
+      const outstanding = (r: any) => Math.max(0, Number(r.monthly_fee) - (paidOpen.get(r.id) ?? 0));
       const duesTotal = (dues.data ?? [])
         .filter((r: any) => r.status === "overdue" || (r.next_due_date && r.next_due_date < todayISO))
-        .reduce((s, r) => s + Number(r.monthly_fee), 0);
+        .reduce((s, r: any) => s + outstanding(r), 0);
       const expTotal = (expenses.data ?? []).reduce((s, r) => s + Number(r.amount), 0);
-      const upcomingTotal = (upcoming.data ?? []).reduce((s, r) => s + Number(r.monthly_fee), 0);
+      const upcomingTotal = (upcoming.data ?? []).reduce((s, r: any) => s + outstanding(r), 0);
       return {
         revenue,
         dues: duesTotal,
@@ -65,6 +89,7 @@ function Dashboard() {
       };
     },
   });
+
 
 
   const recentPayments = useQuery({
