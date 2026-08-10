@@ -631,6 +631,7 @@ function AllocationsPage() {
                           title={paid > 0 ? `Part-paid ${inr(paid)} of ${inr(a.monthly_fee)} this cycle` : undefined}
                         >
                           {st.toUpperCase()}
+                          {st === "partial" && isOverdue(a) ? " · OVERDUE" : ""}
                           {paid > 0 && st !== "partial" ? " · PART-PAID" : ""}
                         </span>
                       );
