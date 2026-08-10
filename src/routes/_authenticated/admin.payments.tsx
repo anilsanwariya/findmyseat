@@ -144,6 +144,8 @@ function PaymentsPage() {
               onDone={() => {
                 qc.invalidateQueries({ queryKey: ["payments-list"] });
                 qc.invalidateQueries({ queryKey: ["allocations"] });
+                qc.invalidateQueries({ queryKey: ["allocation-partials"] });
+                qc.invalidateQueries({ queryKey: ["cycle-partials"] });
                 setOpen(false);
                 clearChain();
               }}
