@@ -144,6 +144,8 @@ function PaymentsPage() {
               onDone={() => {
                 qc.invalidateQueries({ queryKey: ["payments-list"] });
                 qc.invalidateQueries({ queryKey: ["allocations"] });
+                qc.invalidateQueries({ queryKey: ["allocation-partials"] });
+                qc.invalidateQueries({ queryKey: ["cycle-partials"] });
                 setOpen(false);
                 clearChain();
               }}
@@ -908,14 +910,14 @@ function PaymentDetailDialog({
       if (error) throw error;
 
       if (syncDue && p.allocation_id) {
+        // A partial payment records the cycle target on the payment itself and must
+        // never advance the allocation's due date, otherwise the balance payment
+        // would credit an extra month.
         const isOverdue = form.covers_until < todayISO();
-        const { error: aErr } = await supabase
-          .from("allocations")
-          .update({
-            next_due_date: form.covers_until,
-            status: form.is_partial ? (isOverdue ? "overdue" : "pending") : isOverdue ? "overdue" : "paid",
-          } as any)
-          .eq("id", p.allocation_id);
+        const patch: any = form.is_partial
+          ? { status: isOverdue ? "overdue" : "pending" }
+          : { next_due_date: form.covers_until, status: isOverdue ? "overdue" : "paid" };
+        const { error: aErr } = await supabase.from("allocations").update(patch).eq("id", p.allocation_id);
         if (aErr) throw aErr;
       }
 
@@ -924,6 +926,8 @@ function PaymentDetailDialog({
       qc.invalidateQueries({ queryKey: ["payments-list"] });
       qc.invalidateQueries({ queryKey: ["student-payment-history"] });
       qc.invalidateQueries({ queryKey: ["allocations"] });
+      qc.invalidateQueries({ queryKey: ["allocation-partials"] });
+      qc.invalidateQueries({ queryKey: ["cycle-partials"] });
       setEditing(false);
     } catch (err: any) {
       toast.error(err.message ?? "Failed to update payment");

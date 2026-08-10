@@ -79,19 +79,22 @@ function classifyShiftByName(name: string): { allowKey: string; feeKey: string }
 
 const todayISO = () => new Date().toISOString().split("T")[0];
 
-// Derive fee status: if the next due date has passed, treat as overdue
-// regardless of the stored status (which only updates on payment events).
-// A part-payment logged against the current cycle surfaces as "partial".
+// Derive fee status. A part-payment logged against the open cycle surfaces as
+// "partial" (it takes precedence over "overdue" so the Partial filter finds these
+// rows); overdue-ness is still shown alongside the badge via isOverdue().
+function isOverdue(a: { next_due_date?: string | null }): boolean {
+  if (!a?.next_due_date) return false;
+  const due = new Date(a.next_due_date);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  due.setHours(0, 0, 0, 0);
+  return due.getTime() < today.getTime();
+}
+
 function effectiveStatus(a: { status?: string | null; next_due_date?: string | null }, partialPaid = 0): string {
   const s = a?.status ?? "pending";
-  if (a?.next_due_date) {
-    const due = new Date(a.next_due_date);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    due.setHours(0, 0, 0, 0);
-    if (due.getTime() < today.getTime()) return "overdue";
-  }
   if (s !== "paid" && partialPaid > 0) return "partial";
+  if (isOverdue(a)) return "overdue";
   return s;
 }
 
@@ -628,6 +631,7 @@ function AllocationsPage() {
                           title={paid > 0 ? `Part-paid ${inr(paid)} of ${inr(a.monthly_fee)} this cycle` : undefined}
                         >
                           {st.toUpperCase()}
+                          {st === "partial" && isOverdue(a) ? " · OVERDUE" : ""}
                           {paid > 0 && st !== "partial" ? " · PART-PAID" : ""}
                         </span>
                       );
@@ -765,6 +769,7 @@ function AllocationsPage() {
                         <div className="text-[10px] uppercase text-muted-foreground">Fee Status</div>
                         <div className={`text-sm font-semibold ${statusText(st)}`}>
                           {st.toUpperCase()}
+                          {st === "partial" && isOverdue(a) ? " · OVERDUE" : ""}
                           {paid > 0 && (
                             <span className="ml-2 font-mono text-[11px] font-normal text-muted-foreground">
                               {inr(paid)} of {inr(a.monthly_fee)} paid this cycle
