@@ -1,6 +1,6 @@
 // Map a shift's name to its section's allow_ boolean and fee column.
 // Returns null for "full day" (no shift row).
-function classifyShiftByName(name: string): { allowKey: string; feeKey: string } | null {
+export function classifyShiftByName(name: string): { allowKey: string; feeKey: string } | null {
   const n = (name || "").toLowerCase();
   const hasM = n.includes("morning");
   const hasE = n.includes("evening");
