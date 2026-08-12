@@ -91,7 +91,7 @@ export function StudentProfileDialog({ studentId, onClose }: { studentId: string
   return (
     <>
       <Dialog open onOpenChange={(v) => !v && onClose()}>
-        <DialogContent className="glass-strong border-panel-border w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto p-4 md:p-6">
+        <DialogContent className="glass-strong border-panel-border w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-6">
           <DialogHeader>
             <DialogTitle>{s?.full_name ?? "Student profile"}</DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
@@ -102,13 +102,13 @@ export function StudentProfileDialog({ studentId, onClose }: { studentId: string
           {!s ? (
             <div className="py-8 text-center text-sm text-muted-foreground">Loading…</div>
           ) : (
-            <div className="space-y-5">
+            <div className="min-w-0 space-y-5">
               <div className="grid grid-cols-2 gap-3">
                 <DocCard label="Student photo" path={s.photo_url} />
                 <DocCard label="ID card" path={s.id_card_url} />
               </div>
 
-              <div className="grid grid-cols-2 gap-4 rounded-lg border border-panel-border bg-panel p-4 sm:grid-cols-3">
+              <div className="grid grid-cols-2 gap-3 rounded-lg border border-panel-border bg-panel p-3 sm:gap-4 sm:p-4 sm:grid-cols-3">
                 <Field label="Mobile" value={s.mobile_number} />
                 <Field label="DOB" value={s.dob} />
                 <Field label="Email" value={s.email} />
@@ -123,7 +123,7 @@ export function StudentProfileDialog({ studentId, onClose }: { studentId: string
                 <Field label="Internal notes" value={s.notes} />
               </div>
 
-              <div>
+              <div className="min-w-0">
                 <div className="mb-2 text-[10px] uppercase tracking-widest text-muted-foreground">Active seats</div>
                 {active.length === 0 ? (
                   <div className="rounded-lg border border-panel-border bg-panel p-3 text-sm text-muted-foreground">
@@ -133,21 +133,21 @@ export function StudentProfileDialog({ studentId, onClose }: { studentId: string
                   <div className="space-y-2">
                     {active.map((a: any) => (
                       <div key={a.id} className="rounded-lg border border-panel-border bg-panel p-3 text-sm">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <span className="font-mono">
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:justify-between">
+                          <span className="min-w-0 truncate font-mono">
                             {a.reservation_type === "unreserved"
                               ? "Unreserved"
                               : `Seat ${a.seats?.seat_number ?? "—"}`}
                           </span>
-                          <span className="text-muted-foreground">{a.shifts?.name ?? "Full day"}</span>
+                          <span className="min-w-0 truncate text-muted-foreground">{a.shifts?.name ?? "Full day"}</span>
                           <span className="font-mono">{inr(a.monthly_fee)}</span>
                           <span className="font-mono text-emerald">Due {fmtDate(a.next_due_date)}</span>
                         </div>
-                        <div className="mt-3 flex flex-wrap gap-2">
+                        <div className="mt-3 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
                           <Button
                             type="button"
                             size="sm"
-                            className="bg-white text-slate-900 hover:bg-white/90"
+                            className="w-full bg-white text-slate-900 hover:bg-white/90 sm:w-auto"
                             onClick={() => setLogAllocId(a.id)}
                           >
                             <Receipt className="mr-1 size-3.5" /> Log payment
@@ -156,7 +156,7 @@ export function StudentProfileDialog({ studentId, onClose }: { studentId: string
                             type="button"
                             size="sm"
                             variant="outline"
-                            className="border-panel-border"
+                            className="w-full border-panel-border sm:w-auto"
                             onClick={() => setEditAlloc({ ...a, students: { full_name: s.full_name } })}
                           >
                             <Pencil className="mr-1 size-3.5" /> Edit allocation
@@ -168,9 +168,49 @@ export function StudentProfileDialog({ studentId, onClose }: { studentId: string
                 )}
               </div>
 
-              <div>
+              <div className="min-w-0">
                 <div className="mb-2 text-[10px] uppercase tracking-widest text-muted-foreground">Payment history</div>
-                <div className="overflow-x-auto rounded-lg border border-panel-border">
+
+                {/* Mobile: stacked cards */}
+                <div className="space-y-2 sm:hidden">
+                  {(history.data ?? []).map((p: any) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setDetailId(p.id)}
+                      className="w-full rounded-lg border border-panel-border bg-panel p-3 text-left"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-mono text-sm">{fmtDate(p.payment_date)}</span>
+                        <span className="font-mono text-sm">
+                          {inr(p.amount_paid)}
+                          {p.is_partial && (
+                            <span className="ml-1.5 rounded bg-cyan/10 px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-cyan">
+                              Partial
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                      <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                        <span className="uppercase">{p.method}</span>
+                        <span className="font-mono text-emerald">Covers {fmtDate(p.covers_until)}</span>
+                      </div>
+                      {p.transaction_reference && (
+                        <div className="mt-1 truncate font-mono text-[11px] text-muted-foreground">
+                          {p.transaction_reference}
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                  {(history.data ?? []).length === 0 && (
+                    <div className="rounded-lg border border-panel-border bg-panel p-4 text-center text-sm text-muted-foreground">
+                      No payment history yet.
+                    </div>
+                  )}
+                </div>
+
+                {/* Desktop: table */}
+                <div className="hidden overflow-x-auto rounded-lg border border-panel-border sm:block">
                   <table className="w-full min-w-[520px] text-left text-sm">
                     <thead>
                       <tr className="border-b border-panel-border text-[10px] uppercase tracking-widest text-muted-foreground">
@@ -204,13 +244,6 @@ export function StudentProfileDialog({ studentId, onClose }: { studentId: string
                           <td className="px-2 py-2 font-mono text-emerald">{fmtDate(p.covers_until)}</td>
                         </tr>
                       ))}
-                      {(history.data ?? []).length === 0 && (
-                        <tr>
-                          <td colSpan={5} className="py-6 text-center text-sm text-muted-foreground">
-                            No payment history yet.
-                          </td>
-                        </tr>
-                      )}
                     </tbody>
                   </table>
                 </div>
