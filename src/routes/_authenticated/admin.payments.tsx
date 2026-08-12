@@ -24,6 +24,7 @@ import { Plus, Search, Upload, FileImage, Calendar as CalendarIcon, X, Pencil } 
 import { StudentPaymentHistoryDialog } from "@/components/admin/StudentPaymentHistoryDialog";
 import { LogPaymentDialog } from "@/components/admin/LogPaymentDialog";
 import { PaymentDetailDialog } from "@/components/admin/PaymentDetailDialog";
+import { ViewToggle, useDataView } from "@/components/admin/ViewToggle";
 
 export const Route = createFileRoute("/_authenticated/admin/payments")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -72,6 +73,7 @@ function PaymentsPage() {
   const [fromDate, setFromDate] = useState<string>(addDaysISO(todayISO(), -30));
   const [toDate, setToDate] = useState<string>(todayISO());
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [view, setView] = useDataView("admin-payments");
   const [historyStudent, setHistoryStudent] = useState<{ id: string; library_id: string | null; name: string } | null>(
     null,
   );
@@ -210,109 +212,203 @@ function PaymentsPage() {
             >
               <CalendarIcon className="size-3 mr-1" /> Last 30d
             </Button>
+            <div className="sm:self-end">
+              <ViewToggle value={view} onChange={setView} />
+            </div>
           </div>
         </div>
 
-        <div className="w-full overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 pb-4 custom-scrollbar">
-          <table className="w-full text-left text-sm min-w-[800px]">
-            <thead>
-              <tr className="border-b border-panel-border text-[10px] uppercase tracking-widest text-muted-foreground whitespace-nowrap">
-                <th className="py-3 px-2 font-normal">Date</th>
-                <th className="py-3 px-2 font-normal">Student</th>
-                <th className="py-3 px-2 font-normal">Branch</th>
-                <th className="py-3 px-2 font-normal">Amount</th>
-                <th className="py-3 px-2 font-normal">Method</th>
-                <th className="py-3 px-2 font-normal">Txn Ref</th>
-                <th className="py-3 px-2 font-normal">Collected by</th>
-                <th className="py-3 px-2 font-normal">Proof</th>
-                <th className="py-3 px-2 font-normal">Covers until</th>
-                <th className="py-3 px-2 font-normal text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredPayments.map((p: any) => (
-                <tr
-                  key={p.id}
-                  className="border-b border-panel-border/50 hover:bg-white/[0.02] transition-colors whitespace-nowrap cursor-pointer"
-                  onClick={() => setDetailId(p.id)}
-                >
-                  <td className="py-3 px-2 font-mono">{fmtDate(p.payment_date)}</td>
-                  <td className="py-3 px-2 font-medium">
-                    <button
-                      className="hover:text-cyan underline-offset-2 hover:underline"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setHistoryStudent({
-                          id: p.student_id,
-                          library_id: p.library_id,
-                          name: p.students?.full_name ?? "Student",
-                        });
-                      }}
-                    >
-                      {p.students?.full_name}
-                    </button>
-                    <span className="text-muted-foreground text-xs font-mono ml-2">({p.students?.mobile_number})</span>
-                  </td>
-                  <td className="py-3 px-2 text-muted-foreground">{p.libraries?.name ?? "—"}</td>
-                  <td className="py-3 px-2 font-mono">
-                    {inr(p.amount_paid)}
+        {view === "cards" ? (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {filteredPayments.map((p: any) => (
+              <div key={p.id} className="rounded-xl border border-panel-border bg-panel p-3">
+                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
+                  <button
+                    type="button"
+                    className="min-w-0 text-left text-sm font-medium hover:text-cyan hover:underline"
+                    onClick={() =>
+                      setHistoryStudent({
+                        id: p.student_id,
+                        library_id: p.library_id,
+                        name: p.students?.full_name ?? "Student",
+                      })
+                    }
+                  >
+                    <span className="block truncate">{p.students?.full_name}</span>
+                    <span className="mt-0.5 block font-mono text-[11px] text-muted-foreground">
+                      {p.students?.mobile_number}
+                    </span>
+                  </button>
+                  <div className="shrink-0 text-right">
+                    <div className="font-mono text-sm">{inr(p.amount_paid)}</div>
                     {p.is_partial && (
-                      <span className="ml-2 rounded bg-amber-400/10 px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-amber-300 font-sans">
+                      <span className="mt-1 inline-block rounded bg-amber-400/10 px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-amber-300">
                         Partial
                       </span>
                     )}
-                  </td>
-                  <td className="py-3 px-2">
-                    <span className="rounded bg-panel px-2 py-1 text-[10px] uppercase tracking-wider">{p.method}</span>
-                  </td>
-
-                  <td className="py-3 px-2 font-mono text-xs text-muted-foreground">
-                    {p.transaction_reference ?? (p.method === "cash" ? "—" : "—")}
-                  </td>
-                  <td className="py-3 px-2">
-                    {p.collected_by_staff_id ? (
-                      <span className="rounded bg-cyan/10 px-2 py-0.5 text-[10px] text-cyan">
-                        {p.collector?.full_name ?? "Staff"}
-                        {p.collector?.employee_id ? ` · ${p.collector.employee_id}` : ""}
+                  </div>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                  <div className="min-w-0">
+                    <div className="text-[9px] uppercase tracking-widest text-muted-foreground">Date</div>
+                    <div className="font-mono">{fmtDate(p.payment_date)}</div>
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[9px] uppercase tracking-widest text-muted-foreground">Covers until</div>
+                    <div className="font-mono text-emerald">{fmtDate(p.covers_until)}</div>
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[9px] uppercase tracking-widest text-muted-foreground">Branch</div>
+                    <div className="truncate text-muted-foreground">{p.libraries?.name ?? "—"}</div>
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[9px] uppercase tracking-widest text-muted-foreground">Method</div>
+                    <div className="uppercase">{p.method}</div>
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[9px] uppercase tracking-widest text-muted-foreground">Txn ref</div>
+                    <div className="truncate font-mono text-muted-foreground">{p.transaction_reference ?? "—"}</div>
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[9px] uppercase tracking-widest text-muted-foreground">Collected by</div>
+                    <div className="truncate">
+                      {p.collected_by_staff_id ? (p.collector?.full_name ?? "Staff") : "Owner"}
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-3 flex items-center justify-between gap-2 border-t border-panel-border pt-2">
+                  {p.receipt_url ? (
+                    <span className="inline-flex items-center gap-1 text-[10px] text-emerald">
+                      <FileImage className="size-3.5" /> Proof
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-muted-foreground">No proof</span>
+                  )}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 px-3 text-xs text-muted-foreground hover:text-foreground"
+                    onClick={() => setDetailId(p.id)}
+                  >
+                    View
+                  </Button>
+                </div>
+              </div>
+            ))}
+            {filteredPayments.length === 0 && (
+              <p className="col-span-full py-8 text-center text-sm text-muted-foreground">
+                No payments in this date range.
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="w-full overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 pb-4 custom-scrollbar">
+            <table className="w-full text-left text-sm min-w-[800px]">
+              <thead>
+                <tr className="border-b border-panel-border text-[10px] uppercase tracking-widest text-muted-foreground whitespace-nowrap">
+                  <th className="py-3 px-2 font-normal">Date</th>
+                  <th className="py-3 px-2 font-normal">Student</th>
+                  <th className="py-3 px-2 font-normal">Branch</th>
+                  <th className="py-3 px-2 font-normal">Amount</th>
+                  <th className="py-3 px-2 font-normal">Method</th>
+                  <th className="py-3 px-2 font-normal">Txn Ref</th>
+                  <th className="py-3 px-2 font-normal">Collected by</th>
+                  <th className="py-3 px-2 font-normal">Proof</th>
+                  <th className="py-3 px-2 font-normal">Covers until</th>
+                  <th className="py-3 px-2 font-normal text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredPayments.map((p: any) => (
+                  <tr
+                    key={p.id}
+                    className="border-b border-panel-border/50 hover:bg-white/[0.02] transition-colors whitespace-nowrap cursor-pointer"
+                    onClick={() => setDetailId(p.id)}
+                  >
+                    <td className="py-3 px-2 font-mono">{fmtDate(p.payment_date)}</td>
+                    <td className="py-3 px-2 font-medium">
+                      <button
+                        className="hover:text-cyan underline-offset-2 hover:underline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setHistoryStudent({
+                            id: p.student_id,
+                            library_id: p.library_id,
+                            name: p.students?.full_name ?? "Student",
+                          });
+                        }}
+                      >
+                        {p.students?.full_name}
+                      </button>
+                      <span className="text-muted-foreground text-xs font-mono ml-2">
+                        ({p.students?.mobile_number})
                       </span>
-                    ) : (
-                      <span className="rounded bg-amber/10 px-2 py-0.5 text-[10px] text-amber">Owner</span>
-                    )}
-                  </td>
-                  <td className="py-3 px-2">
-                    {p.receipt_url ? (
-                      <FileImage className="size-4 text-emerald" />
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </td>
-                  <td className="py-3 px-2 font-mono text-emerald">{fmtDate(p.covers_until)}</td>
-                  <td className="py-3 px-2 text-right">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setDetailId(p.id);
-                      }}
-                    >
-                      View
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-              {filteredPayments.length === 0 && (
-                <tr>
-                  <td colSpan={10} className="py-8 text-center text-sm text-muted-foreground">
-                    No payments in this date range.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+                    </td>
+                    <td className="py-3 px-2 text-muted-foreground">{p.libraries?.name ?? "—"}</td>
+                    <td className="py-3 px-2 font-mono">
+                      {inr(p.amount_paid)}
+                      {p.is_partial && (
+                        <span className="ml-2 rounded bg-amber-400/10 px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-amber-300 font-sans">
+                          Partial
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-3 px-2">
+                      <span className="rounded bg-panel px-2 py-1 text-[10px] uppercase tracking-wider">
+                        {p.method}
+                      </span>
+                    </td>
+
+                    <td className="py-3 px-2 font-mono text-xs text-muted-foreground">
+                      {p.transaction_reference ?? (p.method === "cash" ? "—" : "—")}
+                    </td>
+                    <td className="py-3 px-2">
+                      {p.collected_by_staff_id ? (
+                        <span className="rounded bg-cyan/10 px-2 py-0.5 text-[10px] text-cyan">
+                          {p.collector?.full_name ?? "Staff"}
+                          {p.collector?.employee_id ? ` · ${p.collector.employee_id}` : ""}
+                        </span>
+                      ) : (
+                        <span className="rounded bg-amber/10 px-2 py-0.5 text-[10px] text-amber">Owner</span>
+                      )}
+                    </td>
+                    <td className="py-3 px-2">
+                      {p.receipt_url ? (
+                        <FileImage className="size-4 text-emerald" />
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </td>
+                    <td className="py-3 px-2 font-mono text-emerald">{fmtDate(p.covers_until)}</td>
+                    <td className="py-3 px-2 text-right">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDetailId(p.id);
+                        }}
+                      >
+                        View
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+                {filteredPayments.length === 0 && (
+                  <tr>
+                    <td colSpan={10} className="py-8 text-center text-sm text-muted-foreground">
+                      No payments in this date range.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+
       </GlassPanel>
 
       {detailId && <PaymentDetailDialog paymentId={detailId} onClose={() => setDetailId(null)} />}

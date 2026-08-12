@@ -20,6 +20,7 @@ import { Plus, Search, Pencil, UserX, UserCheck, Download, X } from "lucide-reac
 import { StudentDocInput, uploadStudentDoc } from "@/components/admin/StudentDocInput";
 import { StudentProfileDialog } from "@/components/admin/StudentProfileDialog";
 import { buildStudentExportRows, downloadStudentWorkbook } from "@/lib/export-students";
+import { ViewToggle, useDataView } from "@/components/admin/ViewToggle";
 
 
 export const Route = createFileRoute("/_authenticated/admin/students")({
@@ -41,6 +42,7 @@ function StudentsPage() {
   const [exporting, setExporting] = useState(false);
   const [chain, setChain] = useState<{ id: string; name: string } | null>(null);
   const navigate = useNavigate();
+  const [view, setView] = useDataView("admin-students");
 
   const exportExcel = async () => {
     if (!orgId) return;
@@ -89,6 +91,29 @@ function StudentsPage() {
   });
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["students"] });
+
+  const deactivate = async (s: any) => {
+    if (!confirm(`Deactivate ${s.full_name}? Their seat will be released and they will be moved to Inactive.`)) return;
+    try {
+      await setActive({ data: { student_id: s.id, is_active: false } });
+      toast.success("Student marked inactive");
+      invalidate();
+      qc.invalidateQueries({ queryKey: ["allocations"] });
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  const reactivate = async (s: any) => {
+    if (!confirm(`Reactivate ${s.full_name}?`)) return;
+    try {
+      await setActive({ data: { student_id: s.id, is_active: true } });
+      toast.success("Student reactivated");
+      invalidate();
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -173,123 +198,181 @@ function StudentsPage() {
                 </button>
               )}
             </div>
+            <ViewToggle value={view} onChange={setView} />
           </div>
         </div>
 
-        <div className="w-full overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-          <table className="w-full text-left text-sm min-w-[700px]">
-            <thead>
-              <tr className="border-b border-panel-border text-[10px] uppercase tracking-widest text-muted-foreground whitespace-nowrap">
-                <th className="py-3 px-2 font-normal">Student</th>
-                <th className="py-3 px-2 font-normal">Mobile</th>
-                <th className="py-3 px-2 font-normal">Branch</th>
-                {tab === "active" && <th className="py-3 px-2 font-normal">Seat Status</th>}
-                <th className="py-3 px-2 font-normal">Onboarded</th>
-                <th className="py-3 px-2 font-normal text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(students.data ?? []).map((s: any) => {
-                const hasActiveSeat = s.allocations?.some((a: any) => a.is_active);
-                return (
-                  <tr
-                    key={s.id}
-                    className="border-b border-panel-border/50 hover:bg-white/[0.02] transition-colors whitespace-nowrap"
-                  >
-                    <td className="py-3 px-2 font-medium">
-                      <button
-                        type="button"
-                        className="text-left hover:text-cyan hover:underline"
-                        onClick={() => setViewing(s.id)}
+        {view === "cards" ? (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {(students.data ?? []).map((s: any) => {
+              const hasActiveSeat = s.allocations?.some((a: any) => a.is_active);
+              return (
+                <div key={s.id} className="rounded-xl border border-panel-border bg-panel p-3">
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
+                    <button
+                      type="button"
+                      className="min-w-0 text-left text-sm font-medium hover:text-cyan hover:underline"
+                      onClick={() => setViewing(s.id)}
+                    >
+                      <span className="block truncate">{s.full_name}</span>
+                      <span className="mt-0.5 block font-mono text-[11px] text-muted-foreground">
+                        {s.mobile_number}
+                      </span>
+                    </button>
+                    {tab === "active" &&
+                      (hasActiveSeat ? (
+                        <span className="shrink-0 rounded bg-emerald/10 px-2 py-0.5 text-[10px] text-emerald">
+                          Assigned
+                        </span>
+                      ) : (
+                        <span className="shrink-0 rounded bg-panel-strong px-2 py-0.5 text-[10px] text-muted-foreground">
+                          Unassigned
+                        </span>
+                      ))}
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                    <div className="min-w-0">
+                      <div className="text-[9px] uppercase tracking-widest text-muted-foreground">Branch</div>
+                      <div className="truncate">{s.libraries?.name ?? "—"}</div>
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-[9px] uppercase tracking-widest text-muted-foreground">Onboarded</div>
+                      <div className="font-mono">{fmtDate(s.created_at)}</div>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2 border-t border-panel-border pt-2">
+                    {tab === "active" ? (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 flex-1 text-muted-foreground hover:text-cyan"
+                          onClick={() => setEditing(s)}
+                        >
+                          <Pencil className="mr-1 size-3" /> Edit
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 flex-1 text-muted-foreground hover:text-rose"
+                          onClick={() => deactivate(s)}
+                        >
+                          <UserX className="mr-1 size-3" /> Deactivate
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 flex-1 text-muted-foreground hover:text-emerald"
+                        onClick={() => reactivate(s)}
                       >
-                        {s.full_name}
-                      </button>
-                    </td>
-                    <td className="py-3 px-2 font-mono">{s.mobile_number}</td>
-                    <td className="py-3 px-2 text-muted-foreground">{s.libraries?.name ?? "—"}</td>
-                    {tab === "active" && (
-                      <td className="py-3 px-2">
-                        {hasActiveSeat ? (
-                          <span className="rounded bg-emerald/10 px-2 py-0.5 text-[10px] text-emerald">Assigned</span>
-                        ) : (
-                          <span className="rounded bg-panel px-2 py-0.5 text-[10px] text-muted-foreground">
-                            Unassigned
-                          </span>
-                        )}
-                      </td>
+                        <UserCheck className="mr-1 size-3" /> Reactivate
+                      </Button>
                     )}
-                    <td className="py-3 px-2 text-muted-foreground">{fmtDate(s.created_at)}</td>
-                    <td className="py-3 px-2 text-right">
-                      <div className="inline-flex items-center gap-1">
-                        {tab === "active" && (
-                          <>
+                  </div>
+                </div>
+              );
+            })}
+            {(students.data ?? []).length === 0 && (
+              <p className="col-span-full py-8 text-center text-sm text-muted-foreground">
+                {tab === "inactive" ? "No inactive students." : "No students found."}
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="w-full overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+            <table className="w-full text-left text-sm min-w-[700px]">
+              <thead>
+                <tr className="border-b border-panel-border text-[10px] uppercase tracking-widest text-muted-foreground whitespace-nowrap">
+                  <th className="py-3 px-2 font-normal">Student</th>
+                  <th className="py-3 px-2 font-normal">Mobile</th>
+                  <th className="py-3 px-2 font-normal">Branch</th>
+                  {tab === "active" && <th className="py-3 px-2 font-normal">Seat Status</th>}
+                  <th className="py-3 px-2 font-normal">Onboarded</th>
+                  <th className="py-3 px-2 font-normal text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(students.data ?? []).map((s: any) => {
+                  const hasActiveSeat = s.allocations?.some((a: any) => a.is_active);
+                  return (
+                    <tr
+                      key={s.id}
+                      className="border-b border-panel-border/50 hover:bg-white/[0.02] transition-colors whitespace-nowrap"
+                    >
+                      <td className="py-3 px-2 font-medium">
+                        <button
+                          type="button"
+                          className="text-left hover:text-cyan hover:underline"
+                          onClick={() => setViewing(s.id)}
+                        >
+                          {s.full_name}
+                        </button>
+                      </td>
+                      <td className="py-3 px-2 font-mono">{s.mobile_number}</td>
+                      <td className="py-3 px-2 text-muted-foreground">{s.libraries?.name ?? "—"}</td>
+                      {tab === "active" && (
+                        <td className="py-3 px-2">
+                          {hasActiveSeat ? (
+                            <span className="rounded bg-emerald/10 px-2 py-0.5 text-[10px] text-emerald">Assigned</span>
+                          ) : (
+                            <span className="rounded bg-panel px-2 py-0.5 text-[10px] text-muted-foreground">
+                              Unassigned
+                            </span>
+                          )}
+                        </td>
+                      )}
+                      <td className="py-3 px-2 text-muted-foreground">{fmtDate(s.created_at)}</td>
+                      <td className="py-3 px-2 text-right">
+                        <div className="inline-flex items-center gap-1">
+                          {tab === "active" && (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-muted-foreground hover:text-cyan"
+                                onClick={() => setEditing(s)}
+                              >
+                                <Pencil className="mr-1 size-3" /> Edit
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-muted-foreground hover:text-rose"
+                                onClick={() => deactivate(s)}
+                              >
+                                <UserX className="mr-1 size-3" /> Deactivate
+                              </Button>
+                            </>
+                          )}
+                          {tab === "inactive" && (
                             <Button
                               size="sm"
                               variant="ghost"
-                              className="text-muted-foreground hover:text-cyan"
-                              onClick={() => setEditing(s)}
+                              className="text-muted-foreground hover:text-emerald"
+                              onClick={() => reactivate(s)}
                             >
-                              <Pencil className="mr-1 size-3" /> Edit
+                              <UserCheck className="mr-1 size-3" /> Reactivate
                             </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="text-muted-foreground hover:text-rose"
-                              onClick={async () => {
-                                if (
-                                  !confirm(
-                                    `Deactivate ${s.full_name}? Their seat will be released and they will be moved to Inactive.`,
-                                  )
-                                )
-                                  return;
-                                try {
-                                  await setActive({ data: { student_id: s.id, is_active: false } });
-                                  toast.success("Student marked inactive");
-                                  invalidate();
-                                  qc.invalidateQueries({ queryKey: ["allocations"] });
-                                } catch (e: any) {
-                                  toast.error(e.message);
-                                }
-                              }}
-                            >
-                              <UserX className="mr-1 size-3" /> Deactivate
-                            </Button>
-                          </>
-                        )}
-                        {tab === "inactive" && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="text-muted-foreground hover:text-emerald"
-                            onClick={async () => {
-                              if (!confirm(`Reactivate ${s.full_name}?`)) return;
-                              try {
-                                await setActive({ data: { student_id: s.id, is_active: true } });
-                                toast.success("Student reactivated");
-                                invalidate();
-                              } catch (e: any) {
-                                toast.error(e.message);
-                              }
-                            }}
-                          >
-                            <UserCheck className="mr-1 size-3" /> Reactivate
-                          </Button>
-                        )}
-                      </div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {(students.data ?? []).length === 0 && (
+                  <tr>
+                    <td colSpan={tab === "active" ? 6 : 5} className="py-8 text-center text-sm text-muted-foreground">
+                      {tab === "inactive" ? "No inactive students." : "No students found."}
                     </td>
                   </tr>
-                );
-              })}
-              {(students.data ?? []).length === 0 && (
-                <tr>
-                  <td colSpan={tab === "active" ? 6 : 5} className="py-8 text-center text-sm text-muted-foreground">
-                    {tab === "inactive" ? "No inactive students." : "No students found."}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+
       </GlassPanel>
 
       <Dialog open={!!chain} onOpenChange={(o) => !o && setChain(null)}>

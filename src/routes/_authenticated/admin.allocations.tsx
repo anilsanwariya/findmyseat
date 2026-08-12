@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { StudentProfileDialog } from "@/components/admin/StudentProfileDialog";
 import { EditAllocationDialog } from "@/components/admin/EditAllocationDialog";
 import { classifyShiftByName } from "@/lib/shift-utils";
+import { ViewToggle, useDataView } from "@/components/admin/ViewToggle";
 import {
   Plus,
   ArrowUp,
@@ -119,6 +120,7 @@ function AllocationsPage() {
   const [selectedVacantSeat, setSelectedVacantSeat] = useState<any>(null);
   const [selectedOccupiedSeat, setSelectedOccupiedSeat] = useState<any>(null);
   const [editAlloc, setEditAlloc] = useState<any>(null);
+  const [view, setView] = useDataView("admin-allocations");
 
   // Table Filters
   const [searchQuery, setSearchQuery] = useState("");
@@ -568,84 +570,160 @@ function AllocationsPage() {
               </SelectContent>
             </Select>
           </div>
+          <ViewToggle value={view} onChange={setView} />
         </div>
 
-        <div className="w-full overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 pb-4 custom-scrollbar">
-          <table className="w-full text-left text-sm min-w-[700px]">
-            <thead>
-              <tr className="border-b border-panel-border text-[10px] uppercase tracking-widest text-muted-foreground whitespace-nowrap">
-                <th className="py-3 px-2 font-normal">Student</th>
-                <th className="py-3 px-2 font-normal">Seat</th>
-                <th className="py-3 px-2 font-normal">Branch</th>
-                <th className="py-3 px-2 font-normal">Shift</th>
-                <th className="py-3 px-2 font-normal">Fee</th>
-                <th className="py-3 px-2 font-normal">Next due</th>
-                <th className="py-3 px-2 font-normal">Status</th>
-                <th className="py-3 px-2 font-normal text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredAllocations.map((a: any) => (
-                <tr
-                  key={a.id}
-                  className="border-b border-panel-border/50 hover:bg-white/[0.02] transition-colors whitespace-nowrap"
-                >
-                  <td className="py-3 px-2 font-medium">
+        {view === "cards" ? (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {filteredAllocations.map((a: any) => {
+              const paid = partialPaidFor(a);
+              const st = effectiveStatus(a, paid);
+              return (
+                <div key={a.id} className="rounded-xl border border-panel-border bg-panel p-3">
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
                     <button
                       type="button"
-                      className="hover:text-cyan underline-offset-2 hover:underline"
+                      className="min-w-0 text-left text-sm font-medium hover:text-cyan hover:underline"
                       onClick={() => setProfileStudentId(a.student_id)}
                     >
-                      {a.students?.full_name}
+                      <span className="block truncate">{a.students?.full_name}</span>
+                      <span className="mt-0.5 block font-mono text-[11px] text-muted-foreground">
+                        {a.students?.mobile_number}
+                      </span>
                     </button>
-                    <span className="text-muted-foreground text-xs font-mono ml-2">({a.students?.mobile_number})</span>
-                  </td>
-                  <td className="py-3 px-2 font-mono text-cyan">
-                    {a.reservation_type === "unreserved" ? "Unreserved" : (a.seats?.seat_number ?? "—")}
-                  </td>
-                  <td className="py-3 px-2 text-muted-foreground">{a.libraries?.name}</td>
-                  <td className="py-3 px-2 text-muted-foreground">{a.shifts?.name ?? "Full day"}</td>
-                  <td className="py-3 px-2 font-mono">{inr(a.monthly_fee)}</td>
-                  <td className="py-3 px-2 font-mono">{a.next_due_date ? fmtDate(a.next_due_date) : "—"}</td>
-                  <td className="py-3 px-2">
-                    {(() => {
-                      const paid = partialPaidFor(a);
-                      const st = effectiveStatus(a, paid);
-                      return (
-                        <span
-                          className={`rounded px-2 py-1 text-[10px] ${statusClass(st)}`}
-                          title={paid > 0 ? `Part-paid ${inr(paid)} of ${inr(a.monthly_fee)} this cycle` : undefined}
-                        >
-                          {st.toUpperCase()}
-                          {st === "partial" && isOverdue(a) ? " · OVERDUE" : ""}
-                          {paid > 0 && st !== "partial" ? " · PART-PAID" : ""}
-                        </span>
-                      );
-                    })()}
-                  </td>
-                  <td className="py-3 px-2 text-right">
+                    <span
+                      className={`shrink-0 rounded px-2 py-1 text-[10px] ${statusClass(st)}`}
+                      title={paid > 0 ? `Part-paid ${inr(paid)} of ${inr(a.monthly_fee)} this cycle` : undefined}
+                    >
+                      {st.toUpperCase()}
+                      {st === "partial" && isOverdue(a) ? " · OVERDUE" : ""}
+                      {paid > 0 && st !== "partial" ? " · PART-PAID" : ""}
+                    </span>
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                    <div className="min-w-0">
+                      <div className="text-[9px] uppercase tracking-widest text-muted-foreground">Seat</div>
+                      <div className="truncate font-mono text-cyan">
+                        {a.reservation_type === "unreserved" ? "Unreserved" : (a.seats?.seat_number ?? "—")}
+                      </div>
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-[9px] uppercase tracking-widest text-muted-foreground">Shift</div>
+                      <div className="truncate">{a.shifts?.name ?? "Full day"}</div>
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-[9px] uppercase tracking-widest text-muted-foreground">Branch</div>
+                      <div className="truncate text-muted-foreground">{a.libraries?.name}</div>
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-[9px] uppercase tracking-widest text-muted-foreground">Fee</div>
+                      <div className="font-mono">{inr(a.monthly_fee)}</div>
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-[9px] uppercase tracking-widest text-muted-foreground">Next due</div>
+                      <div className="font-mono">{a.next_due_date ? fmtDate(a.next_due_date) : "—"}</div>
+                    </div>
+                  </div>
+                  <div className="mt-3 border-t border-panel-border pt-2">
                     <Button
                       size="sm"
                       variant="ghost"
                       onClick={() => setEditAlloc(a)}
-                      className="h-8 px-2 text-muted-foreground hover:text-cyan"
-                      title="Edit Allocation"
+                      className="h-8 w-full text-muted-foreground hover:text-cyan"
                     >
-                      <Edit2 className="size-4" />
+                      <Edit2 className="mr-1 size-3.5" /> Edit allocation
                     </Button>
-                  </td>
+                  </div>
+                </div>
+              );
+            })}
+            {filteredAllocations.length === 0 && (
+              <p className="col-span-full py-8 text-center text-sm text-muted-foreground">
+                No active allocations found matching your filters.
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="w-full overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 pb-4 custom-scrollbar">
+            <table className="w-full text-left text-sm min-w-[700px]">
+              <thead>
+                <tr className="border-b border-panel-border text-[10px] uppercase tracking-widest text-muted-foreground whitespace-nowrap">
+                  <th className="py-3 px-2 font-normal">Student</th>
+                  <th className="py-3 px-2 font-normal">Seat</th>
+                  <th className="py-3 px-2 font-normal">Branch</th>
+                  <th className="py-3 px-2 font-normal">Shift</th>
+                  <th className="py-3 px-2 font-normal">Fee</th>
+                  <th className="py-3 px-2 font-normal">Next due</th>
+                  <th className="py-3 px-2 font-normal">Status</th>
+                  <th className="py-3 px-2 font-normal text-right">Actions</th>
                 </tr>
-              ))}
-              {filteredAllocations.length === 0 && (
-                <tr>
-                  <td colSpan={8} className="py-8 text-center text-sm text-muted-foreground">
-                    No active allocations found matching your filters.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {filteredAllocations.map((a: any) => (
+                  <tr
+                    key={a.id}
+                    className="border-b border-panel-border/50 hover:bg-white/[0.02] transition-colors whitespace-nowrap"
+                  >
+                    <td className="py-3 px-2 font-medium">
+                      <button
+                        type="button"
+                        className="hover:text-cyan underline-offset-2 hover:underline"
+                        onClick={() => setProfileStudentId(a.student_id)}
+                      >
+                        {a.students?.full_name}
+                      </button>
+                      <span className="text-muted-foreground text-xs font-mono ml-2">
+                        ({a.students?.mobile_number})
+                      </span>
+                    </td>
+                    <td className="py-3 px-2 font-mono text-cyan">
+                      {a.reservation_type === "unreserved" ? "Unreserved" : (a.seats?.seat_number ?? "—")}
+                    </td>
+                    <td className="py-3 px-2 text-muted-foreground">{a.libraries?.name}</td>
+                    <td className="py-3 px-2 text-muted-foreground">{a.shifts?.name ?? "Full day"}</td>
+                    <td className="py-3 px-2 font-mono">{inr(a.monthly_fee)}</td>
+                    <td className="py-3 px-2 font-mono">{a.next_due_date ? fmtDate(a.next_due_date) : "—"}</td>
+                    <td className="py-3 px-2">
+                      {(() => {
+                        const paid = partialPaidFor(a);
+                        const st = effectiveStatus(a, paid);
+                        return (
+                          <span
+                            className={`rounded px-2 py-1 text-[10px] ${statusClass(st)}`}
+                            title={paid > 0 ? `Part-paid ${inr(paid)} of ${inr(a.monthly_fee)} this cycle` : undefined}
+                          >
+                            {st.toUpperCase()}
+                            {st === "partial" && isOverdue(a) ? " · OVERDUE" : ""}
+                            {paid > 0 && st !== "partial" ? " · PART-PAID" : ""}
+                          </span>
+                        );
+                      })()}
+                    </td>
+                    <td className="py-3 px-2 text-right">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setEditAlloc(a)}
+                        className="h-8 px-2 text-muted-foreground hover:text-cyan"
+                        title="Edit Allocation"
+                      >
+                        <Edit2 className="size-4" />
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+                {filteredAllocations.length === 0 && (
+                  <tr>
+                    <td colSpan={8} className="py-8 text-center text-sm text-muted-foreground">
+                      No active allocations found matching your filters.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+
       </GlassPanel>
 
       {/* Manual New Allocation Dialog */}
