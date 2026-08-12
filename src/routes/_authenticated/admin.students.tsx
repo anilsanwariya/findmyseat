@@ -20,6 +20,7 @@ import { Plus, Search, Pencil, UserX, UserCheck, Download, X } from "lucide-reac
 import { StudentDocInput, uploadStudentDoc } from "@/components/admin/StudentDocInput";
 import { StudentProfileDialog } from "@/components/admin/StudentProfileDialog";
 import { buildStudentExportRows, downloadStudentWorkbook } from "@/lib/export-students";
+import { ViewToggle, useDataView } from "@/components/admin/ViewToggle";
 
 
 export const Route = createFileRoute("/_authenticated/admin/students")({
@@ -41,6 +42,7 @@ function StudentsPage() {
   const [exporting, setExporting] = useState(false);
   const [chain, setChain] = useState<{ id: string; name: string } | null>(null);
   const navigate = useNavigate();
+  const [view, setView] = useDataView("admin-students");
 
   const exportExcel = async () => {
     if (!orgId) return;
@@ -196,6 +198,7 @@ function StudentsPage() {
                 </button>
               )}
             </div>
+            <ViewToggle value={view} onChange={setView} />
           </div>
         </div>
 
