@@ -90,6 +90,29 @@ function StudentsPage() {
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["students"] });
 
+  const deactivate = async (s: any) => {
+    if (!confirm(`Deactivate ${s.full_name}? Their seat will be released and they will be moved to Inactive.`)) return;
+    try {
+      await setActive({ data: { student_id: s.id, is_active: false } });
+      toast.success("Student marked inactive");
+      invalidate();
+      qc.invalidateQueries({ queryKey: ["allocations"] });
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  const reactivate = async (s: any) => {
+    if (!confirm(`Reactivate ${s.full_name}?`)) return;
+    try {
+      await setActive({ data: { student_id: s.id, is_active: true } });
+      toast.success("Student reactivated");
+      invalidate();
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* 
