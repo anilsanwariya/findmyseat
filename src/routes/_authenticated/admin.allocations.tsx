@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { StudentProfileDialog } from "@/components/admin/StudentProfileDialog";
 import { EditAllocationDialog } from "@/components/admin/EditAllocationDialog";
 import { classifyShiftByName } from "@/lib/shift-utils";
+import { ViewToggle, useDataView } from "@/components/admin/ViewToggle";
 import {
   Plus,
   ArrowUp,
@@ -119,6 +120,7 @@ function AllocationsPage() {
   const [selectedVacantSeat, setSelectedVacantSeat] = useState<any>(null);
   const [selectedOccupiedSeat, setSelectedOccupiedSeat] = useState<any>(null);
   const [editAlloc, setEditAlloc] = useState<any>(null);
+  const [view, setView] = useDataView("admin-allocations");
 
   // Table Filters
   const [searchQuery, setSearchQuery] = useState("");
