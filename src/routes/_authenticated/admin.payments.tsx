@@ -24,6 +24,7 @@ import { Plus, Search, Upload, FileImage, Calendar as CalendarIcon, X, Pencil } 
 import { StudentPaymentHistoryDialog } from "@/components/admin/StudentPaymentHistoryDialog";
 import { LogPaymentDialog } from "@/components/admin/LogPaymentDialog";
 import { PaymentDetailDialog } from "@/components/admin/PaymentDetailDialog";
+import { ViewToggle, useDataView } from "@/components/admin/ViewToggle";
 
 export const Route = createFileRoute("/_authenticated/admin/payments")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -72,6 +73,7 @@ function PaymentsPage() {
   const [fromDate, setFromDate] = useState<string>(addDaysISO(todayISO(), -30));
   const [toDate, setToDate] = useState<string>(todayISO());
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [view, setView] = useDataView("admin-payments");
   const [historyStudent, setHistoryStudent] = useState<{ id: string; library_id: string | null; name: string } | null>(
     null,
   );
