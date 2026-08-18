@@ -136,9 +136,37 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
 
   const fee = Number(chosen?.monthly_fee) || 0;
   const totalTowardsCycle = paidBefore + (Number(amount) || 0);
-  const monthsCovered = fee > 0 ? Math.floor(totalTowardsCycle / fee) : 0;
-  const isPartial = !!chosen && monthsCovered < 1;
+  // With no monthly fee set there is nothing to be short of — treat one cycle as covered
+  // so the due date still advances (otherwise every payment logs as "partial" forever).
+  const monthsCovered = fee > 0 ? Math.floor(totalTowardsCycle / fee) : 1;
+  const isPartial = !!chosen && fee > 0 && monthsCovered < 1;
   const shortfall = Math.max(fee - totalTowardsCycle, 0);
+
+  // Allocations with money already paid towards an unfinished cycle, so the picker can
+  // show PARTIAL instead of only OVERDUE/PENDING (matches the allocations screen).
+  const openPartialIds = useQuery({
+    queryKey: ["open-partial-allocs", orgId, active.data?.length ?? 0],
+    enabled: !!orgId && !!active.data,
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from("payments")
+        .select("allocation_id, covers_until")
+        .eq("org_id", orgId!)
+        .eq("is_partial", true);
+      const dueByAlloc = new Map<string, string | null>(
+        (active.data ?? []).map((a: any) => [a.id, a.next_due_date ? String(a.next_due_date).split("T")[0] : null]),
+      );
+      const ids = new Set<string>();
+      for (const p of (data ?? []) as { allocation_id: string | null; covers_until: string | null }[]) {
+        if (!p.allocation_id || !p.covers_until) continue;
+        const due = dueByAlloc.get(p.allocation_id);
+        if (!due || String(p.covers_until).split("T")[0] > due) ids.add(p.allocation_id);
+      }
+      return ids;
+    },
+  });
+  const rowStatus = (a: any) =>
+    openPartialIds.data?.has(a.id) && a.status !== "paid" ? "partial" : allocEffectiveStatus(a);
 
   useEffect(() => {
     setDueTouched(false);
@@ -184,7 +212,18 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
               return;
             }
           } else {
-            if (!endDate) return;
+            if (!endDate) {
+              toast.error("Please set the new due date.");
+              return;
+            }
+            if (startDate && endDate <= startDate) {
+              toast.error("New due date must be after the coverage start date.");
+              return;
+            }
+            if (fee > 0 && Number(amount || 0) <= 0) {
+              toast.error("Please enter the amount paid.");
+              return;
+            }
             if (method !== "cash" && !txnRef.trim()) {
               toast.error("Transaction reference is required for non-cash payments.");
               return;
@@ -316,9 +355,10 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
                       </span>
                       <span>·</span>
                       <span
-                        className={`rounded px-1.5 py-0.5 text-[9px] uppercase tracking-wider font-semibold ${allocStatusClass(allocEffectiveStatus(a))}`}
+                        className={`rounded px-1.5 py-0.5 text-[9px] uppercase tracking-wider font-semibold ${allocStatusClass(rowStatus(a))}`}
                       >
-                        {allocEffectiveStatus(a)}
+                        {rowStatus(a)}
+                        {rowStatus(a) === "partial" && allocEffectiveStatus(a) === "overdue" ? " · overdue" : ""}
                       </span>
                     </div>
                   </div>
