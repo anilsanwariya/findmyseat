@@ -145,8 +145,8 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
   // Allocations with money already paid towards an unfinished cycle, so the picker can
   // show PARTIAL instead of only OVERDUE/PENDING (matches the allocations screen).
   const openPartialIds = useQuery({
-    queryKey: ["open-partial-allocs", orgId],
-    enabled: !!orgId,
+    queryKey: ["open-partial-allocs", orgId, active.data?.length ?? 0],
+    enabled: !!orgId && !!active.data,
     queryFn: async () => {
       const { data } = await (supabase as any)
         .from("payments")
@@ -344,9 +344,10 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
                       </span>
                       <span>·</span>
                       <span
-                        className={`rounded px-1.5 py-0.5 text-[9px] uppercase tracking-wider font-semibold ${allocStatusClass(allocEffectiveStatus(a))}`}
+                        className={`rounded px-1.5 py-0.5 text-[9px] uppercase tracking-wider font-semibold ${allocStatusClass(rowStatus(a))}`}
                       >
-                        {allocEffectiveStatus(a)}
+                        {rowStatus(a)}
+                        {rowStatus(a) === "partial" && allocEffectiveStatus(a) === "overdue" ? " · overdue" : ""}
                       </span>
                     </div>
                   </div>
