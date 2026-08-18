@@ -212,7 +212,18 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
               return;
             }
           } else {
-            if (!endDate) return;
+            if (!endDate) {
+              toast.error("Please set the new due date.");
+              return;
+            }
+            if (startDate && endDate <= startDate) {
+              toast.error("New due date must be after the coverage start date.");
+              return;
+            }
+            if (Number(amount || 0) <= 0) {
+              toast.error("Please enter the amount paid.");
+              return;
+            }
             if (method !== "cash" && !txnRef.trim()) {
               toast.error("Transaction reference is required for non-cash payments.");
               return;
