@@ -220,7 +220,7 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
               toast.error("New due date must be after the coverage start date.");
               return;
             }
-            if (Number(amount || 0) <= 0) {
+            if (fee > 0 && Number(amount || 0) <= 0) {
               toast.error("Please enter the amount paid.");
               return;
             }
