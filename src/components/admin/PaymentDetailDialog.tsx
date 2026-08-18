@@ -114,6 +114,7 @@ export function PaymentDetailDialog({
       qc.invalidateQueries({ queryKey: ["allocations"] });
       qc.invalidateQueries({ queryKey: ["allocation-partials"] });
       qc.invalidateQueries({ queryKey: ["cycle-partials"] });
+      qc.invalidateQueries({ queryKey: ["open-partial-allocs"] });
       setEditing(false);
     } catch (err: any) {
       toast.error(err.message ?? "Failed to update payment");

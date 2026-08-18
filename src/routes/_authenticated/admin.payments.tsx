@@ -150,6 +150,7 @@ function PaymentsPage() {
                 qc.invalidateQueries({ queryKey: ["allocations"] });
                 qc.invalidateQueries({ queryKey: ["allocation-partials"] });
                 qc.invalidateQueries({ queryKey: ["cycle-partials"] });
+      qc.invalidateQueries({ queryKey: ["open-partial-allocs"] });
                 setOpen(false);
                 clearChain();
               }}
