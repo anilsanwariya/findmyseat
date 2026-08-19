@@ -83,7 +83,7 @@ export function TrendCharts({ data, selected }: { data: TrendPoint[]; selected: 
         <h3 className="mb-4 font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Collection rate</h3>
         <div className="h-[240px] w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
+            <BarChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
               <CartesianGrid stroke="var(--panel-border)" vertical={false} />
               <XAxis dataKey="label" {...axis} />
               <YAxis {...axis} domain={[0, 100]} tickFormatter={(v) => `${v}%`} width={40} />
