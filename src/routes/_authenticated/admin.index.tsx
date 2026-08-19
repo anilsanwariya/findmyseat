@@ -53,11 +53,12 @@ function Dashboard() {
 
   const windowStart = monthRange(trendKeys[0] ?? selMonth).start;
   const windowEnd = monthRange(trendKeys[trendKeys.length - 1] ?? selMonth).end;
+  const selBranch = branch ?? "all";
   const branchIds = useMemo(
-    () => (branch === "all" ? (libs ?? []).map((l) => l.id) : [branch]),
-    [branch, libs],
+    () => (selBranch === "all" ? (libs ?? []).map((l) => l.id) : [selBranch]),
+    [selBranch, libs],
   );
-  const scope = branch === "all" ? null : branch;
+  const scope = selBranch === "all" ? null : selBranch;
 
   /** Payments + expenses for the whole 6-month window, bucketed client side. */
   const money = useQuery({
@@ -287,7 +288,7 @@ function Dashboard() {
 
       <div className="flex flex-wrap gap-2">
         <select
-          value={branch}
+          value={selBranch}
           onChange={(e) => setSearch({ branch: e.target.value })}
           className={selectCls}
           aria-label="Branch"
@@ -367,7 +368,7 @@ function Dashboard() {
         </GlassPanel>
       </div>
 
-      {branch === "all" && branchRows.length > 1 && <BranchComparison rows={branchRows} />}
+      {selBranch === "all" && branchRows.length > 1 && <BranchComparison rows={branchRows} />}
 
       {profileId && <StudentProfileDialog studentId={profileId} onClose={() => setProfileId(null)} />}
     </div>
