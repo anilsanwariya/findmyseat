@@ -96,7 +96,7 @@ function Dashboard() {
       let q = supabase
         .from("allocations")
         .select(
-          "id, library_id, student_id, monthly_fee, next_due_date, status, students(full_name), seats(seat_number), shifts(name)",
+          "id, library_id, student_id, seat_id, monthly_fee, next_due_date, status, students(full_name), seats(seat_number), shifts(name)",
         )
         .eq("org_id", orgId!)
         .eq("is_active", true);
@@ -236,9 +236,9 @@ function Dashboard() {
         name: libName.get(id) ?? "—",
         students: (ops.data?.students ?? []).filter((s) => s.library_id === id).length,
         seats: (ops.data?.seats ?? []).filter((s) => s.library_id === id).length,
-        occupied: new Set(branchAllocs.map((a) => (a as any).seat_id ?? a.id)).size
-          ? branchAllocs.length
-          : branchAllocs.length,
+        occupied: new Set(
+          branchAllocs.map((a) => (a as any).seat_id).filter(Boolean) as string[],
+        ).size,
         collected: sumAmount(
           payments.filter((p) => p.library_id === id && inMonth(dayOnly(p.payment_date))),
         ),
