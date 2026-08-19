@@ -109,7 +109,7 @@ export function ActionList({
           title="Overdue students"
           count={overdue.length}
           link={
-            <Link to="/admin/allocations" className="hover:underline">
+            <Link to="/admin/allocations" search={{}} className="hover:underline">
               View all allocations →
             </Link>
           }
