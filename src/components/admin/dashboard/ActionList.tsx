@@ -120,7 +120,7 @@ export function ActionList({
             render={(r) => (
               <>
                 <div className="font-mono text-sm font-semibold text-rose">{inr(r.amount)}</div>
-                <div className="text-[11px] text-muted-foreground">{r.days} days late</div>
+                <div className="text-[11px] text-muted-foreground">{r.days === 1 ? "1 day late" : `${r.days} days late`}</div>
               </>
             )}
           />
@@ -158,7 +158,7 @@ export function ActionList({
             render={(r) => (
               <>
                 <div className="font-mono text-sm font-semibold text-cyan">{inr(r.amount)}</div>
-                <div className="text-[11px] text-muted-foreground">in {r.days} days</div>
+                <div className="text-[11px] text-muted-foreground">{r.days === 0 ? "due today" : r.days === 1 ? "in 1 day" : `in ${r.days} days`}</div>
               </>
             )}
           />
