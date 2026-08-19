@@ -11,6 +11,15 @@ const toneText: Record<string, string> = {
   rose: "text-rose",
 };
 
+const toneBg: Record<string, string> = {
+  violet: "bg-violet",
+  cyan: "bg-cyan",
+  magenta: "bg-magenta",
+  gold: "bg-gold",
+  emerald: "bg-emerald",
+  rose: "bg-rose",
+};
+
 export function StatCard({
   label,
   value,
@@ -34,7 +43,7 @@ export function StatCard({
       {typeof progress === "number" && (
         <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-panel">
           <div
-            className={cn("h-full rounded-full", `bg-${tone}`)}
+            className={cn("h-full rounded-full", toneBg[tone])}
             style={{ width: `${Math.max(0, Math.min(100, progress))}%` }}
           />
         </div>
