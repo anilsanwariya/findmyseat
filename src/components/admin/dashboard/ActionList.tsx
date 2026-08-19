@@ -109,8 +109,8 @@ export function ActionList({
           title="Overdue students"
           count={overdue.length}
           link={
-            <Link to="/admin/allocations" search={{ status: "overdue" } as any} className="hover:underline">
-              View all overdue →
+            <Link to="/admin/allocations" className="hover:underline">
+              View all allocations →
             </Link>
           }
         >
