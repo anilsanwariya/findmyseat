@@ -1297,92 +1297,46 @@ function LayoutBuilderPage() {
         }}
       />
 
+      <RenumberDialog
+        open={renumberOpen}
+        onOpenChange={setRenumberOpen}
+        cells={selectedCellList}
+        allSeats={(seatsQ.data?.seats ?? []) as any}
+        onDone={(action) => {
+          pushAction(action);
+          qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
+          setSelectedCells(new Set());
+          setMultiSelectMode(false);
+        }}
+      />
+
+      {currentSection && currentLibId && orgId && (
+        <DuplicateSectionDialog
+          open={dupSectionOpen}
+          onOpenChange={setDupSectionOpen}
+          section={currentSection}
+          orgId={orgId}
+          libraries={(libs ?? []).map((l) => ({ id: l.id, name: l.name }))}
+          currentLibraryId={currentLibId}
+          onCreated={(id, libId) => {
+            setLibraryId(libId);
+            setSectionId(id);
+            qc.invalidateQueries({ queryKey: ["sections", libId] });
+          }}
+        />
+      )}
+
+      <SeatOccupancyDialog
+        open={!!occSeat}
+        onOpenChange={(o) => !o && setOccSeat(null)}
+        seatNumber={occSeat?.number ?? null}
+        occupants={occSeat?.list ?? []}
+      />
     </div>
   );
 }
 
-const CellView = memo(function CellView({
-  row,
-  col,
-  cell,
-  isSelected,
-  onClick,
-}: {
-  row: number;
-  col: number;
-  cell: Cell;
-  isSelected: boolean;
-  onClick: (r: number, c: number) => void;
-}) {
-  const common = {
-    onClick: () => onClick(row, col),
-  };
 
-
-  if (cell.kind === "seat") {
-    const Icon = DIR_ICON[cell.facing] ?? ArrowUp;
-    const occupied = cell.occupants.length > 0;
-    return (
-      <button
-        {...common}
-        type="button"
-        title={`Seat ${cell.seat_number}${occupied ? ` · ${cell.occupants.join(", ")}` : " · vacant"}`}
-        className={cn(
-          "group relative flex size-10 min-w-0 flex-col items-center justify-center rounded border text-[9px] font-mono transition-all",
-          isSelected
-            ? "border-cyan bg-cyan/20 shadow-[0_0_8px_rgba(34,211,238,0.5)] scale-[1.06]"
-            : "hover:scale-[1.06]",
-          !isSelected && cell.is_corner
-            ? "border-2 border-gold/60 bg-gold/10 text-gold glow-gold hover:bg-gold/20"
-            : "",
-          !isSelected && !cell.is_corner
-            ? "border-emerald/50 bg-emerald/10 text-emerald shadow-[0_0_10px_rgba(16,185,129,0.1)] hover:border-emerald hover:bg-emerald/20"
-            : "",
-        )}
-      >
-        <Icon className="mb-0.5 size-2.5 opacity-70" />
-        <span className="truncate font-bold">{cell.seat_number}</span>
-        {occupied && (
-          <span className="absolute -top-1 -right-1 flex size-3.5 items-center justify-center rounded-full bg-magenta text-[7px] text-white">
-            <User className="size-2" />
-          </span>
-        )}
-      </button>
-    );
-  }
-  if (cell.kind === "object") {
-    const meta = OBJ_META[cell.object_type] ?? OBJ_META.reception;
-    const Icon = meta.icon;
-    return (
-      <button
-        {...common}
-        type="button"
-        title={`${meta.label} — click to remove`}
-        className={cn(
-          "flex size-10 min-w-0 flex-col items-center justify-center rounded border text-[8px] font-mono transition-all",
-          isSelected ? "border-cyan bg-cyan/20 shadow-[0_0_8px_rgba(34,211,238,0.5)] scale-105" : "hover:scale-105",
-          !isSelected && meta.color,
-        )}
-      >
-        {Icon && <Icon className="size-3" />}
-        <span className="mt-0.5 truncate">{meta.label}</span>
-      </button>
-    );
-  }
-  return (
-    <button
-      {...common}
-      type="button"
-      title={`Row ${row + 1}, Col ${col + 1}`}
-      className={cn(
-        "size-10 min-w-0 rounded border transition-colors hover:scale-[1.03]",
-        isSelected
-          ? "border-cyan bg-cyan/20 shadow-[0_0_8px_rgba(34,211,238,0.3)]"
-          : "border-panel-border/30 bg-white/[0.02] hover:border-panel-border hover:bg-panel",
-      )}
-    />
-  );
-});
 
 
 // --- PURE LAYOUT INSPECTOR (NO ALLOCATIONS) ---
