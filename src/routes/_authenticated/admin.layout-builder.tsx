@@ -1,16 +1,23 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   type LayoutAction,
-  type SeatOrder,
-
   type LayoutDraft,
+  type RedoAction,
+  type SeatOrder,
+  applyRedo,
   clearDraft,
   orderCells,
   readDraft,
   saveDraft,
-  undoAction,
+  undoWithRedo,
 } from "@/lib/layout-history";
+import { type BuilderMode, type LayoutCell, type OccupantInfo, type SeatStatus, cellKey as key } from "@/lib/layout-types";
+import { LayoutCanvas, OBJ_META } from "@/components/admin/layout/LayoutCanvas";
+import { RenumberDialog } from "@/components/admin/layout/RenumberDialog";
+import { DuplicateSectionDialog } from "@/components/admin/layout/DuplicateSectionDialog";
+import { SeatOccupancyDialog } from "@/components/admin/layout/SeatOccupancyDialog";
+import { duplicateSeatNumbers, moveBlock, pasteBlock } from "@/lib/layout-ops";
 
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -39,60 +46,30 @@ import {
   ArrowDown,
   ArrowLeft,
   ArrowRight,
-  DoorOpen,
-  Droplets,
-  Waves,
   Plus,
   Minus,
   Trash2,
   MousePointer2,
   Square,
-  AppWindow,
-  Image as ImageIcon,
-  Navigation,
-  MessageSquare,
-  Utensils,
   Grid3X3,
   Settings2,
-  User,
   Undo2,
+  Redo2,
   Save,
+  Copy,
+  ClipboardPaste,
+  Hash,
+  CopyPlus,
+  Eye,
+  Pencil,
+  AlertTriangle,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/layout-builder")({
   component: LayoutBuilderPage,
 });
 
-type Cell =
-  | {
-      kind: "seat";
-      id: string;
-      seat_number: string;
-      facing: "north" | "south" | "east" | "west";
-      is_corner: boolean;
-      occupants: string[];
-    }
-  | { kind: "object"; id: string; object_type: string }
-  | { kind: "empty" };
-
-const DIR_ICON = { north: ArrowUp, south: ArrowDown, east: ArrowRight, west: ArrowLeft };
-
-const key = (r: number, c: number) => `${r}:${c}`;
-
-// Enhanced Object Meta with Walls, Windows, and Custom Areas
-const OBJ_META: Record<string, { icon: any; label: string; color: string }> = {
-  aisle: { icon: null, label: "Aisle", color: "bg-transparent" },
-  entry_gate: { icon: DoorOpen, label: "Entry", color: "bg-slate-800/60 text-slate-300" },
-  washroom: { icon: Waves, label: "W/C", color: "bg-magenta/10 text-magenta border-magenta/30" },
-  water_cooler: { icon: Droplets, label: "H₂O", color: "bg-cyan/10 text-cyan border-cyan/30" },
-  reception: { icon: null, label: "Rcpt", color: "bg-panel-strong text-muted-foreground" },
-  wall: { icon: Square, label: "Wall", color: "bg-slate-700/80 text-slate-300 border-slate-600" },
-  window: { icon: AppWindow, label: "Window", color: "bg-sky-500/20 text-sky-300 border-sky-500/30" },
-  gallery: { icon: ImageIcon, label: "Gallery", color: "bg-purple-500/20 text-purple-300 border-purple-500/30" },
-  hallway: { icon: Navigation, label: "Hallway", color: "bg-stone-500/20 text-stone-300 border-stone-500/30" },
-  discussion: { icon: MessageSquare, label: "Discussion", color: "bg-amber-500/20 text-amber-300 border-amber-500/30" },
-  dining: { icon: Utensils, label: "Dining", color: "bg-orange-500/20 text-orange-300 border-orange-500/30" },
-};
+type Clipboard = { seats: any[]; objs: any[]; originR: number; originC: number } | null;
 
 type PendingDelete = {
   seatIds: string[];
@@ -122,12 +99,24 @@ function LayoutBuilderPage() {
   const [bulkAreaOpen, setBulkAreaOpen] = useState(false);
   const [bulkSeatOpen, setBulkSeatOpen] = useState(false);
   const [bulkEditOpen, setBulkEditOpen] = useState(false);
+  const [renumberOpen, setRenumberOpen] = useState(false);
+  const [dupSectionOpen, setDupSectionOpen] = useState(false);
   const [isShifting, setIsShifting] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<PendingDelete>(null);
 
-  // Action journal → powers Undo, the Save indicator and the recoverable local draft.
+  // Edit vs read-only occupancy map.
+  const [mode, setMode] = useState<BuilderMode>("edit");
+  const [occSeat, setOccSeat] = useState<{ number: string; list: OccupantInfo[] } | null>(null);
+
+  // Copy / paste of a whole block of seats + area cells.
+  const [clipboard, setClipboard] = useState<Clipboard>(null);
+  const [pasteMode, setPasteMode] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  // Action journal → powers Undo/Redo, the Save indicator and the recoverable local draft.
   const sessionIdRef = useRef<string>(Math.random().toString(36).slice(2));
   const [history, setHistory] = useState<LayoutAction[]>([]);
+  const [redoStack, setRedoStack] = useState<RedoAction[]>([]);
   const [savedCount, setSavedCount] = useState(0);
   const [recoverable, setRecoverable] = useState<LayoutDraft | null>(null);
   const [undoing, setUndoing] = useState(false);
@@ -149,7 +138,8 @@ function LayoutBuilderPage() {
   const currentSectionId = sectionId ?? sectionsQ.data?.[0]?.id;
   const currentSection = sectionsQ.data?.find((s: any) => s.id === currentSectionId);
 
-  // Fetch physical layout elements (Seats & Objects) + who currently occupies each seat
+  // Fetch physical layout elements (Seats & Objects) + who currently occupies each seat,
+  // including enough billing state to colour the read-only occupancy map.
   const seatsQ = useQuery({
     queryKey: ["seats", currentSectionId],
     enabled: !!currentSectionId,
@@ -160,32 +150,71 @@ function LayoutBuilderPage() {
         supabase.from("layout_objects").select("*").eq("section_id", currentSectionId!),
       ]);
       const seatRows = seats.data ?? [];
-      let occupancy: Record<string, string[]> = {};
+      const occupancy: Record<string, string[]> = {};
+      const occInfo: Record<string, OccupantInfo[]> = {};
       if (seatRows.length) {
         const { data: allocs } = await supabase
           .from("allocations")
-          .select("seat_id, students(full_name)")
+          .select("id, seat_id, student_id, monthly_fee, next_due_date, status, students(full_name), shifts(name)")
           .eq("is_active", true)
           .in(
             "seat_id",
             seatRows.map((s: any) => s.id),
           );
+
+        // A cycle is "part paid" when a partial payment targets a date beyond the current due date.
+        const partial = new Set<string>();
+        const allocIds = (allocs ?? []).map((a: any) => a.id);
+        if (allocIds.length) {
+          const { data: pays } = await supabase
+            .from("payments")
+            .select("allocation_id, covers_until, is_partial")
+            .in("allocation_id", allocIds)
+            .eq("is_partial", true);
+          const dueBy = new Map((allocs ?? []).map((a: any) => [a.id, a.next_due_date]));
+          for (const p of pays ?? []) {
+            const due = p.allocation_id ? dueBy.get(p.allocation_id) : null;
+            if (p.allocation_id && p.covers_until && due && p.covers_until > due) partial.add(p.allocation_id);
+          }
+        }
+
+        const today = new Date();
+        const todayISO = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+
         for (const a of allocs ?? []) {
           if (!a.seat_id) continue;
           const name = (a as any).students?.full_name ?? "Student";
+          let status: SeatStatus = "pending";
+          if (partial.has(a.id)) status = "partial";
+          else if (a.next_due_date && a.next_due_date < todayISO) status = "overdue";
+          else if (a.status === "paid") status = "paid";
           occupancy[a.seat_id] = [...(occupancy[a.seat_id] ?? []), name];
+          occInfo[a.seat_id] = [
+            ...(occInfo[a.seat_id] ?? []),
+            {
+              allocationId: a.id,
+              studentId: a.student_id,
+              name,
+              shift: (a as any).shifts?.name ?? null,
+              fee: Number(a.monthly_fee ?? 0),
+              dueDate: a.next_due_date ?? null,
+              status,
+            },
+          ];
         }
       }
-      return { seats: seatRows, objs: objs.data ?? [], occupancy };
+      return { seats: seatRows, objs: objs.data ?? [], occupancy, occInfo };
     },
   });
+
+  const dupNumbers = useMemo(() => duplicateSeatNumbers(seatsQ.data?.seats ?? []), [seatsQ.data?.seats]);
 
   const grid = useMemo(() => {
     if (!currentSection) return null;
     const rows = currentSection.grid_rows;
     const cols = currentSection.grid_cols;
-    const g: Cell[][] = Array.from({ length: rows }, () =>
-      Array.from({ length: cols }, () => ({ kind: "empty" }) as Cell),
+    const g: LayoutCell[][] = Array.from({ length: rows }, () =>
+      Array.from({ length: cols }, () => ({ kind: "empty" }) as LayoutCell),
     );
 
     for (const s of seatsQ.data?.seats ?? []) {
@@ -197,6 +226,7 @@ function LayoutBuilderPage() {
         facing: s.facing_direction,
         is_corner: s.is_corner,
         occupants: seatsQ.data?.occupancy?.[s.id] ?? [],
+        occInfo: seatsQ.data?.occInfo?.[s.id] ?? [],
       };
     }
     for (const o of seatsQ.data?.objs ?? []) {
@@ -216,6 +246,7 @@ function LayoutBuilderPage() {
     setSelectedSeat(null);
     setSelectedCells(new Set());
     setMultiSelectMode(false);
+    setPasteMode(false);
   }, [currentSectionId]);
 
   const refreshLayout = useCallback(() => {
@@ -242,6 +273,17 @@ function LayoutBuilderPage() {
       const cell = grid[row]?.[col];
       if (!cell) return;
 
+      // Read-only occupancy map: tapping a seat shows who sits there.
+      if (mode === "occupancy") {
+        if (cell.kind === "seat") setOccSeat({ number: cell.seat_number, list: cell.occInfo });
+        return;
+      }
+
+      if (pasteMode) {
+        void handlePaste(row, col);
+        return;
+      }
+
       if (multiSelectMode) {
         toggleCell(row, col);
         return;
@@ -263,11 +305,30 @@ function LayoutBuilderPage() {
       setAddSeatPos({ row, col });
       setAddSeatOpen(true);
     },
-    [grid, multiSelectMode, toggleCell],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [grid, mode, pasteMode, multiSelectMode, toggleCell],
+  );
+
+  /** Row/column headers select a whole line at once — much faster than tapping 15 cells. */
+  const selectLine = useCallback(
+    (axis: "row" | "col", index: number) => {
+      if (mode !== "edit" || !currentSection) return;
+      setMultiSelectMode(true);
+      const count = axis === "row" ? currentSection.grid_cols : currentSection.grid_rows;
+      setSelectedCells((prev) => {
+        const next = new Set(prev);
+        const keys = Array.from({ length: count }, (_, i) => (axis === "row" ? key(index, i) : key(i, index)));
+        const allIn = keys.every((k) => next.has(k));
+        for (const k of keys) (allIn ? next.delete(k) : next.add(k));
+        return next;
+      });
+    },
+    [mode, currentSection],
   );
 
   const pushAction = useCallback(
     (action: LayoutAction) => {
+      setRedoStack([]);
       setHistory((prev) => {
         const next = [...prev, action].slice(-40);
         if (currentSectionId) saveDraft(currentSectionId, sessionIdRef.current, next);
@@ -280,6 +341,7 @@ function LayoutBuilderPage() {
   // Reset the journal per section and surface any draft left behind by a closed tab.
   useEffect(() => {
     setHistory([]);
+    setRedoStack([]);
     setSavedCount(0);
     if (!currentSectionId) {
       setRecoverable(null);
@@ -290,6 +352,12 @@ function LayoutBuilderPage() {
   }, [currentSectionId]);
 
   const unsaved = history.length - savedCount;
+
+  const invalidateAll = useCallback(() => {
+    qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
+    qc.invalidateQueries({ queryKey: ["sections", currentLibId] });
+    qc.invalidateQueries({ queryKey: ["allocations"] });
+  }, [qc, currentSectionId, currentLibId]);
 
   const handleSave = useCallback(async () => {
     if (!currentSectionId) return;
@@ -303,28 +371,157 @@ function LayoutBuilderPage() {
     toast.success(unsaved > 0 ? `Layout saved · ${unsaved} change(s) synced` : "Layout is up to date");
   }, [currentSectionId, currentLibId, qc, history.length, unsaved]);
 
-  const handleUndo = useCallback(async () => {
-    const last = history[history.length - 1];
-    if (!last || undoing) return;
+  /** Steps back through the journal; `steps` lets the history list jump multiple actions. */
+  const handleUndo = useCallback(
+    async (steps = 1) => {
+      if (undoing || !history.length) return;
+      setUndoing(true);
+      toast.loading("Undoing…", { id: "layout-undo" });
+      let remaining = history;
+      const redos: RedoAction[] = [];
+      let msg = "";
+      try {
+        for (let i = 0; i < steps && remaining.length; i++) {
+          const last = remaining[remaining.length - 1];
+          const snapshot = { seats: seatsQ.data?.seats ?? [], objs: seatsQ.data?.objs ?? [] };
+          const res = await undoWithRedo(last, snapshot);
+          msg = res.message;
+          if (res.redo) redos.push(res.redo);
+          remaining = remaining.slice(0, -1);
+        }
+        setHistory(remaining);
+        setRedoStack((prev) => [...prev, ...redos.reverse()]);
+        setSavedCount((c) => Math.min(c, remaining.length));
+        if (currentSectionId) saveDraft(currentSectionId, sessionIdRef.current, remaining);
+        setSelectedSeat(null);
+        invalidateAll();
+        toast.success(steps > 1 ? `Undid ${steps} action(s)` : msg, { id: "layout-undo" });
+      } catch (e: any) {
+        setHistory(remaining);
+        invalidateAll();
+        toast.error(e?.message ?? "Could not undo", { id: "layout-undo" });
+      } finally {
+        setUndoing(false);
+      }
+    },
+    [history, undoing, currentSectionId, seatsQ.data, invalidateAll],
+  );
+
+  const handleRedo = useCallback(async () => {
+    const next = redoStack[redoStack.length - 1];
+    if (!next || undoing) return;
     setUndoing(true);
-    toast.loading("Undoing…", { id: "layout-undo" });
+    toast.loading("Redoing…", { id: "layout-redo" });
     try {
-      const msg = await undoAction(last);
-      const next = history.slice(0, -1);
-      setHistory(next);
-      setSavedCount((c) => Math.min(c, next.length));
-      if (currentSectionId) saveDraft(currentSectionId, sessionIdRef.current, next);
-      setSelectedSeat(null);
-      qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
-      qc.invalidateQueries({ queryKey: ["sections", currentLibId] });
-      qc.invalidateQueries({ queryKey: ["allocations"] });
-      toast.success(msg, { id: "layout-undo" });
+      const msg = await applyRedo(next);
+      setRedoStack((prev) => prev.slice(0, -1));
+      invalidateAll();
+      toast.success(msg, { id: "layout-redo" });
     } catch (e: any) {
-      toast.error(e?.message ?? "Could not undo", { id: "layout-undo" });
+      toast.error(e?.message ?? "Could not redo", { id: "layout-redo" });
     } finally {
       setUndoing(false);
     }
-  }, [history, undoing, currentSectionId, currentLibId, qc]);
+  }, [redoStack, undoing, invalidateAll]);
+
+  // ---- Block copy / paste / move -------------------------------------------------
+
+  const selectedSeatRows = useMemo(
+    () => (seatsQ.data?.seats ?? []).filter((s: any) => selectedCells.has(key(s.row_position, s.column_position))),
+    [seatsQ.data?.seats, selectedCells],
+  );
+  const selectedObjRows = useMemo(
+    () => (seatsQ.data?.objs ?? []).filter((o: any) => selectedCells.has(key(o.row_position, o.column_position))),
+    [seatsQ.data?.objs, selectedCells],
+  );
+
+  const handleCopy = () => {
+    if (!selectedSeatRows.length && !selectedObjRows.length) {
+      toast.info("Select some seats or areas to copy.");
+      return;
+    }
+    const all = [...selectedSeatRows, ...selectedObjRows];
+    const originR = Math.min(...all.map((x: any) => x.row_position));
+    const originC = Math.min(...all.map((x: any) => x.column_position));
+    setClipboard({ seats: selectedSeatRows, objs: selectedObjRows, originR, originC });
+    setPasteMode(true);
+    setMultiSelectMode(false);
+    setSelectedCells(new Set());
+    toast.success(`Copied ${all.length} item(s) — tap a cell to paste`);
+  };
+
+  async function handlePaste(row: number, col: number) {
+    if (!clipboard || !currentSection || !currentSectionId || !currentLibId || !orgId || busy) return;
+    setBusy(true);
+    toast.loading("Pasting…", { id: "layout-paste" });
+    try {
+      const occupied = new Set<string>([
+        ...(seatsQ.data?.seats ?? []).map((s: any) => key(s.row_position, s.column_position)),
+        ...(seatsQ.data?.objs ?? []).map((o: any) => key(o.row_position, o.column_position)),
+      ]);
+      const actions = await pasteBlock({
+        clipboard,
+        row,
+        col,
+        rows: currentSection.grid_rows,
+        cols: currentSection.grid_cols,
+        occupied,
+        sectionId: currentSectionId,
+        libraryId: currentLibId,
+        orgId,
+        allSeats: seatsQ.data?.seats ?? [],
+      });
+      for (const a of actions) pushAction(a);
+      setPasteMode(false);
+      invalidateAll();
+      toast.success("Pasted", { id: "layout-paste" });
+    } catch (e: any) {
+      toast.error(e?.message ?? "Could not paste", { id: "layout-paste" });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleMove(dr: number, dc: number) {
+    if (!currentSection || busy) return;
+    if (!selectedSeatRows.length && !selectedObjRows.length) {
+      toast.info("Select seats or areas to move.");
+      return;
+    }
+    setBusy(true);
+    toast.loading("Moving…", { id: "layout-move" });
+    try {
+      const movingIds = new Set([...selectedSeatRows, ...selectedObjRows].map((x: any) => x.id));
+      const occupied = new Set<string>(
+        [...(seatsQ.data?.seats ?? []), ...(seatsQ.data?.objs ?? [])]
+          .filter((x: any) => !movingIds.has(x.id))
+          .map((x: any) => key(x.row_position, x.column_position)),
+      );
+      const action = await moveBlock({
+        seats: selectedSeatRows as any,
+        objs: selectedObjRows as any,
+        dr,
+        dc,
+        rows: currentSection.grid_rows,
+        cols: currentSection.grid_cols,
+        occupied,
+      });
+      pushAction(action);
+      // Keep the same items selected at their new coordinates.
+      setSelectedCells(new Set(Array.from(selectedCells).map((k) => {
+        const [r, c] = k.split(":").map(Number);
+        return key(r + dr, c + dc);
+      })));
+      invalidateAll();
+      toast.success("Moved", { id: "layout-move" });
+    } catch (e: any) {
+      toast.error(e?.message ?? "Could not move", { id: "layout-move" });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+
 
 
   const requestBulkDelete = () => {
@@ -673,63 +870,131 @@ function LayoutBuilderPage() {
       ) : (
         <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
           <GlassPanel className="p-4 flex flex-col min-w-0">
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-3 px-2">
-              <div>
-                <div className="text-sm font-bold">{currentSection?.name}</div>
-                <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                  {currentSection?.grid_rows} × {currentSection?.grid_cols} · {seatsQ.data?.seats.length ?? 0} physical
-                  seats
+            {/* Sticky toolbar: mode, selection, history and save stay reachable while scrolling. */}
+            <div className="sticky top-0 z-20 -mx-4 -mt-4 mb-3 rounded-t-xl border-b border-panel-border bg-background/80 px-4 py-3 backdrop-blur-xl">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-bold">{currentSection?.name}</div>
+                  <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                    {currentSection?.grid_rows} × {currentSection?.grid_cols} · {seatsQ.data?.seats.length ?? 0} seats ·{" "}
+                    {Object.keys(seatsQ.data?.occInfo ?? {}).length} occupied
+                  </div>
+                </div>
+
+                <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+                  {/* Edit ↔ occupancy */}
+                  <div className="flex overflow-hidden rounded-md border border-panel-border">
+                    <button
+                      type="button"
+                      onClick={() => setMode("edit")}
+                      className={cn(
+                        "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors",
+                        mode === "edit" ? "bg-white text-slate-900" : "bg-panel text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      <Pencil className="size-3.5" /> Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMode("occupancy");
+                        setMultiSelectMode(false);
+                        setSelectedCells(new Set());
+                        setPasteMode(false);
+                        setSelectedSeat(null);
+                      }}
+                      className={cn(
+                        "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors",
+                        mode === "occupancy"
+                          ? "bg-white text-slate-900"
+                          : "bg-panel text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      <Eye className="size-3.5" /> Occupancy
+                    </button>
+                  </div>
+
+                  {mode === "edit" && (
+                    <>
+                      <Button
+                        variant={multiSelectMode ? "default" : "outline"}
+                        onClick={() => {
+                          setMultiSelectMode(!multiSelectMode);
+                          setSelectedCells(new Set());
+                          setPasteMode(false);
+                        }}
+                        className={cn(
+                          "flex-1 bg-panel shrink-0 sm:flex-none",
+                          multiSelectMode && "bg-cyan text-cyan-950 hover:bg-cyan/90 border-cyan/50",
+                        )}
+                        size="sm"
+                      >
+                        <MousePointer2 className="size-4 mr-2" /> {multiSelectMode ? "Cancel" : "Select"}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={!history.length || undoing || isShifting}
+                        onClick={() => handleUndo(1)}
+                        className="bg-panel shrink-0"
+                        title={history[history.length - 1]?.label ?? "Nothing to undo"}
+                      >
+                        <Undo2 className="size-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={!redoStack.length || undoing || isShifting}
+                        onClick={handleRedo}
+                        className="bg-panel shrink-0"
+                        title={redoStack[redoStack.length - 1]?.label ?? "Nothing to redo"}
+                      >
+                        <Redo2 className="size-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="bg-panel shrink-0"
+                        title="Duplicate this section"
+                        onClick={() => setDupSectionOpen(true)}
+                      >
+                        <CopyPlus className="size-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={handleSave}
+                        className={cn(
+                          "flex-1 shrink-0 sm:flex-none",
+                          unsaved > 0
+                            ? "bg-emerald text-emerald-950 hover:bg-emerald/90"
+                            : "bg-panel border border-panel-border text-muted-foreground hover:bg-panel-strong",
+                        )}
+                      >
+                        <Save className="size-4 mr-2" /> {unsaved > 0 ? `Save (${unsaved})` : "Saved"}
+                      </Button>
+                    </>
+                  )}
                 </div>
               </div>
 
-              {/* Map Tools */}
-              <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-                <Button
-                  variant={multiSelectMode ? "default" : "outline"}
-                  onClick={() => {
-                    setMultiSelectMode(!multiSelectMode);
-                    setSelectedCells(new Set());
-                  }}
-                  className={cn(
-                    "flex-1 sm:flex-none bg-panel transition-colors shrink-0",
-                    multiSelectMode &&
-                      "bg-cyan text-cyan-950 hover:bg-cyan/90 border-cyan/50 shadow-[0_0_15px_rgba(34,211,238,0.2)]",
-                  )}
-                  size="sm"
-                >
-                  <MousePointer2 className="size-4 mr-2" /> {multiSelectMode ? "Cancel Selection" : "Select Area"}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={!history.length || undoing || isShifting}
-                  onClick={handleUndo}
-                  className="flex-1 sm:flex-none bg-panel shrink-0"
-                  title={history[history.length - 1]?.label ?? "Nothing to undo"}
-                >
-                  <Undo2 className="size-4 mr-2" /> Undo
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={handleSave}
-                  className={cn(
-                    "flex-1 sm:flex-none shrink-0",
-                    unsaved > 0
-                      ? "bg-emerald text-emerald-950 hover:bg-emerald/90"
-                      : "bg-panel border border-panel-border text-muted-foreground hover:bg-panel-strong",
-                  )}
-                >
-                  <Save className="size-4 mr-2" /> {unsaved > 0 ? `Save (${unsaved})` : "Saved"}
-                </Button>
-              </div>
+              {mode === "edit" && (
+                <div className="mt-2 flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                  <span className={cn("size-1.5 rounded-full", unsaved > 0 ? "bg-amber-400" : "bg-emerald")} />
+                  {unsaved > 0 ? `${unsaved} change(s) synced · draft kept locally` : "All layout changes synced"}
+                  {history.length > 0 && <span className="normal-case tracking-normal">· last: {history[history.length - 1].label}</span>}
+                </div>
+              )}
             </div>
 
-            <div className="mx-2 mb-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-              <span className={cn("size-1.5 rounded-full", unsaved > 0 ? "bg-amber-400" : "bg-emerald")} />
-              {unsaved > 0
-                ? `${unsaved} change(s) synced to server · draft kept locally`
-                : "All layout changes synced"}
-            </div>
+            {dupNumbers.size > 0 && mode === "edit" && (
+              <div className="mx-2 mb-3 flex items-start gap-2 rounded-lg border border-rose/30 bg-rose/10 p-3 text-[11px] text-rose">
+                <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+                <span>
+                  Duplicate seat numbers in this section: <b>{Array.from(dupNumbers).join(", ")}</b>. Select those seats and
+                  use Renumber to fix them.
+                </span>
+              </div>
+            )}
 
             {recoverable && (
               <div className="mx-2 mb-3 flex flex-col gap-2 rounded-lg border border-amber-400/30 bg-amber-400/10 p-3 text-[11px] text-amber-200 sm:flex-row sm:items-center sm:justify-between">
@@ -765,174 +1030,143 @@ function LayoutBuilderPage() {
               </div>
             )}
 
-
-            {multiSelectMode && selectedCells.size === 0 && (
-              <div className="mx-2 mb-3 rounded-lg border border-cyan/20 bg-cyan/5 px-3 py-2 text-[11px] text-cyan/90">
-                Tip: tap each cell you want to include — selection is tap-to-toggle, works on mobile and tablet.
+            {pasteMode && (
+              <div className="mx-2 mb-3 flex items-center justify-between gap-3 rounded-lg border border-cyan/30 bg-cyan/10 px-3 py-2 text-[11px] text-cyan">
+                <span>
+                  Paste mode · tap the cell where the top-left of the copied block should land ({clipboard?.seats.length ?? 0}{" "}
+                  seat(s), {clipboard?.objs.length ?? 0} area cell(s)).
+                </span>
+                <Button size="sm" variant="ghost" onClick={() => setPasteMode(false)}>
+                  Cancel
+                </Button>
               </div>
             )}
 
-            {/* Unified Selection Action Banner */}
-            {multiSelectMode && selectedCells.size > 0 && (
-              <div className="bg-cyan/10 border border-cyan/30 rounded-lg p-3 mb-4 mx-2 flex flex-col xl:flex-row xl:items-center justify-between gap-3 animate-in fade-in zoom-in slide-in-from-top-4">
-                <span className="text-sm font-medium text-cyan shrink-0">{selectedCells.size} cells selected</span>
-                <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setSelectedCells(new Set())}
-                    className="text-muted-foreground hover:text-white col-span-2 sm:col-span-1"
-                  >
-                    Clear
-                  </Button>
-                  <Button
-                    size="sm"
-                    className="bg-emerald text-emerald-950 hover:bg-emerald/90"
-                    onClick={() => setBulkSeatOpen(true)}
-                  >
+            {mode === "edit" && multiSelectMode && selectedCells.size === 0 && (
+              <div className="mx-2 mb-3 rounded-lg border border-cyan/20 bg-cyan/5 px-3 py-2 text-[11px] text-cyan/90">
+                Tap cells to select — or tap a row/column number to grab a whole line at once.
+              </div>
+            )}
+
+            {/* Grid size controls — compact, no longer wrapped around the canvas */}
+            {mode === "edit" && (
+              <div className="mx-2 mb-3 flex flex-wrap items-center gap-2">
+                {(
+                  [
+                    { label: "Top", add: handleAddTop, remove: handleRemoveTop },
+                    { label: "Bottom", add: handleAddBottom, remove: handleRemoveBottom },
+                    { label: "Left", add: handleAddLeft, remove: handleRemoveLeft },
+                    { label: "Right", add: handleAddRight, remove: handleRemoveRight },
+                  ] as const
+                ).map((g) => (
+                  <div key={g.label} className="flex items-center overflow-hidden rounded-full border border-panel-border bg-panel">
+                    <button
+                      type="button"
+                      disabled={isShifting}
+                      onClick={g.add}
+                      title={`Add ${g.label.toLowerCase()} line`}
+                      className="px-2 py-1.5 text-muted-foreground hover:bg-panel-strong hover:text-foreground"
+                    >
+                      <Plus className="size-3.5" />
+                    </button>
+                    <span className="px-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">{g.label}</span>
+                    <button
+                      type="button"
+                      disabled={isShifting}
+                      onClick={g.remove}
+                      title={`Remove ${g.label.toLowerCase()} line`}
+                      className="px-2 py-1.5 text-muted-foreground hover:bg-rose/20 hover:text-rose"
+                    >
+                      <Minus className="size-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* ZOOMABLE / PANNABLE CANVAS */}
+            {grid && currentSection && (
+              <LayoutCanvas
+                grid={grid}
+                rows={currentSection.grid_rows}
+                cols={currentSection.grid_cols}
+                mode={mode}
+                selectedCells={selectedCells}
+                dupNumbers={dupNumbers}
+                pasteMode={pasteMode}
+                onCellClick={handleCellClick}
+                onSelectRow={(r) => selectLine("row", r)}
+                onSelectCol={(c) => selectLine("col", c)}
+              />
+            )}
+
+            {/* Selection action bar — sticks to the bottom so it is always thumb-reachable */}
+            {mode === "edit" && multiSelectMode && selectedCells.size > 0 && (
+              <div className="sticky bottom-0 z-20 -mx-4 -mb-4 mt-4 rounded-b-xl border-t border-cyan/30 bg-background/85 px-4 py-3 backdrop-blur-xl">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <span className="text-sm font-medium text-cyan">{selectedCells.size} cells selected</span>
+                  <div className="flex items-center gap-1">
+                    <span className="mr-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Move</span>
+                    {(
+                      [
+                        { icon: ArrowUp, dr: -1, dc: 0 },
+                        { icon: ArrowDown, dr: 1, dc: 0 },
+                        { icon: ArrowLeft, dr: 0, dc: -1 },
+                        { icon: ArrowRight, dr: 0, dc: 1 },
+                      ] as const
+                    ).map((m, i) => (
+                      <Button
+                        key={i}
+                        size="icon"
+                        variant="outline"
+                        disabled={busy}
+                        className="size-8 bg-panel border-panel-border"
+                        onClick={() => handleMove(m.dr, m.dc)}
+                      >
+                        <m.icon className="size-4" />
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+                  <Button size="sm" className="bg-emerald text-emerald-950 hover:bg-emerald/90" onClick={() => setBulkSeatOpen(true)}>
                     <Grid3X3 className="size-3.5 mr-1.5" /> Generate
                   </Button>
-                  <Button
-                    size="sm"
-                    className="bg-cyan text-cyan-950 hover:bg-cyan/90"
-                    onClick={() => setBulkAreaOpen(true)}
-                  >
-                    <Square className="size-3.5 mr-1.5" /> Object
+                  <Button size="sm" className="bg-cyan text-cyan-950 hover:bg-cyan/90" onClick={() => setBulkAreaOpen(true)}>
+                    <Square className="size-3.5 mr-1.5" /> Area
                   </Button>
-                  <Button
-                    size="sm"
-                    className="bg-amber-500 text-amber-950 hover:bg-amber-400"
-                    onClick={() => setBulkEditOpen(true)}
-                  >
+                  <Button size="sm" className="bg-amber-500 text-amber-950 hover:bg-amber-400" onClick={() => setBulkEditOpen(true)}>
                     <Settings2 className="size-3.5 mr-1.5" /> Edit
                   </Button>
+                  <Button size="sm" variant="outline" className="bg-panel border-panel-border" onClick={() => setRenumberOpen(true)}>
+                    <Hash className="size-3.5 mr-1.5" /> Renumber
+                  </Button>
+                  <Button size="sm" variant="outline" className="bg-panel border-panel-border" onClick={handleCopy}>
+                    <Copy className="size-3.5 mr-1.5" /> Copy
+                  </Button>
+                  {clipboard && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="bg-panel border-panel-border"
+                      onClick={() => {
+                        setPasteMode(true);
+                        setMultiSelectMode(false);
+                        setSelectedCells(new Set());
+                      }}
+                    >
+                      <ClipboardPaste className="size-3.5 mr-1.5" /> Paste
+                    </Button>
+                  )}
                   <Button size="sm" variant="destructive" onClick={requestBulkDelete} disabled={isShifting}>
                     <Trash2 className="size-3.5 mr-1.5" /> Delete
                   </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setSelectedCells(new Set())} className="text-muted-foreground">
+                    Clear
+                  </Button>
                 </div>
               </div>
             )}
-
-            {/* INTERACTIVE RESPONSIVE GRID WRAPPER */}
-            <div className="relative w-full overflow-x-auto rounded-lg bg-black/30 p-4 ring-1 ring-panel-border custom-scrollbar">
-              {grid && (
-                <div className="flex flex-col items-center min-w-max p-2 sm:p-4">
-                  {/* Top Controls */}
-                  <div className="flex items-center gap-2 mb-4 border-b border-panel-border/30 pb-4">
-                    <Button
-                      disabled={isShifting}
-                      size="sm"
-                      variant="outline"
-                      onClick={handleAddTop}
-                      className="rounded-full bg-panel hover:bg-panel-strong shrink-0"
-                    >
-                      <Plus className="size-3 mr-1" /> Top Row
-                    </Button>
-                    <Button
-                      disabled={isShifting}
-                      size="sm"
-                      variant="outline"
-                      onClick={handleRemoveTop}
-                      className="rounded-full bg-panel hover:bg-rose/20 hover:text-rose hover:border-rose/30 shrink-0"
-                    >
-                      <Minus className="size-3 mr-1" /> Top Row
-                    </Button>
-                  </div>
-
-                  <div className="flex items-center">
-                    {/* Left Controls */}
-                    <div className="flex flex-col gap-2 mr-4 border-r border-panel-border/30 pr-4">
-                      <Button
-                        disabled={isShifting}
-                        size="icon"
-                        variant="outline"
-                        onClick={handleAddLeft}
-                        title="Add Col Left"
-                        className="size-8 rounded-full bg-panel hover:bg-panel-strong shrink-0"
-                      >
-                        <Plus className="size-4" />
-                      </Button>
-                      <Button
-                        disabled={isShifting}
-                        size="icon"
-                        variant="outline"
-                        onClick={handleRemoveLeft}
-                        title="Remove Col Left"
-                        className="size-8 rounded-full bg-panel hover:bg-rose/20 hover:text-rose hover:border-rose/30 shrink-0"
-                      >
-                        <Minus className="size-4" />
-                      </Button>
-                    </div>
-
-                    {/* The Grid */}
-                    <div
-                      className={cn("grid gap-1.5", multiSelectMode && "select-none")}
-                      style={{ gridTemplateColumns: `repeat(${currentSection?.grid_cols ?? 15}, minmax(36px, 1fr))` }}
-                    >
-                      {grid.map((row, r) =>
-                        row.map((cell, c) => (
-                          <CellView
-                            key={`${r}-${c}`}
-                            row={r}
-                            col={c}
-                            cell={cell}
-                            isSelected={selectedCells.has(key(r, c))}
-                            onClick={handleCellClick}
-                          />
-                        )),
-                      )}
-
-                    </div>
-
-                    {/* Right Controls */}
-                    <div className="flex flex-col gap-2 ml-4 border-l border-panel-border/30 pl-4">
-                      <Button
-                        disabled={isShifting}
-                        size="icon"
-                        variant="outline"
-                        onClick={handleAddRight}
-                        title="Add Col Right"
-                        className="size-8 rounded-full bg-panel hover:bg-panel-strong shrink-0"
-                      >
-                        <Plus className="size-4" />
-                      </Button>
-                      <Button
-                        disabled={isShifting}
-                        size="icon"
-                        variant="outline"
-                        onClick={handleRemoveRight}
-                        title="Remove Col Right"
-                        className="size-8 rounded-full bg-panel hover:bg-rose/20 hover:text-rose hover:border-rose/30 shrink-0"
-                      >
-                        <Minus className="size-4" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Bottom Controls */}
-                  <div className="flex items-center gap-2 mt-4 border-t border-panel-border/30 pt-4">
-                    <Button
-                      disabled={isShifting}
-                      size="sm"
-                      variant="outline"
-                      onClick={handleAddBottom}
-                      className="rounded-full bg-panel hover:bg-panel-strong shrink-0"
-                    >
-                      <Plus className="size-3 mr-1" /> Bottom Row
-                    </Button>
-                    <Button
-                      disabled={isShifting}
-                      size="sm"
-                      variant="outline"
-                      onClick={handleRemoveBottom}
-                      className="rounded-full bg-panel hover:bg-rose/20 hover:text-rose hover:border-rose/30 shrink-0"
-                    >
-                      <Minus className="size-3 mr-1" /> Bottom Row
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
           </GlassPanel>
 
           <InspectorPanel
@@ -1063,92 +1297,46 @@ function LayoutBuilderPage() {
         }}
       />
 
+      <RenumberDialog
+        open={renumberOpen}
+        onOpenChange={setRenumberOpen}
+        cells={selectedCellList}
+        allSeats={(seatsQ.data?.seats ?? []) as any}
+        onDone={(action) => {
+          pushAction(action);
+          qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
+          setSelectedCells(new Set());
+          setMultiSelectMode(false);
+        }}
+      />
+
+      {currentSection && currentLibId && orgId && (
+        <DuplicateSectionDialog
+          open={dupSectionOpen}
+          onOpenChange={setDupSectionOpen}
+          section={currentSection}
+          orgId={orgId}
+          libraries={(libs ?? []).map((l) => ({ id: l.id, name: l.name }))}
+          currentLibraryId={currentLibId}
+          onCreated={(id, libId) => {
+            setLibraryId(libId);
+            setSectionId(id);
+            qc.invalidateQueries({ queryKey: ["sections", libId] });
+          }}
+        />
+      )}
+
+      <SeatOccupancyDialog
+        open={!!occSeat}
+        onOpenChange={(o) => !o && setOccSeat(null)}
+        seatNumber={occSeat?.number ?? null}
+        occupants={occSeat?.list ?? []}
+      />
     </div>
   );
 }
 
-const CellView = memo(function CellView({
-  row,
-  col,
-  cell,
-  isSelected,
-  onClick,
-}: {
-  row: number;
-  col: number;
-  cell: Cell;
-  isSelected: boolean;
-  onClick: (r: number, c: number) => void;
-}) {
-  const common = {
-    onClick: () => onClick(row, col),
-  };
 
-
-  if (cell.kind === "seat") {
-    const Icon = DIR_ICON[cell.facing] ?? ArrowUp;
-    const occupied = cell.occupants.length > 0;
-    return (
-      <button
-        {...common}
-        type="button"
-        title={`Seat ${cell.seat_number}${occupied ? ` · ${cell.occupants.join(", ")}` : " · vacant"}`}
-        className={cn(
-          "group relative flex size-10 min-w-0 flex-col items-center justify-center rounded border text-[9px] font-mono transition-all",
-          isSelected
-            ? "border-cyan bg-cyan/20 shadow-[0_0_8px_rgba(34,211,238,0.5)] scale-[1.06]"
-            : "hover:scale-[1.06]",
-          !isSelected && cell.is_corner
-            ? "border-2 border-gold/60 bg-gold/10 text-gold glow-gold hover:bg-gold/20"
-            : "",
-          !isSelected && !cell.is_corner
-            ? "border-emerald/50 bg-emerald/10 text-emerald shadow-[0_0_10px_rgba(16,185,129,0.1)] hover:border-emerald hover:bg-emerald/20"
-            : "",
-        )}
-      >
-        <Icon className="mb-0.5 size-2.5 opacity-70" />
-        <span className="truncate font-bold">{cell.seat_number}</span>
-        {occupied && (
-          <span className="absolute -top-1 -right-1 flex size-3.5 items-center justify-center rounded-full bg-magenta text-[7px] text-white">
-            <User className="size-2" />
-          </span>
-        )}
-      </button>
-    );
-  }
-  if (cell.kind === "object") {
-    const meta = OBJ_META[cell.object_type] ?? OBJ_META.reception;
-    const Icon = meta.icon;
-    return (
-      <button
-        {...common}
-        type="button"
-        title={`${meta.label} — click to remove`}
-        className={cn(
-          "flex size-10 min-w-0 flex-col items-center justify-center rounded border text-[8px] font-mono transition-all",
-          isSelected ? "border-cyan bg-cyan/20 shadow-[0_0_8px_rgba(34,211,238,0.5)] scale-105" : "hover:scale-105",
-          !isSelected && meta.color,
-        )}
-      >
-        {Icon && <Icon className="size-3" />}
-        <span className="mt-0.5 truncate">{meta.label}</span>
-      </button>
-    );
-  }
-  return (
-    <button
-      {...common}
-      type="button"
-      title={`Row ${row + 1}, Col ${col + 1}`}
-      className={cn(
-        "size-10 min-w-0 rounded border transition-colors hover:scale-[1.03]",
-        isSelected
-          ? "border-cyan bg-cyan/20 shadow-[0_0_8px_rgba(34,211,238,0.3)]"
-          : "border-panel-border/30 bg-white/[0.02] hover:border-panel-border hover:bg-panel",
-      )}
-    />
-  );
-});
 
 
 // --- PURE LAYOUT INSPECTOR (NO ALLOCATIONS) ---
