@@ -1135,13 +1135,30 @@ function LayoutBuilderPage() {
                   <Button size="sm" className="bg-cyan text-cyan-950 hover:bg-cyan/90" onClick={() => setBulkAreaOpen(true)}>
                     <Square className="size-3.5 mr-1.5" /> Area
                   </Button>
-                  <Button size="sm" className="bg-amber-500 text-amber-950 hover:bg-amber-400" onClick={() => setBulkEditOpen(true)}>
+                  <Button
+                    size="sm"
+                    className="bg-amber-500 text-amber-950 hover:bg-amber-400"
+                    disabled={!selectedSeatRows.length}
+                    onClick={() => setBulkEditOpen(true)}
+                  >
                     <Settings2 className="size-3.5 mr-1.5" /> Edit
                   </Button>
-                  <Button size="sm" variant="outline" className="bg-panel border-panel-border" onClick={() => setRenumberOpen(true)}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="bg-panel border-panel-border"
+                    disabled={!selectedSeatRows.length}
+                    onClick={() => setRenumberOpen(true)}
+                  >
                     <Hash className="size-3.5 mr-1.5" /> Renumber
                   </Button>
-                  <Button size="sm" variant="outline" className="bg-panel border-panel-border" onClick={handleCopy}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="bg-panel border-panel-border"
+                    disabled={!selectedSeatRows.length && !selectedObjRows.length}
+                    onClick={handleCopy}
+                  >
                     <Copy className="size-3.5 mr-1.5" /> Copy
                   </Button>
                   {clipboard && (
@@ -1158,7 +1175,12 @@ function LayoutBuilderPage() {
                       <ClipboardPaste className="size-3.5 mr-1.5" /> Paste
                     </Button>
                   )}
-                  <Button size="sm" variant="destructive" onClick={requestBulkDelete} disabled={isShifting}>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={requestBulkDelete}
+                    disabled={isShifting || (!selectedSeatRows.length && !selectedObjRows.length)}
+                  >
                     <Trash2 className="size-3.5 mr-1.5" /> Delete
                   </Button>
                   <Button size="sm" variant="ghost" onClick={() => setSelectedCells(new Set())} className="text-muted-foreground">
