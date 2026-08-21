@@ -521,7 +521,8 @@ function AllocationsPage() {
                 );
               })}
             </div>
-          </div>
+          </ZoomPanViewport>
+
         </GlassPanel>
       )}
 
