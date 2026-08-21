@@ -236,12 +236,7 @@ function LayoutBuilderPage() {
     return g;
   }, [currentSection, seatsQ.data]);
 
-  const selectedSeatObj = useMemo(() => {
-    if (!selectedSeat || !seatsQ.data) return null;
-    return seatsQ.data.seats.find((x: any) => x.id === selectedSeat) || null;
-  }, [selectedSeat, seatsQ.data]);
-
-  // Keep the inspector honest: clear selection when the seat disappears or section changes
+  // Clear selection when the seat disappears or section changes
   useEffect(() => {
     setSelectedSeat(null);
     setSelectedCells(new Set());
@@ -290,7 +285,7 @@ function LayoutBuilderPage() {
       }
 
       if (cell.kind === "seat") {
-        setSelectedSeat(cell.id);
+        toggleCell(row, col);
         return;
       }
       if (cell.kind === "object") {
