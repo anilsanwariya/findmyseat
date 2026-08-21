@@ -236,7 +236,12 @@ function LayoutBuilderPage() {
     return g;
   }, [currentSection, seatsQ.data]);
 
-  // Clear selection when the seat disappears or section changes
+  const selectedSeatObj = useMemo(() => {
+    if (!selectedSeat || !seatsQ.data) return null;
+    return seatsQ.data.seats.find((x: any) => x.id === selectedSeat) || null;
+  }, [selectedSeat, seatsQ.data]);
+
+  // Keep the inspector honest: clear selection when the seat disappears or section changes
   useEffect(() => {
     setSelectedSeat(null);
     setSelectedCells(new Set());
@@ -285,7 +290,7 @@ function LayoutBuilderPage() {
       }
 
       if (cell.kind === "seat") {
-        toggleCell(row, col);
+        setSelectedSeat(cell.id);
         return;
       }
       if (cell.kind === "object") {
@@ -863,7 +868,7 @@ function LayoutBuilderPage() {
           </Button>
         </GlassPanel>
       ) : (
-        <div className="grid gap-6">
+        <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
           <GlassPanel className="p-4 flex flex-col min-w-0">
             {/* Sticky toolbar: mode, selection, history and save stay reachable while scrolling. */}
             <div className="sticky top-0 z-20 -mx-4 -mt-4 mb-3 rounded-t-xl border-b border-panel-border bg-background/80 px-4 py-3 backdrop-blur-xl">
@@ -1185,6 +1190,40 @@ function LayoutBuilderPage() {
               </div>
             )}
           </GlassPanel>
+
+          <InspectorPanel
+            selected={selectedSeatObj}
+            occupants={selectedSeatObj ? (seatsQ.data?.occupancy?.[selectedSeatObj.id] ?? []) : []}
+            onUpdate={async (updates) => {
+              if (!selectedSeatObj) return;
+              const prev: any = { id: selectedSeatObj.id };
+              for (const k of Object.keys(updates)) prev[k] = (selectedSeatObj as any)[k];
+              const { error } = await supabase.from("seats").update(updates).eq("id", selectedSeatObj.id);
+              if (error) {
+                toast.error(error.message);
+                return;
+              }
+              pushAction({
+                type: "update_seats",
+                at: Date.now(),
+                label: `Edited seat ${selectedSeatObj.seat_number}`,
+                prev: [prev],
+              });
+              toast.success("Seat updated");
+              qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
+            }}
+
+            onDelete={() => {
+              if (!selectedSeatObj) return;
+              const occupants = seatsQ.data?.occupancy?.[selectedSeatObj.id] ?? [];
+              setPendingDelete({
+                seatIds: [selectedSeatObj.id],
+                objIds: [],
+                occupants,
+                label: `Delete seat ${selectedSeatObj.seat_number}?`,
+              });
+            }}
+          />
         </div>
       )}
 
@@ -1322,6 +1361,106 @@ function LayoutBuilderPage() {
 
 
 
+// --- PURE LAYOUT INSPECTOR (NO ALLOCATIONS) ---
+function InspectorPanel({
+  selected,
+  occupants = [],
+  onUpdate,
+  onDelete,
+}: {
+  selected: any;
+  occupants?: string[];
+  onUpdate: (updates: any) => void;
+  onDelete: () => void;
+}) {
+  if (!selected) {
+    return (
+      <GlassPanel className="p-5 flex flex-col h-full">
+        <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Inspector</div>
+        <p className="mt-4 text-sm text-muted-foreground">
+          Click a seat to view details, rotate it, or mark it as premium.
+        </p>
+
+        <div className="mt-8 space-y-3 text-xs text-muted-foreground border-t border-panel-border/50 pt-6">
+          <div className="flex items-center gap-2">
+            <span className="inline-block size-3 rounded border border-emerald/50 bg-emerald/10" /> Standard Seat
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="inline-block size-3 rounded border-2 border-gold/60 bg-gold/10" /> Corner Seat (Premium)
+          </div>
+        </div>
+      </GlassPanel>
+    );
+  }
+
+  return (
+    <GlassPanel className="p-5 flex flex-col h-full">
+      <div className="font-mono text-[10px] uppercase tracking-widest text-cyan">Selected seat</div>
+      <div className="mt-1 flex items-center justify-between">
+        <div className="text-2xl font-extrabold">{selected.seat_number}</div>
+        {selected.is_corner && (
+          <span className="px-2 py-0.5 rounded text-[10px] uppercase tracking-wider bg-gold/10 text-gold border border-gold/30">
+            Premium
+          </span>
+        )}
+      </div>
+      <div className="mt-1 text-xs text-muted-foreground mb-6">
+        Row {selected.row_position + 1} · Col {selected.column_position + 1} · Facing {selected.facing_direction}
+      </div>
+
+      <div className="space-y-3">
+        <div className="text-[10px] uppercase text-muted-foreground font-mono">Quick Actions</div>
+        <Button
+          variant={selected.is_corner ? "default" : "outline"}
+          className={cn(
+            "w-full justify-start",
+            selected.is_corner && "bg-gold/20 text-gold border-gold/40 hover:bg-gold/30",
+          )}
+          onClick={() => onUpdate({ is_corner: !selected.is_corner })}
+        >
+          {selected.is_corner ? "★ Remove Premium Status" : "☆ Mark as Corner (Premium)"}
+        </Button>
+        <div className="grid grid-cols-2 gap-2">
+          <Button
+            variant="outline"
+            className="text-xs border-panel-border bg-panel"
+            onClick={() => onUpdate({ facing_direction: "north" })}
+          >
+            <ArrowUp className="size-3 mr-1" /> Face North
+          </Button>
+          <Button
+            variant="outline"
+            className="text-xs border-panel-border bg-panel"
+            onClick={() => onUpdate({ facing_direction: "south" })}
+          >
+            <ArrowDown className="size-3 mr-1" /> Face South
+          </Button>
+          <Button
+            variant="outline"
+            className="text-xs border-panel-border bg-panel"
+            onClick={() => onUpdate({ facing_direction: "east" })}
+          >
+            <ArrowRight className="size-3 mr-1" /> Face East
+          </Button>
+          <Button
+            variant="outline"
+            className="text-xs border-panel-border bg-panel"
+            onClick={() => onUpdate({ facing_direction: "west" })}
+          >
+            <ArrowLeft className="size-3 mr-1" /> Face West
+          </Button>
+        </div>
+      </div>
+
+      <button
+        onClick={onDelete}
+        className="mt-auto pt-6 w-full text-xs text-muted-foreground hover:text-rose transition-colors flex justify-center items-center gap-1"
+      >
+        <Trash2 className="size-3" /> Remove seat physically
+      </button>
+    </GlassPanel>
+  );
+}
 
 // 7 supported shift types — order defines display order.
 const SHIFT_META: { key: string; label: string; allow: string; fee: string }[] = [
