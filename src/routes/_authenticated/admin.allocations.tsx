@@ -397,14 +397,19 @@ function AllocationsPage() {
             <div className="text-xs text-muted-foreground">Click a seat to manage</div>
           </div>
 
-          <div className="relative w-full overflow-x-auto rounded-lg bg-black/30 p-4 md:p-6 ring-1 ring-panel-border touch-pan-x touch-pan-y custom-scrollbar">
+          <ZoomPanViewport
+            contentWidth={currentSection.grid_cols * 44 + (currentSection.grid_cols - 1) * 8}
+            contentHeight={currentSection.grid_rows * 44 + (currentSection.grid_rows - 1) * 8}
+            fitKey={currentSectionId}
+          >
             <div
-              className="grid gap-2 min-w-max mx-auto"
+              className="grid gap-2"
               style={{
-                gridTemplateColumns: `repeat(${currentSection.grid_cols}, minmax(40px, 1fr))`,
-                gridTemplateRows: `repeat(${currentSection.grid_rows}, minmax(40px, 1fr))`,
+                gridTemplateColumns: `repeat(${currentSection.grid_cols}, 44px)`,
+                gridTemplateRows: `repeat(${currentSection.grid_rows}, 44px)`,
               }}
             >
+
               {processedLayout.areas.map((obj: any) => {
                 const meta = OBJ_META[obj.type] ?? OBJ_META.reception;
                 const Icon = meta.icon;
