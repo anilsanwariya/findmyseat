@@ -17,6 +17,8 @@ import { StudentProfileDialog } from "@/components/admin/StudentProfileDialog";
 import { EditAllocationDialog } from "@/components/admin/EditAllocationDialog";
 import { classifyShiftByName } from "@/lib/shift-utils";
 import { ViewToggle, useDataView } from "@/components/admin/ViewToggle";
+import { ZoomPanViewport } from "@/components/admin/ZoomPanViewport";
+
 import {
   Plus,
   ArrowUp,
