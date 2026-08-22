@@ -255,6 +255,12 @@ function PaymentsPage() {
                         Partial
                       </span>
                     )}
+                    {isDiscounted(p) && (
+                      <span className="mt-1 inline-block rounded bg-violet-400/10 px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-violet-300">
+                        Discounted
+                      </span>
+                    )}
+
                   </div>
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
