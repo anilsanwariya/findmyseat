@@ -452,8 +452,9 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
                     <Input
                       required
                       type="number"
+                      min={0}
                       value={amount}
-                      onChange={(e) => setAmount(Number(e.target.value))}
+                      onChange={(e) => setAmount(e.target.value === "" ? "" : Number(e.target.value))}
                       className="bg-panel border-panel-border font-mono w-full"
                     />
                   </div>
@@ -467,6 +468,24 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
                     />
                   </div>
                 </div>
+
+                <div className="rounded-lg border border-panel-border bg-panel/60 p-3 space-y-2">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium">Mark cycle as fully paid</div>
+                      <p className="mt-0.5 text-[11px] text-muted-foreground">
+                        Apply a discount or waiver — completes the cycle even if the amount is short.
+                      </p>
+                    </div>
+                    <Switch checked={settle} onCheckedChange={setSettle} />
+                  </div>
+                  {waiving && (
+                    <p className="rounded-md border border-amber-400/30 bg-amber-400/5 p-2 text-[11px] text-amber-300">
+                      This will extend the due date to the next cycle and waive the remaining {inr(shortfall)} balance.
+                    </p>
+                  )}
+                </div>
+
 
                 <div className="space-y-2">
                   <Label>
