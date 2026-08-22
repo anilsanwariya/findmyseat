@@ -550,11 +550,14 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
 
               <div className="space-y-2">
                 <Label>
-                  Transaction Reference {method !== "cash" && <span className="text-red-400">*</span>}
-                  {method === "cash" && <span className="text-muted-foreground text-[10px]"> (optional)</span>}
+                  Transaction Reference {method !== "cash" && Number(amount || 0) > 0 && <span className="text-red-400">*</span>}
+                  {(method === "cash" || Number(amount || 0) <= 0) && (
+                    <span className="text-muted-foreground text-[10px]"> (optional)</span>
+                  )}
                 </Label>
                 <Input
-                  required={method !== "cash"}
+                  required={method !== "cash" && Number(amount || 0) > 0}
+
                   value={txnRef}
                   onChange={(e) => setTxnRef(e.target.value)}
                   placeholder={method === "cash" ? "Receipt # (optional)" : "UPI ref / txn id"}
