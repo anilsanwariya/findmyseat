@@ -55,6 +55,8 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
   const [isLegacy, setIsLegacy] = useState(false);
   const [dueTouched, setDueTouched] = useState(false);
   const [legacyDueDate, setLegacyDueDate] = useState("");
+  const [settle, setSettle] = useState(false);
+
 
   const active = useQuery({
     queryKey: ["allocations-active", orgId],
@@ -138,9 +140,13 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
   const totalTowardsCycle = paidBefore + (Number(amount) || 0);
   // With no monthly fee set there is nothing to be short of — treat one cycle as covered
   // so the due date still advances (otherwise every payment logs as "partial" forever).
-  const monthsCovered = fee > 0 ? Math.floor(totalTowardsCycle / fee) : 1;
-  const isPartial = !!chosen && fee > 0 && monthsCovered < 1;
+  const rawMonthsCovered = fee > 0 ? Math.floor(totalTowardsCycle / fee) : 1;
+  // "Settle" waives the shortfall: the cycle counts as fully paid even when short.
+  const monthsCovered = settle ? Math.max(rawMonthsCovered, 1) : rawMonthsCovered;
+  const isPartial = !!chosen && fee > 0 && !settle && rawMonthsCovered < 1;
   const shortfall = Math.max(fee - totalTowardsCycle, 0);
+  const waiving = !!chosen && settle && shortfall > 0;
+
 
   // Allocations with money already paid towards an unfinished cycle, so the picker can
   // show PARTIAL instead of only OVERDUE/PENDING (matches the allocations screen).
@@ -170,7 +176,9 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
 
   useEffect(() => {
     setDueTouched(false);
+    setSettle(false);
   }, [chosen?.id]);
+
 
   useEffect(() => {
     if (!chosen || !startDate || dueTouched) return;
@@ -220,14 +228,20 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
               toast.error("New due date must be after the coverage start date.");
               return;
             }
-            if (fee > 0 && Number(amount || 0) <= 0) {
+            if (fee > 0 && !settle && Number(amount || 0) <= 0) {
               toast.error("Please enter the amount paid.");
               return;
             }
-            if (method !== "cash" && !txnRef.trim()) {
+            if (Number(amount || 0) < 0) {
+              toast.error("Amount cannot be negative.");
+              return;
+            }
+
+            if (method !== "cash" && Number(amount || 0) > 0 && !txnRef.trim()) {
               toast.error("Transaction reference is required for non-cash payments.");
               return;
             }
+
           }
           setLoading(true);
 
@@ -282,8 +296,11 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
                 ? "Existing student onboarded."
                 : isPartial
                   ? `Partial payment logged. ${inr(shortfall)} still due — due date unchanged.`
-                  : "Payment logged successfully.",
+                  : waiving
+                    ? `Cycle settled — ${inr(shortfall)} waived and due date extended.`
+                    : "Payment logged successfully.",
             );
+
 
             onDone();
           } catch (err: any) {
@@ -435,8 +452,9 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
                     <Input
                       required
                       type="number"
+                      min={0}
                       value={amount}
-                      onChange={(e) => setAmount(Number(e.target.value))}
+                      onChange={(e) => setAmount(e.target.value === "" ? "" : Number(e.target.value))}
                       className="bg-panel border-panel-border font-mono w-full"
                     />
                   </div>
@@ -450,6 +468,24 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
                     />
                   </div>
                 </div>
+
+                <div className="rounded-lg border border-panel-border bg-panel/60 p-3 space-y-2">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium">Mark cycle as fully paid</div>
+                      <p className="mt-0.5 text-[11px] text-muted-foreground">
+                        Apply a discount or waiver — completes the cycle even if the amount is short.
+                      </p>
+                    </div>
+                    <Switch checked={settle} onCheckedChange={setSettle} />
+                  </div>
+                  {waiving && (
+                    <p className="rounded-md border border-amber-400/30 bg-amber-400/5 p-2 text-[11px] text-amber-300">
+                      This will extend the due date to the next cycle and waive the remaining {inr(shortfall)} balance.
+                    </p>
+                  )}
+                </div>
+
 
                 <div className="space-y-2">
                   <Label>
@@ -514,11 +550,14 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
 
               <div className="space-y-2">
                 <Label>
-                  Transaction Reference {method !== "cash" && <span className="text-red-400">*</span>}
-                  {method === "cash" && <span className="text-muted-foreground text-[10px]"> (optional)</span>}
+                  Transaction Reference {method !== "cash" && Number(amount || 0) > 0 && <span className="text-red-400">*</span>}
+                  {(method === "cash" || Number(amount || 0) <= 0) && (
+                    <span className="text-muted-foreground text-[10px]"> (optional)</span>
+                  )}
                 </Label>
                 <Input
-                  required={method !== "cash"}
+                  required={method !== "cash" && Number(amount || 0) > 0}
+
                   value={txnRef}
                   onChange={(e) => setTxnRef(e.target.value)}
                   placeholder={method === "cash" ? "Receipt # (optional)" : "UPI ref / txn id"}

@@ -62,6 +62,14 @@ const allocStatusClass = (st: string) =>
         ? "bg-cyan/10 text-cyan"
         : "bg-amber-500/10 text-amber-400";
 
+// A settled/discounted payment: cycle closed (not partial) but the student paid
+// less than the allocation's standard monthly fee.
+const isDiscounted = (p: any) => {
+  const fee = Number(p?.allocations?.monthly_fee ?? 0);
+  return !p?.is_partial && p?.method !== "offline_legacy" && fee > 0 && Number(p?.amount_paid ?? 0) < fee;
+};
+
+
 function PaymentsPage() {
   const { data: session } = useSession();
   const orgId = session?.orgId;
@@ -87,7 +95,7 @@ function PaymentsPage() {
       let q = sb
         .from("payments")
         .select(
-          "id, amount_paid, payment_date, method, reference_note, transaction_reference, receipt_url, covers_until, is_partial, student_id, library_id, collected_by_staff_id, students(full_name, mobile_number), libraries(name), collector:staff_profiles!payments_collected_by_staff_id_fkey(full_name, employee_id)",
+          "id, amount_paid, payment_date, method, reference_note, transaction_reference, receipt_url, covers_until, is_partial, student_id, library_id, collected_by_staff_id, students(full_name, mobile_number), libraries(name), allocations(monthly_fee), collector:staff_profiles!payments_collected_by_staff_id_fkey(full_name, employee_id)",
         )
         .eq("org_id", orgId!)
         .gte("payment_date", fromDate)
@@ -247,6 +255,12 @@ function PaymentsPage() {
                         Partial
                       </span>
                     )}
+                    {isDiscounted(p) && (
+                      <span className="mt-1 inline-block rounded bg-violet-400/10 px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-violet-300">
+                        Discounted
+                      </span>
+                    )}
+
                   </div>
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
@@ -354,6 +368,12 @@ function PaymentsPage() {
                           Partial
                         </span>
                       )}
+                      {isDiscounted(p) && (
+                        <span className="ml-2 rounded bg-violet-400/10 px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-violet-300 font-sans">
+                          Discounted
+                        </span>
+                      )}
+
                     </td>
                     <td className="py-3 px-2">
                       <span className="rounded bg-panel px-2 py-1 text-[10px] uppercase tracking-wider">
