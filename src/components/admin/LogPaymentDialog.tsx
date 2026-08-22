@@ -237,10 +237,11 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
               return;
             }
 
-            if (method !== "cash" && !txnRef.trim()) {
+            if (method !== "cash" && Number(amount || 0) > 0 && !txnRef.trim()) {
               toast.error("Transaction reference is required for non-cash payments.");
               return;
             }
+
           }
           setLoading(true);
 
