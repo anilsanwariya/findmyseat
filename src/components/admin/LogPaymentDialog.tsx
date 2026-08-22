@@ -55,6 +55,8 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
   const [isLegacy, setIsLegacy] = useState(false);
   const [dueTouched, setDueTouched] = useState(false);
   const [legacyDueDate, setLegacyDueDate] = useState("");
+  const [settle, setSettle] = useState(false);
+
 
   const active = useQuery({
     queryKey: ["allocations-active", orgId],
