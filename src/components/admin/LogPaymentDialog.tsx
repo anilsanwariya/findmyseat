@@ -176,7 +176,9 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
 
   useEffect(() => {
     setDueTouched(false);
+    setSettle(false);
   }, [chosen?.id]);
+
 
   useEffect(() => {
     if (!chosen || !startDate || dueTouched) return;
