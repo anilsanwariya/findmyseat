@@ -87,7 +87,7 @@ function PaymentsPage() {
       let q = sb
         .from("payments")
         .select(
-          "id, amount_paid, payment_date, method, reference_note, transaction_reference, receipt_url, covers_until, is_partial, student_id, library_id, collected_by_staff_id, students(full_name, mobile_number), libraries(name), collector:staff_profiles!payments_collected_by_staff_id_fkey(full_name, employee_id)",
+          "id, amount_paid, payment_date, method, reference_note, transaction_reference, receipt_url, covers_until, is_partial, student_id, library_id, collected_by_staff_id, students(full_name, mobile_number), libraries(name), allocations(monthly_fee), collector:staff_profiles!payments_collected_by_staff_id_fkey(full_name, employee_id)",
         )
         .eq("org_id", orgId!)
         .gte("payment_date", fromDate)
