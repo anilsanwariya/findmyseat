@@ -115,7 +115,7 @@ export function ActionList({
           }
         >
           <Rows
-            rows={overdue.slice(0, 8)}
+            rows={overdue}
             onOpen={onOpenStudent}
             render={(r) => (
               <>
