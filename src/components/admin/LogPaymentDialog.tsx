@@ -296,8 +296,11 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
                 ? "Existing student onboarded."
                 : isPartial
                   ? `Partial payment logged. ${inr(shortfall)} still due — due date unchanged.`
-                  : "Payment logged successfully.",
+                  : waiving
+                    ? `Cycle settled — ${inr(shortfall)} waived and due date extended.`
+                    : "Payment logged successfully.",
             );
+
 
             onDone();
           } catch (err: any) {
