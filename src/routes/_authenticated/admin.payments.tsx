@@ -368,6 +368,12 @@ function PaymentsPage() {
                           Partial
                         </span>
                       )}
+                      {isDiscounted(p) && (
+                        <span className="ml-2 rounded bg-violet-400/10 px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-violet-300 font-sans">
+                          Discounted
+                        </span>
+                      )}
+
                     </td>
                     <td className="py-3 px-2">
                       <span className="rounded bg-panel px-2 py-1 text-[10px] uppercase tracking-wider">
