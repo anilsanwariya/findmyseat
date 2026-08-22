@@ -140,9 +140,13 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
   const totalTowardsCycle = paidBefore + (Number(amount) || 0);
   // With no monthly fee set there is nothing to be short of — treat one cycle as covered
   // so the due date still advances (otherwise every payment logs as "partial" forever).
-  const monthsCovered = fee > 0 ? Math.floor(totalTowardsCycle / fee) : 1;
-  const isPartial = !!chosen && fee > 0 && monthsCovered < 1;
+  const rawMonthsCovered = fee > 0 ? Math.floor(totalTowardsCycle / fee) : 1;
+  // "Settle" waives the shortfall: the cycle counts as fully paid even when short.
+  const monthsCovered = settle ? Math.max(rawMonthsCovered, 1) : rawMonthsCovered;
+  const isPartial = !!chosen && fee > 0 && !settle && rawMonthsCovered < 1;
   const shortfall = Math.max(fee - totalTowardsCycle, 0);
+  const waiving = !!chosen && settle && shortfall > 0;
+
 
   // Allocations with money already paid towards an unfinished cycle, so the picker can
   // show PARTIAL instead of only OVERDUE/PENDING (matches the allocations screen).
