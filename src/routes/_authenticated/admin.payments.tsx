@@ -62,6 +62,14 @@ const allocStatusClass = (st: string) =>
         ? "bg-cyan/10 text-cyan"
         : "bg-amber-500/10 text-amber-400";
 
+// A settled/discounted payment: cycle closed (not partial) but the student paid
+// less than the allocation's standard monthly fee.
+const isDiscounted = (p: any) => {
+  const fee = Number(p?.allocations?.monthly_fee ?? 0);
+  return !p?.is_partial && p?.method !== "offline_legacy" && fee > 0 && Number(p?.amount_paid ?? 0) < fee;
+};
+
+
 function PaymentsPage() {
   const { data: session } = useSession();
   const orgId = session?.orgId;
