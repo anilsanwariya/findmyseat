@@ -756,7 +756,11 @@ function AllocationsPage() {
               ? (allocId) => {
                   refreshData();
                   setOpenNewAlloc(false);
-                  navigate({ to: "/admin/payments", search: { newAllocId: allocId }, replace: true });
+                  navigate({
+                    to: "/admin/payments",
+                    search: (prev: any) => ({ ...prev, newAllocId: allocId }),
+                    replace: true,
+                  });
                 }
               : undefined
           }

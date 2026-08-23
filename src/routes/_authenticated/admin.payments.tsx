@@ -25,10 +25,41 @@ import { StudentPaymentHistoryDialog } from "@/components/admin/StudentPaymentHi
 import { LogPaymentDialog } from "@/components/admin/LogPaymentDialog";
 import { PaymentDetailDialog } from "@/components/admin/PaymentDetailDialog";
 import { ViewToggle, useDataView } from "@/components/admin/ViewToggle";
+import { useLibraries } from "@/lib/data";
+
+function SummaryChip({
+  label,
+  value,
+  tone = "default",
+}: {
+  label: string;
+  value: string;
+  tone?: "default" | "emerald" | "cyan" | "violet";
+}) {
+  const toneClass =
+    tone === "emerald"
+      ? "text-emerald"
+      : tone === "cyan"
+        ? "text-cyan"
+        : tone === "violet"
+          ? "text-violet-400"
+          : "text-foreground";
+  return (
+    <div className="rounded-xl border border-panel-border bg-panel px-3 py-2 min-w-0">
+      <div className="text-[10px] uppercase tracking-widest text-muted-foreground truncate">{label}</div>
+      <div className={`text-sm font-semibold tabular-nums ${toneClass}`}>{value}</div>
+    </div>
+  );
+}
 
 export const Route = createFileRoute("/_authenticated/admin/payments")({
   validateSearch: (search: Record<string, unknown>) => ({
     newAllocId: typeof search.newAllocId === "string" ? search.newAllocId : undefined,
+    method: typeof search.method === "string" ? search.method : undefined,
+    branch: typeof search.branch === "string" ? search.branch : undefined,
+    type: typeof search.type === "string" ? search.type : undefined,
+    from: typeof search.from === "string" ? search.from : undefined,
+    to: typeof search.to === "string" ? search.to : undefined,
   }),
   component: PaymentsPage,
 });
@@ -39,6 +70,24 @@ const addDaysISO = (base: string, days: number) => {
   d.setDate(d.getDate() + days);
   return d.toISOString().split("T")[0];
 };
+const monthRange = (offset: number) => {
+  const n = new Date();
+  const start = new Date(n.getFullYear(), n.getMonth() + offset, 1);
+  const end = new Date(n.getFullYear(), n.getMonth() + offset + 1, 0);
+  const iso = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return { from: iso(start), to: iso(end) };
+};
+
+const METHODS = ["cash", "upi", "card", "bank_transfer", "offline_legacy"] as const;
+const METHOD_LABEL: Record<string, string> = {
+  cash: "Cash",
+  upi: "UPI",
+  card: "Card",
+  bank_transfer: "Bank transfer",
+  offline_legacy: "Legacy",
+};
+
 
 // Match the allocation tab's colour coding for fee status.
 function allocEffectiveStatus(a: { status?: string | null; next_due_date?: string | null }): string {
@@ -74,12 +123,24 @@ function PaymentsPage() {
   const { data: session } = useSession();
   const orgId = session?.orgId;
   const staffLibs = session?.staffLibraryIds;
-  const { newAllocId } = Route.useSearch();
+  const search = Route.useSearch();
+  const { newAllocId } = search;
   const navigate = useNavigate();
+  const { data: libs } = useLibraries();
+
+  const setSearch = (patch: Record<string, string | undefined>) =>
+    navigate({ to: "/admin/payments", search: (prev: any) => ({ ...prev, ...patch }), replace: true });
+
+  const fromDate = search.from ?? addDaysISO(todayISO(), -30);
+  const toDate = search.to ?? todayISO();
+  const methodFilter = METHODS.includes(search.method as any) ? search.method! : "all";
+  const branchFilter = search.branch ?? "all";
+  const typeFilter = ["full", "partial", "discounted"].includes(search.type ?? "") ? search.type! : "all";
+  const filtersActive =
+    methodFilter !== "all" || branchFilter !== "all" || typeFilter !== "all" || !!search.from || !!search.to;
+
   const [open, setOpen] = useState(!!newAllocId);
   const [searchQuery, setSearchQuery] = useState("");
-  const [fromDate, setFromDate] = useState<string>(addDaysISO(todayISO(), -30));
-  const [toDate, setToDate] = useState<string>(todayISO());
   const [detailId, setDetailId] = useState<string | null>(null);
   const [view, setView] = useDataView("admin-payments");
   const [historyStudent, setHistoryStudent] = useState<{ id: string; library_id: string | null; name: string } | null>(
@@ -88,7 +149,7 @@ function PaymentsPage() {
   const qc = useQueryClient();
 
   const payments = useQuery({
-    queryKey: ["payments-list", orgId, fromDate, toDate, staffLibs],
+    queryKey: ["payments-list", orgId, fromDate, toDate, staffLibs, branchFilter],
     enabled: !!orgId,
     queryFn: async () => {
       const sb: any = supabase;
@@ -107,6 +168,7 @@ function PaymentsPage() {
         if (!staffLibs?.length) return [];
         q = q.in("library_id", staffLibs);
       }
+      if (branchFilter !== "all") q = q.eq("library_id", branchFilter);
       return (await q).data ?? [];
     },
   });
@@ -116,21 +178,46 @@ function PaymentsPage() {
   }, [newAllocId]);
 
   const clearChain = () => {
-    if (newAllocId) navigate({ to: "/admin/payments", search: { newAllocId: undefined }, replace: true });
+    if (newAllocId) setSearch({ newAllocId: undefined });
   };
 
   const filteredPayments = useMemo(() => {
     if (!payments.data) return [];
-    if (!searchQuery) return payments.data;
     const q = searchQuery.toLowerCase();
     return payments.data.filter((p: any) => {
-      return (
-        p.students?.full_name?.toLowerCase().includes(q) ||
-        p.students?.mobile_number?.includes(q) ||
-        p.transaction_reference?.toLowerCase().includes(q)
-      );
+      if (q) {
+        const hit =
+          p.students?.full_name?.toLowerCase().includes(q) ||
+          p.students?.mobile_number?.includes(q) ||
+          p.transaction_reference?.toLowerCase().includes(q);
+        if (!hit) return false;
+      }
+      if (methodFilter !== "all" && p.method !== methodFilter) return false;
+      if (typeFilter === "partial" && !p.is_partial) return false;
+      if (typeFilter === "discounted" && !isDiscounted(p)) return false;
+      if (typeFilter === "full" && (p.is_partial || isDiscounted(p))) return false;
+      return true;
     });
-  }, [payments.data, searchQuery]);
+  }, [payments.data, searchQuery, methodFilter, typeFilter]);
+
+  const summary = useMemo(() => {
+    const byMethod: Record<string, { amount: number; count: number }> = {};
+    let total = 0;
+    let partial = 0;
+    let discounted = 0;
+    for (const p of filteredPayments as any[]) {
+      const amt = Number(p.amount_paid ?? 0);
+      total += amt;
+      const m = String(p.method ?? "other");
+      byMethod[m] = byMethod[m] ?? { amount: 0, count: 0 };
+      byMethod[m].amount += amt;
+      byMethod[m].count += 1;
+      if (p.is_partial) partial += 1;
+      if (isDiscounted(p)) discounted += 1;
+    }
+    return { total, count: filteredPayments.length, byMethod, partial, discounted };
+  }, [filteredPayments]);
+
 
   return (
     <div className="space-y-6">
@@ -168,6 +255,22 @@ function PaymentsPage() {
       </div>
 
       <GlassPanel className="p-4 overflow-hidden flex flex-col min-w-0">
+        {/* Summary */}
+        <div className="mb-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-stretch">
+          <SummaryChip label={`Collected · ${summary.count}`} value={inr(summary.total)} tone="emerald" />
+          {METHODS.filter((m) => summary.byMethod[m]).map((m) => (
+            <SummaryChip
+              key={m}
+              label={`${METHOD_LABEL[m]} · ${summary.byMethod[m].count}`}
+              value={inr(summary.byMethod[m].amount)}
+            />
+          ))}
+          {summary.partial > 0 && <SummaryChip label="Partial" value={String(summary.partial)} tone="cyan" />}
+          {summary.discounted > 0 && (
+            <SummaryChip label="Discounted" value={String(summary.discounted)} tone="violet" />
+          )}
+        </div>
+
         <div className="mb-4 flex flex-col xl:flex-row xl:items-end justify-between gap-4">
           <div className="relative w-full xl:max-w-sm shrink-0">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
@@ -194,38 +297,125 @@ function PaymentsPage() {
               <div className="space-y-1 w-full sm:w-36 shrink-0">
                 <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">From</Label>
                 <DateInput
-                  
                   value={fromDate}
-                  onChange={(e) => setFromDate(e.target.value)}
+                  onChange={(e) => setSearch({ from: e.target.value || undefined })}
                   className="bg-panel border-panel-border font-mono text-xs w-full"
                 />
               </div>
               <div className="space-y-1 w-full sm:w-36 shrink-0">
                 <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">To</Label>
                 <DateInput
-                  
                   value={toDate}
-                  onChange={(e) => setToDate(e.target.value)}
+                  onChange={(e) => setSearch({ to: e.target.value || undefined })}
                   className="bg-panel border-panel-border font-mono text-xs w-full"
                 />
               </div>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-muted-foreground shrink-0 sm:h-9"
-              onClick={() => {
-                setFromDate(addDaysISO(todayISO(), -30));
-                setToDate(todayISO());
-              }}
-            >
-              <CalendarIcon className="size-3 mr-1" /> Last 30d
-            </Button>
             <div className="sm:self-end">
               <ViewToggle value={view} onChange={setView} />
             </div>
           </div>
         </div>
+
+        {/* Filters row */}
+        <div className="mb-4 flex flex-col sm:flex-row sm:flex-wrap sm:items-end gap-3">
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground"
+              onClick={() => setSearch({ from: todayISO(), to: todayISO() })}
+            >
+              <CalendarIcon className="size-3 mr-1" /> Today
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground"
+              onClick={() => setSearch({ from: addDaysISO(todayISO(), -30), to: todayISO() })}
+            >
+              Last 30d
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground"
+              onClick={() => setSearch(monthRange(0))}
+            >
+              This month
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground"
+              onClick={() => setSearch(monthRange(-1))}
+            >
+              Last month
+            </Button>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-3 sm:ml-auto w-full sm:w-auto">
+            <div className="space-y-1 w-full sm:w-36">
+              <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Method</Label>
+              <Select value={methodFilter} onValueChange={(v) => setSearch({ method: v === "all" ? undefined : v })}>
+                <SelectTrigger className="bg-panel border-panel-border text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All methods</SelectItem>
+                  {METHODS.map((m) => (
+                    <SelectItem key={m} value={m}>
+                      {METHOD_LABEL[m]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1 w-full sm:w-40">
+              <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Branch</Label>
+              <Select value={branchFilter} onValueChange={(v) => setSearch({ branch: v === "all" ? undefined : v })}>
+                <SelectTrigger className="bg-panel border-panel-border text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All branches</SelectItem>
+                  {(libs ?? []).map((l) => (
+                    <SelectItem key={l.id} value={l.id}>
+                      {l.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1 w-full sm:w-36">
+              <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Type</Label>
+              <Select value={typeFilter} onValueChange={(v) => setSearch({ type: v === "all" ? undefined : v })}>
+                <SelectTrigger className="bg-panel border-panel-border text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All types</SelectItem>
+                  <SelectItem value="full">Full</SelectItem>
+                  <SelectItem value="partial">Partial</SelectItem>
+                  <SelectItem value="discounted">Discounted</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {filtersActive && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground self-end"
+                onClick={() =>
+                  setSearch({ method: undefined, branch: undefined, type: undefined, from: undefined, to: undefined })
+                }
+              >
+                <X className="size-3 mr-1" /> Clear filters
+              </Button>
+            )}
+          </div>
+        </div>
+
 
         {view === "cards" ? (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
