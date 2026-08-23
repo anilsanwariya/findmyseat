@@ -229,6 +229,22 @@ function PaymentsPage() {
       </div>
 
       <GlassPanel className="p-4 overflow-hidden flex flex-col min-w-0">
+        {/* Summary */}
+        <div className="mb-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-stretch">
+          <SummaryChip label={`Collected · ${summary.count}`} value={inr(summary.total)} tone="emerald" />
+          {METHODS.filter((m) => summary.byMethod[m]).map((m) => (
+            <SummaryChip
+              key={m}
+              label={`${METHOD_LABEL[m]} · ${summary.byMethod[m].count}`}
+              value={inr(summary.byMethod[m].amount)}
+            />
+          ))}
+          {summary.partial > 0 && <SummaryChip label="Partial" value={String(summary.partial)} tone="cyan" />}
+          {summary.discounted > 0 && (
+            <SummaryChip label="Discounted" value={String(summary.discounted)} tone="violet" />
+          )}
+        </div>
+
         <div className="mb-4 flex flex-col xl:flex-row xl:items-end justify-between gap-4">
           <div className="relative w-full xl:max-w-sm shrink-0">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
@@ -255,38 +271,125 @@ function PaymentsPage() {
               <div className="space-y-1 w-full sm:w-36 shrink-0">
                 <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">From</Label>
                 <DateInput
-                  
                   value={fromDate}
-                  onChange={(e) => setFromDate(e.target.value)}
+                  onChange={(e) => setSearch({ from: e.target.value || undefined })}
                   className="bg-panel border-panel-border font-mono text-xs w-full"
                 />
               </div>
               <div className="space-y-1 w-full sm:w-36 shrink-0">
                 <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">To</Label>
                 <DateInput
-                  
                   value={toDate}
-                  onChange={(e) => setToDate(e.target.value)}
+                  onChange={(e) => setSearch({ to: e.target.value || undefined })}
                   className="bg-panel border-panel-border font-mono text-xs w-full"
                 />
               </div>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-muted-foreground shrink-0 sm:h-9"
-              onClick={() => {
-                setFromDate(addDaysISO(todayISO(), -30));
-                setToDate(todayISO());
-              }}
-            >
-              <CalendarIcon className="size-3 mr-1" /> Last 30d
-            </Button>
             <div className="sm:self-end">
               <ViewToggle value={view} onChange={setView} />
             </div>
           </div>
         </div>
+
+        {/* Filters row */}
+        <div className="mb-4 flex flex-col sm:flex-row sm:flex-wrap sm:items-end gap-3">
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground"
+              onClick={() => setSearch({ from: todayISO(), to: todayISO() })}
+            >
+              <CalendarIcon className="size-3 mr-1" /> Today
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground"
+              onClick={() => setSearch({ from: addDaysISO(todayISO(), -30), to: todayISO() })}
+            >
+              Last 30d
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground"
+              onClick={() => setSearch(monthRange(0))}
+            >
+              This month
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground"
+              onClick={() => setSearch(monthRange(-1))}
+            >
+              Last month
+            </Button>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-3 sm:ml-auto w-full sm:w-auto">
+            <div className="space-y-1 w-full sm:w-36">
+              <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Method</Label>
+              <Select value={methodFilter} onValueChange={(v) => setSearch({ method: v === "all" ? undefined : v })}>
+                <SelectTrigger className="bg-panel border-panel-border text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All methods</SelectItem>
+                  {METHODS.map((m) => (
+                    <SelectItem key={m} value={m}>
+                      {METHOD_LABEL[m]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1 w-full sm:w-40">
+              <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Branch</Label>
+              <Select value={branchFilter} onValueChange={(v) => setSearch({ branch: v === "all" ? undefined : v })}>
+                <SelectTrigger className="bg-panel border-panel-border text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All branches</SelectItem>
+                  {(libs ?? []).map((l) => (
+                    <SelectItem key={l.id} value={l.id}>
+                      {l.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1 w-full sm:w-36">
+              <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Type</Label>
+              <Select value={typeFilter} onValueChange={(v) => setSearch({ type: v === "all" ? undefined : v })}>
+                <SelectTrigger className="bg-panel border-panel-border text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All types</SelectItem>
+                  <SelectItem value="full">Full</SelectItem>
+                  <SelectItem value="partial">Partial</SelectItem>
+                  <SelectItem value="discounted">Discounted</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {filtersActive && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground self-end"
+                onClick={() =>
+                  setSearch({ method: undefined, branch: undefined, type: undefined, from: undefined, to: undefined })
+                }
+              >
+                <X className="size-3 mr-1" /> Clear filters
+              </Button>
+            )}
+          </div>
+        </div>
+
 
         {view === "cards" ? (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
