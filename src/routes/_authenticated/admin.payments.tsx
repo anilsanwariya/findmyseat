@@ -25,6 +25,32 @@ import { StudentPaymentHistoryDialog } from "@/components/admin/StudentPaymentHi
 import { LogPaymentDialog } from "@/components/admin/LogPaymentDialog";
 import { PaymentDetailDialog } from "@/components/admin/PaymentDetailDialog";
 import { ViewToggle, useDataView } from "@/components/admin/ViewToggle";
+import { useLibraries } from "@/lib/data";
+
+function SummaryChip({
+  label,
+  value,
+  tone = "default",
+}: {
+  label: string;
+  value: string;
+  tone?: "default" | "emerald" | "cyan" | "violet";
+}) {
+  const toneClass =
+    tone === "emerald"
+      ? "text-emerald"
+      : tone === "cyan"
+        ? "text-cyan"
+        : tone === "violet"
+          ? "text-violet-400"
+          : "text-foreground";
+  return (
+    <div className="rounded-xl border border-panel-border bg-panel px-3 py-2 min-w-0">
+      <div className="text-[10px] uppercase tracking-widest text-muted-foreground truncate">{label}</div>
+      <div className={`text-sm font-semibold tabular-nums ${toneClass}`}>{value}</div>
+    </div>
+  );
+}
 
 export const Route = createFileRoute("/_authenticated/admin/payments")({
   validateSearch: (search: Record<string, unknown>) => ({
