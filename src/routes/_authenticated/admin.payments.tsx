@@ -97,12 +97,24 @@ function PaymentsPage() {
   const { data: session } = useSession();
   const orgId = session?.orgId;
   const staffLibs = session?.staffLibraryIds;
-  const { newAllocId } = Route.useSearch();
+  const search = Route.useSearch();
+  const { newAllocId } = search;
   const navigate = useNavigate();
+  const { data: libs } = useLibraries();
+
+  const setSearch = (patch: Record<string, string | undefined>) =>
+    navigate({ to: "/admin/payments", search: (prev: any) => ({ ...prev, ...patch }), replace: true });
+
+  const fromDate = search.from ?? addDaysISO(todayISO(), -30);
+  const toDate = search.to ?? todayISO();
+  const methodFilter = METHODS.includes(search.method as any) ? search.method! : "all";
+  const branchFilter = search.branch ?? "all";
+  const typeFilter = ["full", "partial", "discounted"].includes(search.type ?? "") ? search.type! : "all";
+  const filtersActive =
+    methodFilter !== "all" || branchFilter !== "all" || typeFilter !== "all" || !!search.from || !!search.to;
+
   const [open, setOpen] = useState(!!newAllocId);
   const [searchQuery, setSearchQuery] = useState("");
-  const [fromDate, setFromDate] = useState<string>(addDaysISO(todayISO(), -30));
-  const [toDate, setToDate] = useState<string>(todayISO());
   const [detailId, setDetailId] = useState<string | null>(null);
   const [view, setView] = useDataView("admin-payments");
   const [historyStudent, setHistoryStudent] = useState<{ id: string; library_id: string | null; name: string } | null>(
@@ -111,7 +123,7 @@ function PaymentsPage() {
   const qc = useQueryClient();
 
   const payments = useQuery({
-    queryKey: ["payments-list", orgId, fromDate, toDate, staffLibs],
+    queryKey: ["payments-list", orgId, fromDate, toDate, staffLibs, branchFilter],
     enabled: !!orgId,
     queryFn: async () => {
       const sb: any = supabase;
@@ -130,6 +142,7 @@ function PaymentsPage() {
         if (!staffLibs?.length) return [];
         q = q.in("library_id", staffLibs);
       }
+      if (branchFilter !== "all") q = q.eq("library_id", branchFilter);
       return (await q).data ?? [];
     },
   });
@@ -139,21 +152,46 @@ function PaymentsPage() {
   }, [newAllocId]);
 
   const clearChain = () => {
-    if (newAllocId) navigate({ to: "/admin/payments", search: { newAllocId: undefined }, replace: true });
+    if (newAllocId) setSearch({ newAllocId: undefined });
   };
 
   const filteredPayments = useMemo(() => {
     if (!payments.data) return [];
-    if (!searchQuery) return payments.data;
     const q = searchQuery.toLowerCase();
     return payments.data.filter((p: any) => {
-      return (
-        p.students?.full_name?.toLowerCase().includes(q) ||
-        p.students?.mobile_number?.includes(q) ||
-        p.transaction_reference?.toLowerCase().includes(q)
-      );
+      if (q) {
+        const hit =
+          p.students?.full_name?.toLowerCase().includes(q) ||
+          p.students?.mobile_number?.includes(q) ||
+          p.transaction_reference?.toLowerCase().includes(q);
+        if (!hit) return false;
+      }
+      if (methodFilter !== "all" && p.method !== methodFilter) return false;
+      if (typeFilter === "partial" && !p.is_partial) return false;
+      if (typeFilter === "discounted" && !isDiscounted(p)) return false;
+      if (typeFilter === "full" && (p.is_partial || isDiscounted(p))) return false;
+      return true;
     });
-  }, [payments.data, searchQuery]);
+  }, [payments.data, searchQuery, methodFilter, typeFilter]);
+
+  const summary = useMemo(() => {
+    const byMethod: Record<string, { amount: number; count: number }> = {};
+    let total = 0;
+    let partial = 0;
+    let discounted = 0;
+    for (const p of filteredPayments as any[]) {
+      const amt = Number(p.amount_paid ?? 0);
+      total += amt;
+      const m = String(p.method ?? "other");
+      byMethod[m] = byMethod[m] ?? { amount: 0, count: 0 };
+      byMethod[m].amount += amt;
+      byMethod[m].count += 1;
+      if (p.is_partial) partial += 1;
+      if (isDiscounted(p)) discounted += 1;
+    }
+    return { total, count: filteredPayments.length, byMethod, partial, discounted };
+  }, [filteredPayments]);
+
 
   return (
     <div className="space-y-6">
