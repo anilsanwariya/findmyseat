@@ -29,6 +29,11 @@ import { ViewToggle, useDataView } from "@/components/admin/ViewToggle";
 export const Route = createFileRoute("/_authenticated/admin/payments")({
   validateSearch: (search: Record<string, unknown>) => ({
     newAllocId: typeof search.newAllocId === "string" ? search.newAllocId : undefined,
+    method: typeof search.method === "string" ? search.method : undefined,
+    branch: typeof search.branch === "string" ? search.branch : undefined,
+    type: typeof search.type === "string" ? search.type : undefined,
+    from: typeof search.from === "string" ? search.from : undefined,
+    to: typeof search.to === "string" ? search.to : undefined,
   }),
   component: PaymentsPage,
 });
@@ -39,6 +44,24 @@ const addDaysISO = (base: string, days: number) => {
   d.setDate(d.getDate() + days);
   return d.toISOString().split("T")[0];
 };
+const monthRange = (offset: number) => {
+  const n = new Date();
+  const start = new Date(n.getFullYear(), n.getMonth() + offset, 1);
+  const end = new Date(n.getFullYear(), n.getMonth() + offset + 1, 0);
+  const iso = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return { from: iso(start), to: iso(end) };
+};
+
+const METHODS = ["cash", "upi", "card", "bank_transfer", "offline_legacy"] as const;
+const METHOD_LABEL: Record<string, string> = {
+  cash: "Cash",
+  upi: "UPI",
+  card: "Card",
+  bank_transfer: "Bank transfer",
+  offline_legacy: "Legacy",
+};
+
 
 // Match the allocation tab's colour coding for fee status.
 function allocEffectiveStatus(a: { status?: string | null; next_due_date?: string | null }): string {
