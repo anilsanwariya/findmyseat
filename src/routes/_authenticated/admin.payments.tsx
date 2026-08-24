@@ -18,13 +18,26 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
 import { inr, fmtDate, addCalendarMonthsISO } from "@/lib/format";
-import { Plus, Search, Upload, FileImage, Calendar as CalendarIcon, X, Pencil } from "lucide-react";
+import {
+  Plus,
+  Search,
+  Upload,
+  FileImage,
+  Calendar as CalendarIcon,
+  X,
+  Pencil,
+  ChevronDown,
+  SlidersHorizontal,
+} from "lucide-react";
 import { StudentPaymentHistoryDialog } from "@/components/admin/StudentPaymentHistoryDialog";
 import { LogPaymentDialog } from "@/components/admin/LogPaymentDialog";
 import { PaymentDetailDialog } from "@/components/admin/PaymentDetailDialog";
 import { ViewToggle, useDataView } from "@/components/admin/ViewToggle";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { useLibraries } from "@/lib/data";
 
 function SummaryChip({
@@ -88,6 +101,13 @@ const METHOD_LABEL: Record<string, string> = {
   offline_legacy: "Legacy",
 };
 
+const RANGE_PRESETS: { key: string; label: string; range: () => { from: string; to: string } }[] = [
+  { key: "today", label: "Today", range: () => ({ from: todayISO(), to: todayISO() }) },
+  { key: "30d", label: "Last 30d", range: () => ({ from: addDaysISO(todayISO(), -30), to: todayISO() }) },
+  { key: "month", label: "This month", range: () => monthRange(0) },
+  { key: "prevMonth", label: "Last month", range: () => monthRange(-1) },
+];
+
 
 // Match the allocation tab's colour coding for fee status.
 function allocEffectiveStatus(a: { status?: string | null; next_due_date?: string | null }): string {
@@ -138,7 +158,16 @@ function PaymentsPage() {
   const typeFilter = ["full", "partial", "discounted"].includes(search.type ?? "") ? search.type! : "all";
   const filtersActive =
     methodFilter !== "all" || branchFilter !== "all" || typeFilter !== "all" || !!search.from || !!search.to;
+  const activeFilterCount = [methodFilter, branchFilter, typeFilter].filter((v) => v !== "all").length;
+  const activeRange = RANGE_PRESETS.find((r) => {
+    const { from, to } = r.range();
+    return from === fromDate && to === toDate;
+  })?.key ?? "custom";
 
+  const isMobile = useIsMobile();
+  const [summaryOpen, setSummaryOpen] = useState(false);
+  const [customOpen, setCustomOpen] = useState(false);
+  const [filterSheet, setFilterSheet] = useState(false);
   const [open, setOpen] = useState(!!newAllocId);
   const [searchQuery, setSearchQuery] = useState("");
   const [detailId, setDetailId] = useState<string | null>(null);
@@ -147,6 +176,57 @@ function PaymentsPage() {
     null,
   );
   const qc = useQueryClient();
+
+  const filterFields = (
+    <>
+      <div className="space-y-1 w-full sm:w-36">
+        <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Method</Label>
+        <Select value={methodFilter} onValueChange={(v) => setSearch({ method: v === "all" ? undefined : v })}>
+          <SelectTrigger className="bg-panel border-panel-border text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All methods</SelectItem>
+            {METHODS.map((m) => (
+              <SelectItem key={m} value={m}>
+                {METHOD_LABEL[m]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-1 w-full sm:w-40">
+        <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Branch</Label>
+        <Select value={branchFilter} onValueChange={(v) => setSearch({ branch: v === "all" ? undefined : v })}>
+          <SelectTrigger className="bg-panel border-panel-border text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All branches</SelectItem>
+            {(libs ?? []).map((l) => (
+              <SelectItem key={l.id} value={l.id}>
+                {l.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-1 w-full sm:w-36">
+        <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Type</Label>
+        <Select value={typeFilter} onValueChange={(v) => setSearch({ type: v === "all" ? undefined : v })}>
+          <SelectTrigger className="bg-panel border-panel-border text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All types</SelectItem>
+            <SelectItem value="full">Full</SelectItem>
+            <SelectItem value="partial">Partial</SelectItem>
+            <SelectItem value="discounted">Discounted</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+    </>
+  );
 
   const payments = useQuery({
     queryKey: ["payments-list", orgId, fromDate, toDate, staffLibs, branchFilter],
@@ -255,166 +335,266 @@ function PaymentsPage() {
       </div>
 
       <GlassPanel className="p-4 overflow-hidden flex flex-col min-w-0">
-        {/* Summary */}
-        <div className="mb-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-stretch">
-          <SummaryChip label={`Collected · ${summary.count}`} value={inr(summary.total)} tone="emerald" />
-          {METHODS.filter((m) => summary.byMethod[m]).map((m) => (
-            <SummaryChip
-              key={m}
-              label={`${METHOD_LABEL[m]} · ${summary.byMethod[m].count}`}
-              value={inr(summary.byMethod[m].amount)}
-            />
-          ))}
-          {summary.partial > 0 && <SummaryChip label="Partial" value={String(summary.partial)} tone="cyan" />}
-          {summary.discounted > 0 && (
-            <SummaryChip label="Discounted" value={String(summary.discounted)} tone="violet" />
-          )}
-        </div>
-
-        <div className="mb-4 flex flex-col xl:flex-row xl:items-end justify-between gap-4">
-          <div className="relative w-full xl:max-w-sm shrink-0">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-            <Input
-              placeholder="Name, mobile, or txn ref…"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 pr-9 bg-panel border-panel-border w-full"
-            />
-            {searchQuery && (
+        {/* Summary — compact single line on mobile, full chip row on desktop */}
+        {isMobile ? (
+          <Collapsible open={summaryOpen} onOpenChange={setSummaryOpen} className="mb-3">
+            <CollapsibleTrigger asChild>
               <button
                 type="button"
-                onClick={() => setSearchQuery("")}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-xl border border-panel-border bg-panel px-3 py-2 text-left"
               >
-                <X className="size-4" />
+                <div className="min-w-0">
+                  <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                    Collected · {summary.count}
+                  </div>
+                  <div className="text-base font-semibold tabular-nums text-emerald">{inr(summary.total)}</div>
+                </div>
+                <span className="flex shrink-0 items-center gap-1 text-[10px] uppercase tracking-widest text-muted-foreground">
+                  Details
+                  <ChevronDown className={`size-3.5 transition-transform ${summaryOpen ? "rotate-180" : ""}`} />
+                </span>
               </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                {METHODS.filter((m) => summary.byMethod[m]).map((m) => (
+                  <SummaryChip
+                    key={m}
+                    label={`${METHOD_LABEL[m]} · ${summary.byMethod[m].count}`}
+                    value={inr(summary.byMethod[m].amount)}
+                  />
+                ))}
+                {summary.partial > 0 && <SummaryChip label="Partial" value={String(summary.partial)} tone="cyan" />}
+                {summary.discounted > 0 && (
+                  <SummaryChip label="Discounted" value={String(summary.discounted)} tone="violet" />
+                )}
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+        ) : (
+          <div className="mb-4 flex flex-wrap items-stretch gap-2">
+            <SummaryChip label={`Collected · ${summary.count}`} value={inr(summary.total)} tone="emerald" />
+            {METHODS.filter((m) => summary.byMethod[m]).map((m) => (
+              <SummaryChip
+                key={m}
+                label={`${METHOD_LABEL[m]} · ${summary.byMethod[m].count}`}
+                value={inr(summary.byMethod[m].amount)}
+              />
+            ))}
+            {summary.partial > 0 && <SummaryChip label="Partial" value={String(summary.partial)} tone="cyan" />}
+            {summary.discounted > 0 && (
+              <SummaryChip label="Discounted" value={String(summary.discounted)} tone="violet" />
             )}
           </div>
+        )}
 
-          {/* Stack vertically on mobile, side-by-side on sm screens and up */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-end justify-start sm:justify-end gap-3 w-full xl:w-auto">
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3 w-full sm:w-auto">
-              <div className="space-y-1 w-full sm:w-36 shrink-0">
-                <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">From</Label>
-                <DateInput
-                  value={fromDate}
-                  onChange={(e) => setSearch({ from: e.target.value || undefined })}
-                  className="bg-panel border-panel-border font-mono text-xs w-full"
-                />
-              </div>
-              <div className="space-y-1 w-full sm:w-36 shrink-0">
-                <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">To</Label>
-                <DateInput
-                  value={toDate}
-                  onChange={(e) => setSearch({ to: e.target.value || undefined })}
-                  className="bg-panel border-panel-border font-mono text-xs w-full"
-                />
-              </div>
-            </div>
-            <div className="sm:self-end">
-              <ViewToggle value={view} onChange={setView} />
-            </div>
-          </div>
-        </div>
-
-        {/* Filters row */}
-        <div className="mb-4 flex flex-col sm:flex-row sm:flex-wrap sm:items-end gap-3">
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-muted-foreground"
-              onClick={() => setSearch({ from: todayISO(), to: todayISO() })}
-            >
-              <CalendarIcon className="size-3 mr-1" /> Today
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-muted-foreground"
-              onClick={() => setSearch({ from: addDaysISO(todayISO(), -30), to: todayISO() })}
-            >
-              Last 30d
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-muted-foreground"
-              onClick={() => setSearch(monthRange(0))}
-            >
-              This month
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-muted-foreground"
-              onClick={() => setSearch(monthRange(-1))}
-            >
-              Last month
-            </Button>
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-3 sm:ml-auto w-full sm:w-auto">
-            <div className="space-y-1 w-full sm:w-36">
-              <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Method</Label>
-              <Select value={methodFilter} onValueChange={(v) => setSearch({ method: v === "all" ? undefined : v })}>
-                <SelectTrigger className="bg-panel border-panel-border text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All methods</SelectItem>
-                  {METHODS.map((m) => (
-                    <SelectItem key={m} value={m}>
-                      {METHOD_LABEL[m]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1 w-full sm:w-40">
-              <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Branch</Label>
-              <Select value={branchFilter} onValueChange={(v) => setSearch({ branch: v === "all" ? undefined : v })}>
-                <SelectTrigger className="bg-panel border-panel-border text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All branches</SelectItem>
-                  {(libs ?? []).map((l) => (
-                    <SelectItem key={l.id} value={l.id}>
-                      {l.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1 w-full sm:w-36">
-              <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Type</Label>
-              <Select value={typeFilter} onValueChange={(v) => setSearch({ type: v === "all" ? undefined : v })}>
-                <SelectTrigger className="bg-panel border-panel-border text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All types</SelectItem>
-                  <SelectItem value="full">Full</SelectItem>
-                  <SelectItem value="partial">Partial</SelectItem>
-                  <SelectItem value="discounted">Discounted</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {filtersActive && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-muted-foreground self-end"
-                onClick={() =>
-                  setSearch({ method: undefined, branch: undefined, type: undefined, from: undefined, to: undefined })
-                }
+        {isMobile ? (
+          <>
+            {/* Range chips */}
+            <div className="-mx-1 mb-3 flex gap-2 overflow-x-auto px-1 pb-1">
+              {RANGE_PRESETS.map((r) => (
+                <button
+                  key={r.key}
+                  type="button"
+                  onClick={() => setSearch(r.range())}
+                  className={`shrink-0 rounded-full border px-3 py-1.5 text-xs transition-colors ${
+                    activeRange === r.key
+                      ? "border-transparent bg-panel-strong text-foreground"
+                      : "border-panel-border text-muted-foreground"
+                  }`}
+                >
+                  {r.label}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => setCustomOpen((v) => !v)}
+                className={`shrink-0 rounded-full border px-3 py-1.5 text-xs transition-colors ${
+                  activeRange === "custom" || customOpen
+                    ? "border-transparent bg-panel-strong text-foreground"
+                    : "border-panel-border text-muted-foreground"
+                }`}
               >
-                <X className="size-3 mr-1" /> Clear filters
-              </Button>
+                <CalendarIcon className="mr-1 inline size-3" /> Custom
+              </button>
+            </div>
+
+            {(customOpen || activeRange === "custom") && (
+              <div className="mb-3 grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">From</Label>
+                  <DateInput
+                    value={fromDate}
+                    onChange={(e) => setSearch({ from: e.target.value || undefined })}
+                    className="w-full bg-panel border-panel-border font-mono text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">To</Label>
+                  <DateInput
+                    value={toDate}
+                    onChange={(e) => setSearch({ to: e.target.value || undefined })}
+                    className="w-full bg-panel border-panel-border font-mono text-xs"
+                  />
+                </div>
+              </div>
             )}
-          </div>
-        </div>
+
+            {/* Search + filters + view on one row */}
+            <div className="mb-4 flex items-center gap-2">
+              <div className="relative min-w-0 flex-1">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                <Input
+                  placeholder="Name, mobile, txn…"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-panel border-panel-border pl-9 pr-9"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
+                  >
+                    <X className="size-4" />
+                  </button>
+                )}
+              </div>
+              <Sheet open={filterSheet} onOpenChange={setFilterSheet}>
+                <SheetTrigger asChild>
+                  <Button variant="outline" size="icon" className="relative shrink-0 border-panel-border bg-panel">
+                    <SlidersHorizontal className="size-4" />
+                    {activeFilterCount > 0 && (
+                      <span className="absolute -right-1 -top-1 grid size-4 place-items-center rounded-full bg-violet text-[9px] font-bold text-white">
+                        {activeFilterCount}
+                      </span>
+                    )}
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto">
+                  <SheetHeader>
+                    <SheetTitle>Filters</SheetTitle>
+                  </SheetHeader>
+                  <div className="mt-4 grid gap-4 pb-4">
+                    {filterFields}
+                    <div className="flex gap-2">
+                      <Button
+                        variant="ghost"
+                        className="flex-1 text-muted-foreground"
+                        onClick={() =>
+                          setSearch({
+                            method: undefined,
+                            branch: undefined,
+                            type: undefined,
+                            from: undefined,
+                            to: undefined,
+                          })
+                        }
+                      >
+                        <X className="mr-1 size-3" /> Clear
+                      </Button>
+                      <Button className="flex-1" onClick={() => setFilterSheet(false)}>
+                        Apply
+                      </Button>
+                    </div>
+                  </div>
+                </SheetContent>
+              </Sheet>
+              <div className="shrink-0">
+                <ViewToggle value={view} onChange={setView} />
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="mb-4 flex flex-col xl:flex-row xl:items-end justify-between gap-4">
+              <div className="relative w-full xl:max-w-sm shrink-0">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                <Input
+                  placeholder="Name, mobile, or txn ref…"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9 pr-9 bg-panel border-panel-border w-full"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <X className="size-4" />
+                  </button>
+                )}
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-end justify-start sm:justify-end gap-3 w-full xl:w-auto">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3 w-full sm:w-auto">
+                  <div className="space-y-1 w-full sm:w-36 shrink-0">
+                    <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">From</Label>
+                    <DateInput
+                      value={fromDate}
+                      onChange={(e) => setSearch({ from: e.target.value || undefined })}
+                      className="bg-panel border-panel-border font-mono text-xs w-full"
+                    />
+                  </div>
+                  <div className="space-y-1 w-full sm:w-36 shrink-0">
+                    <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">To</Label>
+                    <DateInput
+                      value={toDate}
+                      onChange={(e) => setSearch({ to: e.target.value || undefined })}
+                      className="bg-panel border-panel-border font-mono text-xs w-full"
+                    />
+                  </div>
+                </div>
+                <div className="sm:self-end">
+                  <ViewToggle value={view} onChange={setView} />
+                </div>
+              </div>
+            </div>
+
+            {/* Filters row */}
+            <div className="mb-4 flex flex-col sm:flex-row sm:flex-wrap sm:items-end gap-3">
+              <div className="flex flex-wrap gap-2">
+                {RANGE_PRESETS.map((r) => (
+                  <Button
+                    key={r.key}
+                    variant="ghost"
+                    size="sm"
+                    className={activeRange === r.key ? "bg-panel-strong text-foreground" : "text-muted-foreground"}
+                    onClick={() => setSearch(r.range())}
+                  >
+                    {r.key === "today" && <CalendarIcon className="size-3 mr-1" />}
+                    {r.label}
+                  </Button>
+                ))}
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-3 sm:ml-auto w-full sm:w-auto">
+                {filterFields}
+                {filtersActive && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-muted-foreground self-end"
+                    onClick={() =>
+                      setSearch({
+                        method: undefined,
+                        branch: undefined,
+                        type: undefined,
+                        from: undefined,
+                        to: undefined,
+                      })
+                    }
+                  >
+                    <X className="size-3 mr-1" /> Clear filters
+                  </Button>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+
+
 
 
         {view === "cards" ? (
