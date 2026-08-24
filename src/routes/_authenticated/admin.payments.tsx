@@ -18,13 +18,26 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
 import { inr, fmtDate, addCalendarMonthsISO } from "@/lib/format";
-import { Plus, Search, Upload, FileImage, Calendar as CalendarIcon, X, Pencil } from "lucide-react";
+import {
+  Plus,
+  Search,
+  Upload,
+  FileImage,
+  Calendar as CalendarIcon,
+  X,
+  Pencil,
+  ChevronDown,
+  SlidersHorizontal,
+} from "lucide-react";
 import { StudentPaymentHistoryDialog } from "@/components/admin/StudentPaymentHistoryDialog";
 import { LogPaymentDialog } from "@/components/admin/LogPaymentDialog";
 import { PaymentDetailDialog } from "@/components/admin/PaymentDetailDialog";
 import { ViewToggle, useDataView } from "@/components/admin/ViewToggle";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { useLibraries } from "@/lib/data";
 
 function SummaryChip({
