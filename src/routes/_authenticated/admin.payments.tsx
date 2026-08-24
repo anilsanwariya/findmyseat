@@ -101,6 +101,13 @@ const METHOD_LABEL: Record<string, string> = {
   offline_legacy: "Legacy",
 };
 
+const RANGE_PRESETS: { key: string; label: string; range: () => { from: string; to: string } }[] = [
+  { key: "today", label: "Today", range: () => ({ from: todayISO(), to: todayISO() }) },
+  { key: "30d", label: "Last 30d", range: () => ({ from: addDaysISO(todayISO(), -30), to: todayISO() }) },
+  { key: "month", label: "This month", range: () => monthRange(0) },
+  { key: "prevMonth", label: "Last month", range: () => monthRange(-1) },
+];
+
 
 // Match the allocation tab's colour coding for fee status.
 function allocEffectiveStatus(a: { status?: string | null; next_due_date?: string | null }): string {
