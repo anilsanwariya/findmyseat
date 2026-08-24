@@ -158,7 +158,16 @@ function PaymentsPage() {
   const typeFilter = ["full", "partial", "discounted"].includes(search.type ?? "") ? search.type! : "all";
   const filtersActive =
     methodFilter !== "all" || branchFilter !== "all" || typeFilter !== "all" || !!search.from || !!search.to;
+  const activeFilterCount = [methodFilter, branchFilter, typeFilter].filter((v) => v !== "all").length;
+  const activeRange = RANGE_PRESETS.find((r) => {
+    const { from, to } = r.range();
+    return from === fromDate && to === toDate;
+  })?.key ?? "custom";
 
+  const isMobile = useIsMobile();
+  const [summaryOpen, setSummaryOpen] = useState(false);
+  const [customOpen, setCustomOpen] = useState(false);
+  const [filterSheet, setFilterSheet] = useState(false);
   const [open, setOpen] = useState(!!newAllocId);
   const [searchQuery, setSearchQuery] = useState("");
   const [detailId, setDetailId] = useState<string | null>(null);
@@ -167,6 +176,57 @@ function PaymentsPage() {
     null,
   );
   const qc = useQueryClient();
+
+  const filterFields = (
+    <>
+      <div className="space-y-1 w-full sm:w-36">
+        <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Method</Label>
+        <Select value={methodFilter} onValueChange={(v) => setSearch({ method: v === "all" ? undefined : v })}>
+          <SelectTrigger className="bg-panel border-panel-border text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All methods</SelectItem>
+            {METHODS.map((m) => (
+              <SelectItem key={m} value={m}>
+                {METHOD_LABEL[m]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-1 w-full sm:w-40">
+        <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Branch</Label>
+        <Select value={branchFilter} onValueChange={(v) => setSearch({ branch: v === "all" ? undefined : v })}>
+          <SelectTrigger className="bg-panel border-panel-border text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All branches</SelectItem>
+            {(libs ?? []).map((l) => (
+              <SelectItem key={l.id} value={l.id}>
+                {l.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-1 w-full sm:w-36">
+        <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Type</Label>
+        <Select value={typeFilter} onValueChange={(v) => setSearch({ type: v === "all" ? undefined : v })}>
+          <SelectTrigger className="bg-panel border-panel-border text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All types</SelectItem>
+            <SelectItem value="full">Full</SelectItem>
+            <SelectItem value="partial">Partial</SelectItem>
+            <SelectItem value="discounted">Discounted</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+    </>
+  );
 
   const payments = useQuery({
     queryKey: ["payments-list", orgId, fromDate, toDate, staffLibs, branchFilter],
