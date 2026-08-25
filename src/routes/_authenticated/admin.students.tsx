@@ -241,37 +241,6 @@ function StudentsPage() {
                       <div className="font-mono">{fmtDate(s.created_at)}</div>
                     </div>
                   </div>
-                  <div className="mt-3 flex flex-wrap gap-2 border-t border-panel-border pt-2">
-                    {tab === "active" ? (
-                      <>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 flex-1 text-muted-foreground hover:text-cyan"
-                          onClick={() => setEditing(s)}
-                        >
-                          <Pencil className="mr-1 size-3" /> Edit
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 flex-1 text-muted-foreground hover:text-rose"
-                          onClick={() => deactivate(s)}
-                        >
-                          <UserX className="mr-1 size-3" /> Deactivate
-                        </Button>
-                      </>
-                    ) : (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-8 flex-1 text-muted-foreground hover:text-emerald"
-                        onClick={() => reactivate(s)}
-                      >
-                        <UserCheck className="mr-1 size-3" /> Reactivate
-                      </Button>
-                    )}
-                  </div>
                 </div>
               );
             })}
@@ -325,40 +294,6 @@ function StudentsPage() {
                         </td>
                       )}
                       <td className="py-3 px-2 text-muted-foreground">{fmtDate(s.created_at)}</td>
-                      <td className="py-3 px-2 text-right">
-                        <div className="inline-flex items-center gap-1">
-                          {tab === "active" && (
-                            <>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="text-muted-foreground hover:text-cyan"
-                                onClick={() => setEditing(s)}
-                              >
-                                <Pencil className="mr-1 size-3" /> Edit
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="text-muted-foreground hover:text-rose"
-                                onClick={() => deactivate(s)}
-                              >
-                                <UserX className="mr-1 size-3" /> Deactivate
-                              </Button>
-                            </>
-                          )}
-                          {tab === "inactive" && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="text-muted-foreground hover:text-emerald"
-                              onClick={() => reactivate(s)}
-                            >
-                              <UserCheck className="mr-1 size-3" /> Reactivate
-                            </Button>
-                          )}
-                        </div>
-                      </td>
                     </tr>
                   );
                 })}
@@ -407,16 +342,6 @@ function StudentsPage() {
 
       {viewing && <StudentProfileDialog studentId={viewing} onClose={() => setViewing(null)} />}
 
-      <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
-        {editing && (
-          <StudentFormDialog
-            existing={editing}
-            onDone={async () => {
-              await invalidate();
-              setEditing(null);
-            }}
-          />
-        )}
       </Dialog>
     </div>
   );
