@@ -1,14 +1,29 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import { fmtDate, inr } from "@/lib/format";
+import { setStudentActive } from "@/lib/students.functions";
 import { useSignedDoc } from "@/components/admin/StudentDocInput";
 import { PaymentDetailDialog } from "@/components/admin/PaymentDetailDialog";
 import { LogPaymentDialog } from "@/components/admin/LogPaymentDialog";
 import { EditAllocationDialog } from "@/components/admin/EditAllocationDialog";
-import { Receipt, Pencil } from "lucide-react";
+import { StudentFormDialog } from "@/components/admin/StudentFormDialog";
+import { Receipt, Pencil, UserX, UserCheck } from "lucide-react";
+
 
 function Field({ label, value }: { label: string; value?: string | null }) {
   return (
