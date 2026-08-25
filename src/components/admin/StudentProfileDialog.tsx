@@ -59,6 +59,10 @@ export function StudentProfileDialog({ studentId, onClose }: { studentId: string
   const [detailId, setDetailId] = useState<string | null>(null);
   const [logAllocId, setLogAllocId] = useState<string | null>(null);
   const [editAlloc, setEditAlloc] = useState<any | null>(null);
+  const [editStudent, setEditStudent] = useState(false);
+  const [confirmActive, setConfirmActive] = useState<null | boolean>(null);
+  const [savingActive, setSavingActive] = useState(false);
+  const setActive = useServerFn(setStudentActive);
 
   const profile = useQuery({
     queryKey: ["student-profile", studentId],
@@ -102,6 +106,21 @@ export function StudentProfileDialog({ studentId, onClose }: { studentId: string
       qc.invalidateQueries({ queryKey: ["open-partial-allocs"] });
     qc.invalidateQueries({ queryKey: ["payments-list"] });
     qc.invalidateQueries({ queryKey: ["allocations-active"] });
+    qc.invalidateQueries({ queryKey: ["students"] });
+  };
+
+  const toggleActive = async (next: boolean) => {
+    setSavingActive(true);
+    try {
+      await setActive({ data: { student_id: studentId, is_active: next } });
+      toast.success(next ? "Student reactivated" : "Student marked inactive");
+      setConfirmActive(null);
+      refresh();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Could not update student");
+    } finally {
+      setSavingActive(false);
+    }
   };
 
   return (
@@ -132,6 +151,39 @@ export function StudentProfileDialog({ studentId, onClose }: { studentId: string
                 <Field label="Target exam" value={s.master_exams?.name} />
                 <Field label="Onboarded" value={fmtDate(s.created_at)} />
                 <Field label="Status" value={s.is_active ? "Active" : "Inactive"} />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="w-full border-panel-border sm:w-auto"
+                  onClick={() => setEditStudent(true)}
+                >
+                  <Pencil className="mr-1 size-3.5" /> Edit details
+                </Button>
+                {s.is_active ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="w-full border-panel-border text-rose hover:text-rose sm:w-auto"
+                    onClick={() => setConfirmActive(false)}
+                  >
+                    <UserX className="mr-1 size-3.5" /> Deactivate
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="w-full border-panel-border text-emerald hover:text-emerald sm:w-auto"
+                    onClick={() => setConfirmActive(true)}
+                  >
+                    <UserCheck className="mr-1 size-3.5" /> Reactivate
+                  </Button>
+                )}
               </div>
 
               <div className="grid grid-cols-1 gap-3">
@@ -270,6 +322,45 @@ export function StudentProfileDialog({ studentId, onClose }: { studentId: string
       </Dialog>
 
       {detailId && <PaymentDetailDialog paymentId={detailId} onClose={() => setDetailId(null)} />}
+
+      <Dialog open={editStudent} onOpenChange={(v) => !v && setEditStudent(false)}>
+        {editStudent && s && (
+          <StudentFormDialog
+            existing={s}
+            onDone={() => {
+              setEditStudent(false);
+              refresh();
+            }}
+          />
+        )}
+      </Dialog>
+
+      <AlertDialog open={confirmActive !== null} onOpenChange={(v) => !v && setConfirmActive(null)}>
+        <AlertDialogContent className="glass-strong border-panel-border">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {confirmActive ? "Reactivate student?" : "Deactivate student?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmActive
+                ? `${s?.full_name ?? "This student"} will be moved back to the active directory.`
+                : `${s?.full_name ?? "This student"}'s seat will be released and they will be moved to Inactive.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-panel border-panel-border">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={savingActive}
+              onClick={(e) => {
+                e.preventDefault();
+                void toggleActive(!!confirmActive);
+              }}
+            >
+              {savingActive ? "Saving…" : confirmActive ? "Reactivate" : "Deactivate"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {logAllocId && (
         <Dialog open onOpenChange={(v) => !v && setLogAllocId(null)}>
