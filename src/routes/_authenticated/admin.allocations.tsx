@@ -632,16 +632,6 @@ function AllocationsPage() {
                       <div className="font-mono">{a.next_due_date ? fmtDate(a.next_due_date) : "—"}</div>
                     </div>
                   </div>
-                  <div className="mt-3 border-t border-panel-border pt-2">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setEditAlloc(a)}
-                      className="h-8 w-full text-muted-foreground hover:text-cyan"
-                    >
-                      <Edit2 className="mr-1 size-3.5" /> Edit allocation
-                    </Button>
-                  </div>
                 </div>
               );
             })}
@@ -663,7 +653,6 @@ function AllocationsPage() {
                   <th className="py-3 px-2 font-normal">Fee</th>
                   <th className="py-3 px-2 font-normal">Next due</th>
                   <th className="py-3 px-2 font-normal">Status</th>
-                  <th className="py-3 px-2 font-normal text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -707,22 +696,11 @@ function AllocationsPage() {
                         );
                       })()}
                     </td>
-                    <td className="py-3 px-2 text-right">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setEditAlloc(a)}
-                        className="h-8 px-2 text-muted-foreground hover:text-cyan"
-                        title="Edit Allocation"
-                      >
-                        <Edit2 className="size-4" />
-                      </Button>
-                    </td>
                   </tr>
                 ))}
                 {filteredAllocations.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="py-8 text-center text-sm text-muted-foreground">
+                    <td colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
                       No active allocations found matching your filters.
                     </td>
                   </tr>

@@ -1,7 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/lib/auth";
 import { useLibraries, useMasterExams } from "@/lib/data";
@@ -9,16 +8,15 @@ import { GlassPanel, SectionHeader } from "@/components/glass";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { fmtDate } from "@/lib/format";
-import { createStudent, updateStudent, setStudentActive } from "@/lib/students.functions";
-import { Plus, Search, Pencil, UserX, UserCheck, Download, X } from "lucide-react";
-import { StudentDocInput, uploadStudentDoc } from "@/components/admin/StudentDocInput";
+
+import { Plus, Search, Download, X } from "lucide-react";
 import { StudentProfileDialog } from "@/components/admin/StudentProfileDialog";
+import { StudentFormDialog } from "@/components/admin/StudentFormDialog";
 import { buildStudentExportRows, downloadStudentWorkbook } from "@/lib/export-students";
 import { ViewToggle, useDataView } from "@/components/admin/ViewToggle";
 
@@ -35,10 +33,8 @@ function StudentsPage() {
   const [tab, setTab] = useState<"active" | "inactive">("active");
   const [libraryFilter, setLibraryFilter] = useState<string>("all");
   const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState<any | null>(null);
   const [viewing, setViewing] = useState<string | null>(null);
   const qc = useQueryClient();
-  const setActive = useServerFn(setStudentActive);
   const [exporting, setExporting] = useState(false);
   const [chain, setChain] = useState<{ id: string; name: string } | null>(null);
   const navigate = useNavigate();
@@ -91,29 +87,6 @@ function StudentsPage() {
   });
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["students"] });
-
-  const deactivate = async (s: any) => {
-    if (!confirm(`Deactivate ${s.full_name}? Their seat will be released and they will be moved to Inactive.`)) return;
-    try {
-      await setActive({ data: { student_id: s.id, is_active: false } });
-      toast.success("Student marked inactive");
-      invalidate();
-      qc.invalidateQueries({ queryKey: ["allocations"] });
-    } catch (e: any) {
-      toast.error(e.message);
-    }
-  };
-
-  const reactivate = async (s: any) => {
-    if (!confirm(`Reactivate ${s.full_name}?`)) return;
-    try {
-      await setActive({ data: { student_id: s.id, is_active: true } });
-      toast.success("Student reactivated");
-      invalidate();
-    } catch (e: any) {
-      toast.error(e.message);
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -240,37 +213,6 @@ function StudentsPage() {
                       <div className="font-mono">{fmtDate(s.created_at)}</div>
                     </div>
                   </div>
-                  <div className="mt-3 flex flex-wrap gap-2 border-t border-panel-border pt-2">
-                    {tab === "active" ? (
-                      <>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 flex-1 text-muted-foreground hover:text-cyan"
-                          onClick={() => setEditing(s)}
-                        >
-                          <Pencil className="mr-1 size-3" /> Edit
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 flex-1 text-muted-foreground hover:text-rose"
-                          onClick={() => deactivate(s)}
-                        >
-                          <UserX className="mr-1 size-3" /> Deactivate
-                        </Button>
-                      </>
-                    ) : (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-8 flex-1 text-muted-foreground hover:text-emerald"
-                        onClick={() => reactivate(s)}
-                      >
-                        <UserCheck className="mr-1 size-3" /> Reactivate
-                      </Button>
-                    )}
-                  </div>
                 </div>
               );
             })}
@@ -290,7 +232,6 @@ function StudentsPage() {
                   <th className="py-3 px-2 font-normal">Branch</th>
                   {tab === "active" && <th className="py-3 px-2 font-normal">Seat Status</th>}
                   <th className="py-3 px-2 font-normal">Onboarded</th>
-                  <th className="py-3 px-2 font-normal text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -324,46 +265,12 @@ function StudentsPage() {
                         </td>
                       )}
                       <td className="py-3 px-2 text-muted-foreground">{fmtDate(s.created_at)}</td>
-                      <td className="py-3 px-2 text-right">
-                        <div className="inline-flex items-center gap-1">
-                          {tab === "active" && (
-                            <>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="text-muted-foreground hover:text-cyan"
-                                onClick={() => setEditing(s)}
-                              >
-                                <Pencil className="mr-1 size-3" /> Edit
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="text-muted-foreground hover:text-rose"
-                                onClick={() => deactivate(s)}
-                              >
-                                <UserX className="mr-1 size-3" /> Deactivate
-                              </Button>
-                            </>
-                          )}
-                          {tab === "inactive" && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="text-muted-foreground hover:text-emerald"
-                              onClick={() => reactivate(s)}
-                            >
-                              <UserCheck className="mr-1 size-3" /> Reactivate
-                            </Button>
-                          )}
-                        </div>
-                      </td>
                     </tr>
                   );
                 })}
                 {(students.data ?? []).length === 0 && (
                   <tr>
-                    <td colSpan={tab === "active" ? 6 : 5} className="py-8 text-center text-sm text-muted-foreground">
+                    <td colSpan={tab === "active" ? 5 : 4} className="py-8 text-center text-sm text-muted-foreground">
                       {tab === "inactive" ? "No inactive students." : "No students found."}
                     </td>
                   </tr>
@@ -405,228 +312,7 @@ function StudentsPage() {
       </Dialog>
 
       {viewing && <StudentProfileDialog studentId={viewing} onClose={() => setViewing(null)} />}
-
-      <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
-        {editing && (
-          <StudentFormDialog
-            existing={editing}
-            onDone={async () => {
-              await invalidate();
-              setEditing(null);
-            }}
-          />
-        )}
-      </Dialog>
     </div>
   );
 }
 
-function StudentFormDialog({
-  existing,
-  onDone,
-  onCreated,
-}: {
-  existing?: any;
-  onDone: () => void;
-  onCreated?: (studentId: string, name: string) => void;
-}) {
-  const { data: libs } = useLibraries();
-  const { data: exams } = useMasterExams();
-  const [name, setName] = useState(existing?.full_name ?? "");
-  const [mobile, setMobile] = useState(existing?.mobile_number ?? "");
-  const [dob, setDob] = useState(existing?.dob ?? "");
-  const [libraryId, setLibraryId] = useState(existing?.library_id ?? "");
-  const [examId, setExamId] = useState<string>(existing?.target_exam_id ?? "");
-  const [address, setAddress] = useState(existing?.address ?? "");
-  const [notes, setNotes] = useState(existing?.notes ?? "");
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
-  const [idCardFile, setIdCardFile] = useState<File | null>(null);
-  const [photoPath, setPhotoPath] = useState<string | null>(existing?.photo_url ?? null);
-  const [idCardPath, setIdCardPath] = useState<string | null>(existing?.id_card_url ?? null);
-  const [loading, setLoading] = useState(false);
-  const { data: session } = useSession();
-
-  const create = useServerFn(createStudent);
-  const update = useServerFn(updateStudent);
-  const isEdit = !!existing;
-
-  return (
-    <DialogContent className="glass-strong border-panel-border w-[95vw] max-w-lg max-h-[90vh] overflow-y-auto p-4 md:p-6">
-      <DialogHeader>
-        <DialogTitle>{isEdit ? "Edit student" : "New student"}</DialogTitle>
-      </DialogHeader>
-      <form
-        className="space-y-4"
-        onSubmit={async (e) => {
-          e.preventDefault();
-          setLoading(true);
-          try {
-            const orgId = session?.orgId;
-            let photo = photoPath;
-            let idCard = idCardPath;
-            if (orgId && photoFile) photo = await uploadStudentDoc(orgId, "photo", photoFile);
-            if (orgId && idCardFile) idCard = await uploadStudentDoc(orgId, "id-card", idCardFile);
-            if (isEdit) {
-              await update({
-                data: {
-                  student_id: existing.id,
-                  full_name: name,
-                  mobile_number: mobile,
-                  dob,
-                  library_id: libraryId,
-                  target_exam_id: examId || null,
-                  address: address || null,
-                  notes: notes || null,
-                  photo_url: photo,
-                  id_card_url: idCard,
-                },
-              });
-              toast.success("Student updated");
-            } else {
-              const res: any = await create({
-                data: {
-                  full_name: name,
-                  mobile_number: mobile,
-                  dob,
-                  library_id: libraryId,
-                  target_exam_id: examId || null,
-                  address: address || null,
-                  notes: notes || null,
-                  photo_url: photo,
-                  id_card_url: idCard,
-                },
-              });
-              toast.success("Student onboarded");
-              onDone();
-              if (onCreated && res?.student_id) onCreated(res.student_id, name);
-              return;
-            }
-            onDone();
-          } catch (err: any) {
-            toast.error(err.message);
-          } finally {
-            setLoading(false);
-          }
-        }}
-      >
-        <div className="space-y-2">
-          <Label>Full name</Label>
-          <Input
-            required
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="bg-panel border-panel-border"
-          />
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div className="space-y-2">
-            <Label>Mobile (10 digits)</Label>
-            <Input
-              required
-              inputMode="numeric"
-              maxLength={10}
-              value={mobile}
-              onChange={(e) => setMobile(e.target.value.replace(/\D/g, ""))}
-              className="bg-panel border-panel-border font-mono"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>DOB (DDMMYY)</Label>
-            <Input
-              required
-              inputMode="numeric"
-              maxLength={6}
-              value={dob}
-              onChange={(e) => setDob(e.target.value.replace(/\D/g, ""))}
-              className="bg-panel border-panel-border font-mono"
-              placeholder="150199"
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div className="space-y-2">
-            <Label>Branch</Label>
-            <Select value={libraryId} onValueChange={setLibraryId}>
-              <SelectTrigger className="bg-panel border-panel-border">
-                <SelectValue placeholder="Choose branch" />
-              </SelectTrigger>
-              <SelectContent>
-                {(libs ?? []).map((l) => (
-                  <SelectItem key={l.id} value={l.id}>
-                    {l.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>Target exam (optional)</Label>
-            <Select value={examId} onValueChange={setExamId}>
-              <SelectTrigger className="bg-panel border-panel-border">
-                <SelectValue placeholder="—" />
-              </SelectTrigger>
-              <SelectContent>
-                {(exams ?? []).map((e) => (
-                  <SelectItem key={e.id} value={e.id}>
-                    {e.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <StudentDocInput
-            label="Student photo"
-            value={photoFile}
-            existingPath={photoPath}
-            onChange={setPhotoFile}
-            onClearExisting={() => setPhotoPath(null)}
-          />
-          <StudentDocInput
-            label="ID card photo"
-            hint="Aadhaar / college ID. JPG/PNG, max 5MB."
-            value={idCardFile}
-            existingPath={idCardPath}
-            onChange={setIdCardFile}
-            onClearExisting={() => setIdCardPath(null)}
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label>Address (optional)</Label>
-          <Textarea
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            className="bg-panel border-panel-border min-h-[70px]"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label>Internal notes (optional)</Label>
-          <Textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            className="bg-panel border-panel-border min-h-[70px]"
-          />
-        </div>
-
-        {!isEdit && (
-          <div className="rounded-lg border border-panel-border bg-panel p-3 text-xs text-muted-foreground leading-relaxed">
-            Login credentials: mobile + DOB. Student sets their own 6-digit PIN on first login and manages it from their
-            app. Owners cannot reset a student's PIN once registered.
-          </div>
-        )}
-
-        <Button
-          disabled={loading || !libraryId}
-          type="submit"
-          className="w-full bg-white text-slate-900 hover:bg-white/90"
-        >
-          {loading ? "Saving…" : isEdit ? "Save changes" : "Onboard student"}
-        </Button>
-      </form>
-    </DialogContent>
-  );
-}
