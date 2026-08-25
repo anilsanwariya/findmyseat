@@ -1,7 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/lib/auth";
 import { useLibraries, useMasterExams } from "@/lib/data";
@@ -9,7 +8,6 @@ import { GlassPanel, SectionHeader } from "@/components/glass";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -17,7 +15,6 @@ import { toast } from "sonner";
 import { fmtDate } from "@/lib/format";
 
 import { Plus, Search, Download, X } from "lucide-react";
-import { StudentDocInput, uploadStudentDoc } from "@/components/admin/StudentDocInput";
 import { StudentProfileDialog } from "@/components/admin/StudentProfileDialog";
 import { StudentFormDialog } from "@/components/admin/StudentFormDialog";
 import { buildStudentExportRows, downloadStudentWorkbook } from "@/lib/export-students";
@@ -36,10 +33,8 @@ function StudentsPage() {
   const [tab, setTab] = useState<"active" | "inactive">("active");
   const [libraryFilter, setLibraryFilter] = useState<string>("all");
   const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState<any | null>(null);
   const [viewing, setViewing] = useState<string | null>(null);
   const qc = useQueryClient();
-  const setActive = useServerFn(setStudentActive);
   const [exporting, setExporting] = useState(false);
   const [chain, setChain] = useState<{ id: string; name: string } | null>(null);
   const navigate = useNavigate();
@@ -92,29 +87,6 @@ function StudentsPage() {
   });
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["students"] });
-
-  const deactivate = async (s: any) => {
-    if (!confirm(`Deactivate ${s.full_name}? Their seat will be released and they will be moved to Inactive.`)) return;
-    try {
-      await setActive({ data: { student_id: s.id, is_active: false } });
-      toast.success("Student marked inactive");
-      invalidate();
-      qc.invalidateQueries({ queryKey: ["allocations"] });
-    } catch (e: any) {
-      toast.error(e.message);
-    }
-  };
-
-  const reactivate = async (s: any) => {
-    if (!confirm(`Reactivate ${s.full_name}?`)) return;
-    try {
-      await setActive({ data: { student_id: s.id, is_active: true } });
-      toast.success("Student reactivated");
-      invalidate();
-    } catch (e: any) {
-      toast.error(e.message);
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -260,7 +232,6 @@ function StudentsPage() {
                   <th className="py-3 px-2 font-normal">Branch</th>
                   {tab === "active" && <th className="py-3 px-2 font-normal">Seat Status</th>}
                   <th className="py-3 px-2 font-normal">Onboarded</th>
-                  <th className="py-3 px-2 font-normal text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -299,7 +270,7 @@ function StudentsPage() {
                 })}
                 {(students.data ?? []).length === 0 && (
                   <tr>
-                    <td colSpan={tab === "active" ? 6 : 5} className="py-8 text-center text-sm text-muted-foreground">
+                    <td colSpan={tab === "active" ? 5 : 4} className="py-8 text-center text-sm text-muted-foreground">
                       {tab === "inactive" ? "No inactive students." : "No students found."}
                     </td>
                   </tr>
@@ -341,8 +312,6 @@ function StudentsPage() {
       </Dialog>
 
       {viewing && <StudentProfileDialog studentId={viewing} onClose={() => setViewing(null)} />}
-
-      </Dialog>
     </div>
   );
 }
