@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,6 +13,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { fmtDate, inr } from "@/lib/format";
@@ -22,14 +29,13 @@ import { PaymentDetailDialog } from "@/components/admin/PaymentDetailDialog";
 import { LogPaymentDialog } from "@/components/admin/LogPaymentDialog";
 import { EditAllocationDialog } from "@/components/admin/EditAllocationDialog";
 import { StudentFormDialog } from "@/components/admin/StudentFormDialog";
-import { Receipt, Pencil, UserX, UserCheck } from "lucide-react";
-
+import { Receipt, Pencil, UserX, UserCheck, MoreVertical, User } from "lucide-react";
 
 function Field({ label, value }: { label: string; value?: string | null }) {
   return (
-    <div>
+    <div className="min-w-0">
       <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</div>
-      <div className="mt-0.5 text-sm">{value || "—"}</div>
+      <div className="mt-0.5 break-words text-sm">{value || "—"}</div>
     </div>
   );
 }
@@ -52,6 +58,37 @@ function DocCard({ label, path }: { label: string; path?: string | null }) {
       </div>
     </div>
   );
+}
+
+function Avatar({ path, name }: { path?: string | null; name?: string | null }) {
+  const url = useSignedDoc(path);
+  return (
+    <div className="size-11 shrink-0 overflow-hidden rounded-full border border-panel-border bg-panel">
+      {url ? (
+        <a href={url} target="_blank" rel="noopener noreferrer">
+          <img src={url} alt={name ?? "Student"} className="size-full object-cover" />
+        </a>
+      ) : (
+        <div className="flex size-full items-center justify-center text-muted-foreground">
+          <User className="size-5" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Stat({ label, value, tone }: { label: string; value: string; tone?: string }) {
+  return (
+    <div className="min-w-0 rounded-lg border border-panel-border bg-panel px-3 py-2">
+      <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</div>
+      <div className={`mt-0.5 truncate font-mono text-sm ${tone ?? ""}`}>{value}</div>
+    </div>
+  );
+}
+
+function todayLocal() {
+  const d = new Date();
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 }
 
 export function StudentProfileDialog({ studentId, onClose }: { studentId: string; onClose: () => void }) {
@@ -97,13 +134,29 @@ export function StudentProfileDialog({ studentId, onClose }: { studentId: string
     },
   });
 
+  const rows = history.data ?? [];
+  const totalPaid = useMemo(
+    () => rows.reduce((sum: number, p: any) => sum + Number(p.amount_paid ?? 0), 0),
+    [rows],
+  );
+
+  const primary = active[0];
+  const dueTone = useMemo(() => {
+    if (!primary?.next_due_date) return "";
+    const due = new Date(`${primary.next_due_date}T00:00:00`);
+    const diff = Math.round((due.getTime() - todayLocal().getTime()) / 86400000);
+    if (diff < 0) return "text-rose";
+    if (diff <= 5) return "text-amber";
+    return "text-emerald";
+  }, [primary?.next_due_date]);
+
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ["student-profile", studentId] });
     qc.invalidateQueries({ queryKey: ["student-payment-history"] });
     qc.invalidateQueries({ queryKey: ["allocations"] });
     qc.invalidateQueries({ queryKey: ["allocation-partials"] });
     qc.invalidateQueries({ queryKey: ["cycle-partials"] });
-      qc.invalidateQueries({ queryKey: ["open-partial-allocs"] });
+    qc.invalidateQueries({ queryKey: ["open-partial-allocs"] });
     qc.invalidateQueries({ queryKey: ["payments-list"] });
     qc.invalidateQueries({ queryKey: ["allocations-active"] });
     qc.invalidateQueries({ queryKey: ["students"] });
@@ -126,196 +179,248 @@ export function StudentProfileDialog({ studentId, onClose }: { studentId: string
   return (
     <>
       <Dialog open onOpenChange={(v) => !v && onClose()}>
-        <DialogContent className="glass-strong border-panel-border w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-6">
-          <DialogHeader>
-            <DialogTitle>{s?.full_name ?? "Student profile"}</DialogTitle>
-            <DialogDescription className="text-xs text-muted-foreground">
-              Full profile, documents, seat status and payment history.
-            </DialogDescription>
+        <DialogContent className="glass-strong border-panel-border flex max-h-[92vh] w-[96vw] max-w-2xl flex-col gap-0 overflow-hidden p-0">
+          {/* Sticky header */}
+          <DialogHeader className="shrink-0 space-y-0 border-b border-panel-border p-3 pr-12 sm:p-4 sm:pr-14">
+            <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3">
+              <Avatar path={s?.photo_url} name={s?.full_name} />
+              <div className="min-w-0">
+                <DialogTitle className="truncate text-base sm:text-lg">
+                  {s?.full_name ?? "Student profile"}
+                </DialogTitle>
+                <DialogDescription className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                  <span className="truncate">{s?.libraries?.name ?? "—"}</span>
+                  {s && (
+                    <span
+                      className={`rounded px-1.5 py-0.5 text-[9px] uppercase tracking-wider ${
+                        s.is_active ? "bg-emerald/10 text-emerald" : "bg-rose/10 text-rose"
+                      }`}
+                    >
+                      {s.is_active ? "Active" : "Inactive"}
+                    </span>
+                  )}
+                </DialogDescription>
+              </div>
+            </div>
+
+            {s && (
+              <div className="mt-3 flex items-center gap-2">
+                {primary && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-11 flex-1 bg-white text-slate-900 hover:bg-white/90 sm:h-9 sm:flex-none"
+                    onClick={() => setLogAllocId(primary.id)}
+                  >
+                    <Receipt className="mr-1 size-3.5" /> Log payment
+                  </Button>
+                )}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-11 border-panel-border px-3 sm:h-9"
+                    >
+                      <MoreVertical className="size-4" />
+                      <span className="ml-1 sm:hidden">More</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="glass-strong border-panel-border">
+                    <DropdownMenuItem onSelect={() => setEditStudent(true)}>
+                      <Pencil className="mr-2 size-3.5" /> Edit details
+                    </DropdownMenuItem>
+                    {s.is_active ? (
+                      <DropdownMenuItem className="text-rose" onSelect={() => setConfirmActive(false)}>
+                        <UserX className="mr-2 size-3.5" /> Deactivate
+                      </DropdownMenuItem>
+                    ) : (
+                      <DropdownMenuItem className="text-emerald" onSelect={() => setConfirmActive(true)}>
+                        <UserCheck className="mr-2 size-3.5" /> Reactivate
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            )}
           </DialogHeader>
 
           {!s ? (
-            <div className="py-8 text-center text-sm text-muted-foreground">Loading…</div>
+            <div className="py-10 text-center text-sm text-muted-foreground">Loading…</div>
           ) : (
-            <div className="min-w-0 space-y-5">
-              <div className="grid grid-cols-2 gap-3">
-                <DocCard label="Student photo" path={s.photo_url} />
-                <DocCard label="ID card" path={s.id_card_url} />
+            <div className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4">
+              {/* Quick stats */}
+              <div className="grid grid-cols-3 gap-2">
+                <Stat label="Monthly fee" value={primary ? inr(primary.monthly_fee) : "—"} />
+                <Stat
+                  label="Next due"
+                  value={primary?.next_due_date ? fmtDate(primary.next_due_date) : "—"}
+                  tone={dueTone}
+                />
+                <Stat label="Total paid" value={inr(totalPaid)} />
               </div>
 
-              <div className="grid grid-cols-2 gap-3 rounded-lg border border-panel-border bg-panel p-3 sm:gap-4 sm:p-4 sm:grid-cols-3">
-                <Field label="Mobile" value={s.mobile_number} />
-                <Field label="DOB" value={s.dob} />
-                <Field label="Email" value={s.email} />
-                <Field label="Branch" value={s.libraries?.name} />
-                <Field label="Target exam" value={s.master_exams?.name} />
-                <Field label="Onboarded" value={fmtDate(s.created_at)} />
-                <Field label="Status" value={s.is_active ? "Active" : "Inactive"} />
-              </div>
+              <Tabs defaultValue="overview" className="mt-4">
+                <TabsList className="w-full justify-start overflow-x-auto">
+                  <TabsTrigger value="overview">Overview</TabsTrigger>
+                  <TabsTrigger value="seats">Seats {active.length ? `(${active.length})` : ""}</TabsTrigger>
+                  <TabsTrigger value="payments">Payments {rows.length ? `(${rows.length})` : ""}</TabsTrigger>
+                </TabsList>
 
-              <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="w-full border-panel-border sm:w-auto"
-                  onClick={() => setEditStudent(true)}
-                >
-                  <Pencil className="mr-1 size-3.5" /> Edit details
-                </Button>
-                {s.is_active ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="w-full border-panel-border text-rose hover:text-rose sm:w-auto"
-                    onClick={() => setConfirmActive(false)}
-                  >
-                    <UserX className="mr-1 size-3.5" /> Deactivate
-                  </Button>
-                ) : (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="w-full border-panel-border text-emerald hover:text-emerald sm:w-auto"
-                    onClick={() => setConfirmActive(true)}
-                  >
-                    <UserCheck className="mr-1 size-3.5" /> Reactivate
-                  </Button>
-                )}
-              </div>
-
-              <div className="grid grid-cols-1 gap-3">
-                <Field label="Address" value={s.address} />
-                <Field label="Internal notes" value={s.notes} />
-              </div>
-
-              <div className="min-w-0">
-                <div className="mb-2 text-[10px] uppercase tracking-widest text-muted-foreground">Active seats</div>
-                {active.length === 0 ? (
-                  <div className="rounded-lg border border-panel-border bg-panel p-3 text-sm text-muted-foreground">
-                    No active allocation.
+                <TabsContent value="overview" className="mt-3 space-y-4">
+                  <div className="grid grid-cols-2 gap-3 rounded-lg border border-panel-border bg-panel p-3 sm:grid-cols-3 sm:gap-4 sm:p-4">
+                    <Field label="Mobile" value={s.mobile_number} />
+                    <Field label="DOB" value={s.dob} />
+                    <Field label="Email" value={s.email} />
+                    <Field label="Branch" value={s.libraries?.name} />
+                    <Field label="Target exam" value={s.master_exams?.name} />
+                    <Field label="Onboarded" value={fmtDate(s.created_at)} />
                   </div>
-                ) : (
-                  <div className="space-y-2">
-                    {active.map((a: any) => (
-                      <div key={a.id} className="rounded-lg border border-panel-border bg-panel p-3 text-sm">
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:justify-between">
-                          <span className="min-w-0 truncate font-mono">
-                            {a.reservation_type === "unreserved"
-                              ? "Unreserved"
-                              : `Seat ${a.seats?.seat_number ?? "—"}`}
-                          </span>
-                          <span className="min-w-0 truncate text-muted-foreground">{a.shifts?.name ?? "Full day"}</span>
-                          <span className="font-mono">{inr(a.monthly_fee)}</span>
-                          <span className="font-mono text-emerald">Due {fmtDate(a.next_due_date)}</span>
-                        </div>
-                        <div className="mt-3 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-                          <Button
-                            type="button"
-                            size="sm"
-                            className="w-full bg-white text-slate-900 hover:bg-white/90 sm:w-auto"
-                            onClick={() => setLogAllocId(a.id)}
-                          >
-                            <Receipt className="mr-1 size-3.5" /> Log payment
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            className="w-full border-panel-border sm:w-auto"
-                            onClick={() => setEditAlloc({ ...a, students: { full_name: s.full_name } })}
-                          >
-                            <Pencil className="mr-1 size-3.5" /> Edit allocation
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
+
+                  <div className="space-y-3 rounded-lg border border-panel-border bg-panel p-3 sm:p-4">
+                    <Field label="Address" value={s.address} />
+                    <Field label="Internal notes" value={s.notes} />
                   </div>
-                )}
-              </div>
 
-              <div className="min-w-0">
-                <div className="mb-2 text-[10px] uppercase tracking-widest text-muted-foreground">Payment history</div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <DocCard label="Student photo" path={s.photo_url} />
+                    <DocCard label="ID card" path={s.id_card_url} />
+                  </div>
+                </TabsContent>
 
-                {/* Mobile: stacked cards */}
-                <div className="space-y-2 sm:hidden">
-                  {(history.data ?? []).map((p: any) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => setDetailId(p.id)}
-                      className="w-full rounded-lg border border-panel-border bg-panel p-3 text-left"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="font-mono text-sm">{fmtDate(p.payment_date)}</span>
-                        <span className="font-mono text-sm">
-                          {inr(p.amount_paid)}
-                          {p.is_partial && (
-                            <span className="ml-1.5 rounded bg-cyan/10 px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-cyan">
-                              Partial
+                <TabsContent value="seats" className="mt-3">
+                  {active.length === 0 ? (
+                    <div className="rounded-lg border border-panel-border bg-panel p-3 text-sm text-muted-foreground">
+                      No active allocation.
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {active.map((a: any) => (
+                        <div key={a.id} className="rounded-lg border border-panel-border bg-panel p-3 text-sm">
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:justify-between">
+                            <span className="min-w-0 truncate font-mono">
+                              {a.reservation_type === "unreserved"
+                                ? "Unreserved"
+                                : `Seat ${a.seats?.seat_number ?? "—"}`}
                             </span>
-                          )}
-                        </span>
-                      </div>
-                      <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
-                        <span className="uppercase">{p.method}</span>
-                        <span className="font-mono text-emerald">Covers {fmtDate(p.covers_until)}</span>
-                      </div>
-                      {p.transaction_reference && (
-                        <div className="mt-1 truncate font-mono text-[11px] text-muted-foreground">
-                          {p.transaction_reference}
+                            <span className="min-w-0 truncate text-muted-foreground">
+                              {a.shifts?.name ?? "Full day"}
+                            </span>
+                            <span className="font-mono">{inr(a.monthly_fee)}</span>
+                            <span className="font-mono text-emerald">Due {fmtDate(a.next_due_date)}</span>
+                          </div>
+                          <div className="mt-3 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+                            <Button
+                              type="button"
+                              size="sm"
+                              className="h-11 w-full bg-white text-slate-900 hover:bg-white/90 sm:h-9 sm:w-auto"
+                              onClick={() => setLogAllocId(a.id)}
+                            >
+                              <Receipt className="mr-1 size-3.5" /> Log payment
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-11 w-full border-panel-border sm:h-9 sm:w-auto"
+                              onClick={() => setEditAlloc({ ...a, students: { full_name: s.full_name } })}
+                            >
+                              <Pencil className="mr-1 size-3.5" /> Edit allocation
+                            </Button>
+                          </div>
                         </div>
-                      )}
-                    </button>
-                  ))}
-                  {(history.data ?? []).length === 0 && (
-                    <div className="rounded-lg border border-panel-border bg-panel p-4 text-center text-sm text-muted-foreground">
-                      No payment history yet.
+                      ))}
                     </div>
                   )}
-                </div>
+                </TabsContent>
 
-                {/* Desktop: table */}
-                <div className="hidden overflow-x-auto rounded-lg border border-panel-border sm:block">
-                  <table className="w-full min-w-[520px] text-left text-sm">
-                    <thead>
-                      <tr className="border-b border-panel-border text-[10px] uppercase tracking-widest text-muted-foreground">
-                        <th className="px-2 py-2 font-normal">Date</th>
-                        <th className="px-2 py-2 font-normal">Amount</th>
-                        <th className="px-2 py-2 font-normal">Method</th>
-                        <th className="px-2 py-2 font-normal">Txn Ref</th>
-                        <th className="px-2 py-2 font-normal">Covers Until</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(history.data ?? []).map((p: any) => (
-                        <tr
-                          key={p.id}
-                          className="cursor-pointer border-b border-panel-border/50 last:border-0 hover:bg-white/[0.02]"
-                          onClick={() => setDetailId(p.id)}
-                        >
-                          <td className="px-2 py-2 font-mono">{fmtDate(p.payment_date)}</td>
-                          <td className="px-2 py-2 font-mono">
+                <TabsContent value="payments" className="mt-3">
+                  {/* Mobile: stacked cards */}
+                  <div className="max-h-[46vh] space-y-2 overflow-y-auto pr-0.5 sm:hidden">
+                    {rows.map((p: any) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => setDetailId(p.id)}
+                        className="w-full rounded-lg border border-panel-border bg-panel p-3 text-left"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-mono text-sm">{fmtDate(p.payment_date)}</span>
+                          <span className="font-mono text-sm">
                             {inr(p.amount_paid)}
                             {p.is_partial && (
                               <span className="ml-1.5 rounded bg-cyan/10 px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-cyan">
                                 Partial
                               </span>
                             )}
-                          </td>
-                          <td className="px-2 py-2 text-[10px] uppercase">{p.method}</td>
-                          <td className="px-2 py-2 font-mono text-xs text-muted-foreground">
-                            {p.transaction_reference ?? "—"}
-                          </td>
-                          <td className="px-2 py-2 font-mono text-emerald">{fmtDate(p.covers_until)}</td>
+                          </span>
+                        </div>
+                        <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                          <span className="uppercase">{p.method}</span>
+                          <span className="font-mono text-emerald">Covers {fmtDate(p.covers_until)}</span>
+                        </div>
+                        {p.transaction_reference && (
+                          <div className="mt-1 truncate font-mono text-[11px] text-muted-foreground">
+                            {p.transaction_reference}
+                          </div>
+                        )}
+                      </button>
+                    ))}
+                    {rows.length === 0 && (
+                      <div className="rounded-lg border border-panel-border bg-panel p-4 text-center text-sm text-muted-foreground">
+                        No payment history yet.
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Desktop: table */}
+                  <div className="hidden max-h-[46vh] overflow-auto rounded-lg border border-panel-border sm:block">
+                    <table className="w-full min-w-[520px] text-left text-sm">
+                      <thead>
+                        <tr className="border-b border-panel-border text-[10px] uppercase tracking-widest text-muted-foreground">
+                          <th className="px-2 py-2 font-normal">Date</th>
+                          <th className="px-2 py-2 font-normal">Amount</th>
+                          <th className="px-2 py-2 font-normal">Method</th>
+                          <th className="px-2 py-2 font-normal">Txn Ref</th>
+                          <th className="px-2 py-2 font-normal">Covers Until</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+                      </thead>
+                      <tbody>
+                        {rows.map((p: any) => (
+                          <tr
+                            key={p.id}
+                            className="cursor-pointer border-b border-panel-border/50 last:border-0 hover:bg-white/[0.02]"
+                            onClick={() => setDetailId(p.id)}
+                          >
+                            <td className="px-2 py-2 font-mono">{fmtDate(p.payment_date)}</td>
+                            <td className="px-2 py-2 font-mono">
+                              {inr(p.amount_paid)}
+                              {p.is_partial && (
+                                <span className="ml-1.5 rounded bg-cyan/10 px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-cyan">
+                                  Partial
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-2 py-2 text-[10px] uppercase">{p.method}</td>
+                            <td className="px-2 py-2 font-mono text-xs text-muted-foreground">
+                              {p.transaction_reference ?? "—"}
+                            </td>
+                            <td className="px-2 py-2 font-mono text-emerald">{fmtDate(p.covers_until)}</td>
+                          </tr>
+                        ))}
+                        {rows.length === 0 && (
+                          <tr>
+                            <td colSpan={5} className="px-2 py-6 text-center text-muted-foreground">
+                              No payment history yet.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </TabsContent>
+              </Tabs>
             </div>
           )}
         </DialogContent>
