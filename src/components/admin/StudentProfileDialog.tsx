@@ -437,9 +437,11 @@ export function StudentProfileDialog({ studentId, onClose }: { studentId: string
                     </table>
                   </div>
                 </TabsContent>
-              </Tabs>
-            </div>
+                </div>
+              </div>
+            </Tabs>
           )}
+
         </DialogContent>
       </Dialog>
 
