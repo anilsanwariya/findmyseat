@@ -100,6 +100,17 @@ export function StudentProfileDialog({ studentId, onClose }: { studentId: string
   const [confirmActive, setConfirmActive] = useState<null | boolean>(null);
   const [savingActive, setSavingActive] = useState(false);
   const setActive = useServerFn(setStudentActive);
+  const [tab, setTab] = useState("overview");
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const scrollPos = useRef<Record<string, number>>({});
+
+  const handleTabChange = (next: string) => {
+    if (scrollRef.current) scrollPos.current[tab] = scrollRef.current.scrollTop;
+    setTab(next);
+    requestAnimationFrame(() => {
+      if (scrollRef.current) scrollRef.current.scrollTop = scrollPos.current[next] ?? 0;
+    });
+  };
 
   const profile = useQuery({
     queryKey: ["student-profile", studentId],
