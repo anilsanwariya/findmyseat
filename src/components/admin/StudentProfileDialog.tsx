@@ -249,26 +249,40 @@ export function StudentProfileDialog({ studentId, onClose }: { studentId: string
           {!s ? (
             <div className="py-10 text-center text-sm text-muted-foreground">Loading…</div>
           ) : (
-            <div className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-4">
-              {/* Quick stats */}
-              <div className="grid grid-cols-3 gap-2">
-                <Stat label="Monthly fee" value={primary ? inr(primary.monthly_fee) : "—"} />
-                <Stat
-                  label="Next due"
-                  value={primary?.next_due_date ? fmtDate(primary.next_due_date) : "—"}
-                  tone={dueTone}
-                />
-                <Stat label="Total paid" value={inr(totalPaid)} />
+            <Tabs
+              value={tab}
+              onValueChange={handleTabChange}
+              className="flex min-h-0 min-w-0 flex-1 flex-col"
+            >
+              {/* Fixed tab bar — outside the scroll area so it never jitters */}
+              <div className="shrink-0 border-b border-panel-border px-3 py-2 sm:px-4">
+                <TabsList className="w-full justify-start overflow-x-auto">
+                  <TabsTrigger value="overview">Overview</TabsTrigger>
+                  <TabsTrigger value="seats">Seats {active.length ? `(${active.length})` : ""}</TabsTrigger>
+                  <TabsTrigger value="payments">Payments {rows.length ? `(${rows.length})` : ""}</TabsTrigger>
+                </TabsList>
               </div>
 
-              <Tabs defaultValue="overview" className="mt-4">
-                <div className="sticky top-0 z-10 -mx-3 -mt-2 bg-background/90 px-3 py-2 backdrop-blur sm:-mx-4 sm:px-4">
-                  <TabsList className="w-full justify-start overflow-x-auto">
-                    <TabsTrigger value="overview">Overview</TabsTrigger>
-                    <TabsTrigger value="seats">Seats {active.length ? `(${active.length})` : ""}</TabsTrigger>
-                    <TabsTrigger value="payments">Payments {rows.length ? `(${rows.length})` : ""}</TabsTrigger>
-                  </TabsList>
+              <div
+                ref={scrollRef}
+                onScroll={(e) => {
+                  scrollPos.current[tab] = (e.currentTarget as HTMLDivElement).scrollTop;
+                }}
+                className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-4"
+              >
+                {/* Quick stats */}
+                <div className="grid grid-cols-3 gap-2">
+                  <Stat label="Monthly fee" value={primary ? inr(primary.monthly_fee) : "—"} />
+                  <Stat
+                    label="Next due"
+                    value={primary?.next_due_date ? fmtDate(primary.next_due_date) : "—"}
+                    tone={dueTone}
+                  />
+                  <Stat label="Total paid" value={inr(totalPaid)} />
                 </div>
+
+                <div className="mt-4 min-h-[45vh]">
+
 
 
                 <TabsContent value="overview" className="mt-3 space-y-4">
