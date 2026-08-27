@@ -181,7 +181,7 @@ export function StudentProfileDialog({ studentId, onClose }: { studentId: string
       <Dialog open onOpenChange={(v) => !v && onClose()}>
         <DialogContent className="glass-strong border-panel-border inset-0 flex h-[100dvh] max-h-[100dvh] w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 p-0 sm:inset-auto sm:left-1/2 sm:top-1/2 sm:h-auto sm:max-h-[92vh] sm:w-[96vw] sm:max-w-2xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl sm:border">
           {/* Sticky header */}
-          <DialogHeader className="shrink-0 space-y-0 border-b border-panel-border p-3 pr-12 sm:p-4 sm:pr-14">
+          <DialogHeader className="shrink-0 space-y-0 border-b border-panel-border p-3 pr-12 pt-[max(0.75rem,env(safe-area-inset-top))] sm:p-4 sm:pr-14">
             <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3">
               <Avatar path={s?.photo_url} name={s?.full_name} />
               <div className="min-w-0">
