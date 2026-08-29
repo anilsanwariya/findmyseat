@@ -678,10 +678,28 @@ function PhotoManagerView({ lib }: { lib: any }) {
 // -----------------------------------------------------------------------------
 const TABS = ["basic", "schedule", "features", "photos"] as const;
 
-function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; existingLib?: any; onDone: () => void }) {
+const TAB_LABELS: Record<(typeof TABS)[number], string> = {
+  basic: "Basic & Location",
+  schedule: "Timings & Schedule",
+  features: "Exams & Amenities",
+  photos: "Photos",
+};
+
+function LibraryFormDialog({
+  orgId,
+  existingLib,
+  onDone,
+  dirtyRef,
+}: {
+  orgId: string;
+  existingLib?: any;
+  onDone: () => void;
+  dirtyRef?: React.MutableRefObject<boolean>;
+}) {
   const [loading, setLoading] = useState(false);
   const [lang, setLang] = useState<"en" | "hi">("en");
   const [activeTab, setActiveTab] = useState<(typeof TABS)[number]>("basic");
+  const isMobile = useIsMobile();
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -712,8 +730,16 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
   const { data: exams } = useMasterExams();
   const [selectedExams, setSelectedExams] = useState<Set<string>>(new Set());
   const [amenities, setAmenities] = useState<Record<string, boolean>>({});
+  const [examQuery, setExamQuery] = useState("");
+  const [amenityQuery, setAmenityQuery] = useState("");
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const nameRef = useRef<HTMLInputElement>(null);
+  const phoneRef = useRef<HTMLInputElement>(null);
+  const mapsRef = useRef<HTMLInputElement>(null);
 
   // Pre-fill data if editing
+  const [hydrated, setHydrated] = useState(false);
   useEffect(() => {
     if (existingLib) {
       setName(existingLib.name || "");
@@ -743,7 +769,98 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
       setLongitude(existingLib.longitude ?? null);
       setPlaceId(existingLib.location_place_id ?? null);
     }
+    setActiveTab("basic");
+    setHydrated(true);
   }, [existingLib]);
+
+  // ---- dirty tracking -------------------------------------------------
+  const serialized = JSON.stringify({
+    name,
+    phone,
+    address,
+    googleMapsUrl,
+    zone,
+    city,
+    showPublic,
+    open24,
+    openTime,
+    closeTime,
+    openAllDays,
+    closedDays: Array.from(closedDays).sort(),
+    hasMorning,
+    morningStart,
+    morningEnd,
+    hasEvening,
+    eveningStart,
+    eveningEnd,
+    latitude,
+    longitude,
+    placeId,
+    selectedExams: Array.from(selectedExams).sort(),
+    amenities,
+  });
+  const baselineRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (hydrated && baselineRef.current === null) baselineRef.current = serialized;
+  }, [hydrated, serialized]);
+  const dirty = baselineRef.current !== null && serialized !== baselineRef.current;
+  useEffect(() => {
+    if (dirtyRef) dirtyRef.current = dirty;
+    return () => {
+      if (dirtyRef) dirtyRef.current = false;
+    };
+  }, [dirty, dirtyRef]);
+
+  // ---- validation -----------------------------------------------------
+  function validate(): Record<string, string> {
+    const e: Record<string, string> = {};
+    if (!name.trim()) e.name = "Branch name is required";
+    if (phone.trim() && !/^\d{10}$/.test(phone.replace(/\D/g, ""))) e.phone = "Enter a valid 10-digit phone number";
+    if (googleMapsUrl.trim() && !/^https?:\/\/\S+$/i.test(googleMapsUrl.trim()))
+      e.googleMapsUrl = "Link must start with http:// or https://";
+    return e;
+  }
+  const FIELD_TAB: Record<string, (typeof TABS)[number]> = {
+    name: "basic",
+    phone: "basic",
+    googleMapsUrl: "basic",
+  };
+  const FIELD_REF: Record<string, React.RefObject<HTMLInputElement>> = {
+    name: nameRef,
+    phone: phoneRef,
+    googleMapsUrl: mapsRef,
+  };
+
+  const warnings: Record<string, string> = {};
+  if (!open24 && openTime && closeTime && closeTime <= openTime)
+    warnings.hours = "Closing time is before opening time — save only if this branch runs overnight.";
+  if (hasMorning && morningStart && morningEnd && morningEnd <= morningStart)
+    warnings.morning = "Morning shift ends before it starts.";
+  if (hasEvening && eveningStart && eveningEnd && eveningEnd <= eveningStart)
+    warnings.evening = "Evening shift ends before it starts — fine only for overnight shifts.";
+
+  function tabStatus(tab: (typeof TABS)[number]): "error" | "todo" | "done" {
+    if (tab === "basic") {
+      if (errors.name || errors.phone || errors.googleMapsUrl) return "error";
+      return name.trim() && address.trim() && city.trim() ? "done" : "todo";
+    }
+    if (tab === "schedule") {
+      if (warnings.hours || warnings.morning || warnings.evening) return "todo";
+      return open24 || (openTime && closeTime) ? "done" : "todo";
+    }
+    if (tab === "features") {
+      return selectedExams.size > 0 || Object.values(amenities).some(Boolean) ? "done" : "todo";
+    }
+    return existingLib ? "done" : "todo";
+  }
+
+  const filteredExams = (exams ?? []).filter((e: any) =>
+    e.name.toLowerCase().includes(examQuery.trim().toLowerCase()),
+  );
+  const filteredAmenities = Object.entries(AMENITIES_DICT).filter(([, t]) =>
+    `${t.en} ${t.hi}`.toLowerCase().includes(amenityQuery.trim().toLowerCase()),
+  );
+  const amenityCount = Object.values(amenities).filter(Boolean).length;
 
   async function useCurrentLocation() {
     if (!("geolocation" in navigator)) {
@@ -791,8 +908,9 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
 
   const handleNext = () => {
     if (!name.trim()) {
-      toast.error("Branch name is required.");
+      setErrors({ name: "Branch name is required" });
       setActiveTab("basic");
+      setTimeout(() => nameRef.current?.focus(), 50);
       return;
     }
     if (tabIndex < TABS.length - 1) setActiveTab(TABS[tabIndex + 1]);
@@ -803,59 +921,56 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
   };
 
   return (
-    <DialogContent className="glass-strong border-panel-border w-[95vw] max-w-2xl max-h-[90vh] overflow-hidden flex flex-col p-0">
-      <div className="p-4 md:p-6 pb-0 shrink-0 border-b border-panel-border/50">
+    <DialogContent
+      className={`glass-strong border-panel-border overflow-hidden flex flex-col p-0 ${
+        isMobile
+          ? "inset-0 top-0 left-0 h-[100dvh] max-h-[100dvh] w-screen max-w-none translate-x-0 translate-y-0 rounded-none"
+          : "w-[95vw] max-w-2xl max-h-[90vh]"
+      }`}
+    >
+      <div
+        className="p-4 md:p-6 pb-0 shrink-0 border-b border-panel-border/50"
+        style={isMobile ? { paddingTop: "max(1rem, env(safe-area-inset-top))" } : undefined}
+      >
         <DialogHeader>
-          <DialogTitle>{existingLib ? "Edit Branch" : "New Branch Onboarding"}</DialogTitle>
+          <DialogTitle className="pr-10 text-left">
+            {existingLib ? "Edit Branch" : "New Branch Onboarding"}
+          </DialogTitle>
           <DialogDescription className="sr-only">Configure branch details, schedule, and amenities.</DialogDescription>
         </DialogHeader>
 
+        {!existingLib && (
+          <p className="mt-2 text-[11px] uppercase tracking-widest text-muted-foreground">
+            Step {tabIndex + 1} of {TABS.length}
+          </p>
+        )}
+
         {/* Tab Navigation */}
-        <div className="flex w-full overflow-x-auto mt-4 custom-scrollbar">
-          <button
-            type="button"
-            onClick={() => setActiveTab("basic")}
-            className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 ${
-              activeTab === "basic"
-                ? "border-cyan text-cyan"
-                : "border-transparent text-muted-foreground hover:text-slate-300"
-            }`}
-          >
-            Basic & Location
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("schedule")}
-            className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 ${
-              activeTab === "schedule"
-                ? "border-cyan text-cyan"
-                : "border-transparent text-muted-foreground hover:text-slate-300"
-            }`}
-          >
-            Timings & Schedule
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("features")}
-            className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 ${
-              activeTab === "features"
-                ? "border-cyan text-cyan"
-                : "border-transparent text-muted-foreground hover:text-slate-300"
-            }`}
-          >
-            Exams & Amenities
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("photos")}
-            className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 ${
-              activeTab === "photos"
-                ? "border-cyan text-cyan"
-                : "border-transparent text-muted-foreground hover:text-slate-300"
-            }`}
-          >
-            Photos
-          </button>
+        <div className="flex w-full overflow-x-auto mt-3 custom-scrollbar">
+          {TABS.map((t) => {
+            const status = tabStatus(t);
+            const active = activeTab === t;
+            return (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setActiveTab(t)}
+                className={`flex min-h-[44px] items-center gap-2 px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 ${
+                  active ? "border-cyan text-cyan" : "border-transparent text-muted-foreground hover:text-slate-300"
+                }`}
+              >
+                {TAB_LABELS[t]}
+                {status === "done" ? (
+                  <Check className="size-3.5 text-emerald" />
+                ) : (
+                  <span
+                    className={`size-1.5 rounded-full ${status === "error" ? "bg-rose" : "bg-amber-400/80"}`}
+                    aria-hidden
+                  />
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -865,18 +980,18 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
         onSubmit={async (e) => {
           e.preventDefault();
 
-          if (!isLastTab) {
-            handleNext();
-            return;
-          }
-
           if (!orgId) {
             toast.error("Security error: Organization ID missing.");
             return;
           }
-          if (!name.trim()) {
-            toast.error("Branch name is required.");
-            setActiveTab("basic");
+
+          const errs = validate();
+          setErrors(errs);
+          const firstKey = Object.keys(errs)[0];
+          if (firstKey) {
+            setActiveTab(FIELD_TAB[firstKey] ?? "basic");
+            setTimeout(() => FIELD_REF[firstKey]?.current?.focus(), 50);
+            toast.error(errs[firstKey]);
             return;
           }
 
@@ -915,10 +1030,13 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
             toast.error(error.message);
             return;
           }
+          baselineRef.current = serialized;
+          if (dirtyRef) dirtyRef.current = false;
           toast.success(existingLib ? "Library updated successfully" : "Branch successfully created");
           onDone();
         }}
       >
+
         {activeTab === "basic" && (
           <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
             <div className="space-y-3">
@@ -928,58 +1046,84 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
                     Branch name <span className="text-red-400">*</span>
                   </Label>
                   <Input
+                    ref={nameRef}
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="bg-panel border-panel-border"
+                    className={`bg-panel h-11 ${errors.name ? "border-rose" : "border-panel-border"}`}
                     placeholder="e.g. LibraryBandhu Main Branch"
                   />
+                  {errors.name && <p className="text-[11px] text-rose">{errors.name}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label>Contact phone</Label>
                   <Input
+                    ref={phoneRef}
                     value={phone}
+                    inputMode="numeric"
                     onChange={(e) => setPhone(e.target.value)}
-                    className="bg-panel border-panel-border font-mono"
+                    className={`bg-panel h-11 font-mono ${errors.phone ? "border-rose" : "border-panel-border"}`}
                     placeholder="9876543210"
                   />
+                  {errors.phone && <p className="text-[11px] text-rose">{errors.phone}</p>}
                 </div>
               </div>
 
-              <div className="rounded-lg border border-panel-border bg-panel/40 p-4 mt-2 flex items-center justify-between">
-                <div>
+              <div className="rounded-lg border border-panel-border bg-panel/40 p-4 mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
+                <div className="min-w-0">
                   <Label className="text-sm font-semibold">Seat Availability on Marketplace</Label>
                   <p className="text-[11px] text-muted-foreground mt-0.5">
                     Show live seat availability for this branch online.
                   </p>
                 </div>
-                <Switch checked={showPublic} onCheckedChange={setShowPublic} />
+                <Switch checked={showPublic} onCheckedChange={setShowPublic} className="shrink-0" />
               </div>
             </div>
 
             <div className="space-y-3">
               <div className="rounded-lg border border-panel-border bg-panel/60 p-3 space-y-2">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 text-xs">
-                    <MapPin className="size-4 text-cyan" />
+                  <div className="flex min-w-0 items-center gap-2 text-xs">
+                    <MapPin className="size-4 text-cyan shrink-0" />
                     {latitude != null && longitude != null ? (
-                      <span className="font-mono text-emerald">
+                      <span className="font-mono text-emerald truncate">
                         Pinned: {latitude.toFixed(5)}, {longitude.toFixed(5)}
                       </span>
                     ) : (
                       <span className="text-muted-foreground">No location pinned yet</span>
                     )}
                   </div>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={useCurrentLocation}
-                    disabled={locLoading}
-                    className="border-cyan/40 text-cyan hover:bg-cyan/10"
-                  >
-                    {locLoading ? <Loader2 className="mr-1 size-4 animate-spin" /> : <MapPin className="mr-1 size-4" />}
-                    {latitude != null ? "Re-capture location" : "Use current location"}
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    {latitude != null && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-9 text-xs text-muted-foreground hover:text-rose"
+                        onClick={() => {
+                          setLatitude(null);
+                          setLongitude(null);
+                          setPlaceId(null);
+                        }}
+                      >
+                        Clear location
+                      </Button>
+                    )}
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={useCurrentLocation}
+                      disabled={locLoading}
+                      className="h-9 border-cyan/40 text-cyan hover:bg-cyan/10"
+                    >
+                      {locLoading ? (
+                        <Loader2 className="mr-1 size-4 animate-spin" />
+                      ) : (
+                        <MapPin className="mr-1 size-4" />
+                      )}
+                      {latitude != null ? "Re-capture" : "Use current location"}
+                    </Button>
+                  </div>
                 </div>
                 <p className="text-[11px] text-muted-foreground">
                   Stand at the branch entrance and tap the button. We'll auto-fill the address, area and city from
@@ -998,11 +1142,13 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
               <div className="space-y-2">
                 <Label>Google Maps Share Link</Label>
                 <Input
+                  ref={mapsRef}
                   value={googleMapsUrl}
                   onChange={(e) => setGoogleMapsUrl(e.target.value)}
-                  className="bg-panel border-panel-border"
+                  className={`bg-panel h-11 ${errors.googleMapsUrl ? "border-rose" : "border-panel-border"}`}
                   placeholder="https://maps.app.goo.gl/..."
                 />
+                {errors.googleMapsUrl && <p className="text-[11px] text-rose">{errors.googleMapsUrl}</p>}
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-2">
@@ -1010,7 +1156,7 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
                   <Input
                     value={zone}
                     onChange={(e) => setZone(e.target.value)}
-                    className="bg-panel border-panel-border"
+                    className="bg-panel border-panel-border h-11"
                     placeholder="e.g. Malviya Nagar"
                   />
                 </div>
@@ -1019,7 +1165,7 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
                   <Input
                     value={city}
                     onChange={(e) => setCity(e.target.value)}
-                    className="bg-panel border-panel-border"
+                    className="bg-panel border-panel-border h-11"
                     placeholder="e.g. Jaipur"
                   />
                 </div>
@@ -1027,6 +1173,7 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
             </div>
           </div>
         )}
+
 
         {activeTab === "schedule" && (
           <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
@@ -1061,7 +1208,9 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
                   </div>
                 </div>
               )}
+              {warnings.hours && <p className="text-[11px] text-amber-300">{warnings.hours}</p>}
             </div>
+
 
             {/* Closed On */}
             <div className="space-y-2 rounded-lg border border-panel-border bg-panel/40 p-4">
@@ -1134,7 +1283,9 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
                     </div>
                   </div>
                 )}
+                {warnings.morning && <p className="text-[11px] text-amber-300">{warnings.morning}</p>}
               </div>
+
               <div className="space-y-3 pt-3 border-t border-panel-border/50">
                 <label className="flex items-center gap-2 text-sm cursor-pointer">
                   <Switch checked={hasEvening} onCheckedChange={setHasEvening} />
@@ -1162,7 +1313,9 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
                     </div>
                   </div>
                 )}
+                {warnings.evening && <p className="text-[11px] text-amber-300">{warnings.evening}</p>}
               </div>
+
             </div>
           </div>
         )}
@@ -1170,9 +1323,50 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
         {activeTab === "features" && (
           <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
             <div className="space-y-3">
-              <h4 className="text-sm font-semibold border-b border-panel-border/50 pb-2">Targeted Exams</h4>
-              <div className="flex max-h-48 flex-wrap gap-2 overflow-y-auto rounded-lg border border-panel-border bg-black/20 p-4 custom-scrollbar">
-                {(exams ?? []).map((e) => {
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-panel-border/50 pb-2">
+                <h4 className="text-sm font-semibold">
+                  Targeted Exams <span className="text-muted-foreground font-normal">({selectedExams.size})</span>
+                </h4>
+                <div className="flex items-center gap-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 text-xs"
+                    onClick={() => setSelectedExams(new Set((filteredExams ?? []).map((e: any) => e.id)))}
+                  >
+                    Select all
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 text-xs"
+                    onClick={() => setSelectedExams(new Set())}
+                  >
+                    Clear
+                  </Button>
+                </div>
+              </div>
+              <div className="relative">
+                <Input
+                  value={examQuery}
+                  onChange={(e) => setExamQuery(e.target.value)}
+                  placeholder="Search exams…"
+                  className="bg-panel border-panel-border h-11 pr-9"
+                />
+                {examQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setExamQuery("")}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white"
+                  >
+                    <XIcon className="size-4" />
+                  </button>
+                )}
+              </div>
+              <div className="flex max-h-52 flex-wrap gap-2 overflow-y-auto rounded-lg border border-panel-border bg-black/20 p-4 custom-scrollbar">
+                {(filteredExams ?? []).map((e: any) => {
                   const on = selectedExams.has(e.id);
                   return (
                     <button
@@ -1184,18 +1378,24 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
                         else s.add(e.id);
                         setSelectedExams(s);
                       }}
-                      className={`rounded-full border px-3 py-1.5 text-xs transition-colors ${on ? "border-violet bg-violet/20 text-violet" : "border-panel-border bg-black/40 text-muted-foreground hover:bg-panel hover:text-white"}`}
+                      className={`rounded-full border px-3 py-2 text-xs transition-colors ${on ? "border-violet bg-violet/20 text-violet" : "border-panel-border bg-black/40 text-muted-foreground hover:bg-panel hover:text-white"}`}
                     >
                       {e.name}
                     </button>
                   );
                 })}
+                {(filteredExams ?? []).length === 0 && (
+                  <p className="text-xs text-muted-foreground">No exams match “{examQuery}”.</p>
+                )}
               </div>
             </div>
 
             <div className="space-y-3 pt-2">
-              <div className="flex items-center justify-between border-b border-panel-border/50 pb-2">
-                <h4 className="text-sm font-semibold">Facilities & Amenities</h4>
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-panel-border/50 pb-2">
+                <h4 className="text-sm font-semibold">
+                  Facilities &amp; Amenities{" "}
+                  <span className="text-muted-foreground font-normal">({amenityCount})</span>
+                </h4>
                 <Button
                   type="button"
                   variant="outline"
@@ -1207,11 +1407,28 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
                   {lang === "en" ? "Switch to Hindi" : "Switch to English"}
                 </Button>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 rounded-lg bg-black/20 p-4 border border-panel-border">
-                {Object.entries(AMENITIES_DICT).map(([key, translations]) => (
+              <div className="relative">
+                <Input
+                  value={amenityQuery}
+                  onChange={(e) => setAmenityQuery(e.target.value)}
+                  placeholder="Search amenities…"
+                  className="bg-panel border-panel-border h-11 pr-9"
+                />
+                {amenityQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setAmenityQuery("")}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white"
+                  >
+                    <XIcon className="size-4" />
+                  </button>
+                )}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 rounded-lg bg-black/20 p-4 border border-panel-border">
+                {filteredAmenities.map(([key, translations]) => (
                   <div
                     key={key}
-                    className="flex items-center justify-between gap-4 p-2 rounded-md hover:bg-black/20 transition-colors"
+                    className="flex min-h-[44px] items-center justify-between gap-4 p-2 rounded-md hover:bg-black/20 transition-colors"
                   >
                     <Label
                       className="text-sm font-normal text-slate-300 leading-tight cursor-pointer"
@@ -1226,10 +1443,14 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
                     />
                   </div>
                 ))}
+                {filteredAmenities.length === 0 && (
+                  <p className="text-xs text-muted-foreground">No amenities match “{amenityQuery}”.</p>
+                )}
               </div>
             </div>
           </div>
         )}
+
 
         {activeTab === "photos" && (
           <div className="animate-in fade-in slide-in-from-right-4">
@@ -1249,36 +1470,62 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
         )}
       </form>
 
-      {/* Footer Wizard Controls */}
-      <div className="border-t border-panel-border bg-panel p-4 flex items-center justify-between shrink-0">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={handleBack}
-          className={`text-muted-foreground hover:text-white ${tabIndex === 0 ? "invisible" : ""}`}
-        >
-          Previous
-        </Button>
-
-        {isLastTab ? (
-          <Button
-            disabled={loading}
-            type="submit"
-            form="library-form-wizard"
-            className="bg-white text-slate-900 hover:bg-white/90 font-medium px-6"
-          >
-            {loading ? "Saving..." : existingLib ? "Save All Changes" : "Complete Onboarding"}
-          </Button>
-        ) : (
+      {/* Footer Controls */}
+      <div
+        className="border-t border-panel-border bg-panel p-3 md:p-4 flex items-center justify-between gap-2 shrink-0"
+        style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+      >
+        <div className="flex items-center gap-1">
           <Button
             type="button"
-            onClick={handleNext}
-            className="bg-cyan text-cyan-950 hover:bg-cyan/90 font-medium px-8"
+            variant="ghost"
+            size="sm"
+            onClick={handleBack}
+            className={`h-11 text-muted-foreground hover:text-white ${tabIndex === 0 ? "invisible" : ""}`}
           >
-            Next Step
+            Previous
           </Button>
-        )}
+          {!isLastTab && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleNext}
+              className="h-11 text-muted-foreground hover:text-white"
+            >
+              Next
+            </Button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2">
+          {existingLib && !dirty && <span className="text-[11px] text-muted-foreground hidden sm:inline">No changes</span>}
+          {!existingLib && !isLastTab && (
+            <Button
+              type="button"
+              onClick={handleNext}
+              className="h-11 bg-cyan text-cyan-950 hover:bg-cyan/90 font-medium px-6"
+            >
+              Next Step
+            </Button>
+          )}
+          <Button
+            disabled={loading || (!!existingLib && !dirty)}
+            type="submit"
+            form="library-form-wizard"
+            className="h-11 bg-white text-slate-900 hover:bg-white/90 font-medium px-5"
+          >
+            {loading
+              ? "Saving..."
+              : existingLib
+                ? "Save changes"
+                : isLastTab
+                  ? "Complete Onboarding"
+                  : "Save & finish"}
+          </Button>
+        </div>
       </div>
+
     </DialogContent>
   );
 }
