@@ -928,58 +928,84 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
                     Branch name <span className="text-red-400">*</span>
                   </Label>
                   <Input
+                    ref={nameRef}
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="bg-panel border-panel-border"
+                    className={`bg-panel h-11 ${errors.name ? "border-rose" : "border-panel-border"}`}
                     placeholder="e.g. LibraryBandhu Main Branch"
                   />
+                  {errors.name && <p className="text-[11px] text-rose">{errors.name}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label>Contact phone</Label>
                   <Input
+                    ref={phoneRef}
                     value={phone}
+                    inputMode="numeric"
                     onChange={(e) => setPhone(e.target.value)}
-                    className="bg-panel border-panel-border font-mono"
+                    className={`bg-panel h-11 font-mono ${errors.phone ? "border-rose" : "border-panel-border"}`}
                     placeholder="9876543210"
                   />
+                  {errors.phone && <p className="text-[11px] text-rose">{errors.phone}</p>}
                 </div>
               </div>
 
-              <div className="rounded-lg border border-panel-border bg-panel/40 p-4 mt-2 flex items-center justify-between">
-                <div>
+              <div className="rounded-lg border border-panel-border bg-panel/40 p-4 mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
+                <div className="min-w-0">
                   <Label className="text-sm font-semibold">Seat Availability on Marketplace</Label>
                   <p className="text-[11px] text-muted-foreground mt-0.5">
                     Show live seat availability for this branch online.
                   </p>
                 </div>
-                <Switch checked={showPublic} onCheckedChange={setShowPublic} />
+                <Switch checked={showPublic} onCheckedChange={setShowPublic} className="shrink-0" />
               </div>
             </div>
 
             <div className="space-y-3">
               <div className="rounded-lg border border-panel-border bg-panel/60 p-3 space-y-2">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 text-xs">
-                    <MapPin className="size-4 text-cyan" />
+                  <div className="flex min-w-0 items-center gap-2 text-xs">
+                    <MapPin className="size-4 text-cyan shrink-0" />
                     {latitude != null && longitude != null ? (
-                      <span className="font-mono text-emerald">
+                      <span className="font-mono text-emerald truncate">
                         Pinned: {latitude.toFixed(5)}, {longitude.toFixed(5)}
                       </span>
                     ) : (
                       <span className="text-muted-foreground">No location pinned yet</span>
                     )}
                   </div>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={useCurrentLocation}
-                    disabled={locLoading}
-                    className="border-cyan/40 text-cyan hover:bg-cyan/10"
-                  >
-                    {locLoading ? <Loader2 className="mr-1 size-4 animate-spin" /> : <MapPin className="mr-1 size-4" />}
-                    {latitude != null ? "Re-capture location" : "Use current location"}
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    {latitude != null && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-9 text-xs text-muted-foreground hover:text-rose"
+                        onClick={() => {
+                          setLatitude(null);
+                          setLongitude(null);
+                          setPlaceId(null);
+                        }}
+                      >
+                        Clear location
+                      </Button>
+                    )}
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={useCurrentLocation}
+                      disabled={locLoading}
+                      className="h-9 border-cyan/40 text-cyan hover:bg-cyan/10"
+                    >
+                      {locLoading ? (
+                        <Loader2 className="mr-1 size-4 animate-spin" />
+                      ) : (
+                        <MapPin className="mr-1 size-4" />
+                      )}
+                      {latitude != null ? "Re-capture" : "Use current location"}
+                    </Button>
+                  </div>
                 </div>
                 <p className="text-[11px] text-muted-foreground">
                   Stand at the branch entrance and tap the button. We'll auto-fill the address, area and city from
@@ -998,11 +1024,13 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
               <div className="space-y-2">
                 <Label>Google Maps Share Link</Label>
                 <Input
+                  ref={mapsRef}
                   value={googleMapsUrl}
                   onChange={(e) => setGoogleMapsUrl(e.target.value)}
-                  className="bg-panel border-panel-border"
+                  className={`bg-panel h-11 ${errors.googleMapsUrl ? "border-rose" : "border-panel-border"}`}
                   placeholder="https://maps.app.goo.gl/..."
                 />
+                {errors.googleMapsUrl && <p className="text-[11px] text-rose">{errors.googleMapsUrl}</p>}
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-2">
@@ -1010,7 +1038,7 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
                   <Input
                     value={zone}
                     onChange={(e) => setZone(e.target.value)}
-                    className="bg-panel border-panel-border"
+                    className="bg-panel border-panel-border h-11"
                     placeholder="e.g. Malviya Nagar"
                   />
                 </div>
@@ -1019,7 +1047,7 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
                   <Input
                     value={city}
                     onChange={(e) => setCity(e.target.value)}
-                    className="bg-panel border-panel-border"
+                    className="bg-panel border-panel-border h-11"
                     placeholder="e.g. Jaipur"
                   />
                 </div>
@@ -1027,6 +1055,7 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
             </div>
           </div>
         )}
+
 
         {activeTab === "schedule" && (
           <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
