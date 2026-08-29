@@ -1061,7 +1061,9 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
                   </div>
                 </div>
               )}
+              {warnings.hours && <p className="text-[11px] text-amber-300">{warnings.hours}</p>}
             </div>
+
 
             {/* Closed On */}
             <div className="space-y-2 rounded-lg border border-panel-border bg-panel/40 p-4">
