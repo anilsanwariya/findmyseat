@@ -364,8 +364,8 @@ export function StudentProfileDialog({ studentId, onClose }: { studentId: string
                 </TabsContent>
 
                 <TabsContent value="payments" className="mt-3">
-                  {/* Mobile: stacked cards */}
-                  <div className="max-h-[46vh] space-y-2 overflow-y-auto pr-0.5 sm:hidden">
+                  {/* Stacked cards — same style at every breakpoint */}
+                  <div className="max-h-[46vh] space-y-2 overflow-y-auto pr-0.5">
                     {rows.map((p: any) => (
                       <button
                         key={p.id}
@@ -400,52 +400,6 @@ export function StudentProfileDialog({ studentId, onClose }: { studentId: string
                         No payment history yet.
                       </div>
                     )}
-                  </div>
-
-                  {/* Desktop: table */}
-                  <div className="hidden max-h-[46vh] overflow-auto rounded-lg border border-panel-border sm:block">
-                    <table className="w-full min-w-[520px] text-left text-sm">
-                      <thead>
-                        <tr className="border-b border-panel-border text-[10px] uppercase tracking-widest text-muted-foreground">
-                          <th className="px-2 py-2 font-normal">Date</th>
-                          <th className="px-2 py-2 font-normal">Amount</th>
-                          <th className="px-2 py-2 font-normal">Method</th>
-                          <th className="px-2 py-2 font-normal">Txn Ref</th>
-                          <th className="px-2 py-2 font-normal">Covers Until</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {rows.map((p: any) => (
-                          <tr
-                            key={p.id}
-                            className="cursor-pointer border-b border-panel-border/50 last:border-0 hover:bg-white/[0.02]"
-                            onClick={() => setDetailId(p.id)}
-                          >
-                            <td className="px-2 py-2 font-mono">{fmtDate(p.payment_date)}</td>
-                            <td className="px-2 py-2 font-mono">
-                              {inr(p.amount_paid)}
-                              {p.is_partial && (
-                                <span className="ml-1.5 rounded bg-cyan/10 px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-cyan">
-                                  Partial
-                                </span>
-                              )}
-                            </td>
-                            <td className="px-2 py-2 text-[10px] uppercase">{p.method}</td>
-                            <td className="px-2 py-2 font-mono text-xs text-muted-foreground">
-                              {p.transaction_reference ?? "—"}
-                            </td>
-                            <td className="px-2 py-2 font-mono text-emerald">{fmtDate(p.covers_until)}</td>
-                          </tr>
-                        ))}
-                        {rows.length === 0 && (
-                          <tr>
-                            <td colSpan={5} className="px-2 py-6 text-center text-muted-foreground">
-                              No payment history yet.
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
                   </div>
                 </TabsContent>
                 </div>
