@@ -1136,7 +1136,9 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
                     </div>
                   </div>
                 )}
+                {warnings.morning && <p className="text-[11px] text-amber-300">{warnings.morning}</p>}
               </div>
+
               <div className="space-y-3 pt-3 border-t border-panel-border/50">
                 <label className="flex items-center gap-2 text-sm cursor-pointer">
                   <Switch checked={hasEvening} onCheckedChange={setHasEvening} />
