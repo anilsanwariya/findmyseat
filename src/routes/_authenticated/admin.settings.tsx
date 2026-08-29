@@ -678,10 +678,28 @@ function PhotoManagerView({ lib }: { lib: any }) {
 // -----------------------------------------------------------------------------
 const TABS = ["basic", "schedule", "features", "photos"] as const;
 
-function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; existingLib?: any; onDone: () => void }) {
+const TAB_LABELS: Record<(typeof TABS)[number], string> = {
+  basic: "Basic & Location",
+  schedule: "Timings & Schedule",
+  features: "Exams & Amenities",
+  photos: "Photos",
+};
+
+function LibraryFormDialog({
+  orgId,
+  existingLib,
+  onDone,
+  dirtyRef,
+}: {
+  orgId: string;
+  existingLib?: any;
+  onDone: () => void;
+  dirtyRef?: React.MutableRefObject<boolean>;
+}) {
   const [loading, setLoading] = useState(false);
   const [lang, setLang] = useState<"en" | "hi">("en");
   const [activeTab, setActiveTab] = useState<(typeof TABS)[number]>("basic");
+  const isMobile = useIsMobile();
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -712,8 +730,16 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
   const { data: exams } = useMasterExams();
   const [selectedExams, setSelectedExams] = useState<Set<string>>(new Set());
   const [amenities, setAmenities] = useState<Record<string, boolean>>({});
+  const [examQuery, setExamQuery] = useState("");
+  const [amenityQuery, setAmenityQuery] = useState("");
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const nameRef = useRef<HTMLInputElement>(null);
+  const phoneRef = useRef<HTMLInputElement>(null);
+  const mapsRef = useRef<HTMLInputElement>(null);
 
   // Pre-fill data if editing
+  const [hydrated, setHydrated] = useState(false);
   useEffect(() => {
     if (existingLib) {
       setName(existingLib.name || "");
@@ -743,7 +769,98 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
       setLongitude(existingLib.longitude ?? null);
       setPlaceId(existingLib.location_place_id ?? null);
     }
+    setActiveTab("basic");
+    setHydrated(true);
   }, [existingLib]);
+
+  // ---- dirty tracking -------------------------------------------------
+  const serialized = JSON.stringify({
+    name,
+    phone,
+    address,
+    googleMapsUrl,
+    zone,
+    city,
+    showPublic,
+    open24,
+    openTime,
+    closeTime,
+    openAllDays,
+    closedDays: Array.from(closedDays).sort(),
+    hasMorning,
+    morningStart,
+    morningEnd,
+    hasEvening,
+    eveningStart,
+    eveningEnd,
+    latitude,
+    longitude,
+    placeId,
+    selectedExams: Array.from(selectedExams).sort(),
+    amenities,
+  });
+  const baselineRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (hydrated && baselineRef.current === null) baselineRef.current = serialized;
+  }, [hydrated, serialized]);
+  const dirty = baselineRef.current !== null && serialized !== baselineRef.current;
+  useEffect(() => {
+    if (dirtyRef) dirtyRef.current = dirty;
+    return () => {
+      if (dirtyRef) dirtyRef.current = false;
+    };
+  }, [dirty, dirtyRef]);
+
+  // ---- validation -----------------------------------------------------
+  function validate(): Record<string, string> {
+    const e: Record<string, string> = {};
+    if (!name.trim()) e.name = "Branch name is required";
+    if (phone.trim() && !/^\d{10}$/.test(phone.replace(/\D/g, ""))) e.phone = "Enter a valid 10-digit phone number";
+    if (googleMapsUrl.trim() && !/^https?:\/\/\S+$/i.test(googleMapsUrl.trim()))
+      e.googleMapsUrl = "Link must start with http:// or https://";
+    return e;
+  }
+  const FIELD_TAB: Record<string, (typeof TABS)[number]> = {
+    name: "basic",
+    phone: "basic",
+    googleMapsUrl: "basic",
+  };
+  const FIELD_REF: Record<string, React.RefObject<HTMLInputElement>> = {
+    name: nameRef,
+    phone: phoneRef,
+    googleMapsUrl: mapsRef,
+  };
+
+  const warnings: Record<string, string> = {};
+  if (!open24 && openTime && closeTime && closeTime <= openTime)
+    warnings.hours = "Closing time is before opening time — save only if this branch runs overnight.";
+  if (hasMorning && morningStart && morningEnd && morningEnd <= morningStart)
+    warnings.morning = "Morning shift ends before it starts.";
+  if (hasEvening && eveningStart && eveningEnd && eveningEnd <= eveningStart)
+    warnings.evening = "Evening shift ends before it starts — fine only for overnight shifts.";
+
+  function tabStatus(tab: (typeof TABS)[number]): "error" | "todo" | "done" {
+    if (tab === "basic") {
+      if (errors.name || errors.phone || errors.googleMapsUrl) return "error";
+      return name.trim() && address.trim() && city.trim() ? "done" : "todo";
+    }
+    if (tab === "schedule") {
+      if (warnings.hours || warnings.morning || warnings.evening) return "todo";
+      return open24 || (openTime && closeTime) ? "done" : "todo";
+    }
+    if (tab === "features") {
+      return selectedExams.size > 0 || Object.values(amenities).some(Boolean) ? "done" : "todo";
+    }
+    return existingLib ? "done" : "todo";
+  }
+
+  const filteredExams = (exams ?? []).filter((e: any) =>
+    e.name.toLowerCase().includes(examQuery.trim().toLowerCase()),
+  );
+  const filteredAmenities = Object.entries(AMENITIES_DICT).filter(([, t]) =>
+    `${t.en} ${t.hi}`.toLowerCase().includes(amenityQuery.trim().toLowerCase()),
+  );
+  const amenityCount = Object.values(amenities).filter(Boolean).length;
 
   async function useCurrentLocation() {
     if (!("geolocation" in navigator)) {
@@ -791,8 +908,9 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
 
   const handleNext = () => {
     if (!name.trim()) {
-      toast.error("Branch name is required.");
+      setErrors({ name: "Branch name is required" });
       setActiveTab("basic");
+      setTimeout(() => nameRef.current?.focus(), 50);
       return;
     }
     if (tabIndex < TABS.length - 1) setActiveTab(TABS[tabIndex + 1]);
@@ -803,59 +921,56 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
   };
 
   return (
-    <DialogContent className="glass-strong border-panel-border w-[95vw] max-w-2xl max-h-[90vh] overflow-hidden flex flex-col p-0">
-      <div className="p-4 md:p-6 pb-0 shrink-0 border-b border-panel-border/50">
+    <DialogContent
+      className={`glass-strong border-panel-border overflow-hidden flex flex-col p-0 ${
+        isMobile
+          ? "inset-0 top-0 left-0 h-[100dvh] max-h-[100dvh] w-screen max-w-none translate-x-0 translate-y-0 rounded-none"
+          : "w-[95vw] max-w-2xl max-h-[90vh]"
+      }`}
+    >
+      <div
+        className="p-4 md:p-6 pb-0 shrink-0 border-b border-panel-border/50"
+        style={isMobile ? { paddingTop: "max(1rem, env(safe-area-inset-top))" } : undefined}
+      >
         <DialogHeader>
-          <DialogTitle>{existingLib ? "Edit Branch" : "New Branch Onboarding"}</DialogTitle>
+          <DialogTitle className="pr-10 text-left">
+            {existingLib ? "Edit Branch" : "New Branch Onboarding"}
+          </DialogTitle>
           <DialogDescription className="sr-only">Configure branch details, schedule, and amenities.</DialogDescription>
         </DialogHeader>
 
+        {!existingLib && (
+          <p className="mt-2 text-[11px] uppercase tracking-widest text-muted-foreground">
+            Step {tabIndex + 1} of {TABS.length}
+          </p>
+        )}
+
         {/* Tab Navigation */}
-        <div className="flex w-full overflow-x-auto mt-4 custom-scrollbar">
-          <button
-            type="button"
-            onClick={() => setActiveTab("basic")}
-            className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 ${
-              activeTab === "basic"
-                ? "border-cyan text-cyan"
-                : "border-transparent text-muted-foreground hover:text-slate-300"
-            }`}
-          >
-            Basic & Location
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("schedule")}
-            className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 ${
-              activeTab === "schedule"
-                ? "border-cyan text-cyan"
-                : "border-transparent text-muted-foreground hover:text-slate-300"
-            }`}
-          >
-            Timings & Schedule
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("features")}
-            className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 ${
-              activeTab === "features"
-                ? "border-cyan text-cyan"
-                : "border-transparent text-muted-foreground hover:text-slate-300"
-            }`}
-          >
-            Exams & Amenities
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("photos")}
-            className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 ${
-              activeTab === "photos"
-                ? "border-cyan text-cyan"
-                : "border-transparent text-muted-foreground hover:text-slate-300"
-            }`}
-          >
-            Photos
-          </button>
+        <div className="flex w-full overflow-x-auto mt-3 custom-scrollbar">
+          {TABS.map((t) => {
+            const status = tabStatus(t);
+            const active = activeTab === t;
+            return (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setActiveTab(t)}
+                className={`flex min-h-[44px] items-center gap-2 px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 ${
+                  active ? "border-cyan text-cyan" : "border-transparent text-muted-foreground hover:text-slate-300"
+                }`}
+              >
+                {TAB_LABELS[t]}
+                {status === "done" ? (
+                  <Check className="size-3.5 text-emerald" />
+                ) : (
+                  <span
+                    className={`size-1.5 rounded-full ${status === "error" ? "bg-rose" : "bg-amber-400/80"}`}
+                    aria-hidden
+                  />
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -865,18 +980,18 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
         onSubmit={async (e) => {
           e.preventDefault();
 
-          if (!isLastTab) {
-            handleNext();
-            return;
-          }
-
           if (!orgId) {
             toast.error("Security error: Organization ID missing.");
             return;
           }
-          if (!name.trim()) {
-            toast.error("Branch name is required.");
-            setActiveTab("basic");
+
+          const errs = validate();
+          setErrors(errs);
+          const firstKey = Object.keys(errs)[0];
+          if (firstKey) {
+            setActiveTab(FIELD_TAB[firstKey] ?? "basic");
+            setTimeout(() => FIELD_REF[firstKey]?.current?.focus(), 50);
+            toast.error(errs[firstKey]);
             return;
           }
 
@@ -915,10 +1030,13 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
             toast.error(error.message);
             return;
           }
+          baselineRef.current = serialized;
+          if (dirtyRef) dirtyRef.current = false;
           toast.success(existingLib ? "Library updated successfully" : "Branch successfully created");
           onDone();
         }}
       >
+
         {activeTab === "basic" && (
           <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
             <div className="space-y-3">
