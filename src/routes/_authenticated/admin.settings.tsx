@@ -1170,9 +1170,50 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
         {activeTab === "features" && (
           <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
             <div className="space-y-3">
-              <h4 className="text-sm font-semibold border-b border-panel-border/50 pb-2">Targeted Exams</h4>
-              <div className="flex max-h-48 flex-wrap gap-2 overflow-y-auto rounded-lg border border-panel-border bg-black/20 p-4 custom-scrollbar">
-                {(exams ?? []).map((e) => {
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-panel-border/50 pb-2">
+                <h4 className="text-sm font-semibold">
+                  Targeted Exams <span className="text-muted-foreground font-normal">({selectedExams.size})</span>
+                </h4>
+                <div className="flex items-center gap-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 text-xs"
+                    onClick={() => setSelectedExams(new Set((filteredExams ?? []).map((e: any) => e.id)))}
+                  >
+                    Select all
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 text-xs"
+                    onClick={() => setSelectedExams(new Set())}
+                  >
+                    Clear
+                  </Button>
+                </div>
+              </div>
+              <div className="relative">
+                <Input
+                  value={examQuery}
+                  onChange={(e) => setExamQuery(e.target.value)}
+                  placeholder="Search exams…"
+                  className="bg-panel border-panel-border h-11 pr-9"
+                />
+                {examQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setExamQuery("")}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white"
+                  >
+                    <XIcon className="size-4" />
+                  </button>
+                )}
+              </div>
+              <div className="flex max-h-52 flex-wrap gap-2 overflow-y-auto rounded-lg border border-panel-border bg-black/20 p-4 custom-scrollbar">
+                {(filteredExams ?? []).map((e: any) => {
                   const on = selectedExams.has(e.id);
                   return (
                     <button
@@ -1184,18 +1225,24 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
                         else s.add(e.id);
                         setSelectedExams(s);
                       }}
-                      className={`rounded-full border px-3 py-1.5 text-xs transition-colors ${on ? "border-violet bg-violet/20 text-violet" : "border-panel-border bg-black/40 text-muted-foreground hover:bg-panel hover:text-white"}`}
+                      className={`rounded-full border px-3 py-2 text-xs transition-colors ${on ? "border-violet bg-violet/20 text-violet" : "border-panel-border bg-black/40 text-muted-foreground hover:bg-panel hover:text-white"}`}
                     >
                       {e.name}
                     </button>
                   );
                 })}
+                {(filteredExams ?? []).length === 0 && (
+                  <p className="text-xs text-muted-foreground">No exams match “{examQuery}”.</p>
+                )}
               </div>
             </div>
 
             <div className="space-y-3 pt-2">
-              <div className="flex items-center justify-between border-b border-panel-border/50 pb-2">
-                <h4 className="text-sm font-semibold">Facilities & Amenities</h4>
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-panel-border/50 pb-2">
+                <h4 className="text-sm font-semibold">
+                  Facilities &amp; Amenities{" "}
+                  <span className="text-muted-foreground font-normal">({amenityCount})</span>
+                </h4>
                 <Button
                   type="button"
                   variant="outline"
@@ -1207,11 +1254,28 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
                   {lang === "en" ? "Switch to Hindi" : "Switch to English"}
                 </Button>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 rounded-lg bg-black/20 p-4 border border-panel-border">
-                {Object.entries(AMENITIES_DICT).map(([key, translations]) => (
+              <div className="relative">
+                <Input
+                  value={amenityQuery}
+                  onChange={(e) => setAmenityQuery(e.target.value)}
+                  placeholder="Search amenities…"
+                  className="bg-panel border-panel-border h-11 pr-9"
+                />
+                {amenityQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setAmenityQuery("")}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white"
+                  >
+                    <XIcon className="size-4" />
+                  </button>
+                )}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 rounded-lg bg-black/20 p-4 border border-panel-border">
+                {filteredAmenities.map(([key, translations]) => (
                   <div
                     key={key}
-                    className="flex items-center justify-between gap-4 p-2 rounded-md hover:bg-black/20 transition-colors"
+                    className="flex min-h-[44px] items-center justify-between gap-4 p-2 rounded-md hover:bg-black/20 transition-colors"
                   >
                     <Label
                       className="text-sm font-normal text-slate-300 leading-tight cursor-pointer"
@@ -1226,10 +1290,14 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
                     />
                   </div>
                 ))}
+                {filteredAmenities.length === 0 && (
+                  <p className="text-xs text-muted-foreground">No amenities match “{amenityQuery}”.</p>
+                )}
               </div>
             </div>
           </div>
         )}
+
 
         {activeTab === "photos" && (
           <div className="animate-in fade-in slide-in-from-right-4">
