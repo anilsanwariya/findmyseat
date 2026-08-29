@@ -1249,36 +1249,62 @@ function LibraryFormDialog({ orgId, existingLib, onDone }: { orgId: string; exis
         )}
       </form>
 
-      {/* Footer Wizard Controls */}
-      <div className="border-t border-panel-border bg-panel p-4 flex items-center justify-between shrink-0">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={handleBack}
-          className={`text-muted-foreground hover:text-white ${tabIndex === 0 ? "invisible" : ""}`}
-        >
-          Previous
-        </Button>
-
-        {isLastTab ? (
-          <Button
-            disabled={loading}
-            type="submit"
-            form="library-form-wizard"
-            className="bg-white text-slate-900 hover:bg-white/90 font-medium px-6"
-          >
-            {loading ? "Saving..." : existingLib ? "Save All Changes" : "Complete Onboarding"}
-          </Button>
-        ) : (
+      {/* Footer Controls */}
+      <div
+        className="border-t border-panel-border bg-panel p-3 md:p-4 flex items-center justify-between gap-2 shrink-0"
+        style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+      >
+        <div className="flex items-center gap-1">
           <Button
             type="button"
-            onClick={handleNext}
-            className="bg-cyan text-cyan-950 hover:bg-cyan/90 font-medium px-8"
+            variant="ghost"
+            size="sm"
+            onClick={handleBack}
+            className={`h-11 text-muted-foreground hover:text-white ${tabIndex === 0 ? "invisible" : ""}`}
           >
-            Next Step
+            Previous
           </Button>
-        )}
+          {!isLastTab && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleNext}
+              className="h-11 text-muted-foreground hover:text-white"
+            >
+              Next
+            </Button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2">
+          {existingLib && !dirty && <span className="text-[11px] text-muted-foreground hidden sm:inline">No changes</span>}
+          {!existingLib && !isLastTab && (
+            <Button
+              type="button"
+              onClick={handleNext}
+              className="h-11 bg-cyan text-cyan-950 hover:bg-cyan/90 font-medium px-6"
+            >
+              Next Step
+            </Button>
+          )}
+          <Button
+            disabled={loading || (!!existingLib && !dirty)}
+            type="submit"
+            form="library-form-wizard"
+            className="h-11 bg-white text-slate-900 hover:bg-white/90 font-medium px-5"
+          >
+            {loading
+              ? "Saving..."
+              : existingLib
+                ? "Save changes"
+                : isLastTab
+                  ? "Complete Onboarding"
+                  : "Save & finish"}
+          </Button>
+        </div>
       </div>
+
     </DialogContent>
   );
 }
