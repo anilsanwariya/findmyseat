@@ -827,7 +827,7 @@ function LibraryFormDialog({
     phone: "basic",
     googleMapsUrl: "basic",
   };
-  const FIELD_REF: Record<string, React.RefObject<HTMLInputElement>> = {
+  const FIELD_REF: Record<string, React.RefObject<HTMLInputElement | null>> = {
     name: nameRef,
     phone: phoneRef,
     googleMapsUrl: mapsRef,
