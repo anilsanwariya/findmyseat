@@ -32,6 +32,7 @@ import { Route as AuthenticatedSuperAdminSubscriptionsRouteImport } from './rout
 import { Route as AuthenticatedSuperAdminOrganizationsRouteImport } from './routes/_authenticated/super-admin.organizations'
 import { Route as AuthenticatedSuperAdminCategoriesRouteImport } from './routes/_authenticated/super-admin.categories'
 import { Route as AuthenticatedSuperAdminApprovalsRouteImport } from './routes/_authenticated/super-admin.approvals'
+import { Route as AuthenticatedAdminTutorialRouteImport } from './routes/_authenticated/admin.tutorial'
 import { Route as AuthenticatedAdminTicketsRouteImport } from './routes/_authenticated/admin.tickets'
 import { Route as AuthenticatedAdminSubscriptionRouteImport } from './routes/_authenticated/admin.subscription'
 import { Route as AuthenticatedAdminStudentsRouteImport } from './routes/_authenticated/admin.students'
@@ -169,6 +170,12 @@ const AuthenticatedSuperAdminApprovalsRoute =
     path: '/approvals',
     getParentRoute: () => AuthenticatedSuperAdminRoute,
   } as any)
+const AuthenticatedAdminTutorialRoute =
+  AuthenticatedAdminTutorialRouteImport.update({
+    id: '/tutorial',
+    path: '/tutorial',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminTicketsRoute =
   AuthenticatedAdminTicketsRouteImport.update({
     id: '/tickets',
@@ -283,6 +290,7 @@ export interface FileRoutesByFullPath {
   '/admin/students': typeof AuthenticatedAdminStudentsRoute
   '/admin/subscription': typeof AuthenticatedAdminSubscriptionRoute
   '/admin/tickets': typeof AuthenticatedAdminTicketsRoute
+  '/admin/tutorial': typeof AuthenticatedAdminTutorialRoute
   '/super-admin/approvals': typeof AuthenticatedSuperAdminApprovalsRoute
   '/super-admin/categories': typeof AuthenticatedSuperAdminCategoriesRoute
   '/super-admin/organizations': typeof AuthenticatedSuperAdminOrganizationsRoute
@@ -320,6 +328,7 @@ export interface FileRoutesByTo {
   '/admin/students': typeof AuthenticatedAdminStudentsRoute
   '/admin/subscription': typeof AuthenticatedAdminSubscriptionRoute
   '/admin/tickets': typeof AuthenticatedAdminTicketsRoute
+  '/admin/tutorial': typeof AuthenticatedAdminTutorialRoute
   '/super-admin/approvals': typeof AuthenticatedSuperAdminApprovalsRoute
   '/super-admin/categories': typeof AuthenticatedSuperAdminCategoriesRoute
   '/super-admin/organizations': typeof AuthenticatedSuperAdminOrganizationsRoute
@@ -361,6 +370,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/students': typeof AuthenticatedAdminStudentsRoute
   '/_authenticated/admin/subscription': typeof AuthenticatedAdminSubscriptionRoute
   '/_authenticated/admin/tickets': typeof AuthenticatedAdminTicketsRoute
+  '/_authenticated/admin/tutorial': typeof AuthenticatedAdminTutorialRoute
   '/_authenticated/super-admin/approvals': typeof AuthenticatedSuperAdminApprovalsRoute
   '/_authenticated/super-admin/categories': typeof AuthenticatedSuperAdminCategoriesRoute
   '/_authenticated/super-admin/organizations': typeof AuthenticatedSuperAdminOrganizationsRoute
@@ -402,6 +412,7 @@ export interface FileRouteTypes {
     | '/admin/students'
     | '/admin/subscription'
     | '/admin/tickets'
+    | '/admin/tutorial'
     | '/super-admin/approvals'
     | '/super-admin/categories'
     | '/super-admin/organizations'
@@ -439,6 +450,7 @@ export interface FileRouteTypes {
     | '/admin/students'
     | '/admin/subscription'
     | '/admin/tickets'
+    | '/admin/tutorial'
     | '/super-admin/approvals'
     | '/super-admin/categories'
     | '/super-admin/organizations'
@@ -479,6 +491,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/students'
     | '/_authenticated/admin/subscription'
     | '/_authenticated/admin/tickets'
+    | '/_authenticated/admin/tutorial'
     | '/_authenticated/super-admin/approvals'
     | '/_authenticated/super-admin/categories'
     | '/_authenticated/super-admin/organizations'
@@ -674,6 +687,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSuperAdminApprovalsRouteImport
       parentRoute: typeof AuthenticatedSuperAdminRoute
     }
+    '/_authenticated/admin/tutorial': {
+      id: '/_authenticated/admin/tutorial'
+      path: '/tutorial'
+      fullPath: '/admin/tutorial'
+      preLoaderRoute: typeof AuthenticatedAdminTutorialRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/tickets': {
       id: '/_authenticated/admin/tickets'
       path: '/tickets'
@@ -795,6 +815,7 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminStudentsRoute: typeof AuthenticatedAdminStudentsRoute
   AuthenticatedAdminSubscriptionRoute: typeof AuthenticatedAdminSubscriptionRoute
   AuthenticatedAdminTicketsRoute: typeof AuthenticatedAdminTicketsRoute
+  AuthenticatedAdminTutorialRoute: typeof AuthenticatedAdminTutorialRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
 }
 
@@ -811,6 +832,7 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminStudentsRoute: AuthenticatedAdminStudentsRoute,
   AuthenticatedAdminSubscriptionRoute: AuthenticatedAdminSubscriptionRoute,
   AuthenticatedAdminTicketsRoute: AuthenticatedAdminTicketsRoute,
+  AuthenticatedAdminTutorialRoute: AuthenticatedAdminTutorialRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
 }
 
