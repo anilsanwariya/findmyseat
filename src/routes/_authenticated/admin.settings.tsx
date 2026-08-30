@@ -697,6 +697,66 @@ const TAB_LABELS: Record<(typeof TABS)[number], string> = {
   photos: "Photos",
 };
 
+/** Dialog wrapper that asks for confirmation before discarding unsaved changes. */
+function LibraryFormDialogGuarded({
+  open,
+  onOpenChange,
+  trigger,
+  orgId,
+  existingLib,
+  onDone,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  trigger: React.ReactNode;
+  orgId: string;
+  existingLib?: any;
+  onDone: () => void;
+}) {
+  const dirtyRef = useRef(false);
+  const [confirmClose, setConfirmClose] = useState(false);
+
+  const requestClose = (v: boolean) => {
+    if (!v && dirtyRef.current) {
+      setConfirmClose(true);
+      return;
+    }
+    onOpenChange(v);
+  };
+
+  return (
+    <>
+      <Dialog open={open} onOpenChange={requestClose}>
+        <DialogTrigger asChild>{trigger}</DialogTrigger>
+        <LibraryFormDialog orgId={orgId} existingLib={existingLib} onDone={onDone} dirtyRef={dirtyRef} />
+      </Dialog>
+      <AlertDialog open={confirmClose} onOpenChange={setConfirmClose}>
+        <AlertDialogContent className="glass-strong border-panel-border">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Discard changes?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have unsaved changes in this branch form. Closing now will lose them.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep editing</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-rose text-white hover:bg-rose/90"
+              onClick={() => {
+                dirtyRef.current = false;
+                setConfirmClose(false);
+                onOpenChange(false);
+              }}
+            >
+              Discard changes
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}
+
 function LibraryFormDialog({
   orgId,
   existingLib,
