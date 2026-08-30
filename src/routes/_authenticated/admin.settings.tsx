@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/lib/auth";
@@ -44,6 +45,7 @@ import {
   Loader2,
   ArrowRightLeft,
   MoreVertical,
+  Check,
 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import {
