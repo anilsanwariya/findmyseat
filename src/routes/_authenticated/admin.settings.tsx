@@ -280,20 +280,20 @@ function SettingsPage() {
 
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold">Branches</h2>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
+        <LibraryFormDialogGuarded
+          open={open}
+          onOpenChange={setOpen}
+          orgId={orgId}
+          trigger={
             <Button className="bg-white text-slate-900 hover:bg-white/90">
               <Plus className="mr-1 size-4" /> New branch
             </Button>
-          </DialogTrigger>
-          <LibraryFormDialog
-            orgId={orgId}
-            onDone={() => {
-              qc.invalidateQueries({ queryKey: ["libraries"] });
-              setOpen(false);
-            }}
-          />
-        </Dialog>
+          }
+          onDone={() => {
+            qc.invalidateQueries({ queryKey: ["libraries"] });
+            setOpen(false);
+          }}
+        />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -385,8 +385,12 @@ function BranchCard({ lib, onChanged, orgId }: { lib: any; onChanged: () => void
         {/* Clean Action Footer */}
         <div className="pt-3 border-t border-panel-border/50 flex items-center gap-2">
           <div className="flex-1">
-            <Dialog open={editOpen} onOpenChange={setEditOpen}>
-              <DialogTrigger asChild>
+            <LibraryFormDialogGuarded
+              open={editOpen}
+              onOpenChange={setEditOpen}
+              orgId={orgId}
+              existingLib={lib}
+              trigger={
                 <Button
                   variant="ghost"
                   size="sm"
@@ -394,16 +398,12 @@ function BranchCard({ lib, onChanged, orgId }: { lib: any; onChanged: () => void
                 >
                   <Edit2 className="size-3.5 mr-1.5" /> Manage
                 </Button>
-              </DialogTrigger>
-              <LibraryFormDialog
-                orgId={orgId}
-                existingLib={lib}
-                onDone={() => {
-                  onChanged();
-                  setEditOpen(false);
-                }}
-              />
-            </Dialog>
+              }
+              onDone={() => {
+                onChanged();
+                setEditOpen(false);
+              }}
+            />
           </div>
 
           <DropdownMenu>
