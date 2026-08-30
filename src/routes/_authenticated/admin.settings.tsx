@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/lib/auth";
@@ -17,6 +18,16 @@ import {
   DialogTrigger,
   DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -44,6 +55,7 @@ import {
   Loader2,
   ArrowRightLeft,
   MoreVertical,
+  Check,
 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -268,20 +280,20 @@ function SettingsPage() {
 
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold">Branches</h2>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
+        <LibraryFormDialogGuarded
+          open={open}
+          onOpenChange={setOpen}
+          orgId={orgId}
+          trigger={
             <Button className="bg-white text-slate-900 hover:bg-white/90">
               <Plus className="mr-1 size-4" /> New branch
             </Button>
-          </DialogTrigger>
-          <LibraryFormDialog
-            orgId={orgId}
-            onDone={() => {
-              qc.invalidateQueries({ queryKey: ["libraries"] });
-              setOpen(false);
-            }}
-          />
-        </Dialog>
+          }
+          onDone={() => {
+            qc.invalidateQueries({ queryKey: ["libraries"] });
+            setOpen(false);
+          }}
+        />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -373,8 +385,12 @@ function BranchCard({ lib, onChanged, orgId }: { lib: any; onChanged: () => void
         {/* Clean Action Footer */}
         <div className="pt-3 border-t border-panel-border/50 flex items-center gap-2">
           <div className="flex-1">
-            <Dialog open={editOpen} onOpenChange={setEditOpen}>
-              <DialogTrigger asChild>
+            <LibraryFormDialogGuarded
+              open={editOpen}
+              onOpenChange={setEditOpen}
+              orgId={orgId}
+              existingLib={lib}
+              trigger={
                 <Button
                   variant="ghost"
                   size="sm"
@@ -382,16 +398,12 @@ function BranchCard({ lib, onChanged, orgId }: { lib: any; onChanged: () => void
                 >
                   <Edit2 className="size-3.5 mr-1.5" /> Manage
                 </Button>
-              </DialogTrigger>
-              <LibraryFormDialog
-                orgId={orgId}
-                existingLib={lib}
-                onDone={() => {
-                  onChanged();
-                  setEditOpen(false);
-                }}
-              />
-            </Dialog>
+              }
+              onDone={() => {
+                onChanged();
+                setEditOpen(false);
+              }}
+            />
           </div>
 
           <DropdownMenu>
@@ -685,6 +697,66 @@ const TAB_LABELS: Record<(typeof TABS)[number], string> = {
   photos: "Photos",
 };
 
+/** Dialog wrapper that asks for confirmation before discarding unsaved changes. */
+function LibraryFormDialogGuarded({
+  open,
+  onOpenChange,
+  trigger,
+  orgId,
+  existingLib,
+  onDone,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  trigger: React.ReactNode;
+  orgId: string;
+  existingLib?: any;
+  onDone: () => void;
+}) {
+  const dirtyRef = useRef(false);
+  const [confirmClose, setConfirmClose] = useState(false);
+
+  const requestClose = (v: boolean) => {
+    if (!v && dirtyRef.current) {
+      setConfirmClose(true);
+      return;
+    }
+    onOpenChange(v);
+  };
+
+  return (
+    <>
+      <Dialog open={open} onOpenChange={requestClose}>
+        <DialogTrigger asChild>{trigger}</DialogTrigger>
+        <LibraryFormDialog orgId={orgId} existingLib={existingLib} onDone={onDone} dirtyRef={dirtyRef} />
+      </Dialog>
+      <AlertDialog open={confirmClose} onOpenChange={setConfirmClose}>
+        <AlertDialogContent className="glass-strong border-panel-border">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Discard changes?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have unsaved changes in this branch form. Closing now will lose them.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep editing</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-rose text-white hover:bg-rose/90"
+              onClick={() => {
+                dirtyRef.current = false;
+                setConfirmClose(false);
+                onOpenChange(false);
+              }}
+            >
+              Discard changes
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}
+
 function LibraryFormDialog({
   orgId,
   existingLib,
@@ -825,7 +897,7 @@ function LibraryFormDialog({
     phone: "basic",
     googleMapsUrl: "basic",
   };
-  const FIELD_REF: Record<string, React.RefObject<HTMLInputElement>> = {
+  const FIELD_REF: Record<string, React.RefObject<HTMLInputElement | null>> = {
     name: nameRef,
     phone: phoneRef,
     googleMapsUrl: mapsRef,
