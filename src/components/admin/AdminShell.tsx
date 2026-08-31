@@ -18,6 +18,8 @@ import {
   Crown,
   UserCog,
   Star,
+  GraduationCap,
+
 } from "lucide-react";
 
 import { AuroraBackground, GlassPanel } from "@/components/glass";
