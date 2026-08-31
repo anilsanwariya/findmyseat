@@ -52,7 +52,9 @@ const NAV: NavItem[] = [
   { to: "/admin/tickets", label: "Tickets", icon: LifeBuoy, perm: "manage_tickets" },
   { to: "/admin/reviews", label: "Reviews", icon: Star, ownerOnly: true },
   { to: "/admin/staff", label: "Team", icon: UserCog, ownerOnly: true },
+  { to: "/admin/tutorial", label: "Tutorial", icon: GraduationCap },
 ];
+
 
 
 export function AdminShell({ children }: { children: ReactNode }) {
