@@ -1,3 +1,4 @@
+import { invalidateBillingCaches } from "@/lib/cache";
 import { useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -163,14 +164,7 @@ export function StudentProfileDialog({ studentId, onClose }: { studentId: string
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ["student-profile", studentId] });
-    qc.invalidateQueries({ queryKey: ["student-payment-history"] });
-    qc.invalidateQueries({ queryKey: ["allocations"] });
-    qc.invalidateQueries({ queryKey: ["allocation-partials"] });
-    qc.invalidateQueries({ queryKey: ["cycle-partials"] });
-    qc.invalidateQueries({ queryKey: ["open-partial-allocs"] });
-    qc.invalidateQueries({ queryKey: ["payments-list"] });
-    qc.invalidateQueries({ queryKey: ["allocations-active"] });
-    qc.invalidateQueries({ queryKey: ["students"] });
+    invalidateBillingCaches(qc);
   };
 
   const toggleActive = async (next: boolean) => {

@@ -1,3 +1,4 @@
+import { invalidateBillingCaches } from "@/lib/cache";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -318,8 +319,10 @@ function AllocationsPage() {
   }, [currentSection, layoutData.data]);
 
   const refreshData = () => {
-    qc.invalidateQueries({ queryKey: ["allocations"] });
+    invalidateBillingCaches(qc);
     qc.invalidateQueries({ queryKey: ["layout", currentSectionId] });
+    qc.invalidateQueries({ queryKey: ["sections-for-edit"] });
+    qc.invalidateQueries({ queryKey: ["seats-for-edit"] });
   };
 
   return (

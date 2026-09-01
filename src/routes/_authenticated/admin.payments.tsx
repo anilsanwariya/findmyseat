@@ -1,3 +1,4 @@
+import { invalidateBillingCaches } from "@/lib/cache";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -321,11 +322,7 @@ function PaymentsPage() {
             <LogPaymentDialog
               initialAllocId={newAllocId}
               onDone={() => {
-                qc.invalidateQueries({ queryKey: ["payments-list"] });
-                qc.invalidateQueries({ queryKey: ["allocations"] });
-                qc.invalidateQueries({ queryKey: ["allocation-partials"] });
-                qc.invalidateQueries({ queryKey: ["cycle-partials"] });
-      qc.invalidateQueries({ queryKey: ["open-partial-allocs"] });
+                invalidateBillingCaches(qc);
                 setOpen(false);
                 clearChain();
               }}

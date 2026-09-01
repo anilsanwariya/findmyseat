@@ -1,3 +1,4 @@
+import { invalidateBillingCaches } from "@/lib/cache";
 import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -109,12 +110,7 @@ export function PaymentDetailDialog({
 
       toast.success("Payment updated.");
       qc.invalidateQueries({ queryKey: ["payment-detail", paymentId] });
-      qc.invalidateQueries({ queryKey: ["payments-list"] });
-      qc.invalidateQueries({ queryKey: ["student-payment-history"] });
-      qc.invalidateQueries({ queryKey: ["allocations"] });
-      qc.invalidateQueries({ queryKey: ["allocation-partials"] });
-      qc.invalidateQueries({ queryKey: ["cycle-partials"] });
-      qc.invalidateQueries({ queryKey: ["open-partial-allocs"] });
+      invalidateBillingCaches(qc);
       setEditing(false);
     } catch (err: any) {
       toast.error(err.message ?? "Failed to update payment");
