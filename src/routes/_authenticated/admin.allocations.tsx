@@ -318,8 +318,10 @@ function AllocationsPage() {
   }, [currentSection, layoutData.data]);
 
   const refreshData = () => {
-    qc.invalidateQueries({ queryKey: ["allocations"] });
+    invalidateBillingCaches(qc);
     qc.invalidateQueries({ queryKey: ["layout", currentSectionId] });
+    qc.invalidateQueries({ queryKey: ["sections-for-edit"] });
+    qc.invalidateQueries({ queryKey: ["seats-for-edit"] });
   };
 
   return (

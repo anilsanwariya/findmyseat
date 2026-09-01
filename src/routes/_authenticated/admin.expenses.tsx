@@ -65,7 +65,7 @@ function ExpensesPage() {
               toast.success("Expense logged");
               setAmount("");
               setDescription("");
-              qc.invalidateQueries({ queryKey: ["expenses"] });
+              invalidateExpenseCaches(qc);
             }}
           >
             <div className="space-y-2">

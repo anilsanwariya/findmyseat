@@ -321,11 +321,7 @@ function PaymentsPage() {
             <LogPaymentDialog
               initialAllocId={newAllocId}
               onDone={() => {
-                qc.invalidateQueries({ queryKey: ["payments-list"] });
-                qc.invalidateQueries({ queryKey: ["allocations"] });
-                qc.invalidateQueries({ queryKey: ["allocation-partials"] });
-                qc.invalidateQueries({ queryKey: ["cycle-partials"] });
-      qc.invalidateQueries({ queryKey: ["open-partial-allocs"] });
+                invalidateBillingCaches(qc);
                 setOpen(false);
                 clearChain();
               }}
