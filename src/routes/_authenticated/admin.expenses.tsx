@@ -1,3 +1,4 @@
+import { invalidateExpenseCaches } from "@/lib/cache";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
