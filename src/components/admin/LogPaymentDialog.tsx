@@ -183,9 +183,11 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
   useEffect(() => {
     if (!chosen || !startDate || dueTouched) return;
     // The cycle being paid for ends one month after the coverage start, unless an earlier
-    // partial payment already fixed the target end date for this cycle.
-    const cycleEnd = openTarget ?? addCalendarMonthsISO(startDate, 1);
-    setEndDate(monthsCovered > 1 ? addCalendarMonthsISO(cycleEnd, monthsCovered - 1) : cycleEnd);
+    // partial payment already fixed the target end date for this cycle. The allocation's
+    // start day is the billing anchor, so a short month never shifts the billing day forever.
+    const anchor = anchorDayOf((chosen as any).start_date);
+    const cycleEnd = openTarget ?? addCalendarMonthsISO(startDate, 1, anchor);
+    setEndDate(monthsCovered > 1 ? addCalendarMonthsISO(cycleEnd, monthsCovered - 1, anchor) : cycleEnd);
   }, [startDate, chosen, monthsCovered, dueTouched, openTarget]);
 
 
