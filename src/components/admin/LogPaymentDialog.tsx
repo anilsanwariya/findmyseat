@@ -247,7 +247,21 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
           }
           setLoading(true);
 
+          // Receipt goes up FIRST so the payment row is written once, already complete.
+          // If any later step fails we undo the earlier ones, so a mid-way failure can
+          // never leave a payment without its due-date update (or vice versa).
+          let uploadedPath: string | null = null;
           try {
+            if (!isLegacy && receiptFile) {
+              const ext = receiptFile.name.split(".").pop() ?? "jpg";
+              const path = `${orgId}/${crypto.randomUUID()}.${ext}`;
+              const { error: upErr } = await supabase.storage
+                .from("payment-receipts")
+                .upload(path, receiptFile, { upsert: true, contentType: receiptFile.type });
+              if (upErr) throw upErr;
+              uploadedPath = path;
+            }
+
             const { data: inserted, error } = await supabase
               .from("payments")
               .insert({
@@ -262,35 +276,33 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
                 covers_until: effectiveCoversUntil,
                 is_partial: !isLegacy && isPartial,
                 collected_by_staff_id: session?.staffId ?? null,
+                receipt_url: uploadedPath,
               } as any)
               .select("id")
               .single();
 
             if (error) throw error;
 
-            // Upload receipt if provided (not applicable for legacy)
-            if (!isLegacy && receiptFile && inserted) {
-              const ext = receiptFile.name.split(".").pop() ?? "jpg";
-              const path = `${orgId}/${inserted.id}.${ext}`;
-              const { error: upErr } = await supabase.storage
-                .from("payment-receipts")
-                .upload(path, receiptFile, { upsert: true, contentType: receiptFile.type });
-              if (upErr) throw upErr;
-              await supabase.from("payments").update({ receipt_url: path }).eq("id", inserted.id);
-            }
-
             // A partial payment never moves the due date — it only records money towards
             // the open cycle (whose target end is stored on the payment itself).
             const partialNow = !isLegacy && isPartial;
             const newDue = partialNow ? (chosen.next_due_date ?? null) : effectiveCoversUntil;
             const isOverdue = !!newDue && String(newDue).split("T")[0] < todayISO();
-            await supabase
+            const { error: allocErr } = await supabase
               .from("allocations")
               .update({
                 next_due_date: newDue,
                 status: partialNow ? (isOverdue ? "overdue" : "pending") : isOverdue ? "overdue" : "paid",
               })
               .eq("id", chosen.id);
+
+            if (allocErr) {
+              // Roll the payment back so the owner can safely retry the whole action.
+              await supabase.from("payments").delete().eq("id", inserted!.id);
+              uploadedPath = null;
+              throw allocErr;
+            }
+
 
 
             toast.success(
