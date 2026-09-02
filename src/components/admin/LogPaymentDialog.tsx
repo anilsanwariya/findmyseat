@@ -299,7 +299,7 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
             if (allocErr) {
               // Roll the payment back so the owner can safely retry the whole action.
               await supabase.from("payments").delete().eq("id", inserted!.id);
-              uploadedPath = null;
+              
               throw allocErr;
             }
 
