@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { Plus, Trash2, Edit2, CreditCard, Tag, Lock, Infinity as InfinityIcon } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/super-admin/subscriptions")({
+  head: () => ({ meta: [{ title: "Plans & Coupons · LibraryBandhu" }] }),
   component: SubscriptionsAdmin,
 });
 

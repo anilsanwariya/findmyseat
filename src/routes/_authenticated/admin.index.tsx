@@ -26,6 +26,7 @@ import {
 } from "@/lib/dashboard-metrics";
 
 export const Route = createFileRoute("/_authenticated/admin/")({
+  head: () => ({ meta: [{ title: "Dashboard · LibraryBandhu" }] }),
   validateSearch: (search: Record<string, unknown>): { branch?: string; month?: string } => ({
     branch: typeof search.branch === "string" ? search.branch : undefined,
     month: typeof search.month === "string" && /^\d{4}-\d{2}$/.test(search.month) ? search.month : undefined,

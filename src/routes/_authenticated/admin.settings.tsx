@@ -69,6 +69,7 @@ import { reverseGeocode } from "@/lib/geocode.functions";
 import { computeOrgState } from "@/routes/_authenticated/super-admin.organizations";
 
 export const Route = createFileRoute("/_authenticated/admin/settings")({
+  head: () => ({ meta: [{ title: "Branch Settings · LibraryBandhu" }] }),
   component: SettingsPage,
 });
 

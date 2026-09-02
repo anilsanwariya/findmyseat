@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { Pencil, Trash2, Plus } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/super-admin/categories")({
+  head: () => ({ meta: [{ title: "Exam Categories · LibraryBandhu" }] }),
   component: CategoriesPage,
 });
 

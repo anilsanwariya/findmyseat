@@ -14,6 +14,7 @@ import {
 import { getPendingLibraries, reviewLibrary, getLibraryDetailWithLog } from "@/lib/billing.functions";
 
 export const Route = createFileRoute("/_authenticated/super-admin/approvals")({
+  head: () => ({ meta: [{ title: "Approvals · LibraryBandhu" }] }),
   component: ApprovalsPage,
 });
 

@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { Receipt, Repeat } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/super-admin/")({
+  head: () => ({ meta: [{ title: "Platform Overview · LibraryBandhu" }] }),
   component: SuperAdminDashboard,
 });
 

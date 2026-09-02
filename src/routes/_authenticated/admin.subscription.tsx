@@ -24,6 +24,7 @@ import { fmtDate } from "@/lib/format";
 import { useSession } from "@/lib/auth";
 
 export const Route = createFileRoute("/_authenticated/admin/subscription")({
+  head: () => ({ meta: [{ title: "Subscription · LibraryBandhu" }] }),
   component: SubscriptionPage,
 });
 

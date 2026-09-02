@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { Edit2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/super-admin/organizations")({
+  head: () => ({ meta: [{ title: "Organizations · LibraryBandhu" }] }),
   component: OrganizationsPage,
 });
 
