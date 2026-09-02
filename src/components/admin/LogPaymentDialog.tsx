@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { inr, fmtDate, addCalendarMonthsISO } from "@/lib/format";
+import { inr, fmtDate, addCalendarMonthsISO, anchorDayOf } from "@/lib/format";
 import { Search, Upload, X } from "lucide-react";
 
 const todayISO = () => new Date().toISOString().split("T")[0];
