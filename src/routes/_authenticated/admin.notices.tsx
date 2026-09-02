@@ -15,6 +15,7 @@ import { fmtDate } from "@/lib/format";
 import { Megaphone, Trash2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/notices")({
+  head: () => ({ meta: [{ title: "Notices · LibraryBandhu" }] }),
   component: NoticesPage,
 });
 

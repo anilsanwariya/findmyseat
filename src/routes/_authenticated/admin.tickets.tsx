@@ -11,6 +11,7 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/admin/tickets")({
+  head: () => ({ meta: [{ title: "Support Tickets · LibraryBandhu" }] }),
   component: TicketsPage,
 });
 

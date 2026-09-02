@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { inr, fmtDate } from "@/lib/format";
 
 export const Route = createFileRoute("/_authenticated/admin/expenses")({
+  head: () => ({ meta: [{ title: "Expenses · LibraryBandhu" }] }),
   component: ExpensesPage,
 });
 

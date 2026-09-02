@@ -48,6 +48,7 @@ import {
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/student")({
+  head: () => ({ meta: [{ title: "My Study Space · LibraryBandhu" }] }),
   component: StudentApp,
 });
 

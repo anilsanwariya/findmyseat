@@ -22,6 +22,7 @@ import { ViewToggle, useDataView } from "@/components/admin/ViewToggle";
 
 
 export const Route = createFileRoute("/_authenticated/admin/students")({
+  head: () => ({ meta: [{ title: "Students · LibraryBandhu" }] }),
   component: StudentsPage,
 });
 

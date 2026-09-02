@@ -40,6 +40,7 @@ import {
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/allocations")({
+  head: () => ({ meta: [{ title: "Allocations · LibraryBandhu" }] }),
   validateSearch: (search: Record<string, unknown>) => ({
     newStudentId: typeof search.newStudentId === "string" ? search.newStudentId : undefined,
     newStudentName: typeof search.newStudentName === "string" ? search.newStudentName : undefined,

@@ -66,6 +66,7 @@ import {
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/layout-builder")({
+  head: () => ({ meta: [{ title: "Layout Builder · LibraryBandhu" }] }),
   component: LayoutBuilderPage,
 });
 

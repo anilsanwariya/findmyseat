@@ -67,6 +67,7 @@ function SummaryChip({
 }
 
 export const Route = createFileRoute("/_authenticated/admin/payments")({
+  head: () => ({ meta: [{ title: "Payments · LibraryBandhu" }] }),
   validateSearch: (search: Record<string, unknown>) => ({
     newAllocId: typeof search.newAllocId === "string" ? search.newAllocId : undefined,
     method: typeof search.method === "string" ? search.method : undefined,

@@ -10,6 +10,7 @@ import { Star, MessageSquare } from "lucide-react";
 import { StarRating, StarBar } from "@/components/RatingStars";
 
 export const Route = createFileRoute("/_authenticated/admin/reviews")({
+  head: () => ({ meta: [{ title: "Reviews · LibraryBandhu" }] }),
   component: ReviewsPage,
   errorComponent: ({ error }) => <div className="p-6 text-rose">{error.message}</div>,
   notFoundComponent: () => <div className="p-6">Not found</div>,

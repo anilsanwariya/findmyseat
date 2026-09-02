@@ -9,6 +9,7 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/_authenticated/super-admin/transfers")({
+  head: () => ({ meta: [{ title: "Transfer Requests · LibraryBandhu" }] }),
   component: TransfersPage,
 });
 

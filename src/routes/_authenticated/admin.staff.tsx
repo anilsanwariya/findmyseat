@@ -30,6 +30,7 @@ import {
 } from "@/lib/staff.functions";
 
 export const Route = createFileRoute("/_authenticated/admin/staff")({
+  head: () => ({ meta: [{ title: "Staff · LibraryBandhu" }] }),
   component: StaffPage,
 });
 
