@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { inr, fmtDate, addCalendarMonthsISO } from "@/lib/format";
+import { inr, fmtDate, addCalendarMonthsISO, anchorDayOf } from "@/lib/format";
 import { Search, Upload, X } from "lucide-react";
 
 const todayISO = () => new Date().toISOString().split("T")[0];
@@ -183,9 +183,11 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
   useEffect(() => {
     if (!chosen || !startDate || dueTouched) return;
     // The cycle being paid for ends one month after the coverage start, unless an earlier
-    // partial payment already fixed the target end date for this cycle.
-    const cycleEnd = openTarget ?? addCalendarMonthsISO(startDate, 1);
-    setEndDate(monthsCovered > 1 ? addCalendarMonthsISO(cycleEnd, monthsCovered - 1) : cycleEnd);
+    // partial payment already fixed the target end date for this cycle. The allocation's
+    // start day is the billing anchor, so a short month never shifts the billing day forever.
+    const anchor = anchorDayOf((chosen as any).start_date);
+    const cycleEnd = openTarget ?? addCalendarMonthsISO(startDate, 1, anchor);
+    setEndDate(monthsCovered > 1 ? addCalendarMonthsISO(cycleEnd, monthsCovered - 1, anchor) : cycleEnd);
   }, [startDate, chosen, monthsCovered, dueTouched, openTarget]);
 
 
@@ -245,7 +247,21 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
           }
           setLoading(true);
 
+          // Receipt goes up FIRST so the payment row is written once, already complete.
+          // If any later step fails we undo the earlier ones, so a mid-way failure can
+          // never leave a payment without its due-date update (or vice versa).
+          let uploadedPath: string | null = null;
           try {
+            if (!isLegacy && receiptFile) {
+              const ext = receiptFile.name.split(".").pop() ?? "jpg";
+              const path = `${orgId}/${crypto.randomUUID()}.${ext}`;
+              const { error: upErr } = await supabase.storage
+                .from("payment-receipts")
+                .upload(path, receiptFile, { upsert: true, contentType: receiptFile.type });
+              if (upErr) throw upErr;
+              uploadedPath = path;
+            }
+
             const { data: inserted, error } = await supabase
               .from("payments")
               .insert({
@@ -260,35 +276,33 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
                 covers_until: effectiveCoversUntil,
                 is_partial: !isLegacy && isPartial,
                 collected_by_staff_id: session?.staffId ?? null,
+                receipt_url: uploadedPath,
               } as any)
               .select("id")
               .single();
 
             if (error) throw error;
 
-            // Upload receipt if provided (not applicable for legacy)
-            if (!isLegacy && receiptFile && inserted) {
-              const ext = receiptFile.name.split(".").pop() ?? "jpg";
-              const path = `${orgId}/${inserted.id}.${ext}`;
-              const { error: upErr } = await supabase.storage
-                .from("payment-receipts")
-                .upload(path, receiptFile, { upsert: true, contentType: receiptFile.type });
-              if (upErr) throw upErr;
-              await supabase.from("payments").update({ receipt_url: path }).eq("id", inserted.id);
-            }
-
             // A partial payment never moves the due date — it only records money towards
             // the open cycle (whose target end is stored on the payment itself).
             const partialNow = !isLegacy && isPartial;
             const newDue = partialNow ? (chosen.next_due_date ?? null) : effectiveCoversUntil;
             const isOverdue = !!newDue && String(newDue).split("T")[0] < todayISO();
-            await supabase
+            const { error: allocErr } = await supabase
               .from("allocations")
               .update({
                 next_due_date: newDue,
                 status: partialNow ? (isOverdue ? "overdue" : "pending") : isOverdue ? "overdue" : "paid",
               })
               .eq("id", chosen.id);
+
+            if (allocErr) {
+              // Roll the payment back so the owner can safely retry the whole action.
+              await supabase.from("payments").delete().eq("id", inserted!.id);
+              
+              throw allocErr;
+            }
+
 
 
             toast.success(
@@ -301,9 +315,11 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
                     : "Payment logged successfully.",
             );
 
-
+            uploadedPath = null; // committed — keep the receipt
             onDone();
           } catch (err: any) {
+            // Nothing partial is left behind: drop an orphaned receipt file.
+            if (uploadedPath) await supabase.storage.from("payment-receipts").remove([uploadedPath]);
             toast.error(err.message ?? "Failed to log payment");
           } finally {
             setLoading(false);
