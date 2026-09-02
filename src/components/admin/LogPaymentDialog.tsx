@@ -315,9 +315,11 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
                     : "Payment logged successfully.",
             );
 
-
+            uploadedPath = null; // committed — keep the receipt
             onDone();
           } catch (err: any) {
+            // Nothing partial is left behind: drop an orphaned receipt file.
+            if (uploadedPath) await supabase.storage.from("payment-receipts").remove([uploadedPath]);
             toast.error(err.message ?? "Failed to log payment");
           } finally {
             setLoading(false);
