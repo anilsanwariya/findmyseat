@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
 import { Pencil, Trash2, Plus } from "lucide-react";
+import { useConfirm } from "@/components/ConfirmDialog";
 
 export const Route = createFileRoute("/_authenticated/super-admin/categories")({
   head: () => ({ meta: [{ title: "Exam Categories · LibraryBandhu" }] }),
@@ -28,6 +29,7 @@ function CategoriesPage() {
 }
 
 function CategoryManager() {
+  const confirmAction = useConfirm();
   const qc = useQueryClient();
   const [name, setName] = useState("");
   const [editing, setEditing] = useState<MasterCategory | null>(null);
@@ -157,8 +159,15 @@ function CategoryManager() {
                       <Button
                         size="icon"
                         variant="ghost"
-                        onClick={() => {
-                          if (confirm(`Delete "${c.name}" category?`)) remove.mutate(c.id);
+                        onClick={async () => {
+                          if (
+                            await confirmAction({
+                              title: `Delete "${c.name}" category?`,
+                              confirmLabel: "Delete category",
+                              destructive: true,
+                            })
+                          )
+                            remove.mutate(c.id);
                         }}
                       >
                         <Trash2 className="size-3.5 text-rose" />

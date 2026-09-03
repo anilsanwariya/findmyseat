@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { fmtDate } from "@/lib/format";
 import { Plus, Pencil, UserX, UserCheck, Trash2, KeyRound, Mail, ShieldOff } from "lucide-react";
 import {
+import { useConfirm } from "@/components/ConfirmDialog";
   listStaff,
   createStaff,
   updateStaff,
@@ -55,6 +56,7 @@ const DEFAULT_PERMS = {
 };
 
 function StaffPage() {
+  const confirmAction = useConfirm();
   const { data: session } = useSession();
   const isStaff = !!session?.isStaff;
   const qc = useQueryClient();
@@ -186,7 +188,15 @@ function StaffPage() {
                         variant="ghost"
                         className="text-rose"
                         onClick={async () => {
-                          if (!confirm(`Permanently delete ${s.full_name}? This cannot be undone.`)) return;
+                          if (
+                            !(await confirmAction({
+                              title: `Delete ${s.full_name}?`,
+                              description: "This permanently removes the staff account and its access. This cannot be undone.",
+                              confirmLabel: "Delete staff",
+                              destructive: true,
+                            }))
+                          )
+                            return;
                           try {
                             await remove({ data: { staff_id: s.id } });
                             toast.success("Staff removed");

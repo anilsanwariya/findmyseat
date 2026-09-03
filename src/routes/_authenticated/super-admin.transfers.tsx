@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { ArrowRightLeft, CheckCircle2, XCircle, Eye, Mail, Phone, User, Building2 } from "lucide-react";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { useConfirm } from "@/components/ConfirmDialog";
 
 export const Route = createFileRoute("/_authenticated/super-admin/transfers")({
   head: () => ({ meta: [{ title: "Transfer Requests · LibraryBandhu" }] }),
@@ -23,6 +24,7 @@ function TransfersPage() {
 }
 
 function PendingTransfers() {
+  const confirmAction = useConfirm();
   const qc = useQueryClient();
   const [busy, setBusy] = useState<string | null>(null);
   const [details, setDetails] = useState<any | null>(null);
@@ -58,7 +60,14 @@ function PendingTransfers() {
   });
 
   async function completeTransfer(row: any) {
-    if (!confirm(`Complete transfer of "${row.libraries?.name}" to ${row.buyer_email}?`)) return;
+    if (
+      !(await confirmAction({
+        title: "Complete this transfer?",
+        description: `Ownership of "${row.libraries?.name}" moves to ${row.buyer_email}.`,
+        confirmLabel: "Complete transfer",
+      }))
+    )
+      return;
     setBusy(row.id);
     try {
       const { data: newOrgId, error: findErr } = await sb.rpc("find_org_by_email", { _email: row.buyer_email });

@@ -67,6 +67,7 @@ import {
 } from "@/lib/libraries.functions";
 import { reverseGeocode } from "@/lib/geocode.functions";
 import { computeOrgState } from "@/routes/_authenticated/super-admin.organizations";
+import { useConfirm } from "@/components/ConfirmDialog";
 
 export const Route = createFileRoute("/_authenticated/admin/settings")({
   head: () => ({ meta: [{ title: "Branch Settings · LibraryBandhu" }] }),
@@ -467,6 +468,7 @@ function BranchCard({ lib, onChanged, orgId }: { lib: any; onChanged: () => void
 // Core View Component for Photo Management (embedded in the tab)
 // -----------------------------------------------------------------------------
 function PhotoManagerView({ lib }: { lib: any }) {
+  const confirmAction = useConfirm();
   const qc = useQueryClient();
   const [uploading, setUploading] = useState(false);
   const [section, setSection] = useState("Overview");
@@ -657,7 +659,15 @@ function PhotoManagerView({ lib }: { lib: any }) {
                     <button
                       type="button"
                       onClick={async () => {
-                        if (!confirm("Delete this photo?")) return;
+                        if (
+                          !(await confirmAction({
+                            title: "Delete this photo?",
+                            description: "It will be removed from your branch gallery and the marketplace listing.",
+                            confirmLabel: "Delete photo",
+                            destructive: true,
+                          }))
+                        )
+                          return;
                         try {
                           await deleteFn({ data: { photo_id: p.id } });
                           toast.success("Photo removed");
