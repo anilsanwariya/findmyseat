@@ -10,6 +10,7 @@ import {
 import { useEffect, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Toaster } from "@/components/ui/sonner";
+import { ConfirmProvider } from "@/components/ConfirmDialog";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -116,7 +117,9 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <Outlet />
+      <ConfirmProvider>
+        <Outlet />
+      </ConfirmProvider>
       <Toaster theme="dark" position="top-right" />
     </QueryClientProvider>
   );
