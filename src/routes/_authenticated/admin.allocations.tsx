@@ -21,6 +21,7 @@ import { ViewToggle, useDataView } from "@/components/admin/ViewToggle";
 import { ZoomPanViewport } from "@/components/admin/ZoomPanViewport";
 
 import {
+import { useConfirm } from "@/components/ConfirmDialog";
   Plus,
   ArrowUp,
   ArrowDown,
@@ -854,7 +855,15 @@ function AllocationsPage() {
                 <Button
                   variant="outline"
                   onClick={async () => {
-                    if (!confirm("Are you sure you want to remove this student and vacate the seat?")) return;
+                    if (
+                      !(await confirmAction({
+                        title: "Vacate this seat?",
+                        description: "The student will be removed from this seat. Their payment history stays intact.",
+                        confirmLabel: "Vacate seat",
+                        destructive: true,
+                      }))
+                    )
+                      return;
                     const { error } = await supabase
                       .from("allocations")
                       .update({ is_active: false })

@@ -22,6 +22,7 @@ import {
 import { loadRazorpayScript } from "@/lib/razorpay";
 import { fmtDate } from "@/lib/format";
 import { useSession } from "@/lib/auth";
+import { useConfirm } from "@/components/ConfirmDialog";
 
 export const Route = createFileRoute("/_authenticated/admin/subscription")({
   head: () => ({ meta: [{ title: "Subscription · LibraryBandhu" }] }),
@@ -234,8 +235,16 @@ function SubscriptionPageInner() {
             <Button
               variant="outline"
               className="border-rose/40 text-rose hover:bg-rose/10"
-              onClick={() => {
-                if (confirm("Cancel at end of current period?")) cancel.mutate();
+              onClick={async () => {
+                if (
+                  await confirmAction({
+                    title: "Cancel subscription?",
+                    description: "Your plan stays active until the end of the current billing period, then it won't renew.",
+                    confirmLabel: "Cancel subscription",
+                    destructive: true,
+                  })
+                )
+                  cancel.mutate();
               }}
               disabled={cancel.isPending}
             >

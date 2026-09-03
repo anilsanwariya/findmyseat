@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogT
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Plus, Trash2, Edit2, CreditCard, Tag, Lock, Infinity as InfinityIcon } from "lucide-react";
+import { useConfirm } from "@/components/ConfirmDialog";
 
 export const Route = createFileRoute("/_authenticated/super-admin/subscriptions")({
   head: () => ({ meta: [{ title: "Plans & Coupons · LibraryBandhu" }] }),
@@ -244,7 +245,7 @@ function CouponsSection() {
               <TableCell className="text-muted-foreground">{c.current_uses ?? 0} / {c.max_uses ?? "∞"}</TableCell>
               <TableCell className="text-xs text-muted-foreground">{c.valid_until ? new Date(c.valid_until).toLocaleDateString() : "Never"}</TableCell>
               <TableCell><Switch checked={c.is_active} onCheckedChange={async (v) => { await supabase.from("discount_coupons").update({ is_active: v }).eq("id", c.id); qc.invalidateQueries({ queryKey: ["super-admin", "coupons-full"] }); }} /></TableCell>
-              <TableCell className="text-right"><Button variant="ghost" size="icon" onClick={() => { if (confirm(`Delete ${c.code}?`)) del.mutate(c.id); }}><Trash2 className="size-4 text-rose" /></Button></TableCell>
+              <TableCell className="text-right"><Button variant="ghost" size="icon" onClick={async () => { if (await confirmAction({ title: `Delete coupon ${c.code}?`, description: "This coupon will stop working immediately.", confirmLabel: "Delete coupon", destructive: true })) del.mutate(c.id); }}><Trash2 className="size-4 text-rose" /></Button></TableCell>
             </TableRow>
           )) : <TableRow><TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">No coupons yet.</TableCell></TableRow>}
         </TableBody>

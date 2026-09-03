@@ -20,6 +20,7 @@ import { Logo } from "@/components/Logo";
 import { Star } from "lucide-react";
 
 import {
+import { useConfirm } from "@/components/ConfirmDialog";
   LogOut,
   KeyRound,
   Megaphone,
@@ -371,7 +372,14 @@ function StudentApp() {
                     </div>
                     <button
                       onClick={async () => {
-                        if (!confirm(`Remove ${a.libraries?.name} from your dashboard? You can rejoin any time.`))
+                        if (
+                          !(await confirmAction({
+                            title: `Remove ${a.libraries?.name}?`,
+                            description: "It moves to your history. You can rejoin any time.",
+                            confirmLabel: "Move to history",
+                            destructive: true,
+                          }))
+                        )
                           return;
                         try {
                           await archiveAllocation({ data: { allocation_id: a.id, archived: true } });
