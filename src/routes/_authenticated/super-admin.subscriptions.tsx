@@ -192,6 +192,7 @@ function PlanPriceDialog({ initial, onSubmit, pending }: { initial: any; onSubmi
 }
 
 function CouponsSection() {
+  const confirmAction = useConfirm();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const coupons = useQuery({

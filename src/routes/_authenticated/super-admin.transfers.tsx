@@ -24,6 +24,7 @@ function TransfersPage() {
 }
 
 function PendingTransfers() {
+  const confirmAction = useConfirm();
   const qc = useQueryClient();
   const [busy, setBusy] = useState<string | null>(null);
   const [details, setDetails] = useState<any | null>(null);

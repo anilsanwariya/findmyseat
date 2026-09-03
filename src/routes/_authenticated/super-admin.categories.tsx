@@ -29,6 +29,7 @@ function CategoriesPage() {
 }
 
 function CategoryManager() {
+  const confirmAction = useConfirm();
   const qc = useQueryClient();
   const [name, setName] = useState("");
   const [editing, setEditing] = useState<MasterCategory | null>(null);

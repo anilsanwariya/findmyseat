@@ -56,6 +56,7 @@ const DEFAULT_PERMS = {
 };
 
 function StaffPage() {
+  const confirmAction = useConfirm();
   const { data: session } = useSession();
   const isStaff = !!session?.isStaff;
   const qc = useQueryClient();

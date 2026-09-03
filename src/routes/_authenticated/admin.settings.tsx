@@ -468,6 +468,7 @@ function BranchCard({ lib, onChanged, orgId }: { lib: any; onChanged: () => void
 // Core View Component for Photo Management (embedded in the tab)
 // -----------------------------------------------------------------------------
 function PhotoManagerView({ lib }: { lib: any }) {
+  const confirmAction = useConfirm();
   const qc = useQueryClient();
   const [uploading, setUploading] = useState(false);
   const [section, setSection] = useState("Overview");

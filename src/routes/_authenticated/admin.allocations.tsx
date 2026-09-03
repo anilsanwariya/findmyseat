@@ -103,6 +103,7 @@ const statusText = (st: string) =>
   st === "paid" ? "text-emerald" : st === "overdue" ? "text-rose" : st === "partial" ? "text-cyan" : "text-amber-400";
 
 function AllocationsPage() {
+  const confirmAction = useConfirm();
   const { data: session } = useSession();
   const orgId = session?.orgId;
   const { data: libs } = useLibraries();

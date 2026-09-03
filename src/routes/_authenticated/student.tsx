@@ -75,6 +75,7 @@ const OBJ_META: Record<string, { icon: any; label: string; color: string }> = {
 };
 
 function StudentApp() {
+  const confirmAction = useConfirm();
   const { data: session, isLoading } = useSession();
   const navigate = useNavigate();
   const qc = useQueryClient();

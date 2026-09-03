@@ -46,6 +46,7 @@ function SubscriptionPage() {
 }
 
 function SubscriptionPageInner() {
+  const confirmAction = useConfirm();
   const qc = useQueryClient();
   const getBilling = useServerFn(getOwnerBilling);
   const createSub = useServerFn(createOwnerSubscription);
