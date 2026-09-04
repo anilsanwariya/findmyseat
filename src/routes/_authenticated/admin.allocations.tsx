@@ -1,7 +1,7 @@
 import { invalidateBillingCaches } from "@/lib/cache";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/lib/auth";
 import { useLibraries } from "@/lib/data";
@@ -19,6 +19,7 @@ import { EditAllocationDialog } from "@/components/admin/EditAllocationDialog";
 import { classifyShiftByName } from "@/lib/shift-utils";
 import { ViewToggle, useDataView } from "@/components/admin/ViewToggle";
 import { ZoomPanViewport } from "@/components/admin/ZoomPanViewport";
+import { Skeleton } from "@/components/ui/skeleton";
 
 import {
   Plus,
@@ -140,6 +141,8 @@ function AllocationsPage() {
   const sectionsQ = useQuery({
     queryKey: ["sections", currentLibId],
     enabled: !!currentLibId,
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
     queryFn: async () => {
       const { data } = await supabase.from("sections").select("*").eq("library_id", currentLibId!).order("created_at");
       return data ?? [];
@@ -153,6 +156,8 @@ function AllocationsPage() {
   const allocations = useQuery({
     queryKey: ["allocations", orgId, currentLibId],
     enabled: !!orgId && !!currentLibId,
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
     queryFn: async () => {
       const { data } = await supabase
         .from("allocations")
@@ -174,6 +179,8 @@ function AllocationsPage() {
   const partials = useQuery({
     queryKey: ["allocation-partials", orgId, currentLibId],
     enabled: !!orgId && !!currentLibId,
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
     queryFn: async () => {
       const { data } = await (supabase as any)
         .from("payments")
@@ -238,6 +245,8 @@ function AllocationsPage() {
   const layoutData = useQuery({
     queryKey: ["layout", currentSectionId],
     enabled: !!currentSectionId,
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
     queryFn: async () => {
       const [seats, objs] = await Promise.all([
         supabase.from("seats").select("*").eq("section_id", currentSectionId!),
@@ -405,6 +414,9 @@ function AllocationsPage() {
             <div className="text-xs text-muted-foreground">Click a seat to manage</div>
           </div>
 
+          {layoutData.isPending ? (
+            <Skeleton className="h-64 w-full bg-white/5" />
+          ) : (
           <ZoomPanViewport
             contentWidth={currentSection.grid_cols * 44 + (currentSection.grid_cols - 1) * 8}
             contentHeight={currentSection.grid_rows * 44 + (currentSection.grid_rows - 1) * 8}
@@ -530,6 +542,7 @@ function AllocationsPage() {
               })}
             </div>
           </ZoomPanViewport>
+          )}
 
         </GlassPanel>
       )}
@@ -641,7 +654,11 @@ function AllocationsPage() {
                 </div>
               );
             })}
-            {filteredAllocations.length === 0 && (
+            {allocations.isPending &&
+              Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} className="h-28 w-full rounded-xl bg-white/5" />
+              ))}
+            {!allocations.isPending && filteredAllocations.length === 0 && (
               <p className="col-span-full py-8 text-center text-sm text-muted-foreground">
                 No active allocations found matching your filters.
               </p>
@@ -704,7 +721,15 @@ function AllocationsPage() {
                     </td>
                   </tr>
                 ))}
-                {filteredAllocations.length === 0 && (
+                {allocations.isPending &&
+                  Array.from({ length: 6 }).map((_, i) => (
+                    <tr key={i}>
+                      <td colSpan={7} className="py-2 px-2">
+                        <Skeleton className="h-8 w-full bg-white/5" />
+                      </td>
+                    </tr>
+                  ))}
+                {!allocations.isPending && filteredAllocations.length === 0 && (
                   <tr>
                     <td colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
                       No active allocations found matching your filters.
