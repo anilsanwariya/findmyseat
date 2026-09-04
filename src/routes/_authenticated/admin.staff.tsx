@@ -21,7 +21,6 @@ import { toast } from "sonner";
 import { fmtDate } from "@/lib/format";
 import { Plus, Pencil, UserX, UserCheck, Trash2, KeyRound, Mail, ShieldOff } from "lucide-react";
 import {
-import { useConfirm } from "@/components/ConfirmDialog";
   listStaff,
   createStaff,
   updateStaff,
@@ -29,6 +28,7 @@ import { useConfirm } from "@/components/ConfirmDialog";
   deleteStaff,
   resetStaffPassword,
 } from "@/lib/staff.functions";
+import { useConfirm } from "@/components/ConfirmDialog";
 
 export const Route = createFileRoute("/_authenticated/admin/staff")({
   head: () => ({ meta: [{ title: "Staff · LibraryBandhu" }] }),

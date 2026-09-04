@@ -21,7 +21,6 @@ import { ViewToggle, useDataView } from "@/components/admin/ViewToggle";
 import { ZoomPanViewport } from "@/components/admin/ZoomPanViewport";
 
 import {
-import { useConfirm } from "@/components/ConfirmDialog";
   Plus,
   ArrowUp,
   ArrowDown,
@@ -39,6 +38,7 @@ import { useConfirm } from "@/components/ConfirmDialog";
   Search,
   X,
 } from "lucide-react";
+import { useConfirm } from "@/components/ConfirmDialog";
 
 export const Route = createFileRoute("/_authenticated/admin/allocations")({
   head: () => ({ meta: [{ title: "Allocations · LibraryBandhu" }] }),
