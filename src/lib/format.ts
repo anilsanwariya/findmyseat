@@ -27,7 +27,11 @@ export const toISODate = (d: Date) => d.toISOString().slice(0, 10);
 export const addCalendarMonthsISO = (iso: string, months: number, anchorDay?: number | null) => {
   const [y, m, d] = iso.split("T")[0].split("-").map(Number);
   if (!y || !m || !d) return iso;
-  const anchor = anchorDay && anchorDay >= 1 && anchorDay <= 31 ? Math.max(anchorDay, d) : d;
+  // The anchor only RESTORES a day that a short month clamped away (31 Jan -> 28 Feb -> 31 Mar).
+  // It must never push the date past the day we are counting from.
+  const daysInSource = new Date(y, m, 0).getDate();
+  const wasClamped = !!anchorDay && d === daysInSource && d < anchorDay;
+  const anchor = wasClamped ? Math.min(anchorDay!, 31) : d;
   const targetMonthIndex = m - 1 + months;
   const targetYear = y + Math.floor(targetMonthIndex / 12);
   const targetMonth = ((targetMonthIndex % 12) + 12) % 12;
