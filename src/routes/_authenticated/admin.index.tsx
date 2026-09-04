@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/lib/auth";
@@ -11,6 +11,7 @@ import { TrendCharts, type TrendPoint } from "@/components/admin/dashboard/Trend
 import { ActionList, type ActionStudent } from "@/components/admin/dashboard/ActionList";
 import { BranchComparison, type BranchRow } from "@/components/admin/dashboard/BranchComparison";
 import { StudentProfileDialog } from "@/components/admin/StudentProfileDialog";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   buildPaidOpen,
   dayOnly,
@@ -65,6 +66,8 @@ function Dashboard() {
   const money = useQuery({
     queryKey: ["dash-money", orgId, scope, windowStart, windowEnd],
     enabled: !!orgId,
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
     queryFn: async () => {
       let payQ = supabase
         .from("payments")
@@ -93,6 +96,8 @@ function Dashboard() {
   const alloc = useQuery({
     queryKey: ["dash-allocs", orgId, scope],
     enabled: !!orgId,
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
     queryFn: async () => {
       let q = supabase
         .from("allocations")
@@ -120,6 +125,8 @@ function Dashboard() {
   const ops = useQuery({
     queryKey: ["dash-ops", orgId, scope],
     enabled: !!orgId,
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
     queryFn: async () => {
       const scoped = <T,>(q: T): T => (scope ? (q as any).eq("library_id", scope) : q);
       const [students, seats, leads, tickets] = await Promise.all([
@@ -259,6 +266,8 @@ function Dashboard() {
   const recentPayments = useQuery({
     queryKey: ["recent-payments", orgId, scope],
     enabled: !!orgId,
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
     queryFn: async () => {
       let q = supabase
         .from("payments")
@@ -274,6 +283,8 @@ function Dashboard() {
 
   const setSearch = (patch: { branch?: string; month?: string }) =>
     navigate({ search: (prev: any) => ({ ...prev, ...patch }), replace: true });
+
+  const loading = money.isPending || alloc.isPending || ops.isPending;
 
   const selectCls =
     "h-10 min-w-0 flex-1 rounded-lg border border-panel-border bg-panel px-3 text-sm sm:h-9 sm:flex-none";
@@ -316,6 +327,17 @@ function Dashboard() {
         </select>
       </div>
 
+      {loading ? (
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-6">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <GlassPanel key={i} className="p-4 sm:p-5">
+              <Skeleton className="h-3 w-24 bg-white/10" />
+              <Skeleton className="mt-3 h-7 w-20 bg-white/10" />
+              <Skeleton className="mt-2 h-2.5 w-28 bg-white/5" />
+            </GlassPanel>
+          ))}
+        </div>
+      ) : (
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-6">
         <StatCard
           label="Expected revenue"
@@ -329,11 +351,27 @@ function Dashboard() {
         <StatCard label="Expenditures" value={inr(sel.expenses)} tone="magenta" />
         <StatCard label="Net profit" value={inr(sel.collected - sel.expenses)} tone="emerald" />
       </div>
+      )}
 
-      <TrendCharts data={trend} selected={selMonth} />
+      {loading ? (
+        <GlassPanel className="p-4 sm:p-5">
+          <Skeleton className="h-3 w-32 bg-white/10" />
+          <Skeleton className="mt-4 h-48 w-full bg-white/5" />
+        </GlassPanel>
+      ) : (
+        <TrendCharts data={trend} selected={selMonth} />
+      )}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
+          {loading ? (
+            <GlassPanel className="p-4 sm:p-5 space-y-3">
+              <Skeleton className="h-3 w-40 bg-white/10" />
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton key={i} className="h-12 w-full bg-white/5" />
+              ))}
+            </GlassPanel>
+          ) : (
           <ActionList
             overdue={overdueRows}
             partial={partialRows}
@@ -342,6 +380,7 @@ function Dashboard() {
             openTickets={ops.data?.openTickets ?? 0}
             onOpenStudent={setProfileId}
           />
+          )}
         </div>
 
         <GlassPanel className="p-4 sm:p-5">
@@ -349,7 +388,13 @@ function Dashboard() {
             <h3 className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Recent payments</h3>
             <span className="text-xs text-muted-foreground">Last 5</span>
           </div>
-          {(recentPayments.data ?? []).length === 0 ? (
+          {recentPayments.isPending ? (
+            <div className="space-y-3">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton key={i} className="h-10 w-full bg-white/5" />
+              ))}
+            </div>
+          ) : (recentPayments.data ?? []).length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">No payments logged yet.</p>
           ) : (
             <div className="divide-y divide-panel-border">
