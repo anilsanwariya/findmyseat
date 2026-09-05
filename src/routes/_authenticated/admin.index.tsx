@@ -71,7 +71,7 @@ function Dashboard() {
     queryFn: async () => {
       let payQ = supabase
         .from("payments")
-        .select("amount_paid, payment_date, library_id")
+        .select("amount_paid, payment_date, covers_until, library_id")
         .eq("org_id", orgId!)
         .gte("payment_date", windowStart)
         .lte("payment_date", windowEnd);
