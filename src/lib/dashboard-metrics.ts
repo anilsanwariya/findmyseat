@@ -28,6 +28,24 @@ export function recentMonths(from: Date, count: number) {
 
 export const dayOnly = (v: string | null | undefined) => (v ? String(v).split("T")[0] : null);
 
+/** Shift an ISO day by whole months, clamping to the end of shorter months. */
+export function addMonthsISO(iso: string, n: number) {
+  const [y, m, d] = iso.split("-").map(Number);
+  const target = new Date(y, m - 1 + n, 1);
+  const lastDay = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+  return localISO(new Date(target.getFullYear(), target.getMonth(), Math.min(d, lastDay)));
+}
+
+/**
+ * Which billing cycle a payment belongs to. Coverage runs to `covers_until`,
+ * so the cycle it pays for starts roughly a month earlier.
+ */
+export function cycleMonthOf(coversUntil: string | null | undefined, paymentDate: string) {
+  const cov = dayOnly(coversUntil);
+  if (!cov) return dayOnly(paymentDate)!.slice(0, 7);
+  return addMonthsISO(cov, -1).slice(0, 7);
+}
+
 export interface AllocRow {
   id: string;
   library_id: string;
@@ -43,6 +61,7 @@ export interface AllocRow {
 export interface PaymentRow {
   amount_paid: number | string;
   payment_date: string;
+  covers_until?: string | null;
   library_id: string | null;
 }
 
@@ -53,20 +72,26 @@ export interface CoverageRow {
 }
 
 /**
- * Money already collected toward a cycle that is still open — a payment whose
- * coverage target runs past the allocation's current due date is a part payment.
+ * Money already collected toward the cycle that is still open. A payment counts
+ * only when its coverage lands inside the open cycle (due date → next due date);
+ * anything reaching beyond that is a prepayment of future cycles, not a part
+ * payment of the current one.
  */
 export function buildPaidOpen(allocs: AllocRow[], coverage: CoverageRow[]) {
   const dueByAlloc = new Map(allocs.map((a) => [a.id, dayOnly(a.next_due_date)]));
   const paidOpen = new Map<string, number>();
+  const prepaid = new Map<string, number>();
   for (const p of coverage) {
     if (!p.allocation_id || !p.covers_until) continue;
     const due = dueByAlloc.get(p.allocation_id);
-    if (due && dayOnly(p.covers_until)! > due) {
-      paidOpen.set(p.allocation_id, (paidOpen.get(p.allocation_id) ?? 0) + Number(p.amount_paid));
-    }
+    if (!due) continue;
+    const cov = dayOnly(p.covers_until)!;
+    if (cov <= due) continue;
+    const cycleEnd = addMonthsISO(due, 1);
+    const bucket = cov <= cycleEnd ? paidOpen : prepaid;
+    bucket.set(p.allocation_id, (bucket.get(p.allocation_id) ?? 0) + Number(p.amount_paid));
   }
-  return paidOpen;
+  return { paidOpen, prepaid };
 }
 
 export const outstandingOf = (a: AllocRow, paidOpen: Map<string, number>) =>
@@ -77,3 +102,4 @@ export const sumAmount = <T extends { amount_paid?: number | string; amount?: nu
 
 export const daysBetween = (fromISO: string, toISO: string) =>
   Math.round((new Date(toISO + "T00:00:00").getTime() - new Date(fromISO + "T00:00:00").getTime()) / 86_400_000);
+
