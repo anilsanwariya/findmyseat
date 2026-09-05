@@ -162,17 +162,23 @@ function Dashboard() {
   });
 
   const allocs = alloc.data?.allocs ?? [];
-  const paidOpen = useMemo(() => buildPaidOpen(allocs, alloc.data?.coverage ?? []), [allocs, alloc.data]);
+  const { paidOpen } = useMemo(() => buildPaidOpen(allocs, alloc.data?.coverage ?? []), [allocs, alloc.data]);
+
+  type Bucket = { collected: number; expenses: number; upcoming: number; forCycle: number; dueFees: number };
+  const emptyBucket: Bucket = { collected: 0, expenses: 0, upcoming: 0, forCycle: 0, dueFees: 0 };
 
   const perMonth = useMemo(() => {
     const payments = money.data?.payments ?? [];
     const expenses = money.data?.expenses ?? [];
-    const map = new Map<string, { collected: number; expenses: number; upcoming: number }>();
-    for (const key of trendKeys) map.set(key, { collected: 0, expenses: 0, upcoming: 0 });
-    for (const p of payments) {
-      const key = dayOnly(p.payment_date)!.slice(0, 7);
-      const b = map.get(key);
-      if (b) b.collected += Number(p.amount_paid);
+    const map = new Map<string, Bucket>();
+    for (const key of trendKeys) map.set(key, { ...emptyBucket });
+    for (const p of payments as any[]) {
+      const amount = Number(p.amount_paid);
+      const paidIn = map.get(dayOnly(p.payment_date)!.slice(0, 7));
+      if (paidIn) paidIn.collected += amount;
+      // Attribute the money to the cycle it pays for, not the day it arrived.
+      const cycle = map.get(cycleMonthOf(p.covers_until, p.payment_date));
+      if (cycle) cycle.forCycle += amount;
     }
     for (const e of expenses as any[]) {
       const key = dayOnly(e.spent_on)!.slice(0, 7);
@@ -183,27 +189,42 @@ function Dashboard() {
       const due = dayOnly(a.next_due_date);
       if (!due) continue;
       const b = map.get(due.slice(0, 7));
-      if (b) b.upcoming += outstandingOf(a, paidOpen);
+      if (b) {
+        b.upcoming += outstandingOf(a, paidOpen);
+        b.dueFees += Number(a.monthly_fee);
+      }
     }
     return map;
   }, [money.data, allocs, paidOpen, trendKeys]);
 
+  /** Fees belonging to a month's cycles: what was paid for it + what is still open. */
+  const expectedOf = (m: Bucket) => m.forCycle + m.upcoming;
+
   const trend: TrendPoint[] = trendKeys.map((key) => {
-    const m = perMonth.get(key) ?? { collected: 0, expenses: 0, upcoming: 0 };
-    const expected = m.collected + m.upcoming;
+    const m = perMonth.get(key) ?? emptyBucket;
+    const exp = expectedOf(m);
     return {
       key,
       label: monthLabel(key),
       collected: m.collected,
       expenses: m.expenses,
       profit: m.collected - m.expenses,
-      rate: expected > 0 ? Math.round((m.collected / expected) * 100) : 0,
+      rate: exp > 0 ? Math.min(100, Math.round((m.forCycle / exp) * 100)) : 0,
     };
   });
 
-  const sel = perMonth.get(selMonth) ?? { collected: 0, expenses: 0, upcoming: 0 };
-  const expected = sel.collected + sel.upcoming;
-  const rate = expected > 0 ? Math.round((sel.collected / expected) * 100) : 0;
+  const sel = perMonth.get(selMonth) ?? emptyBucket;
+  const expected = expectedOf(sel);
+  const rate = expected > 0 ? Math.min(100, Math.round((sel.forCycle / expected) * 100)) : 0;
+  const arrearsCollected = Math.max(0, sel.collected - sel.forCycle);
+  const monthStart = monthRange(selMonth).start;
+  const carriedOver = allocs
+    .filter((a) => {
+      const due = dayOnly(a.next_due_date);
+      return !!due && due < monthStart;
+    })
+    .reduce((s, a) => s + outstandingOf(a, paidOpen), 0);
+
 
   const overdueAllocs = allocs.filter((a) => {
     const due = dayOnly(a.next_due_date);
