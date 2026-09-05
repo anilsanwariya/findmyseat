@@ -14,6 +14,7 @@ import { StudentProfileDialog } from "@/components/admin/StudentProfileDialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   buildPaidOpen,
+  cycleMonthOf,
   dayOnly,
   daysBetween,
   localISO,
@@ -24,6 +25,7 @@ import {
   recentMonths,
   sumAmount,
   type AllocRow,
+  type CoverageRow,
 } from "@/lib/dashboard-metrics";
 
 export const Route = createFileRoute("/_authenticated/admin/")({
