@@ -368,8 +368,8 @@ function Dashboard() {
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-6">
-          {Array.from({ length: 6 }).map((_, i) => (
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-7">
+          {Array.from({ length: 7 }).map((_, i) => (
             <GlassPanel key={i} className="p-4 sm:p-5">
               <Skeleton className="h-3 w-24 bg-white/10" />
               <Skeleton className="mt-3 h-7 w-20 bg-white/10" />
@@ -378,18 +378,36 @@ function Dashboard() {
           ))}
         </div>
       ) : (
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-7">
         <StatCard
           label="Expected revenue"
           value={inr(expected)}
           tone="cyan"
-          hint={`${inr(sel.collected)} collected · ${inr(sel.upcoming)} still due`}
+          hint={`Fees due this month · ${inr(sel.forCycle)} paid · ${inr(sel.upcoming)} still due`}
         />
-        <StatCard label="Collected" value={inr(sel.collected)} tone="violet" />
-        <StatCard label="Collection rate" value={`${rate}%`} tone="gold" progress={rate} />
+        <StatCard
+          label="Collected"
+          value={inr(sel.collected)}
+          tone="violet"
+          hint={arrearsCollected > 0 ? `${inr(arrearsCollected)} of it clears older dues` : "All for this month"}
+        />
+        <StatCard
+          label="Collection rate"
+          value={`${rate}%`}
+          tone="gold"
+          progress={rate}
+          hint="Paid vs due for this month"
+        />
         <StatCard label="Outstanding dues" value={inr(duesTotal)} tone="rose" hint={`${overdueAllocs.length} overdue`} />
+        <StatCard
+          label="Carried-over dues"
+          value={inr(carriedOver)}
+          tone="rose"
+          hint="Unpaid from earlier months"
+        />
         <StatCard label="Expenditures" value={inr(sel.expenses)} tone="magenta" />
         <StatCard label="Net profit" value={inr(sel.collected - sel.expenses)} tone="emerald" />
+
       </div>
       )}
 
