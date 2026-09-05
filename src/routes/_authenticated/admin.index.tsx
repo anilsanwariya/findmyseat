@@ -92,7 +92,7 @@ function Dashboard() {
     },
   });
 
-  /** Active allocations with student/seat context, plus coverage rows for part payments. */
+  /** Active allocations of active students, plus coverage rows for part payments. */
   const alloc = useQuery({
     queryKey: ["dash-allocs", orgId, scope],
     enabled: !!orgId,
@@ -102,24 +102,41 @@ function Dashboard() {
       let q = supabase
         .from("allocations")
         .select(
-          "id, library_id, student_id, seat_id, monthly_fee, next_due_date, status, students(full_name), seats(seat_number), shifts(name)",
+          "id, library_id, student_id, seat_id, monthly_fee, next_due_date, status, students!inner(full_name, is_active), seats(seat_number), shifts(name)",
         )
         .eq("org_id", orgId!)
-        .eq("is_active", true);
+        .eq("is_active", true)
+        .eq("is_archived", false)
+        .eq("students.is_active", true);
       if (scope) q = q.eq("library_id", scope);
-      const [allocs, coverage] = await Promise.all([
-        q,
-        supabase
-          .from("payments")
-          .select("allocation_id, amount_paid, covers_until")
-          .eq("org_id", orgId!)
-          .not("allocation_id", "is", null)
-          .not("covers_until", "is", null),
-      ]);
-      if (allocs.error) throw allocs.error;
-      return { allocs: (allocs.data ?? []) as unknown as AllocRow[], coverage: coverage.data ?? [] };
+      const allocRes = await q;
+      if (allocRes.error) throw allocRes.error;
+      const rows = (allocRes.data ?? []) as unknown as AllocRow[];
+
+      // Coverage rows, fetched per allocation chunk and paged so the 1000-row
+      // API cap can never silently drop part payments.
+      const ids = rows.map((r) => r.id);
+      const coverage: CoverageRow[] = [];
+      const PAGE = 1000;
+      for (let i = 0; i < ids.length; i += 150) {
+        const chunk = ids.slice(i, i + 150);
+        for (let from = 0; ; from += PAGE) {
+          const { data, error } = await supabase
+            .from("payments")
+            .select("allocation_id, amount_paid, covers_until")
+            .eq("org_id", orgId!)
+            .in("allocation_id", chunk)
+            .not("covers_until", "is", null)
+            .range(from, from + PAGE - 1);
+          if (error) throw error;
+          coverage.push(...((data ?? []) as CoverageRow[]));
+          if ((data?.length ?? 0) < PAGE) break;
+        }
+      }
+      return { allocs: rows, coverage };
     },
   });
+
 
   /** Counts used by the action list and branch comparison. */
   const ops = useQuery({
