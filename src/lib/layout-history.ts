@@ -79,13 +79,13 @@ const TEMP_BASE = -100000;
 
 async function updateRows(prev: any[]) {
   const tableOf = (p: any) => (p.__table === "layout_objects" ? "layout_objects" : "seats");
-  const movesPosition = prev.some((p) => "row_position" in p || "column_position" in p);
+  const movers = prev.filter((p) => p.row_position != null && p.column_position != null);
 
   // Position changes need parking first, otherwise two rows can briefly claim the
   // same cell and the unique(row, col) index rejects the batch.
-  if (movesPosition) {
+  if (movers.length) {
     await runBatched(
-      prev.map(
+      movers.map(
         (p, i) => () =>
           supabase
             .from(tableOf(p))
@@ -94,6 +94,7 @@ async function updateRows(prev: any[]) {
       ),
     );
   }
+
 
   await runBatched(
     prev.map((p) => () => {
