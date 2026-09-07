@@ -139,10 +139,10 @@ function LayoutBuilderPage() {
   const currentSectionId = sectionId ?? sectionsQ.data?.[0]?.id;
   const currentSection = sectionsQ.data?.find((s: any) => s.id === currentSectionId);
 
-  // Fetch physical layout elements (Seats & Objects) + who currently occupies each seat,
-  // including enough billing state to colour the read-only occupancy map.
+  // The floor plan itself (seats + area cells). Kept deliberately separate from the
+  // occupancy read so editing the layout never waits on allocation/payment queries.
   const seatsQ = useQuery({
-    queryKey: ["seats", currentSectionId],
+    queryKey: ["layout", currentSectionId],
     enabled: !!currentSectionId,
     staleTime: 15_000,
     queryFn: async () => {
@@ -150,63 +150,79 @@ function LayoutBuilderPage() {
         supabase.from("seats").select("*").eq("section_id", currentSectionId!),
         supabase.from("layout_objects").select("*").eq("section_id", currentSectionId!),
       ]);
-      const seatRows = seats.data ?? [];
-      const occupancy: Record<string, string[]> = {};
-      const occInfo: Record<string, OccupantInfo[]> = {};
-      if (seatRows.length) {
-        const { data: allocs } = await supabase
-          .from("allocations")
-          .select("id, seat_id, student_id, monthly_fee, next_due_date, status, students(full_name), shifts(name)")
-          .eq("is_active", true)
-          .in(
-            "seat_id",
-            seatRows.map((s: any) => s.id),
-          );
-
-        // A cycle is "part paid" when a partial payment targets a date beyond the current due date.
-        const partial = new Set<string>();
-        const allocIds = (allocs ?? []).map((a: any) => a.id);
-        if (allocIds.length) {
-          const { data: pays } = await supabase
-            .from("payments")
-            .select("allocation_id, covers_until, is_partial")
-            .in("allocation_id", allocIds)
-            .eq("is_partial", true);
-          const dueBy = new Map((allocs ?? []).map((a: any) => [a.id, a.next_due_date]));
-          for (const p of pays ?? []) {
-            const due = p.allocation_id ? dueBy.get(p.allocation_id) : null;
-            if (p.allocation_id && p.covers_until && due && p.covers_until > due) partial.add(p.allocation_id);
-          }
-        }
-
-        const today = new Date();
-        const todayISO = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-
-        for (const a of allocs ?? []) {
-          if (!a.seat_id) continue;
-          const name = (a as any).students?.full_name ?? "Student";
-          let status: SeatStatus = "pending";
-          if (partial.has(a.id)) status = "partial";
-          else if (a.next_due_date && a.next_due_date < todayISO) status = "overdue";
-          else if (a.status === "paid") status = "paid";
-          occupancy[a.seat_id] = [...(occupancy[a.seat_id] ?? []), name];
-          occInfo[a.seat_id] = [
-            ...(occInfo[a.seat_id] ?? []),
-            {
-              allocationId: a.id,
-              studentId: a.student_id,
-              name,
-              shift: (a as any).shifts?.name ?? null,
-              fee: Number(a.monthly_fee ?? 0),
-              dueDate: a.next_due_date ?? null,
-              status,
-            },
-          ];
-        }
-      }
-      return { seats: seatRows, objs: objs.data ?? [], occupancy, occInfo };
+      if (seats.error) throw seats.error;
+      if (objs.error) throw objs.error;
+      return { seats: seats.data ?? [], objs: objs.data ?? [] };
     },
   });
+
+  const seatIdsKey = useMemo(
+    () => (seatsQ.data?.seats ?? []).map((s: any) => s.id).sort().join(","),
+    [seatsQ.data?.seats],
+  );
+
+  // Who sits where + billing colour for the occupancy map and the delete warnings.
+  const occQ = useQuery({
+    queryKey: ["occupancy", currentSectionId, seatIdsKey],
+    enabled: !!currentSectionId && !!seatIdsKey,
+    staleTime: 60_000,
+    placeholderData: keepPreviousData,
+    queryFn: async () => {
+      const seatIds = seatIdsKey.split(",").filter(Boolean);
+      const occupancy: Record<string, string[]> = {};
+      const occInfo: Record<string, OccupantInfo[]> = {};
+      if (!seatIds.length) return { occupancy, occInfo };
+
+      const { data: allocs } = await supabase
+        .from("allocations")
+        .select("id, seat_id, student_id, monthly_fee, next_due_date, status, students(full_name), shifts(name)")
+        .eq("is_active", true)
+        .in("seat_id", seatIds);
+
+      // A cycle is "part paid" when a partial payment targets a date beyond the current due date.
+      const partial = new Set<string>();
+      const allocIds = (allocs ?? []).map((a: any) => a.id);
+      if (allocIds.length) {
+        const { data: pays } = await supabase
+          .from("payments")
+          .select("allocation_id, covers_until, is_partial")
+          .in("allocation_id", allocIds)
+          .eq("is_partial", true);
+        const dueBy = new Map((allocs ?? []).map((a: any) => [a.id, a.next_due_date]));
+        for (const p of pays ?? []) {
+          const due = p.allocation_id ? dueBy.get(p.allocation_id) : null;
+          if (p.allocation_id && p.covers_until && due && p.covers_until > due) partial.add(p.allocation_id);
+        }
+      }
+
+      const today = new Date();
+      const todayISO = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+
+      for (const a of allocs ?? []) {
+        if (!a.seat_id) continue;
+        const name = (a as any).students?.full_name ?? "Student";
+        let status: SeatStatus = "pending";
+        if (partial.has(a.id)) status = "partial";
+        else if (a.next_due_date && a.next_due_date < todayISO) status = "overdue";
+        else if (a.status === "paid") status = "paid";
+        occupancy[a.seat_id] = [...(occupancy[a.seat_id] ?? []), name];
+        occInfo[a.seat_id] = [
+          ...(occInfo[a.seat_id] ?? []),
+          {
+            allocationId: a.id,
+            studentId: a.student_id,
+            name,
+            shift: (a as any).shifts?.name ?? null,
+            fee: Number(a.monthly_fee ?? 0),
+            dueDate: a.next_due_date ?? null,
+            status,
+          },
+        ];
+      }
+      return { occupancy, occInfo };
+    },
+  });
+
 
   const dupNumbers = useMemo(() => duplicateSeatNumbers(seatsQ.data?.seats ?? []), [seatsQ.data?.seats]);
 
