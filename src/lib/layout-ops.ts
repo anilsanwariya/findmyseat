@@ -148,18 +148,12 @@ export async function renumberSeats(opts: {
   });
 
   // Two-phase again: temporary numbers avoid clashing with numbers still in use.
-  let i = 0;
-  for (const f of finals) {
-    const { error } = await supabase
-      .from("seats")
-      .update({ seat_number: `~tmp${Date.now() % 10000}-${i++}` })
-      .eq("id", f.id);
-    if (error) throw error;
-  }
-  for (const f of finals) {
-    const { error } = await supabase.from("seats").update({ seat_number: f.seat_number }).eq("id", f.id);
-    if (error) throw error;
-  }
+  const stamp = Date.now() % 10000;
+  await runBatched(
+    finals.map((f, i) => () => supabase.from("seats").update({ seat_number: `~tmp${stamp}-${i}` }).eq("id", f.id)),
+  );
+  await runBatched(finals.map((f) => () => supabase.from("seats").update({ seat_number: f.seat_number }).eq("id", f.id)));
+
 
   return {
     type: "update_seats",
