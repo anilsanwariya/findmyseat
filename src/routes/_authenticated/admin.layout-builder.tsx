@@ -19,7 +19,7 @@ import { DuplicateSectionDialog } from "@/components/admin/layout/DuplicateSecti
 import { SeatOccupancyDialog } from "@/components/admin/layout/SeatOccupancyDialog";
 import { duplicateSeatNumbers, moveBlock, pasteBlock } from "@/lib/layout-ops";
 
-import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation, keepPreviousData } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/lib/auth";
 import { useLibraries } from "@/lib/data";
@@ -242,8 +242,8 @@ function LayoutBuilderPage() {
         seat_number: s.seat_number,
         facing: s.facing_direction,
         is_corner: s.is_corner,
-        occupants: seatsQ.data?.occupancy?.[s.id] ?? [],
-        occInfo: seatsQ.data?.occInfo?.[s.id] ?? [],
+        occupants: occQ.data?.occupancy?.[s.id] ?? [],
+        occInfo: occQ.data?.occInfo?.[s.id] ?? [],
       };
     }
     for (const o of seatsQ.data?.objs ?? []) {
@@ -267,7 +267,7 @@ function LayoutBuilderPage() {
   }, [currentSectionId]);
 
   const refreshLayout = useCallback(() => {
-    qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
+    qc.invalidateQueries({ queryKey: ["layout", currentSectionId] });
     qc.invalidateQueries({ queryKey: ["allocations"] });
   }, [qc, currentSectionId]);
 
@@ -371,7 +371,7 @@ function LayoutBuilderPage() {
   const unsaved = history.length - savedCount;
 
   const invalidateAll = useCallback(() => {
-    qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
+    qc.invalidateQueries({ queryKey: ["layout", currentSectionId] });
     qc.invalidateQueries({ queryKey: ["sections", currentLibId] });
     qc.invalidateQueries({ queryKey: ["allocations"] });
   }, [qc, currentSectionId, currentLibId]);
@@ -379,7 +379,7 @@ function LayoutBuilderPage() {
   const handleSave = useCallback(async () => {
     if (!currentSectionId) return;
     await Promise.all([
-      qc.invalidateQueries({ queryKey: ["seats", currentSectionId] }),
+      qc.invalidateQueries({ queryKey: ["layout", currentSectionId] }),
       qc.invalidateQueries({ queryKey: ["sections", currentLibId] }),
     ]);
     setSavedCount(history.length);
@@ -549,7 +549,7 @@ function LayoutBuilderPage() {
       toast.info("Nothing to delete in the selected area.");
       return;
     }
-    const occupants = seats.flatMap((s: any) => seatsQ.data?.occupancy?.[s.id] ?? []);
+    const occupants = seats.flatMap((s: any) => occQ.data?.occupancy?.[s.id] ?? []);
     setPendingDelete({
       seatIds: seats.map((s: any) => s.id),
       objIds: objs.map((o: any) => o.id),
@@ -643,13 +643,13 @@ function LayoutBuilderPage() {
       await fn();
       after?.();
       qc.invalidateQueries({ queryKey: ["sections", currentLibId] });
-      qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
+      qc.invalidateQueries({ queryKey: ["layout", currentSectionId] });
       toast.success("Grid updated", { id: "shift" });
     } catch (e: any) {
       toast.error(e?.message ?? "Grid update failed", { id: "shift" });
       // Always resync from the server so the canvas never shows a half-applied state
       qc.invalidateQueries({ queryKey: ["sections", currentLibId] });
-      qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
+      qc.invalidateQueries({ queryKey: ["layout", currentSectionId] });
     } finally {
       setIsShifting(false);
     }
@@ -894,7 +894,7 @@ function LayoutBuilderPage() {
                   <div className="truncate text-sm font-bold">{currentSection?.name}</div>
                   <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
                     {currentSection?.grid_rows} × {currentSection?.grid_cols} · {seatsQ.data?.seats.length ?? 0} seats ·{" "}
-                    {Object.keys(seatsQ.data?.occInfo ?? {}).length} occupied
+                    {Object.keys(occQ.data?.occInfo ?? {}).length} occupied
                   </div>
                 </div>
 
@@ -1210,7 +1210,7 @@ function LayoutBuilderPage() {
 
           <InspectorPanel
             selected={selectedSeatObj}
-            occupants={selectedSeatObj ? (seatsQ.data?.occupancy?.[selectedSeatObj.id] ?? []) : []}
+            occupants={selectedSeatObj ? (occQ.data?.occupancy?.[selectedSeatObj.id] ?? []) : []}
             onUpdate={async (updates) => {
               if (!selectedSeatObj) return;
               const prev: any = { id: selectedSeatObj.id };
@@ -1227,12 +1227,12 @@ function LayoutBuilderPage() {
                 prev: [prev],
               });
               toast.success("Seat updated");
-              qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
+              qc.invalidateQueries({ queryKey: ["layout", currentSectionId] });
             }}
 
             onDelete={() => {
               if (!selectedSeatObj) return;
-              const occupants = seatsQ.data?.occupancy?.[selectedSeatObj.id] ?? [];
+              const occupants = occQ.data?.occupancy?.[selectedSeatObj.id] ?? [];
               setPendingDelete({
                 seatIds: [selectedSeatObj.id],
                 objIds: [],
@@ -1287,7 +1287,7 @@ function LayoutBuilderPage() {
         libraryId={currentLibId!}
         onDone={(action?: LayoutAction) => {
           if (action) pushAction(action);
-          qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
+          qc.invalidateQueries({ queryKey: ["layout", currentSectionId] });
         }}
       />
 
@@ -1302,7 +1302,7 @@ function LayoutBuilderPage() {
         orgId={orgId!}
         onDone={(action?: LayoutAction) => {
           if (action) pushAction(action);
-          qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
+          qc.invalidateQueries({ queryKey: ["layout", currentSectionId] });
           setMultiSelectMode(false);
           setSelectedCells(new Set());
         }}
@@ -1318,7 +1318,7 @@ function LayoutBuilderPage() {
         orgId={orgId!}
         onDone={(action?: LayoutAction) => {
           if (action) pushAction(action);
-          qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
+          qc.invalidateQueries({ queryKey: ["layout", currentSectionId] });
           setMultiSelectMode(false);
           setSelectedCells(new Set());
         }}
@@ -1330,7 +1330,7 @@ function LayoutBuilderPage() {
         existingSeats={seatsQ.data?.seats || []}
         onDone={(action?: LayoutAction) => {
           if (action) pushAction(action);
-          qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
+          qc.invalidateQueries({ queryKey: ["layout", currentSectionId] });
           setMultiSelectMode(false);
           setSelectedCells(new Set());
         }}
@@ -1343,7 +1343,7 @@ function LayoutBuilderPage() {
         allSeats={(seatsQ.data?.seats ?? []) as any}
         onDone={(action) => {
           pushAction(action);
-          qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
+          qc.invalidateQueries({ queryKey: ["layout", currentSectionId] });
           setSelectedCells(new Set());
           setMultiSelectMode(false);
         }}
