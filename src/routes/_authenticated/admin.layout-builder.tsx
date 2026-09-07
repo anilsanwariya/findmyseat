@@ -19,7 +19,7 @@ import { DuplicateSectionDialog } from "@/components/admin/layout/DuplicateSecti
 import { SeatOccupancyDialog } from "@/components/admin/layout/SeatOccupancyDialog";
 import { duplicateSeatNumbers, moveBlock, pasteBlock } from "@/lib/layout-ops";
 
-import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation, keepPreviousData } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/lib/auth";
 import { useLibraries } from "@/lib/data";
@@ -139,10 +139,10 @@ function LayoutBuilderPage() {
   const currentSectionId = sectionId ?? sectionsQ.data?.[0]?.id;
   const currentSection = sectionsQ.data?.find((s: any) => s.id === currentSectionId);
 
-  // Fetch physical layout elements (Seats & Objects) + who currently occupies each seat,
-  // including enough billing state to colour the read-only occupancy map.
+  // The floor plan itself (seats + area cells). Kept deliberately separate from the
+  // occupancy read so editing the layout never waits on allocation/payment queries.
   const seatsQ = useQuery({
-    queryKey: ["seats", currentSectionId],
+    queryKey: ["layout", currentSectionId],
     enabled: !!currentSectionId,
     staleTime: 15_000,
     queryFn: async () => {
@@ -150,63 +150,79 @@ function LayoutBuilderPage() {
         supabase.from("seats").select("*").eq("section_id", currentSectionId!),
         supabase.from("layout_objects").select("*").eq("section_id", currentSectionId!),
       ]);
-      const seatRows = seats.data ?? [];
-      const occupancy: Record<string, string[]> = {};
-      const occInfo: Record<string, OccupantInfo[]> = {};
-      if (seatRows.length) {
-        const { data: allocs } = await supabase
-          .from("allocations")
-          .select("id, seat_id, student_id, monthly_fee, next_due_date, status, students(full_name), shifts(name)")
-          .eq("is_active", true)
-          .in(
-            "seat_id",
-            seatRows.map((s: any) => s.id),
-          );
-
-        // A cycle is "part paid" when a partial payment targets a date beyond the current due date.
-        const partial = new Set<string>();
-        const allocIds = (allocs ?? []).map((a: any) => a.id);
-        if (allocIds.length) {
-          const { data: pays } = await supabase
-            .from("payments")
-            .select("allocation_id, covers_until, is_partial")
-            .in("allocation_id", allocIds)
-            .eq("is_partial", true);
-          const dueBy = new Map((allocs ?? []).map((a: any) => [a.id, a.next_due_date]));
-          for (const p of pays ?? []) {
-            const due = p.allocation_id ? dueBy.get(p.allocation_id) : null;
-            if (p.allocation_id && p.covers_until && due && p.covers_until > due) partial.add(p.allocation_id);
-          }
-        }
-
-        const today = new Date();
-        const todayISO = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-
-        for (const a of allocs ?? []) {
-          if (!a.seat_id) continue;
-          const name = (a as any).students?.full_name ?? "Student";
-          let status: SeatStatus = "pending";
-          if (partial.has(a.id)) status = "partial";
-          else if (a.next_due_date && a.next_due_date < todayISO) status = "overdue";
-          else if (a.status === "paid") status = "paid";
-          occupancy[a.seat_id] = [...(occupancy[a.seat_id] ?? []), name];
-          occInfo[a.seat_id] = [
-            ...(occInfo[a.seat_id] ?? []),
-            {
-              allocationId: a.id,
-              studentId: a.student_id,
-              name,
-              shift: (a as any).shifts?.name ?? null,
-              fee: Number(a.monthly_fee ?? 0),
-              dueDate: a.next_due_date ?? null,
-              status,
-            },
-          ];
-        }
-      }
-      return { seats: seatRows, objs: objs.data ?? [], occupancy, occInfo };
+      if (seats.error) throw seats.error;
+      if (objs.error) throw objs.error;
+      return { seats: seats.data ?? [], objs: objs.data ?? [] };
     },
   });
+
+  const seatIdsKey = useMemo(
+    () => (seatsQ.data?.seats ?? []).map((s: any) => s.id).sort().join(","),
+    [seatsQ.data?.seats],
+  );
+
+  // Who sits where + billing colour for the occupancy map and the delete warnings.
+  const occQ = useQuery({
+    queryKey: ["occupancy", currentSectionId, seatIdsKey],
+    enabled: !!currentSectionId && !!seatIdsKey,
+    staleTime: 60_000,
+    placeholderData: keepPreviousData,
+    queryFn: async () => {
+      const seatIds = seatIdsKey.split(",").filter(Boolean);
+      const occupancy: Record<string, string[]> = {};
+      const occInfo: Record<string, OccupantInfo[]> = {};
+      if (!seatIds.length) return { occupancy, occInfo };
+
+      const { data: allocs } = await supabase
+        .from("allocations")
+        .select("id, seat_id, student_id, monthly_fee, next_due_date, status, students(full_name), shifts(name)")
+        .eq("is_active", true)
+        .in("seat_id", seatIds);
+
+      // A cycle is "part paid" when a partial payment targets a date beyond the current due date.
+      const partial = new Set<string>();
+      const allocIds = (allocs ?? []).map((a: any) => a.id);
+      if (allocIds.length) {
+        const { data: pays } = await supabase
+          .from("payments")
+          .select("allocation_id, covers_until, is_partial")
+          .in("allocation_id", allocIds)
+          .eq("is_partial", true);
+        const dueBy = new Map((allocs ?? []).map((a: any) => [a.id, a.next_due_date]));
+        for (const p of pays ?? []) {
+          const due = p.allocation_id ? dueBy.get(p.allocation_id) : null;
+          if (p.allocation_id && p.covers_until && due && p.covers_until > due) partial.add(p.allocation_id);
+        }
+      }
+
+      const today = new Date();
+      const todayISO = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+
+      for (const a of allocs ?? []) {
+        if (!a.seat_id) continue;
+        const name = (a as any).students?.full_name ?? "Student";
+        let status: SeatStatus = "pending";
+        if (partial.has(a.id)) status = "partial";
+        else if (a.next_due_date && a.next_due_date < todayISO) status = "overdue";
+        else if (a.status === "paid") status = "paid";
+        occupancy[a.seat_id] = [...(occupancy[a.seat_id] ?? []), name];
+        occInfo[a.seat_id] = [
+          ...(occInfo[a.seat_id] ?? []),
+          {
+            allocationId: a.id,
+            studentId: a.student_id,
+            name,
+            shift: (a as any).shifts?.name ?? null,
+            fee: Number(a.monthly_fee ?? 0),
+            dueDate: a.next_due_date ?? null,
+            status,
+          },
+        ];
+      }
+      return { occupancy, occInfo };
+    },
+  });
+
 
   const dupNumbers = useMemo(() => duplicateSeatNumbers(seatsQ.data?.seats ?? []), [seatsQ.data?.seats]);
 
@@ -226,8 +242,8 @@ function LayoutBuilderPage() {
         seat_number: s.seat_number,
         facing: s.facing_direction,
         is_corner: s.is_corner,
-        occupants: seatsQ.data?.occupancy?.[s.id] ?? [],
-        occInfo: seatsQ.data?.occInfo?.[s.id] ?? [],
+        occupants: occQ.data?.occupancy?.[s.id] ?? [],
+        occInfo: occQ.data?.occInfo?.[s.id] ?? [],
       };
     }
     for (const o of seatsQ.data?.objs ?? []) {
@@ -251,7 +267,7 @@ function LayoutBuilderPage() {
   }, [currentSectionId]);
 
   const refreshLayout = useCallback(() => {
-    qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
+    qc.invalidateQueries({ queryKey: ["layout", currentSectionId] });
     qc.invalidateQueries({ queryKey: ["allocations"] });
   }, [qc, currentSectionId]);
 
@@ -355,7 +371,7 @@ function LayoutBuilderPage() {
   const unsaved = history.length - savedCount;
 
   const invalidateAll = useCallback(() => {
-    qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
+    qc.invalidateQueries({ queryKey: ["layout", currentSectionId] });
     qc.invalidateQueries({ queryKey: ["sections", currentLibId] });
     qc.invalidateQueries({ queryKey: ["allocations"] });
   }, [qc, currentSectionId, currentLibId]);
@@ -363,7 +379,7 @@ function LayoutBuilderPage() {
   const handleSave = useCallback(async () => {
     if (!currentSectionId) return;
     await Promise.all([
-      qc.invalidateQueries({ queryKey: ["seats", currentSectionId] }),
+      qc.invalidateQueries({ queryKey: ["layout", currentSectionId] }),
       qc.invalidateQueries({ queryKey: ["sections", currentLibId] }),
     ]);
     setSavedCount(history.length);
@@ -533,7 +549,7 @@ function LayoutBuilderPage() {
       toast.info("Nothing to delete in the selected area.");
       return;
     }
-    const occupants = seats.flatMap((s: any) => seatsQ.data?.occupancy?.[s.id] ?? []);
+    const occupants = seats.flatMap((s: any) => occQ.data?.occupancy?.[s.id] ?? []);
     setPendingDelete({
       seatIds: seats.map((s: any) => s.id),
       objIds: objs.map((o: any) => o.id),
@@ -627,13 +643,13 @@ function LayoutBuilderPage() {
       await fn();
       after?.();
       qc.invalidateQueries({ queryKey: ["sections", currentLibId] });
-      qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
+      qc.invalidateQueries({ queryKey: ["layout", currentSectionId] });
       toast.success("Grid updated", { id: "shift" });
     } catch (e: any) {
       toast.error(e?.message ?? "Grid update failed", { id: "shift" });
       // Always resync from the server so the canvas never shows a half-applied state
       qc.invalidateQueries({ queryKey: ["sections", currentLibId] });
-      qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
+      qc.invalidateQueries({ queryKey: ["layout", currentSectionId] });
     } finally {
       setIsShifting(false);
     }
@@ -878,7 +894,7 @@ function LayoutBuilderPage() {
                   <div className="truncate text-sm font-bold">{currentSection?.name}</div>
                   <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
                     {currentSection?.grid_rows} × {currentSection?.grid_cols} · {seatsQ.data?.seats.length ?? 0} seats ·{" "}
-                    {Object.keys(seatsQ.data?.occInfo ?? {}).length} occupied
+                    {Object.keys(occQ.data?.occInfo ?? {}).length} occupied
                   </div>
                 </div>
 
@@ -1194,7 +1210,7 @@ function LayoutBuilderPage() {
 
           <InspectorPanel
             selected={selectedSeatObj}
-            occupants={selectedSeatObj ? (seatsQ.data?.occupancy?.[selectedSeatObj.id] ?? []) : []}
+            occupants={selectedSeatObj ? (occQ.data?.occupancy?.[selectedSeatObj.id] ?? []) : []}
             onUpdate={async (updates) => {
               if (!selectedSeatObj) return;
               const prev: any = { id: selectedSeatObj.id };
@@ -1211,12 +1227,12 @@ function LayoutBuilderPage() {
                 prev: [prev],
               });
               toast.success("Seat updated");
-              qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
+              qc.invalidateQueries({ queryKey: ["layout", currentSectionId] });
             }}
 
             onDelete={() => {
               if (!selectedSeatObj) return;
-              const occupants = seatsQ.data?.occupancy?.[selectedSeatObj.id] ?? [];
+              const occupants = occQ.data?.occupancy?.[selectedSeatObj.id] ?? [];
               setPendingDelete({
                 seatIds: [selectedSeatObj.id],
                 objIds: [],
@@ -1271,7 +1287,7 @@ function LayoutBuilderPage() {
         libraryId={currentLibId!}
         onDone={(action?: LayoutAction) => {
           if (action) pushAction(action);
-          qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
+          qc.invalidateQueries({ queryKey: ["layout", currentSectionId] });
         }}
       />
 
@@ -1286,7 +1302,7 @@ function LayoutBuilderPage() {
         orgId={orgId!}
         onDone={(action?: LayoutAction) => {
           if (action) pushAction(action);
-          qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
+          qc.invalidateQueries({ queryKey: ["layout", currentSectionId] });
           setMultiSelectMode(false);
           setSelectedCells(new Set());
         }}
@@ -1302,7 +1318,7 @@ function LayoutBuilderPage() {
         orgId={orgId!}
         onDone={(action?: LayoutAction) => {
           if (action) pushAction(action);
-          qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
+          qc.invalidateQueries({ queryKey: ["layout", currentSectionId] });
           setMultiSelectMode(false);
           setSelectedCells(new Set());
         }}
@@ -1314,7 +1330,7 @@ function LayoutBuilderPage() {
         existingSeats={seatsQ.data?.seats || []}
         onDone={(action?: LayoutAction) => {
           if (action) pushAction(action);
-          qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
+          qc.invalidateQueries({ queryKey: ["layout", currentSectionId] });
           setMultiSelectMode(false);
           setSelectedCells(new Set());
         }}
@@ -1327,7 +1343,7 @@ function LayoutBuilderPage() {
         allSeats={(seatsQ.data?.seats ?? []) as any}
         onDone={(action) => {
           pushAction(action);
-          qc.invalidateQueries({ queryKey: ["seats", currentSectionId] });
+          qc.invalidateQueries({ queryKey: ["layout", currentSectionId] });
           setSelectedCells(new Set());
           setMultiSelectMode(false);
         }}

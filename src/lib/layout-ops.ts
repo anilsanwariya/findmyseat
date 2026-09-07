@@ -54,6 +54,16 @@ export function uniqueSeatNumber(base: string, used: Set<string>): string {
 
 const TEMP_BASE = -100000;
 
+/** Runs row updates in parallel batches — one-by-one awaits made bulk tools crawl. */
+async function runBatched(tasks: (() => PromiseLike<{ error: any }>)[], size = 20) {
+  for (let i = 0; i < tasks.length; i += size) {
+    const results = await Promise.all(tasks.slice(i, i + size).map((t) => t()));
+    for (const r of results) if (r.error) throw r.error;
+  }
+}
+
+
+
 /**
  * Moves seats + objects by (dr, dc) in two phases so the unique(row,col) index
  * can never trip halfway through and corrupt the layout.
@@ -82,23 +92,26 @@ export async function moveBlock(opts: {
   }
 
   // Phase 1: park everything in negative space (never collides with real cells).
-  let i = 0;
-  for (const m of moving) {
-    const { error } = await supabase
-      .from(m.table)
-      .update({ row_position: TEMP_BASE - i, column_position: TEMP_BASE - i })
-      .eq("id", m.id);
-    if (error) throw error;
-    i++;
-  }
+  await runBatched(
+    moving.map(
+      (m, i) => () =>
+        supabase
+          .from(m.table)
+          .update({ row_position: TEMP_BASE - i, column_position: TEMP_BASE - i })
+          .eq("id", m.id),
+    ),
+  );
   // Phase 2: land on the final coordinates.
-  for (const m of moving) {
-    const { error } = await supabase
-      .from(m.table)
-      .update({ row_position: m.r + dr, column_position: m.c + dc })
-      .eq("id", m.id);
-    if (error) throw error;
-  }
+  await runBatched(
+    moving.map(
+      (m) => () =>
+        supabase
+          .from(m.table)
+          .update({ row_position: m.r + dr, column_position: m.c + dc })
+          .eq("id", m.id),
+    ),
+  );
+
 
   return {
     type: "update_seats",
@@ -135,18 +148,12 @@ export async function renumberSeats(opts: {
   });
 
   // Two-phase again: temporary numbers avoid clashing with numbers still in use.
-  let i = 0;
-  for (const f of finals) {
-    const { error } = await supabase
-      .from("seats")
-      .update({ seat_number: `~tmp${Date.now() % 10000}-${i++}` })
-      .eq("id", f.id);
-    if (error) throw error;
-  }
-  for (const f of finals) {
-    const { error } = await supabase.from("seats").update({ seat_number: f.seat_number }).eq("id", f.id);
-    if (error) throw error;
-  }
+  const stamp = Date.now() % 10000;
+  await runBatched(
+    finals.map((f, i) => () => supabase.from("seats").update({ seat_number: `~tmp${stamp}-${i}` }).eq("id", f.id)),
+  );
+  await runBatched(finals.map((f) => () => supabase.from("seats").update({ seat_number: f.seat_number }).eq("id", f.id)));
+
 
   return {
     type: "update_seats",

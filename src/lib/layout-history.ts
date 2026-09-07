@@ -68,14 +68,42 @@ const stripMeta = (row: any) => {
   return rest;
 };
 
-async function updateRows(prev: any[]) {
-  for (const p of prev) {
-    const { id, __table, ...fields } = p;
-    const table = __table === "layout_objects" ? "layout_objects" : "seats";
-    const { error } = await supabase.from(table).update(fields).eq("id", id);
-    if (error) throw error;
+async function runBatched(tasks: (() => PromiseLike<{ error: any }>)[], size = 20) {
+  for (let i = 0; i < tasks.length; i += size) {
+    const results = await Promise.all(tasks.slice(i, i + size).map((t) => t()));
+    for (const r of results) if (r.error) throw r.error;
   }
 }
+
+const TEMP_BASE = -100000;
+
+async function updateRows(prev: any[]) {
+  const tableOf = (p: any) => (p.__table === "layout_objects" ? "layout_objects" : "seats");
+  const movers = prev.filter((p) => p.row_position != null && p.column_position != null);
+
+  // Position changes need parking first, otherwise two rows can briefly claim the
+  // same cell and the unique(row, col) index rejects the batch.
+  if (movers.length) {
+    await runBatched(
+      movers.map(
+        (p, i) => () =>
+          supabase
+            .from(tableOf(p))
+            .update({ row_position: TEMP_BASE - i, column_position: TEMP_BASE - i })
+            .eq("id", p.id),
+      ),
+    );
+  }
+
+
+  await runBatched(
+    prev.map((p) => () => {
+      const { id, __table, ...fields } = p;
+      return supabase.from(tableOf(p)).update(fields).eq("id", id);
+    }),
+  );
+}
+
 
 /** Reverses one recorded action against the server. Returns a human message. */
 export async function undoAction(action: LayoutAction): Promise<string> {
