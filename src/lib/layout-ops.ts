@@ -91,23 +91,26 @@ export async function moveBlock(opts: {
   }
 
   // Phase 1: park everything in negative space (never collides with real cells).
-  let i = 0;
-  for (const m of moving) {
-    const { error } = await supabase
-      .from(m.table)
-      .update({ row_position: TEMP_BASE - i, column_position: TEMP_BASE - i })
-      .eq("id", m.id);
-    if (error) throw error;
-    i++;
-  }
+  await runBatched(
+    moving.map(
+      (m, i) => () =>
+        supabase
+          .from(m.table)
+          .update({ row_position: TEMP_BASE - i, column_position: TEMP_BASE - i })
+          .eq("id", m.id),
+    ),
+  );
   // Phase 2: land on the final coordinates.
-  for (const m of moving) {
-    const { error } = await supabase
-      .from(m.table)
-      .update({ row_position: m.r + dr, column_position: m.c + dc })
-      .eq("id", m.id);
-    if (error) throw error;
-  }
+  await runBatched(
+    moving.map(
+      (m) => () =>
+        supabase
+          .from(m.table)
+          .update({ row_position: m.r + dr, column_position: m.c + dc })
+          .eq("id", m.id),
+    ),
+  );
+
 
   return {
     type: "update_seats",
