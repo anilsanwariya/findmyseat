@@ -54,6 +54,15 @@ export function uniqueSeatNumber(base: string, used: Set<string>): string {
 
 const TEMP_BASE = -100000;
 
+/** Runs row updates in parallel batches — one-by-one awaits made bulk tools crawl. */
+async function runBatched(tasks: (() => Promise<{ error: any }>)[], size = 20) {
+  for (let i = 0; i < tasks.length; i += size) {
+    const results = await Promise.all(tasks.slice(i, i + size).map((t) => t()));
+    for (const r of results) if (r.error) throw r.error;
+  }
+}
+
+
 /**
  * Moves seats + objects by (dr, dc) in two phases so the unique(row,col) index
  * can never trip halfway through and corrupt the layout.
