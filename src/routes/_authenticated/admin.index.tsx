@@ -303,6 +303,22 @@ function Dashboard() {
     });
   }, [branchIds, allocs, money.data, ops.data, libName, paidOpen, selMonth, today]);
 
+  /** Active students and monthly fee volume, grouped by shift (no shift = full day). */
+  const shiftRows: ShiftRow[] = useMemo(() => {
+    const map = new Map<string, { students: Set<string>; revenue: number }>();
+    for (const a of allocs) {
+      const name = a.shifts?.name?.trim() || "Full day";
+      const e = map.get(name) ?? { students: new Set<string>(), revenue: 0 };
+      if (a.student_id) e.students.add(a.student_id);
+      e.revenue += Number(a.monthly_fee) || 0;
+      map.set(name, e);
+    }
+    return [...map.entries()]
+      .map(([name, v]) => ({ name, students: v.students.size, revenue: v.revenue }))
+      .sort((a, b) => b.revenue - a.revenue);
+  }, [allocs]);
+
+
   const recentPayments = useQuery({
     queryKey: ["recent-payments", orgId, scope],
     enabled: !!orgId,
