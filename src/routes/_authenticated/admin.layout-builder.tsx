@@ -1008,9 +1008,6 @@ function LayoutBuilderPage() {
                           <DropdownMenuItem onClick={() => setDupSectionOpen(true)}>
                             <CopyPlus className="mr-2 size-4" /> Duplicate section
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setGridToolsOpen((v) => !v)}>
-                            <Grid3X3 className="mr-2 size-4" /> {gridToolsOpen ? "Hide" : "Show"} grid size tools
-                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                       <Button
