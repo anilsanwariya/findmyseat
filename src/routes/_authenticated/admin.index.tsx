@@ -10,6 +10,7 @@ import { StatCard } from "@/components/admin/dashboard/StatCard";
 import { TrendCharts, type TrendPoint } from "@/components/admin/dashboard/TrendCharts";
 import { ActionList, type ActionStudent } from "@/components/admin/dashboard/ActionList";
 import { BranchComparison, type BranchRow } from "@/components/admin/dashboard/BranchComparison";
+import { ShiftBreakdown, type ShiftRow } from "@/components/admin/dashboard/ShiftBreakdown";
 import { StudentProfileDialog } from "@/components/admin/StudentProfileDialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -303,6 +304,22 @@ function Dashboard() {
     });
   }, [branchIds, allocs, money.data, ops.data, libName, paidOpen, selMonth, today]);
 
+  /** Active students and monthly fee volume, grouped by shift (no shift = full day). */
+  const shiftRows: ShiftRow[] = useMemo(() => {
+    const map = new Map<string, { students: Set<string>; revenue: number }>();
+    for (const a of allocs) {
+      const name = a.shifts?.name?.trim() || "Full day";
+      const e = map.get(name) ?? { students: new Set<string>(), revenue: 0 };
+      if (a.student_id) e.students.add(a.student_id);
+      e.revenue += Number(a.monthly_fee) || 0;
+      map.set(name, e);
+    }
+    return [...map.entries()]
+      .map(([name, v]) => ({ name, students: v.students.size, revenue: v.revenue }))
+      .sort((a, b) => b.revenue - a.revenue);
+  }, [allocs]);
+
+
   const recentPayments = useQuery({
     queryKey: ["recent-payments", orgId, scope],
     enabled: !!orgId,
@@ -419,6 +436,19 @@ function Dashboard() {
       ) : (
         <TrendCharts data={trend} selected={selMonth} />
       )}
+
+      {loading ? (
+        <GlassPanel className="p-4 sm:p-5 space-y-3">
+          <Skeleton className="h-3 w-40 bg-white/10" />
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-16 w-full bg-white/5" />
+          ))}
+        </GlassPanel>
+      ) : (
+        <ShiftBreakdown rows={shiftRows} totalStudents={ops.data?.students.length ?? 0} />
+      )}
+
+
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
