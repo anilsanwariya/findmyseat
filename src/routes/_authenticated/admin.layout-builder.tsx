@@ -1171,7 +1171,7 @@ function LayoutBuilderPage() {
                         size="icon"
                         variant="outline"
                         disabled={busy}
-                        className="size-8 bg-panel border-panel-border"
+                        className="size-11 bg-panel border-panel-border sm:size-8"
                         onClick={() => handleMove(m.dr, m.dc)}
                       >
                         <m.icon className="size-4" />
@@ -1180,15 +1180,15 @@ function LayoutBuilderPage() {
                   </div>
                 </div>
                 <div className="mt-2 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-                  <Button size="sm" className="bg-emerald text-emerald-950 hover:bg-emerald/90" onClick={() => setBulkSeatOpen(true)}>
+                  <Button size="sm" className="h-11 bg-emerald text-emerald-950 hover:bg-emerald/90 sm:h-9" onClick={() => setBulkSeatOpen(true)}>
                     <Grid3X3 className="size-3.5 mr-1.5" /> Generate
                   </Button>
-                  <Button size="sm" className="bg-cyan text-cyan-950 hover:bg-cyan/90" onClick={() => setBulkAreaOpen(true)}>
+                  <Button size="sm" className="h-11 bg-cyan text-cyan-950 hover:bg-cyan/90 sm:h-9" onClick={() => setBulkAreaOpen(true)}>
                     <Square className="size-3.5 mr-1.5" /> Area
                   </Button>
                   <Button
                     size="sm"
-                    className="bg-amber-500 text-amber-950 hover:bg-amber-400"
+                    className="h-11 bg-amber-500 text-amber-950 hover:bg-amber-400 sm:h-9"
                     disabled={!selectedSeatRows.length}
                     onClick={() => setBulkEditOpen(true)}
                   >
@@ -1197,7 +1197,7 @@ function LayoutBuilderPage() {
                   <Button
                     size="sm"
                     variant="outline"
-                    className="bg-panel border-panel-border"
+                    className="h-11 bg-panel border-panel-border sm:h-9"
                     disabled={!selectedSeatRows.length}
                     onClick={() => setRenumberOpen(true)}
                   >
@@ -1206,7 +1206,7 @@ function LayoutBuilderPage() {
                   <Button
                     size="sm"
                     variant="outline"
-                    className="bg-panel border-panel-border"
+                    className="h-11 bg-panel border-panel-border sm:h-9"
                     disabled={!selectedSeatRows.length && !selectedObjRows.length}
                     onClick={handleCopy}
                   >
@@ -1216,7 +1216,7 @@ function LayoutBuilderPage() {
                     <Button
                       size="sm"
                       variant="outline"
-                      className="bg-panel border-panel-border"
+                      className="h-11 bg-panel border-panel-border sm:h-9"
                       onClick={() => {
                         setPasteMode(true);
                         setMultiSelectMode(false);
@@ -1229,12 +1229,13 @@ function LayoutBuilderPage() {
                   <Button
                     size="sm"
                     variant="destructive"
+                    className="h-11 sm:h-9"
                     onClick={requestBulkDelete}
                     disabled={isShifting || (!selectedSeatRows.length && !selectedObjRows.length)}
                   >
                     <Trash2 className="size-3.5 mr-1.5" /> Delete
                   </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setSelectedCells(new Set())} className="text-muted-foreground">
+                  <Button size="sm" variant="ghost" onClick={() => setSelectedCells(new Set())} className="h-11 text-muted-foreground sm:h-9">
                     Clear
                   </Button>
                 </div>
