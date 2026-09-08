@@ -10,6 +10,7 @@ import { StatCard } from "@/components/admin/dashboard/StatCard";
 import { TrendCharts, type TrendPoint } from "@/components/admin/dashboard/TrendCharts";
 import { ActionList, type ActionStudent } from "@/components/admin/dashboard/ActionList";
 import { BranchComparison, type BranchRow } from "@/components/admin/dashboard/BranchComparison";
+import { ShiftBreakdown, type ShiftRow } from "@/components/admin/dashboard/ShiftBreakdown";
 import { StudentProfileDialog } from "@/components/admin/StudentProfileDialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
