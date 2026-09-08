@@ -63,7 +63,15 @@ import {
   Eye,
   Pencil,
   AlertTriangle,
+  MoreVertical,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
 
 export const Route = createFileRoute("/_authenticated/admin/layout-builder")({
   head: () => ({ meta: [{ title: "Layout Builder · LibraryBandhu" }] }),
