@@ -941,47 +941,75 @@ function LayoutBuilderPage() {
                           setPasteMode(false);
                         }}
                         className={cn(
-                          "flex-1 bg-panel shrink-0 sm:flex-none",
+                          "h-11 flex-1 bg-panel shrink-0 sm:h-9 sm:flex-none",
                           multiSelectMode && "bg-cyan text-cyan-950 hover:bg-cyan/90 border-cyan/50",
                         )}
                         size="sm"
                       >
                         <MousePointer2 className="size-4 mr-2" /> {multiSelectMode ? "Cancel" : "Select"}
                       </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={!history.length || undoing || isShifting}
-                        onClick={() => handleUndo(1)}
-                        className="bg-panel shrink-0"
-                        title={history[history.length - 1]?.label ?? "Nothing to undo"}
-                      >
-                        <Undo2 className="size-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={!redoStack.length || undoing || isShifting}
-                        onClick={handleRedo}
-                        className="bg-panel shrink-0"
-                        title={redoStack[redoStack.length - 1]?.label ?? "Nothing to redo"}
-                      >
-                        <Redo2 className="size-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="bg-panel shrink-0"
-                        title="Duplicate this section"
-                        onClick={() => setDupSectionOpen(true)}
-                      >
-                        <CopyPlus className="size-4" />
-                      </Button>
+                      {/* Undo / redo / duplicate: buttons on wide screens, one menu on phones. */}
+                      <div className="hidden sm:flex sm:gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={!history.length || undoing || isShifting}
+                          onClick={() => handleUndo(1)}
+                          className="bg-panel shrink-0"
+                          title={history[history.length - 1]?.label ?? "Nothing to undo"}
+                        >
+                          <Undo2 className="size-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={!redoStack.length || undoing || isShifting}
+                          onClick={handleRedo}
+                          className="bg-panel shrink-0"
+                          title={redoStack[redoStack.length - 1]?.label ?? "Nothing to redo"}
+                        >
+                          <Redo2 className="size-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="bg-panel shrink-0"
+                          title="Duplicate this section"
+                          onClick={() => setDupSectionOpen(true)}
+                        >
+                          <CopyPlus className="size-4" />
+                        </Button>
+                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="sm" className="h-11 w-11 bg-panel shrink-0 sm:hidden" title="More">
+                            <MoreVertical className="size-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="glass-strong border-panel-border">
+                          <DropdownMenuItem
+                            disabled={!history.length || undoing || isShifting}
+                            onClick={() => handleUndo(1)}
+                          >
+                            <Undo2 className="mr-2 size-4" /> Undo
+                            {history.length ? ` · ${history[history.length - 1].label}` : ""}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem disabled={!redoStack.length || undoing || isShifting} onClick={handleRedo}>
+                            <Redo2 className="mr-2 size-4" /> Redo
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setDupSectionOpen(true)}>
+                            <CopyPlus className="mr-2 size-4" /> Duplicate section
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setGridToolsOpen((v) => !v)}>
+                            <Grid3X3 className="mr-2 size-4" /> {gridToolsOpen ? "Hide" : "Show"} grid size tools
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                       <Button
                         size="sm"
                         onClick={handleSave}
                         className={cn(
-                          "flex-1 shrink-0 sm:flex-none",
+                          "h-11 flex-1 shrink-0 sm:h-9 sm:flex-none",
                           unsaved > 0
                             ? "bg-emerald text-emerald-950 hover:bg-emerald/90"
                             : "bg-panel border border-panel-border text-muted-foreground hover:bg-panel-strong",
@@ -991,6 +1019,7 @@ function LayoutBuilderPage() {
                       </Button>
                     </>
                   )}
+
                 </div>
               </div>
 
