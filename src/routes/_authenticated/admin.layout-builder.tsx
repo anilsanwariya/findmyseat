@@ -63,7 +63,15 @@ import {
   Eye,
   Pencil,
   AlertTriangle,
+  MoreVertical,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
 
 export const Route = createFileRoute("/_authenticated/admin/layout-builder")({
   head: () => ({ meta: [{ title: "Layout Builder · LibraryBandhu" }] }),
@@ -941,47 +949,72 @@ function LayoutBuilderPage() {
                           setPasteMode(false);
                         }}
                         className={cn(
-                          "flex-1 bg-panel shrink-0 sm:flex-none",
+                          "h-11 flex-1 bg-panel shrink-0 sm:h-9 sm:flex-none",
                           multiSelectMode && "bg-cyan text-cyan-950 hover:bg-cyan/90 border-cyan/50",
                         )}
                         size="sm"
                       >
                         <MousePointer2 className="size-4 mr-2" /> {multiSelectMode ? "Cancel" : "Select"}
                       </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={!history.length || undoing || isShifting}
-                        onClick={() => handleUndo(1)}
-                        className="bg-panel shrink-0"
-                        title={history[history.length - 1]?.label ?? "Nothing to undo"}
-                      >
-                        <Undo2 className="size-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={!redoStack.length || undoing || isShifting}
-                        onClick={handleRedo}
-                        className="bg-panel shrink-0"
-                        title={redoStack[redoStack.length - 1]?.label ?? "Nothing to redo"}
-                      >
-                        <Redo2 className="size-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="bg-panel shrink-0"
-                        title="Duplicate this section"
-                        onClick={() => setDupSectionOpen(true)}
-                      >
-                        <CopyPlus className="size-4" />
-                      </Button>
+                      {/* Undo / redo / duplicate: buttons on wide screens, one menu on phones. */}
+                      <div className="hidden sm:flex sm:gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={!history.length || undoing || isShifting}
+                          onClick={() => handleUndo(1)}
+                          className="bg-panel shrink-0"
+                          title={history[history.length - 1]?.label ?? "Nothing to undo"}
+                        >
+                          <Undo2 className="size-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={!redoStack.length || undoing || isShifting}
+                          onClick={handleRedo}
+                          className="bg-panel shrink-0"
+                          title={redoStack[redoStack.length - 1]?.label ?? "Nothing to redo"}
+                        >
+                          <Redo2 className="size-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="bg-panel shrink-0"
+                          title="Duplicate this section"
+                          onClick={() => setDupSectionOpen(true)}
+                        >
+                          <CopyPlus className="size-4" />
+                        </Button>
+                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="sm" className="h-11 w-11 bg-panel shrink-0 sm:hidden" title="More">
+                            <MoreVertical className="size-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="glass-strong border-panel-border">
+                          <DropdownMenuItem
+                            disabled={!history.length || undoing || isShifting}
+                            onClick={() => handleUndo(1)}
+                          >
+                            <Undo2 className="mr-2 size-4" /> Undo
+                            {history.length ? ` · ${history[history.length - 1].label}` : ""}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem disabled={!redoStack.length || undoing || isShifting} onClick={handleRedo}>
+                            <Redo2 className="mr-2 size-4" /> Redo
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setDupSectionOpen(true)}>
+                            <CopyPlus className="mr-2 size-4" /> Duplicate section
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                       <Button
                         size="sm"
                         onClick={handleSave}
                         className={cn(
-                          "flex-1 shrink-0 sm:flex-none",
+                          "h-11 flex-1 shrink-0 sm:h-9 sm:flex-none",
                           unsaved > 0
                             ? "bg-emerald text-emerald-950 hover:bg-emerald/90"
                             : "bg-panel border border-panel-border text-muted-foreground hover:bg-panel-strong",
@@ -991,6 +1024,7 @@ function LayoutBuilderPage() {
                       </Button>
                     </>
                   )}
+
                 </div>
               </div>
 
@@ -1137,7 +1171,7 @@ function LayoutBuilderPage() {
                         size="icon"
                         variant="outline"
                         disabled={busy}
-                        className="size-8 bg-panel border-panel-border"
+                        className="size-11 bg-panel border-panel-border sm:size-8"
                         onClick={() => handleMove(m.dr, m.dc)}
                       >
                         <m.icon className="size-4" />
@@ -1146,15 +1180,15 @@ function LayoutBuilderPage() {
                   </div>
                 </div>
                 <div className="mt-2 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-                  <Button size="sm" className="bg-emerald text-emerald-950 hover:bg-emerald/90" onClick={() => setBulkSeatOpen(true)}>
+                  <Button size="sm" className="h-11 bg-emerald text-emerald-950 hover:bg-emerald/90 sm:h-9" onClick={() => setBulkSeatOpen(true)}>
                     <Grid3X3 className="size-3.5 mr-1.5" /> Generate
                   </Button>
-                  <Button size="sm" className="bg-cyan text-cyan-950 hover:bg-cyan/90" onClick={() => setBulkAreaOpen(true)}>
+                  <Button size="sm" className="h-11 bg-cyan text-cyan-950 hover:bg-cyan/90 sm:h-9" onClick={() => setBulkAreaOpen(true)}>
                     <Square className="size-3.5 mr-1.5" /> Area
                   </Button>
                   <Button
                     size="sm"
-                    className="bg-amber-500 text-amber-950 hover:bg-amber-400"
+                    className="h-11 bg-amber-500 text-amber-950 hover:bg-amber-400 sm:h-9"
                     disabled={!selectedSeatRows.length}
                     onClick={() => setBulkEditOpen(true)}
                   >
@@ -1163,7 +1197,7 @@ function LayoutBuilderPage() {
                   <Button
                     size="sm"
                     variant="outline"
-                    className="bg-panel border-panel-border"
+                    className="h-11 bg-panel border-panel-border sm:h-9"
                     disabled={!selectedSeatRows.length}
                     onClick={() => setRenumberOpen(true)}
                   >
@@ -1172,7 +1206,7 @@ function LayoutBuilderPage() {
                   <Button
                     size="sm"
                     variant="outline"
-                    className="bg-panel border-panel-border"
+                    className="h-11 bg-panel border-panel-border sm:h-9"
                     disabled={!selectedSeatRows.length && !selectedObjRows.length}
                     onClick={handleCopy}
                   >
@@ -1182,7 +1216,7 @@ function LayoutBuilderPage() {
                     <Button
                       size="sm"
                       variant="outline"
-                      className="bg-panel border-panel-border"
+                      className="h-11 bg-panel border-panel-border sm:h-9"
                       onClick={() => {
                         setPasteMode(true);
                         setMultiSelectMode(false);
@@ -1195,12 +1229,13 @@ function LayoutBuilderPage() {
                   <Button
                     size="sm"
                     variant="destructive"
+                    className="h-11 sm:h-9"
                     onClick={requestBulkDelete}
                     disabled={isShifting || (!selectedSeatRows.length && !selectedObjRows.length)}
                   >
                     <Trash2 className="size-3.5 mr-1.5" /> Delete
                   </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setSelectedCells(new Set())} className="text-muted-foreground">
+                  <Button size="sm" variant="ghost" onClick={() => setSelectedCells(new Set())} className="h-11 text-muted-foreground sm:h-9">
                     Clear
                   </Button>
                 </div>
