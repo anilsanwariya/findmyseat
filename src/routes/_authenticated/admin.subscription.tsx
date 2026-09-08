@@ -101,7 +101,8 @@ function SubscriptionPageInner() {
       // 3. Open Razorpay Checkout
       await new Promise<void>((resolve, reject) => {
         const options: any = {
-          key: import.meta.env.VITE_RAZORPAY_KEY_ID || r.key_id,
+          // Always use the key returned by the server so test/live mode matches the backend secret.
+          key: r.key_id,
           subscription_id: r.subscription_id,
           name: "LibraryBandhu",
           description: "Owner subscription",
