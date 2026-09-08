@@ -437,6 +437,19 @@ function Dashboard() {
         <TrendCharts data={trend} selected={selMonth} />
       )}
 
+      {loading ? (
+        <GlassPanel className="p-4 sm:p-5 space-y-3">
+          <Skeleton className="h-3 w-40 bg-white/10" />
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-16 w-full bg-white/5" />
+          ))}
+        </GlassPanel>
+      ) : (
+        <ShiftBreakdown rows={shiftRows} totalStudents={ops.data?.students.length ?? 0} />
+      )}
+
+
+
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
           {loading ? (
