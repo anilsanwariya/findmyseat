@@ -308,6 +308,7 @@ export type Database = {
           id: string
           library_id: string | null
           org_id: string
+          receipt_url: string | null
           spent_on: string
         }
         Insert: {
@@ -318,6 +319,7 @@ export type Database = {
           id?: string
           library_id?: string | null
           org_id: string
+          receipt_url?: string | null
           spent_on?: string
         }
         Update: {
@@ -328,6 +330,7 @@ export type Database = {
           id?: string
           library_id?: string | null
           org_id?: string
+          receipt_url?: string | null
           spent_on?: string
         }
         Relationships: [
@@ -340,6 +343,38 @@ export type Database = {
           },
           {
             foreignKeyName: "expenditures_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      expense_categories: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          org_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          org_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          org_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expense_categories_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -1058,6 +1093,63 @@ export type Database = {
             columns: ["base_plan_id"]
             isOneToOne: false
             referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recurring_expenses: {
+        Row: {
+          amount: number
+          category: string
+          created_at: string
+          day_of_month: number
+          description: string | null
+          id: string
+          is_active: boolean
+          last_posted_on: string | null
+          library_id: string | null
+          org_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          category: string
+          created_at?: string
+          day_of_month?: number
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          last_posted_on?: string | null
+          library_id?: string | null
+          org_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          category?: string
+          created_at?: string
+          day_of_month?: number
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          last_posted_on?: string | null
+          library_id?: string | null
+          org_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recurring_expenses_library_id_fkey"
+            columns: ["library_id"]
+            isOneToOne: false
+            referencedRelation: "libraries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurring_expenses_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
