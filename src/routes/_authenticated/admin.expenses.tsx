@@ -49,7 +49,13 @@ function ExpensesPage() {
   const qc = useQueryClient();
   const { data: libs } = useLibraries();
 
+  const today = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
+
   const [amount, setAmount] = useState<number | "">("");
+  const [spentOn, setSpentOn] = useState<string>(today);
   const [category, setCategory] = useState("Rent");
   const [libraryId, setLibraryId] = useState<string>("");
   const [description, setDescription] = useState("");
