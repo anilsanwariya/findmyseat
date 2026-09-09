@@ -49,7 +49,13 @@ function ExpensesPage() {
   const qc = useQueryClient();
   const { data: libs } = useLibraries();
 
+  const today = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
+
   const [amount, setAmount] = useState<number | "">("");
+  const [spentOn, setSpentOn] = useState<string>(today);
   const [category, setCategory] = useState("Rent");
   const [libraryId, setLibraryId] = useState<string>("");
   const [description, setDescription] = useState("");
@@ -92,11 +98,24 @@ function ExpensesPage() {
             className="mt-4 space-y-4"
             onSubmit={async (e) => {
               e.preventDefault();
+              if (!(Number(amount) > 0)) {
+                toast.error("Amount must be greater than zero.");
+                return;
+              }
+              if (!spentOn) {
+                toast.error("Pick the date this was spent on.");
+                return;
+              }
+              if (spentOn > today()) {
+                toast.error("Expense date cannot be in the future.");
+                return;
+              }
               const { error } = await supabase.from("expenditures").insert({
                 org_id: orgId!,
                 library_id: libraryId || null,
                 amount: Number(amount || 0),
                 category,
+                spent_on: spentOn,
                 description: description || null,
               });
               if (error) {
@@ -106,18 +125,31 @@ function ExpensesPage() {
               toast.success("Expense logged");
               setAmount("");
               setDescription("");
+              setSpentOn(today());
               invalidateExpenseCaches(qc);
             }}
           >
-            <div className="space-y-2">
-              <Label>Amount (₹)</Label>
-              <Input
-                required
-                type="number"
-                value={amount}
-                onChange={(e) => setAmount(Number(e.target.value))}
-                className="bg-panel border-panel-border font-mono w-full"
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Amount (₹)</Label>
+                <Input
+                  required
+                  type="number"
+                  value={amount}
+                  onChange={(e) => setAmount(Number(e.target.value))}
+                  className="bg-panel border-panel-border font-mono w-full"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Date</Label>
+                <DateInput
+                  required
+                  max={today()}
+                  value={spentOn}
+                  onChange={(e) => setSpentOn(e.target.value)}
+                  className="bg-panel border-panel-border font-mono w-full"
+                />
+              </div>
             </div>
             <div className="space-y-2">
               <Label>Category</Label>
