@@ -14,7 +14,7 @@ import { inr, fmtDate } from "@/lib/format";
 import { dueOccurrences } from "@/lib/expenses";
 import { invalidateExpenseCaches } from "@/lib/cache";
 
-export function useRecurringExpenses(orgId?: string) {
+export function useRecurringExpenses(orgId?: string | null) {
   return useQuery({
     queryKey: ["recurring-expenses", orgId],
     enabled: !!orgId,
