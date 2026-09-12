@@ -1,27 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-
-// -------- Razorpay helpers ----------
-async function rzp(path: string, method: "GET" | "POST" | "PATCH" | "DELETE", body?: any) {
-  const keyId = process.env.RAZORPAY_KEY_ID;
-  const keySecret = process.env.RAZORPAY_KEY_SECRET;
-  if (!keyId || !keySecret) {
-    throw new Error("Razorpay is not configured. Missing RAZORPAY_KEY_ID or RAZORPAY_KEY_SECRET.");
-  }
-  const auth = Buffer.from(`${keyId}:${keySecret}`).toString("base64");
-  const res = await fetch(`https://api.razorpay.com/v1${path}`, {
-    method,
-    headers: {
-      Authorization: `Basic ${auth}`,
-      "Content-Type": "application/json",
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const json = await res.json();
-  if (!res.ok) throw new Error(json?.error?.description ?? `Razorpay error: ${res.status}`);
-  return json;
-}
+import { createHmac, timingSafeEqual } from "crypto";
 
 // -------- Subscription reads ----------
 export const getOwnerBilling = createServerFn({ method: "GET" })
@@ -128,7 +108,7 @@ export const validateCoupon = createServerFn({ method: "POST" })
     };
   });
 
-// -------- Create Razorpay recurring subscription ----------
+// -------- Create a one-time Razorpay order ----------
 export const createOwnerSubscription = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
@@ -178,23 +158,7 @@ export const createOwnerSubscription = createServerFn({ method: "POST" })
     // Coupon calculation
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    // Clear out previous checkout attempts that were never paid, so an
-    // abandoned "created" row can never linger as the org's subscription.
-    const { data: stale } = await supabaseAdmin
-      .from("owner_subscriptions")
-      .select("id, razorpay_subscription_id")
-      .eq("org_id", orgId)
-      .eq("status", "created");
-    for (const s of stale ?? []) {
-      if (s.razorpay_subscription_id) {
-        try {
-          await rzp(`/subscriptions/${s.razorpay_subscription_id}/cancel`, "POST", { cancel_at_cycle_end: 0 });
-        } catch {
-          /* already cancelled / expired on Razorpay — ignore */
-        }
-      }
-      await supabaseAdmin.from("owner_subscriptions").update({ status: "abandoned" }).eq("id", s.id);
-    }
+    await supabaseAdmin.from("owner_subscriptions").update({ status: "abandoned" }).eq("org_id", orgId).eq("status", "created");
 
     let couponId: string | null = null;
     let discounted = baseAmount;
@@ -217,66 +181,11 @@ export const createOwnerSubscription = createServerFn({ method: "POST" })
     }
 
     const amountPaise = Math.round(discounted * 100);
-    const period = data.billing_cycle === "monthly" ? "monthly" : "yearly";
-
-
-    // --- SMART PLAN RE-USE LOGIC ---
-    // 1. Check if a Razorpay plan for this exact base plan, cycle, and price already exists
-    const { data: cachedPlan } = await supabaseAdmin
-      .from("razorpay_plan_cache")
-      .select("razorpay_plan_id")
-      .eq("base_plan_id", plan.id)
-      .eq("billing_cycle", data.billing_cycle)
-      .eq("amount_paise", amountPaise)
-      .maybeSingle();
-
-    let rzpPlanId: string = cachedPlan?.razorpay_plan_id ?? "";
-
-    // 2. If it does not exist, create it in Razorpay and save it to the cache
-    if (!rzpPlanId) {
-      const rzpPlan = await rzp("/plans", "POST", {
-        period,
-        interval: 1,
-        item: {
-          name: `${plan.name} (${data.billing_cycle}) - ₹${discounted}`,
-          amount: amountPaise,
-          currency: "INR",
-          description: plan.description ?? plan.name,
-        },
-        notes: { plan_id: plan.id, cycle: data.billing_cycle },
-      });
-
-      rzpPlanId = rzpPlan.id;
-
-      await supabaseAdmin.from("razorpay_plan_cache").insert({
-        base_plan_id: plan.id,
-        billing_cycle: data.billing_cycle,
-        amount_paise: amountPaise,
-        razorpay_plan_id: rzpPlanId,
-      });
-    }
-
-    // 3. Create the subscription using the cached (or newly created) Plan ID
-    const totalCount = data.billing_cycle === "monthly" ? 120 : 10; // ~10y horizon
-    const rzpSub = await rzp("/subscriptions", "POST", {
-      plan_id: rzpPlanId,
-      total_count: totalCount,
-      customer_notify: 1,
-      notes: {
-        org_id: orgId,
-        plan_id: plan.id,
-        company: org.company_name,
-        cycle: data.billing_cycle,
-      },
-    });
-
-    // 4. Persist locally
     const { data: row, error } = await supabaseAdmin
       .from("owner_subscriptions")
       .insert({
         org_id: orgId,
         plan_id: plan.id,
-        razorpay_subscription_id: rzpSub.id,
         billing_cycle: data.billing_cycle,
         status: "created",
         coupon_id: couponId,
@@ -285,19 +194,73 @@ export const createOwnerSubscription = createServerFn({ method: "POST" })
       .single();
     if (error) throw new Error(error.message);
 
+    const { razorpayRequest } = await import("@/lib/billing.server");
+    const order = await razorpayRequest("/orders", "POST", {
+      amount: amountPaise,
+      currency: "INR",
+      receipt: `lb_${row.id.replaceAll("-", "").slice(0, 30)}`,
+      notes: {
+        local_subscription_id: row.id,
+        org_id: orgId,
+        plan_id: plan.id,
+        billing_cycle: data.billing_cycle,
+      },
+    });
+
+    const { error: orderError } = await supabaseAdmin
+      .from("owner_subscriptions")
+      .update({ razorpay_order_id: order.id })
+      .eq("id", row.id);
+    if (orderError) throw new Error(orderError.message);
+
     return {
-      subscription_id: rzpSub.id,
-      short_url: rzpSub.short_url,
+      order_id: order.id as string,
       key_id: process.env.RAZORPAY_KEY_ID!,
       local_id: row.id,
+      amount: amountPaise,
+      currency: "INR",
     };
   });
 
+// -------- Verify one-time checkout and activate access ----------
+export const verifyOwnerPayment = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({
+    local_id: z.string().uuid(),
+    razorpay_order_id: z.string().min(1),
+    razorpay_payment_id: z.string().min(1),
+    razorpay_signature: z.string().min(1),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: roleRow } = await context.supabase
+      .from("user_roles").select("org_id").eq("user_id", context.userId).eq("role", "org_admin").maybeSingle();
+    if (!roleRow?.org_id) throw new Error("Not an organization admin");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: attempt } = await supabaseAdmin
+      .from("owner_subscriptions")
+      .select("id, org_id, razorpay_order_id")
+      .eq("id", data.local_id).eq("org_id", roleRow.org_id).maybeSingle();
+    if (!attempt || attempt.razorpay_order_id !== data.razorpay_order_id) throw new Error("Payment attempt not found");
+
+    const secret = process.env['RAZORPAY_KEY_SECRET'];
+    if (!secret) throw new Error("Razorpay is not configured.");
+    const expected = createHmac("sha256", secret)
+      .update(`${data.razorpay_order_id}|${data.razorpay_payment_id}`).digest("hex");
+    const supplied = Buffer.from(data.razorpay_signature);
+    const expectedBuffer = Buffer.from(expected);
+    if (supplied.length !== expectedBuffer.length || !timingSafeEqual(supplied, expectedBuffer)) {
+      throw new Error("Payment signature is invalid.");
+    }
+
+    const { activatePaidOrder } = await import("@/lib/billing.server");
+    return activatePaidOrder({ localId: data.local_id, orderId: data.razorpay_order_id, paymentId: data.razorpay_payment_id });
+  });
 
 // -------- Abandon an unpaid checkout attempt ----------
 export const abandonSubscriptionAttempt = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ subscription_id: z.string().min(1) }).parse(d))
+  .inputValidator((d: unknown) => z.object({ order_id: z.string().min(1) }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { data: roleRow } = await supabase
@@ -312,103 +275,48 @@ export const abandonSubscriptionAttempt = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: row } = await supabaseAdmin
       .from("owner_subscriptions")
-      .select("id, status, razorpay_subscription_id")
+      .select("id, status")
       .eq("org_id", orgId)
-      .eq("razorpay_subscription_id", data.subscription_id)
+      .eq("razorpay_order_id", data.order_id)
       .maybeSingle();
     if (!row || row.status !== "created") return { ok: true };
-
-    try {
-      await rzp(`/subscriptions/${data.subscription_id}/cancel`, "POST", { cancel_at_cycle_end: 0 });
-    } catch {
-      /* ignore */
-    }
     await supabaseAdmin.from("owner_subscriptions").update({ status: "abandoned" }).eq("id", row.id);
     return { ok: true };
   });
 
-// -------- Pull live status from Razorpay (webhook fallback) ----------
-export const syncSubscriptionStatus = createServerFn({ method: "POST" })
+// -------- Super Admin: stop legacy recurring agreements ----------
+export const cutoverLegacySubscriptions = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ subscription_id: z.string().min(1) }).parse(d))
-  .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
-    const { data: roleRow } = await supabase
-      .from("user_roles")
-      .select("org_id")
-      .eq("user_id", userId)
-      .eq("role", "org_admin")
-      .maybeSingle();
-    const orgId = roleRow?.org_id;
-    if (!orgId) throw new Error("Not an organization admin");
-
+  .handler(async ({ context }) => {
+    const { data: isSuper } = await context.supabase.rpc("has_role", { _user_id: context.userId, _role: "super_admin" });
+    if (!isSuper) throw new Error("Forbidden");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: row } = await supabaseAdmin
+    const { data: rows, error } = await supabaseAdmin
       .from("owner_subscriptions")
-      .select("id")
-      .eq("org_id", orgId)
-      .eq("razorpay_subscription_id", data.subscription_id)
-      .maybeSingle();
-    if (!row) return { status: null as string | null };
+      .select("id, razorpay_subscription_id, legacy_cancelled_at")
+      .not("razorpay_subscription_id", "is", null)
+      .is("legacy_cancelled_at", null);
+    if (error) throw new Error(error.message);
 
-    const live = await rzp(`/subscriptions/${data.subscription_id}`, "GET");
-    const map: Record<string, string> = {
-      created: "created",
-      authenticated: "active",
-      active: "active",
-      pending: "past_due",
-      halted: "halted",
-      cancelled: "cancelled",
-      completed: "expired",
-      expired: "expired",
-      paused: "past_due",
-    };
-    const mapped = map[String(live.status)] ?? "created";
-    const patch: any = { status: mapped };
-    if (live.current_end) patch.current_period_end = new Date(live.current_end * 1000).toISOString();
-    await supabaseAdmin.from("owner_subscriptions").update(patch).eq("id", row.id);
-    return { status: mapped };
-  });
-
-// -------- Cancel ----------
-
-export const cancelOwnerSubscription = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ at_cycle_end: z.boolean().default(true) }).parse(d))
-  .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
-    const { data: roleRow } = await supabase
-      .from("user_roles")
-      .select("org_id")
-      .eq("user_id", userId)
-      .eq("role", "org_admin")
-      .maybeSingle();
-    const orgId = roleRow?.org_id;
-    if (!orgId) throw new Error("Not an organization admin");
-    const { data: sub } = await supabase
-      .from("owner_subscriptions")
-      .select("*")
-      .eq("org_id", orgId)
-      .not("status", "in", "(created,abandoned)")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (!sub?.razorpay_subscription_id) throw new Error("No active subscription");
-
-    await rzp(`/subscriptions/${sub.razorpay_subscription_id}/cancel`, "POST", {
-      cancel_at_cycle_end: data.at_cycle_end ? 1 : 0,
-    });
-
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    await supabaseAdmin
-      .from("owner_subscriptions")
-      .update({
-        cancel_at_period_end: data.at_cycle_end,
-        status: data.at_cycle_end ? sub.status : "cancelled",
-      })
-      .eq("id", sub.id);
-    return { ok: true };
+    const { razorpayRequest } = await import("@/lib/billing.server");
+    let cancelled = 0;
+    const failures: Array<{ id: string; error: string }> = [];
+    for (const row of rows ?? []) {
+      const attemptedAt = new Date().toISOString();
+      try {
+        await razorpayRequest(`/subscriptions/${row.razorpay_subscription_id}/cancel`, "POST", { cancel_at_cycle_end: 0 });
+        await supabaseAdmin.from("owner_subscriptions").update({
+          status: "expired", current_period_end: attemptedAt, legacy_cancel_attempted_at: attemptedAt,
+          legacy_cancelled_at: attemptedAt, legacy_cancel_error: null,
+        }).eq("id", row.id);
+        cancelled += 1;
+      } catch (cause) {
+        const message = cause instanceof Error ? cause.message : "Cancellation failed";
+        await supabaseAdmin.from("owner_subscriptions").update({ legacy_cancel_attempted_at: attemptedAt, legacy_cancel_error: message }).eq("id", row.id);
+        failures.push({ id: row.id, error: message });
+      }
+    }
+    return { total: rows?.length ?? 0, cancelled, failures };
   });
 
 // -------- Approvals (super admin) ----------
