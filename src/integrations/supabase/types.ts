@@ -862,10 +862,17 @@ export type Database = {
           coupon_id: string | null
           created_at: string
           current_period_end: string | null
+          entitlement_start: string | null
           id: string
+          legacy_cancel_attempted_at: string | null
+          legacy_cancel_error: string | null
+          legacy_cancelled_at: string | null
           org_id: string
+          payment_verified_at: string | null
           plan_id: string
           razorpay_customer_id: string | null
+          razorpay_order_id: string | null
+          razorpay_payment_id: string | null
           razorpay_signature: string | null
           razorpay_subscription_id: string | null
           status: string
@@ -877,10 +884,17 @@ export type Database = {
           coupon_id?: string | null
           created_at?: string
           current_period_end?: string | null
+          entitlement_start?: string | null
           id?: string
+          legacy_cancel_attempted_at?: string | null
+          legacy_cancel_error?: string | null
+          legacy_cancelled_at?: string | null
           org_id: string
+          payment_verified_at?: string | null
           plan_id: string
           razorpay_customer_id?: string | null
+          razorpay_order_id?: string | null
+          razorpay_payment_id?: string | null
           razorpay_signature?: string | null
           razorpay_subscription_id?: string | null
           status?: string
@@ -892,10 +906,17 @@ export type Database = {
           coupon_id?: string | null
           created_at?: string
           current_period_end?: string | null
+          entitlement_start?: string | null
           id?: string
+          legacy_cancel_attempted_at?: string | null
+          legacy_cancel_error?: string | null
+          legacy_cancelled_at?: string | null
           org_id?: string
+          payment_verified_at?: string | null
           plan_id?: string
           razorpay_customer_id?: string | null
+          razorpay_order_id?: string | null
+          razorpay_payment_id?: string | null
           razorpay_signature?: string | null
           razorpay_subscription_id?: string | null
           status?: string
@@ -1822,6 +1843,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      activate_one_time_subscription: {
+        Args: {
+          _amount: number
+          _currency: string
+          _paid_at: string
+          _razorpay_order_id: string
+          _razorpay_payment_id: string
+          _subscription_id: string
+        }
+        Returns: {
+          already_processed: boolean
+          current_period_end: string
+        }[]
+      }
       can_access_org_storage: { Args: { _org_id: string }; Returns: boolean }
       create_owner_organization: {
         Args: {
