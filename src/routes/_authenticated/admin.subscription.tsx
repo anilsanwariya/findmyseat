@@ -138,8 +138,9 @@ function SubscriptionPageInner() {
 
   const sub = billing.data?.subscription;
   const currentPlan = billing.data?.plan;
+  const accessActive = sub?.status === "active" && (!sub.current_period_end || new Date(sub.current_period_end) > new Date());
   const statusTone =
-    sub?.status === "active"
+    accessActive
       ? "text-emerald bg-emerald/15"
       : sub?.status === "past_due" || sub?.status === "halted"
         ? "text-rose bg-rose/15"
@@ -198,7 +199,7 @@ function SubscriptionPageInner() {
                 <span
                   className={cn("rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest", statusTone)}
                 >
-                  {sub.status}
+                  {accessActive ? "active" : "expired"}
                 </span>
               )}
             </div>

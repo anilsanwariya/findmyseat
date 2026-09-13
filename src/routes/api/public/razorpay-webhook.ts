@@ -48,6 +48,7 @@ export const Route = createFileRoute("/api/public/razorpay-webhook")({
           }
         } catch (e) {
           console.error("razorpay webhook handler error", e);
+          return Response.json({ ok: false }, { status: 500 });
         }
         return Response.json({ ok: true });
       },
