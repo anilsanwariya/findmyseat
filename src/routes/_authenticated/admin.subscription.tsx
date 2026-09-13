@@ -13,10 +13,9 @@ import { cn } from "@/lib/utils";
 import {
   getOwnerBilling,
   createOwnerSubscription,
-  cancelOwnerSubscription,
   validateCoupon,
   abandonSubscriptionAttempt,
-  syncSubscriptionStatus,
+  verifyOwnerPayment,
 } from "@/lib/billing.functions";
 
 import { loadRazorpayScript } from "@/lib/razorpay";
@@ -50,10 +49,9 @@ function SubscriptionPageInner() {
   const qc = useQueryClient();
   const getBilling = useServerFn(getOwnerBilling);
   const createSub = useServerFn(createOwnerSubscription);
-  const cancelSub = useServerFn(cancelOwnerSubscription);
   const checkCoupon = useServerFn(validateCoupon);
   const abandonAttempt = useServerFn(abandonSubscriptionAttempt);
-  const syncStatus = useServerFn(syncSubscriptionStatus);
+  const verifyPayment = useServerFn(verifyOwnerPayment);
 
 
   const [cycle, setCycle] = useState<"monthly" | "annual">("monthly");
@@ -85,7 +83,7 @@ function SubscriptionPageInner() {
 
   const subscribe = useMutation({
     mutationFn: async (planId: string) => {
-      // 1. Call Backend to Create Subscription ID
+      // 1. Create a one-time order for the selected access period.
       const r = await createSub({
         data: {
           plan_id: planId,
@@ -98,21 +96,20 @@ function SubscriptionPageInner() {
       const loaded = await loadRazorpayScript();
       if (!loaded) throw new Error("Failed to load Razorpay SDK. Check your network.");
 
-      // 3. Open Razorpay Checkout
-      await new Promise<void>((resolve, reject) => {
+      // 3. Open Razorpay Checkout and verify the signed result on the server.
+      const payment = await new Promise<{ razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }>((resolve, reject) => {
         const options: any = {
-          // Always use the key returned by the server so test/live mode matches the backend secret.
           key: r.key_id,
-          subscription_id: r.subscription_id,
+          order_id: r.order_id,
+          amount: r.amount,
+          currency: r.currency,
           name: "LibraryBandhu",
-          description: "Owner subscription",
-          handler: () => {
-            toast.success("Payment authorized! Validating and activating subscription...");
-            resolve();
+          description: `${cycle === "monthly" ? "One month" : "One year"} of owner access`,
+          handler: (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
+            toast.success("Payment received. Verifying access…");
+            resolve(response);
           },
           modal: {
-            // Owner closed checkout without paying — release the pending attempt
-            // so it never sticks around as a "created" subscription.
             ondismiss: () => reject(new Error("Checkout closed by user")),
           },
           theme: { color: "#06b6d4" }, // Cyan theme
@@ -124,35 +121,22 @@ function SubscriptionPageInner() {
         });
         rz.open();
       }).catch(async (err) => {
-        await abandonAttempt({ data: { subscription_id: r.subscription_id } }).catch(() => {});
+        await abandonAttempt({ data: { order_id: r.order_id } }).catch(() => {});
         qc.invalidateQueries({ queryKey: ["owner-billing"] });
         throw err;
       });
 
-      // 4. Pull the live status (fallback in case the webhook is delayed)
-      await syncStatus({ data: { subscription_id: r.subscription_id } }).catch(() => {});
-      setTimeout(() => {
-        syncStatus({ data: { subscription_id: r.subscription_id } })
-          .catch(() => {})
-          .finally(() => qc.invalidateQueries({ queryKey: ["owner-billing"] }));
-      }, 4000);
+      await verifyPayment({ data: { local_id: r.local_id, ...payment } });
     },
     onSuccess: () => {
-      // Invalidate queries so the UI updates
+      toast.success("Payment verified. Your access period is active.");
       qc.invalidateQueries({ queryKey: ["owner-billing"] });
+      qc.invalidateQueries({ queryKey: ["owner-billing-sidebar"] });
+      qc.invalidateQueries({ queryKey: ["org-sub-state"] });
     },
     onError: (e: any) => toast.error(e?.message ?? "Subscription failed"),
   });
 
-
-  const cancel = useMutation({
-    mutationFn: () => cancelSub({ data: { at_cycle_end: true } }),
-    onSuccess: () => {
-      toast.success("Cancellation scheduled at cycle end");
-      qc.invalidateQueries({ queryKey: ["owner-billing"] });
-    },
-    onError: (e: any) => toast.error(e?.message ?? "Cancel failed"),
-  });
 
   const sub = billing.data?.subscription;
   const currentPlan = billing.data?.plan;
@@ -222,37 +206,16 @@ function SubscriptionPageInner() {
             </div>
             {sub && (
               <div className="mt-2 text-xs text-muted-foreground">
-                {sub.billing_cycle === "monthly" ? "Billed monthly" : "Billed annually"}
+                {sub.billing_cycle === "monthly" ? "One-month access" : "One-year access"}
                 {sub.current_period_end && (
                   <>
                     {" "}
-                    · Next renewal <span className="text-foreground">{fmtDate(sub.current_period_end)}</span>
+                    · Valid until <span className="text-foreground">{fmtDate(sub.current_period_end)}</span>
                   </>
                 )}
-                {sub.cancel_at_period_end && <span className="ml-2 text-rose">· Cancelling at period end</span>}
               </div>
             )}
           </div>
-          {sub && sub.status === "active" && !sub.cancel_at_period_end && (
-            <Button
-              variant="outline"
-              className="border-rose/40 text-rose hover:bg-rose/10"
-              onClick={async () => {
-                if (
-                  await confirmAction({
-                    title: "Cancel subscription?",
-                    description: "Your plan stays active until the end of the current billing period, then it won't renew.",
-                    confirmLabel: "Cancel subscription",
-                    destructive: true,
-                  })
-                )
-                  cancel.mutate();
-              }}
-              disabled={cancel.isPending}
-            >
-              Cancel subscription
-            </Button>
-          )}
         </div>
       </GlassPanel>
 
@@ -325,7 +288,7 @@ function SubscriptionPageInner() {
               : 0;
             const finalPrice = Math.max(0, afterCustom - couponOff);
             const hasDiscount = finalPrice < basePrice;
-            const isCurrent = sub?.plan_id === p.id && sub?.billing_cycle === cycle && sub?.status === "active";
+            const isCurrent = sub?.plan_id === p.id && sub?.status === "active";
 
             // Annual savings vs paying standard monthly for 12 months
             const stdMonthly = Number(p.monthly_price) || 0;
@@ -397,10 +360,10 @@ function SubscriptionPageInner() {
                       ? "bg-emerald/10 text-emerald border border-emerald/20 hover:bg-emerald/20"
                       : "bg-cyan text-cyan-950 hover:bg-cyan/90",
                   )}
-                  disabled={subscribe.isPending || isCurrent || finalPrice <= 0}
+                  disabled={subscribe.isPending || finalPrice <= 0}
                   onClick={() => subscribe.mutate(p.id)}
                 >
-                  {subscribe.isPending ? "Connecting..." : isCurrent ? "Current plan" : "Subscribe Securely"}
+                  {subscribe.isPending ? "Connecting..." : isCurrent ? "Renew access" : "Pay securely"}
                 </Button>
 
                 {!isCurrent && (
@@ -454,7 +417,7 @@ function SubscriptionPageInner() {
               <TableRow>
                 <TableCell colSpan={4} className="py-8 text-center text-sm text-muted-foreground">
                   <XCircle className="mx-auto mb-2 size-4" />
-                  No invoices yet — they'll appear here after your first billing cycle.
+                  No payments yet — they’ll appear here after your first purchase.
                 </TableCell>
               </TableRow>
             )}
