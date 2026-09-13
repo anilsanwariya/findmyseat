@@ -1,10 +1,8 @@
 import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { useSession } from "@/lib/auth";
-import { supabase } from "@/integrations/supabase/client";
 import { AdminShell } from "@/components/admin/AdminShell";
-import { AuroraBackground, GlassPanel } from "@/components/glass";
+import { AuroraBackground } from "@/components/glass";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   component: AdminLayout,
@@ -13,20 +11,6 @@ export const Route = createFileRoute("/_authenticated/admin")({
 function AdminLayout() {
   const { data, isLoading } = useSession();
   const navigate = useNavigate();
-
-  const { data: org, isLoading: orgLoading } = useQuery({
-    queryKey: ["admin", "org-status", data?.orgId],
-    enabled: !!data?.orgId && data.role === "org_admin",
-    queryFn: async () => {
-      const { data: row, error } = await supabase
-        .from("organizations")
-        .select("id, company_name, subscription_status")
-        .eq("id", data!.orgId!)
-        .maybeSingle();
-      if (error) throw error;
-      return row;
-    },
-  });
 
   useEffect(() => {
     if (isLoading) return;

@@ -42,7 +42,9 @@ export function computeOrgState(o: {
     return { plan_name: "—", state: "suspended", state_label: "Suspended", sub_end: null };
   }
   const now = Date.now();
-  const activeSub = (o.owner_subscriptions ?? []).find(s => ["active", "trialing", "authenticated"].includes(s.status));
+  const activeSub = (o.owner_subscriptions ?? [])
+    .filter(s => ["active", "trialing", "authenticated"].includes(s.status))
+    .sort((a, b) => new Date(b.current_period_end ?? 0).getTime() - new Date(a.current_period_end ?? 0).getTime())[0];
   if (activeSub) {
     const end = activeSub.current_period_end ? new Date(activeSub.current_period_end).getTime() : null;
     const planName = activeSub.subscription_plans?.name ?? "Subscribed";

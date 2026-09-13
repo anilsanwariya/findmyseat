@@ -21,7 +21,6 @@ import {
 import { loadRazorpayScript } from "@/lib/razorpay";
 import { fmtDate } from "@/lib/format";
 import { useSession } from "@/lib/auth";
-import { useConfirm } from "@/components/ConfirmDialog";
 
 export const Route = createFileRoute("/_authenticated/admin/subscription")({
   head: () => ({ meta: [{ title: "Subscription · LibraryBandhu" }] }),
@@ -45,7 +44,6 @@ function SubscriptionPage() {
 }
 
 function SubscriptionPageInner() {
-  const confirmAction = useConfirm();
   const qc = useQueryClient();
   const getBilling = useServerFn(getOwnerBilling);
   const createSub = useServerFn(createOwnerSubscription);
