@@ -15,6 +15,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Plus, Trash2, Edit2, CreditCard, Tag, Lock, Infinity as InfinityIcon } from "lucide-react";
 import { useConfirm } from "@/components/ConfirmDialog";
+import { useServerFn } from "@tanstack/react-start";
+import { cutoverLegacySubscriptions } from "@/lib/billing.functions";
 
 export const Route = createFileRoute("/_authenticated/super-admin/subscriptions")({
   head: () => ({ meta: [{ title: "Plans & Coupons · LibraryBandhu" }] }),
@@ -29,11 +31,60 @@ function SubscriptionsAdmin() {
         <TabsList className="bg-panel border border-panel-border">
           <TabsTrigger value="plans"><CreditCard className="mr-1 size-4" /> Plans</TabsTrigger>
           <TabsTrigger value="coupons"><Tag className="mr-1 size-4" /> Coupons</TabsTrigger>
+          <TabsTrigger value="cutover"><Lock className="mr-1 size-4" /> Recurring cutover</TabsTrigger>
         </TabsList>
         <TabsContent value="plans" className="mt-4"><PlansSection /></TabsContent>
         <TabsContent value="coupons" className="mt-4"><CouponsSection /></TabsContent>
+        <TabsContent value="cutover" className="mt-4"><LegacyCutoverSection /></TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+function LegacyCutoverSection() {
+  const confirmAction = useConfirm();
+  const runCutover = useServerFn(cutoverLegacySubscriptions);
+  const cutover = useMutation({
+    mutationFn: () => runCutover(),
+    onSuccess: (result) => {
+      if (result.failures.length) {
+        toast.error(`${result.cancelled} cancelled; ${result.failures.length} need retrying.`);
+      } else {
+        toast.success(`${result.cancelled} recurring subscription${result.cancelled === 1 ? "" : "s"} cancelled.`);
+      }
+    },
+    onError: (error: Error) => toast.error(error.message || "Cutover failed"),
+  });
+
+  return (
+    <GlassPanel className="p-6">
+      <h2 className="text-base font-bold">Switch existing owners to one-time payments</h2>
+      <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+        This stops every remaining Razorpay recurring agreement immediately and ends its old access period. Owners must then
+        purchase one month or one year of access manually. Completed cancellations are skipped on retries.
+      </p>
+      <Button
+        className="mt-5"
+        variant="destructive"
+        disabled={cutover.isPending}
+        onClick={async () => {
+          const approved = await confirmAction({
+            title: "Stop all recurring owner subscriptions?",
+            description: "This cannot restore automatic renewals. Existing billing history will be preserved.",
+            confirmLabel: "Switch to one-time payments",
+            destructive: true,
+          });
+          if (approved) cutover.mutate();
+        }}
+      >
+        {cutover.isPending ? "Switching…" : "Run recurring cutover"}
+      </Button>
+      {cutover.data && (
+        <div className="mt-4 rounded-md border border-panel-border bg-panel/50 p-3 text-sm">
+          Checked {cutover.data.total}; cancelled {cutover.data.cancelled}; retry needed {cutover.data.failures.length}.
+        </div>
+      )}
+    </GlassPanel>
   );
 }
 

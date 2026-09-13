@@ -42,17 +42,19 @@ export function computeOrgState(o: {
     return { plan_name: "—", state: "suspended", state_label: "Suspended", sub_end: null };
   }
   const now = Date.now();
-  const activeSub = (o.owner_subscriptions ?? []).find(s => ["active", "trialing", "authenticated"].includes(s.status));
+  const activeSub = (o.owner_subscriptions ?? [])
+    .filter(s => ["active", "trialing", "authenticated"].includes(s.status))
+    .sort((a, b) => new Date(b.current_period_end ?? 0).getTime() - new Date(a.current_period_end ?? 0).getTime())[0];
   if (activeSub) {
     const end = activeSub.current_period_end ? new Date(activeSub.current_period_end).getTime() : null;
     const planName = activeSub.subscription_plans?.name ?? "Subscribed";
     if (!end || end > now) return { plan_name: planName, state: "active", state_label: "Active", sub_end: activeSub.current_period_end };
-    if (now < end + 7 * 86400_000) return { plan_name: planName, state: "grace", state_label: "Grace period", sub_end: activeSub.current_period_end };
+    if (now < end + 3 * 86400_000) return { plan_name: planName, state: "grace", state_label: "Grace period", sub_end: activeSub.current_period_end };
     return { plan_name: planName, state: "expired", state_label: "Expired", sub_end: activeSub.current_period_end };
   }
   const trialEnd = o.trial_ends_at ? new Date(o.trial_ends_at).getTime() : null;
   if (!trialEnd || trialEnd > now) return { plan_name: "Trial", state: "trial", state_label: "Trial", sub_end: o.trial_ends_at };
-  if (now < trialEnd + 7 * 86400_000) return { plan_name: "Trial", state: "grace", state_label: "Grace period", sub_end: o.trial_ends_at };
+  if (now < trialEnd + 3 * 86400_000) return { plan_name: "Trial", state: "grace", state_label: "Grace period", sub_end: o.trial_ends_at };
   return { plan_name: "Trial (expired)", state: "expired", state_label: "Expired", sub_end: o.trial_ends_at };
 }
 

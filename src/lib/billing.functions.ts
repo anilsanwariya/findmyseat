@@ -34,7 +34,14 @@ export const getOwnerBilling = createServerFn({ method: "GET" })
     // Ignore abandoned checkout attempts ("created"/"abandoned") so an unpaid
     // attempt never appears as the org's current subscription.
     const rows = subs ?? [];
-    const sub = rows.find((s: any) => !["created", "abandoned"].includes(String(s.status))) ?? null;
+    const sub = rows
+      .filter((s: any) => !["created", "abandoned"].includes(String(s.status)))
+      .sort((a: any, b: any) => {
+        const aActive = a.status === "active" && (!a.current_period_end || new Date(a.current_period_end) > new Date());
+        const bActive = b.status === "active" && (!b.current_period_end || new Date(b.current_period_end) > new Date());
+        if (aActive !== bActive) return aActive ? -1 : 1;
+        return new Date(b.current_period_end ?? b.created_at).getTime() - new Date(a.current_period_end ?? a.created_at).getTime();
+      })[0] ?? null;
 
     let plan = null;
     if (sub?.plan_id) {
@@ -295,6 +302,7 @@ export const cutoverLegacySubscriptions = createServerFn({ method: "POST" })
       .from("owner_subscriptions")
       .select("id, razorpay_subscription_id, legacy_cancelled_at")
       .not("razorpay_subscription_id", "is", null)
+      .in("status", ["created", "authenticated", "trialing", "active", "past_due", "halted"])
       .is("legacy_cancelled_at", null);
     if (error) throw new Error(error.message);
 
