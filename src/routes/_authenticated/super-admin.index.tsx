@@ -62,7 +62,7 @@ function SuperAdminDashboard() {
         .filter((i) => new Date(i.paid_at ?? i.created_at) >= startMonth)
         .reduce((s, i) => s + Number(i.amount), 0);
       const subs = (subRes.data ?? []) as any[];
-      const active = subs.filter((s) => ["active", "trialing", "authenticated"].includes(s.status));
+      const active = subs.filter((s) => s.status === "active" && (!s.current_period_end || new Date(s.current_period_end) > new Date()));
       return { invoices, orgMap, total, month, subs, activeCount: active.length };
     },
   });
@@ -87,11 +87,11 @@ function SuperAdminDashboard() {
 
       <GlassPanel className="p-5">
         <h3 className="mb-4 flex items-center gap-2 text-base font-semibold">
-          <Repeat className="size-4 text-violet" /> Active subscriptions
+          <Repeat className="size-4 text-violet" /> Active paid access
         </h3>
         {billing.isLoading ? (
           <div className="py-8 text-center text-xs text-muted-foreground">Loading…</div>
-        ) : (b?.subs.filter((s: any) => ["active", "trialing", "authenticated"].includes(s.status)) ?? []).length === 0 ? (
+        ) : (b?.subs.filter((s: any) => s.status === "active" && (!s.current_period_end || new Date(s.current_period_end) > new Date())) ?? []).length === 0 ? (
           <div className="rounded-lg border border-dashed border-panel-border bg-panel/40 py-8 text-center text-xs text-muted-foreground">
             No active subscriptions yet.
           </div>
@@ -104,12 +104,12 @@ function SuperAdminDashboard() {
                   <th className="py-2 pr-3">Plan</th>
                   <th className="py-2 pr-3">Cycle</th>
                   <th className="py-2 pr-3">Status</th>
-                  <th className="py-2 pr-3">Renews</th>
+                  <th className="py-2 pr-3">Valid until</th>
                 </tr>
               </thead>
               <tbody>
                 {b!.subs
-                  .filter((s: any) => ["active", "trialing", "authenticated"].includes(s.status))
+                  .filter((s: any) => s.status === "active" && (!s.current_period_end || new Date(s.current_period_end) > new Date()))
                   .map((s: any) => (
                     <tr key={s.id} className="border-b border-panel-border/50">
                       <td className="py-3 pr-3 font-medium">{b!.orgMap.get(s.org_id) ?? "—"}</td>

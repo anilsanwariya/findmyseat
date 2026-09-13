@@ -256,7 +256,7 @@ function SubscriptionCard({ onClick }: { onClick?: () => void }) {
           <Crown className="size-4" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-mono uppercase tracking-widest text-amber-200/80">Subscription</p>
+          <p className="text-[10px] font-mono uppercase tracking-widest text-amber-200/80">Owner access</p>
           <p className="truncate text-sm font-semibold text-amber-50">
             {plan?.name ?? (sub ? "Active plan" : "No plan")}
           </p>
@@ -275,7 +275,7 @@ function SubscriptionCard({ onClick }: { onClick?: () => void }) {
           {status ? status.charAt(0).toUpperCase() + status.slice(1) : "Inactive"}
         </span>
         {dueLabel ? (
-          <span className="text-amber-100/90">Due {dueLabel}</span>
+          <span className="text-amber-100/90">Valid to {dueLabel}</span>
         ) : (
           <span className="text-amber-100/70 group-hover:text-amber-50">Upgrade →</span>
         )}
@@ -309,17 +309,22 @@ function TrialBanner() {
     title = `Free trial · ${daysLeft} day${daysLeft === 1 ? "" : "s"} left`;
     body = "Full access to every feature. Subscribe before your trial ends to keep managing your library.";
   } else if (data.state === "expired_grace") {
-    const graceEnd = refEnd ? refEnd + 7 * 86_400_000 : now;
+    const graceEnd = refEnd ? refEnd + 3 * 86_400_000 : now;
     const daysLeft = Math.max(0, Math.ceil((graceEnd - now) / 86_400_000));
     tone = "border-amber-400/50 bg-amber-500/10 text-amber-100";
     title = `Subscription expired · ${daysLeft} day${daysLeft === 1 ? "" : "s"} of grace left`;
-    body = "You can still view your data, but changes are locked. Your library will be delisted from the marketplace when the grace period ends.";
+    body = "You can still make changes during this grace period. Renew before it ends to avoid read-only access.";
     cta = "Renew subscription";
   } else if (data.state === "expired_delisted") {
     tone = "border-rose/50 bg-rose/10 text-rose-100";
     title = "Library delisted";
     body = "Your grace period is over. The library is hidden from the marketplace and all changes are blocked. Renew to restore access.";
     cta = "Renew subscription";
+  } else if (data.state === "suspended") {
+    tone = "border-rose/50 bg-rose/10 text-rose-100";
+    title = "Workspace suspended";
+    body = "Your workspace is read-only. Contact the platform team for assistance.";
+    cta = "View subscription";
   }
 
   return (
