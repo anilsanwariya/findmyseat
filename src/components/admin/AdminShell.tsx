@@ -272,7 +272,13 @@ function SubscriptionCard({ onClick }: { onClick?: () => void }) {
           )}
         >
           <span className={cn("size-1.5 rounded-full", isActive ? "bg-emerald-300" : "bg-muted-foreground")} />
-          {status ? status.charAt(0).toUpperCase() + status.slice(1) : "Inactive"}
+          {status === "expired_delisted"
+            ? "Read only"
+            : status === "expired_grace"
+              ? "Grace period"
+              : status
+                ? status.charAt(0).toUpperCase() + status.slice(1)
+                : "Inactive"}
         </span>
         {dueLabel ? (
           <span className="text-amber-100/90">Valid to {dueLabel}</span>
