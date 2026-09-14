@@ -39,7 +39,12 @@ export async function activatePaidOrder(input: {
 
   if (payment.order_id !== input.orderId) throw new Error("Payment does not belong to this order.");
   if (payment.status !== "captured" || order.status !== "paid") throw new Error("Payment has not been captured yet.");
-  if (Number(payment.amount) !== Number(order.amount_paid) || Number(order.amount_due) !== 0) {
+  if (
+    Number(payment.amount) !== Number(order.amount) ||
+    Number(order.amount_paid) !== Number(order.amount) ||
+    Number(order.amount_due) !== 0 ||
+    String(payment.currency ?? "").toUpperCase() !== String(order.currency ?? "").toUpperCase()
+  ) {
     throw new Error("Payment amount could not be verified.");
   }
   if (String(order.notes?.local_subscription_id ?? "") !== input.localId) {

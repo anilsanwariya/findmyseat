@@ -82,8 +82,8 @@ export const getOrgSubscriptionState = createServerFn({ method: "GET" })
         .from("owner_subscriptions")
         .select("current_period_end, status")
         .eq("org_id", orgId)
-        .in("status", ["active", "trialing", "authenticated"])
-        .order("created_at", { ascending: false })
+        .eq("status", "active")
+        .order("current_period_end", { ascending: false, nullsFirst: false })
         .limit(1)
         .maybeSingle(),
       supabase.rpc("org_subscription_state", { _org_id: orgId }),

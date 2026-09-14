@@ -238,7 +238,7 @@ function SubscriptionCard({ onClick }: { onClick?: () => void }) {
   const sub = data?.subscription as any;
   const plan = data?.plan as any;
   const status = sub?.status as string | undefined;
-  const isActive = status === "active" || status === "authenticated";
+  const isActive = status === "active" && (!dueDate || dueDate.getTime() > Date.now());
   const dueDate = sub?.current_period_end ? new Date(sub.current_period_end) : null;
   const dueLabel = dueDate
     ? dueDate.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" })
