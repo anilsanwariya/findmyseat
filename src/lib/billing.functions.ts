@@ -202,17 +202,23 @@ export const createOwnerSubscription = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
 
     const { razorpayRequest } = await import("@/lib/billing.server");
-    const order = await razorpayRequest("/orders", "POST", {
-      amount: amountPaise,
-      currency: "INR",
-      receipt: `lb_${row.id.replaceAll("-", "").slice(0, 30)}`,
-      notes: {
-        local_subscription_id: row.id,
-        org_id: orgId,
-        plan_id: plan.id,
-        billing_cycle: data.billing_cycle,
-      },
-    });
+    let order: any;
+    try {
+      order = await razorpayRequest("/orders", "POST", {
+        amount: amountPaise,
+        currency: "INR",
+        receipt: `lb_${row.id.replaceAll("-", "").slice(0, 30)}`,
+        notes: {
+          local_subscription_id: row.id,
+          org_id: orgId,
+          plan_id: plan.id,
+          billing_cycle: data.billing_cycle,
+        },
+      });
+    } catch (cause) {
+      await supabaseAdmin.from("owner_subscriptions").update({ status: "abandoned" }).eq("id", row.id);
+      throw cause;
+    }
 
     const { error: orderError } = await supabaseAdmin
       .from("owner_subscriptions")
