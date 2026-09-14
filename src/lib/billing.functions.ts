@@ -82,8 +82,8 @@ export const getOrgSubscriptionState = createServerFn({ method: "GET" })
         .from("owner_subscriptions")
         .select("current_period_end, status")
         .eq("org_id", orgId)
-        .in("status", ["active", "trialing", "authenticated"])
-        .order("created_at", { ascending: false })
+        .eq("status", "active")
+        .order("current_period_end", { ascending: false, nullsFirst: false })
         .limit(1)
         .maybeSingle(),
       supabase.rpc("org_subscription_state", { _org_id: orgId }),
@@ -202,17 +202,23 @@ export const createOwnerSubscription = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
 
     const { razorpayRequest } = await import("@/lib/billing.server");
-    const order = await razorpayRequest("/orders", "POST", {
-      amount: amountPaise,
-      currency: "INR",
-      receipt: `lb_${row.id.replaceAll("-", "").slice(0, 30)}`,
-      notes: {
-        local_subscription_id: row.id,
-        org_id: orgId,
-        plan_id: plan.id,
-        billing_cycle: data.billing_cycle,
-      },
-    });
+    let order: any;
+    try {
+      order = await razorpayRequest("/orders", "POST", {
+        amount: amountPaise,
+        currency: "INR",
+        receipt: `lb_${row.id.replaceAll("-", "").slice(0, 30)}`,
+        notes: {
+          local_subscription_id: row.id,
+          org_id: orgId,
+          plan_id: plan.id,
+          billing_cycle: data.billing_cycle,
+        },
+      });
+    } catch (cause) {
+      await supabaseAdmin.from("owner_subscriptions").update({ status: "abandoned" }).eq("id", row.id);
+      throw cause;
+    }
 
     const { error: orderError } = await supabaseAdmin
       .from("owner_subscriptions")
@@ -320,8 +326,20 @@ export const cutoverLegacySubscriptions = createServerFn({ method: "POST" })
         cancelled += 1;
       } catch (cause) {
         const message = cause instanceof Error ? cause.message : "Cancellation failed";
-        await supabaseAdmin.from("owner_subscriptions").update({ legacy_cancel_attempted_at: attemptedAt, legacy_cancel_error: message }).eq("id", row.id);
-        failures.push({ id: row.id, error: message });
+        const providerNoLongerHasAgreement = /invalid or could not be found/i.test(message);
+        if (providerNoLongerHasAgreement) {
+          await supabaseAdmin.from("owner_subscriptions").update({
+            status: "expired",
+            current_period_end: attemptedAt,
+            legacy_cancel_attempted_at: attemptedAt,
+            legacy_cancelled_at: attemptedAt,
+            legacy_cancel_error: "Razorpay agreement was not found; local cutover completed.",
+          }).eq("id", row.id);
+          cancelled += 1;
+        } else {
+          await supabaseAdmin.from("owner_subscriptions").update({ legacy_cancel_attempted_at: attemptedAt, legacy_cancel_error: message }).eq("id", row.id);
+          failures.push({ id: row.id, error: message });
+        }
       }
     }
     return { total: rows?.length ?? 0, cancelled, failures };
