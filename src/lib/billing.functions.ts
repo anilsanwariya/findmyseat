@@ -326,8 +326,20 @@ export const cutoverLegacySubscriptions = createServerFn({ method: "POST" })
         cancelled += 1;
       } catch (cause) {
         const message = cause instanceof Error ? cause.message : "Cancellation failed";
-        await supabaseAdmin.from("owner_subscriptions").update({ legacy_cancel_attempted_at: attemptedAt, legacy_cancel_error: message }).eq("id", row.id);
-        failures.push({ id: row.id, error: message });
+        const providerNoLongerHasAgreement = /invalid or could not be found/i.test(message);
+        if (providerNoLongerHasAgreement) {
+          await supabaseAdmin.from("owner_subscriptions").update({
+            status: "expired",
+            current_period_end: attemptedAt,
+            legacy_cancel_attempted_at: attemptedAt,
+            legacy_cancelled_at: attemptedAt,
+            legacy_cancel_error: "Razorpay agreement was not found; local cutover completed.",
+          }).eq("id", row.id);
+          cancelled += 1;
+        } else {
+          await supabaseAdmin.from("owner_subscriptions").update({ legacy_cancel_attempted_at: attemptedAt, legacy_cancel_error: message }).eq("id", row.id);
+          failures.push({ id: row.id, error: message });
+        }
       }
     }
     return { total: rows?.length ?? 0, cancelled, failures };
