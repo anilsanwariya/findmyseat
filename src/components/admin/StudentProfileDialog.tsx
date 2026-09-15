@@ -41,16 +41,30 @@ function Field({ label, value }: { label: string; value?: string | null }) {
   );
 }
 
-function DocCard({ label, path }: { label: string; path?: string | null }) {
+function DocCard({
+  label,
+  path,
+  onPreview,
+}: {
+  label: string;
+  path?: string | null;
+  onPreview: (url: string, label: string) => void;
+}) {
   const url = useSignedDoc(path);
   return (
     <div className="space-y-1">
       <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</div>
       <div className="aspect-[4/3] w-full overflow-hidden rounded-lg border border-panel-border bg-panel">
         {url ? (
-          <a href={url} target="_blank" rel="noopener noreferrer">
+          <Button
+            type="button"
+            variant="ghost"
+            className="size-full rounded-none p-0"
+            aria-label={`View ${label}`}
+            onClick={() => onPreview(url, label)}
+          >
             <img src={url} alt={label} className="size-full object-cover" />
-          </a>
+          </Button>
         ) : (
           <div className="flex size-full items-center justify-center text-[11px] text-muted-foreground">
             {path ? "Loading…" : "Not uploaded"}
@@ -61,14 +75,28 @@ function DocCard({ label, path }: { label: string; path?: string | null }) {
   );
 }
 
-function Avatar({ path, name }: { path?: string | null; name?: string | null }) {
+function Avatar({
+  path,
+  name,
+  onPreview,
+}: {
+  path?: string | null;
+  name?: string | null;
+  onPreview: (url: string, label: string) => void;
+}) {
   const url = useSignedDoc(path);
   return (
     <div className="size-11 shrink-0 overflow-hidden rounded-full border border-panel-border bg-panel">
       {url ? (
-        <a href={url} target="_blank" rel="noopener noreferrer">
+        <Button
+          type="button"
+          variant="ghost"
+          className="size-full rounded-full p-0"
+          aria-label="View student photo"
+          onClick={() => onPreview(url, `${name ?? "Student"} photo`)}
+        >
           <img src={url} alt={name ?? "Student"} className="size-full object-cover" />
-        </a>
+        </Button>
       ) : (
         <div className="flex size-full items-center justify-center text-muted-foreground">
           <User className="size-5" />
@@ -100,6 +128,7 @@ export function StudentProfileDialog({ studentId, onClose }: { studentId: string
   const [editStudent, setEditStudent] = useState(false);
   const [confirmActive, setConfirmActive] = useState<null | boolean>(null);
   const [savingActive, setSavingActive] = useState(false);
+  const [imagePreview, setImagePreview] = useState<{ url: string; label: string } | null>(null);
   const setActive = useServerFn(setStudentActive);
   const [tab, setTab] = useState("overview");
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -181,6 +210,8 @@ export function StudentProfileDialog({ studentId, onClose }: { studentId: string
     }
   };
 
+  const openImagePreview = (url: string, label: string) => setImagePreview({ url, label });
+
   return (
     <>
       <Dialog open onOpenChange={(v) => !v && onClose()}>
@@ -188,7 +219,7 @@ export function StudentProfileDialog({ studentId, onClose }: { studentId: string
           {/* Sticky header */}
           <DialogHeader className="shrink-0 space-y-0 border-b border-panel-border p-3 pr-12 pt-[max(0.75rem,env(safe-area-inset-top))] sm:p-4 sm:pr-14">
             <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3">
-              <Avatar path={s?.photo_url} name={s?.full_name} />
+              <Avatar path={s?.photo_url} name={s?.full_name} onPreview={openImagePreview} />
               <div className="min-w-0">
                 <DialogTitle className="truncate text-base sm:text-lg">
                   {s?.full_name ?? "Student profile"}
@@ -306,8 +337,8 @@ export function StudentProfileDialog({ studentId, onClose }: { studentId: string
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
-                    <DocCard label="Student photo" path={s.photo_url} />
-                    <DocCard label="ID card" path={s.id_card_url} />
+                    <DocCard label="Student photo" path={s.photo_url} onPreview={openImagePreview} />
+                    <DocCard label="ID card" path={s.id_card_url} onPreview={openImagePreview} />
                   </div>
                 </TabsContent>
 
@@ -401,6 +432,22 @@ export function StudentProfileDialog({ studentId, onClose }: { studentId: string
             </Tabs>
           )}
 
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!imagePreview} onOpenChange={(open) => !open && setImagePreview(null)}>
+        <DialogContent className="glass-strong border-panel-border flex h-[92dvh] w-[96vw] max-w-5xl items-center justify-center overflow-hidden p-3 sm:p-5">
+          <DialogHeader className="sr-only">
+            <DialogTitle>{imagePreview?.label ?? "Image preview"}</DialogTitle>
+            <DialogDescription>Full-size student document preview.</DialogDescription>
+          </DialogHeader>
+          {imagePreview && (
+            <img
+              src={imagePreview.url}
+              alt={imagePreview.label}
+              className="max-h-full max-w-full object-contain"
+            />
+          )}
         </DialogContent>
       </Dialog>
 
