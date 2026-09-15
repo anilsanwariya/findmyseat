@@ -105,7 +105,7 @@ function Dashboard() {
       let q = supabase
         .from("allocations")
         .select(
-          "id, library_id, student_id, seat_id, monthly_fee, next_due_date, status, students!inner(full_name, is_active), seats(seat_number), shifts(name)",
+          "id, library_id, student_id, seat_id, monthly_fee, start_date, next_due_date, status, students!inner(full_name, is_active), seats(seat_number), shifts(name)",
         )
         .eq("org_id", orgId!)
         .eq("is_active", true)
@@ -120,6 +120,7 @@ function Dashboard() {
       // API cap can never silently drop part payments.
       const ids = rows.map((r) => r.id);
       const coverage: CoverageRow[] = [];
+      const paidAllocationIds = new Set<string>();
       const PAGE = 1000;
       for (let i = 0; i < ids.length; i += 150) {
         const chunk = ids.slice(i, i + 150);
@@ -129,14 +130,17 @@ function Dashboard() {
             .select("allocation_id, amount_paid, covers_until")
             .eq("org_id", orgId!)
             .in("allocation_id", chunk)
-            .not("covers_until", "is", null)
             .range(from, from + PAGE - 1);
           if (error) throw error;
-          coverage.push(...((data ?? []) as CoverageRow[]));
+          const paymentRows = (data ?? []) as CoverageRow[];
+          coverage.push(...paymentRows);
+          for (const payment of paymentRows) {
+            if (payment.allocation_id) paidAllocationIds.add(payment.allocation_id);
+          }
           if ((data?.length ?? 0) < PAGE) break;
         }
       }
-      return { allocs: rows, coverage };
+      return { allocs: rows, coverage, paidAllocationIds: [...paidAllocationIds] };
     },
   });
 
@@ -246,7 +250,14 @@ function Dashboard() {
     paid: paidOpen.get(a.id) ?? 0,
     fee: Number(a.monthly_fee),
     dueDate: dayOnly(a.next_due_date),
+    startDate: dayOnly(a.start_date),
   });
+
+  const paidAllocationIds = useMemo(() => new Set(alloc.data?.paidAllocationIds ?? []), [alloc.data?.paidAllocationIds]);
+  const awaitingFirstPaymentRows = allocs
+    .filter((a) => !!a.seat_id && !paidAllocationIds.has(a.id))
+    .map(toRow)
+    .sort((a, b) => (b.startDate ?? "").localeCompare(a.startDate ?? ""));
 
   const overdueRows = overdueAllocs
     .map((a) => {
@@ -461,6 +472,7 @@ function Dashboard() {
             </GlassPanel>
           ) : (
           <ActionList
+            awaitingFirstPayment={awaitingFirstPaymentRows}
             overdue={overdueRows}
             partial={partialRows}
             upcoming={upcomingRows}

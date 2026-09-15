@@ -2,7 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { GlassPanel } from "@/components/glass";
 import { inr } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { AlertTriangle, CalendarClock, HandCoins, LifeBuoy, UserPlus } from "lucide-react";
+import { AlertTriangle, CalendarClock, HandCoins, LifeBuoy, ReceiptText, UserPlus } from "lucide-react";
 import type { ReactNode } from "react";
 
 export interface ActionStudent {
@@ -16,6 +16,7 @@ export interface ActionStudent {
   fee?: number;
   days?: number;
   dueDate?: string | null;
+  startDate?: string | null;
 }
 
 function Group({
@@ -85,6 +86,7 @@ function Rows({
 }
 
 export function ActionList({
+  awaitingFirstPayment,
   overdue,
   partial,
   upcoming,
@@ -92,6 +94,7 @@ export function ActionList({
   openTickets,
   onOpenStudent,
 }: {
+  awaitingFirstPayment: ActionStudent[];
   overdue: ActionStudent[];
   partial: ActionStudent[];
   upcoming: ActionStudent[];
@@ -103,6 +106,26 @@ export function ActionList({
     <GlassPanel className="p-4 sm:p-5">
       <h3 className="mb-4 font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Needs attention</h3>
       <div className="space-y-3">
+        <Group
+          icon={<ReceiptText className="size-4 text-amber" />}
+          tone="bg-amber/15"
+          title="Awaiting first payment"
+          count={awaitingFirstPayment.length}
+        >
+          <Rows
+            rows={awaitingFirstPayment}
+            onOpen={onOpenStudent}
+            render={(r) => (
+              <>
+                <div className="font-mono text-sm font-semibold text-amber">{inr(r.amount)}</div>
+                <div className="text-[11px] text-muted-foreground">
+                  {r.startDate ? `Allocated ${r.startDate}` : "Payment not logged"}
+                </div>
+              </>
+            )}
+          />
+        </Group>
+
         <Group
           icon={<AlertTriangle className="size-4 text-rose" />}
           tone="bg-rose/15"
