@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { GlassPanel } from "@/components/glass";
-import { inr } from "@/lib/format";
+import { fmtDate, inr } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { AlertTriangle, CalendarClock, HandCoins, LifeBuoy, ReceiptText, UserPlus } from "lucide-react";
 import type { ReactNode } from "react";
@@ -119,7 +119,7 @@ export function ActionList({
               <>
                 <div className="font-mono text-sm font-semibold text-amber">{inr(r.amount)}</div>
                 <div className="text-[11px] text-muted-foreground">
-                  {r.startDate ? `Allocated ${r.startDate}` : "Payment not logged"}
+                  {r.startDate ? `Allocated ${fmtDate(r.startDate)}` : "Payment not logged"}
                 </div>
               </>
             )}

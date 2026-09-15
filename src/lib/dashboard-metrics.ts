@@ -50,6 +50,7 @@ export interface AllocRow {
   id: string;
   library_id: string;
   monthly_fee: number | string;
+  seat_id?: string | null;
   start_date?: string | null;
   next_due_date: string | null;
   status: string;
