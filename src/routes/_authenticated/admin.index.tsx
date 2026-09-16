@@ -119,8 +119,9 @@ function Dashboard() {
       // Coverage rows, fetched per allocation chunk and paged so the 1000-row
       // API cap can never silently drop part payments.
       const ids = rows.map((r) => r.id);
+      const studentIds = [...new Set(rows.map((r) => r.student_id).filter((id): id is string => !!id))];
       const coverage: CoverageRow[] = [];
-      const paidAllocationIds = new Set<string>();
+      const paidStudentIds = new Set<string>();
       const PAGE = 1000;
       for (let i = 0; i < ids.length; i += 150) {
         const chunk = ids.slice(i, i + 150);
@@ -134,13 +135,27 @@ function Dashboard() {
           if (error) throw error;
           const paymentRows = (data ?? []) as CoverageRow[];
           coverage.push(...paymentRows);
-          for (const payment of paymentRows) {
-            if (payment.allocation_id) paidAllocationIds.add(payment.allocation_id);
-          }
           if ((data?.length ?? 0) < PAGE) break;
         }
       }
-      return { allocs: rows, coverage, paidAllocationIds: [...paidAllocationIds] };
+      // A seat reassignment creates a new allocation while historical payments
+      // remain linked to the student's previous allocation. First-payment status
+      // must therefore follow the student, not only the current allocation ID.
+      for (let i = 0; i < studentIds.length; i += 150) {
+        const chunk = studentIds.slice(i, i + 150);
+        for (let from = 0; ; from += PAGE) {
+          const { data, error } = await supabase
+            .from("payments")
+            .select("student_id")
+            .eq("org_id", orgId!)
+            .in("student_id", chunk)
+            .range(from, from + PAGE - 1);
+          if (error) throw error;
+          for (const payment of data ?? []) paidStudentIds.add(payment.student_id);
+          if ((data?.length ?? 0) < PAGE) break;
+        }
+      }
+      return { allocs: rows, coverage, paidStudentIds: [...paidStudentIds] };
     },
   });
 
@@ -253,9 +268,9 @@ function Dashboard() {
     startDate: dayOnly(a.start_date),
   });
 
-  const paidAllocationIds = useMemo(() => new Set(alloc.data?.paidAllocationIds ?? []), [alloc.data?.paidAllocationIds]);
+  const paidStudentIds = useMemo(() => new Set(alloc.data?.paidStudentIds ?? []), [alloc.data?.paidStudentIds]);
   const awaitingFirstPaymentRows = allocs
-    .filter((a) => !!a.seat_id && !paidAllocationIds.has(a.id))
+    .filter((a) => !!a.seat_id && !!a.student_id && !paidStudentIds.has(a.student_id))
     .map(toRow)
     .sort((a, b) => (b.startDate ?? "").localeCompare(a.startDate ?? ""));
 
