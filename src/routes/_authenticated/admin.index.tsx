@@ -102,19 +102,27 @@ function Dashboard() {
     placeholderData: keepPreviousData,
     staleTime: 30_000,
     queryFn: async () => {
-      let q = supabase
-        .from("allocations")
-        .select(
-          "id, library_id, student_id, seat_id, monthly_fee, start_date, next_due_date, status, students!inner(full_name, is_active), seats(seat_number), shifts(name)",
-        )
-        .eq("org_id", orgId!)
-        .eq("is_active", true)
-        .eq("is_archived", false)
-        .eq("students.is_active", true);
-      if (scope) q = q.eq("library_id", scope);
-      const allocRes = await q;
-      if (allocRes.error) throw allocRes.error;
-      const rows = (allocRes.data ?? []) as unknown as AllocRow[];
+      const PAGE = 1000;
+      const rows: AllocRow[] = [];
+      for (let from = 0; ; from += PAGE) {
+        let q = supabase
+          .from("allocations")
+          .select(
+            "id, library_id, student_id, seat_id, monthly_fee, start_date, next_due_date, status, students!inner(full_name, is_active), seats(seat_number), shifts(name)",
+          )
+          .eq("org_id", orgId!)
+          .eq("is_active", true)
+          .eq("is_archived", false)
+          .eq("students.is_active", true)
+          .order("created_at", { ascending: true })
+          .range(from, from + PAGE - 1);
+        if (scope) q = q.eq("library_id", scope);
+        const { data, error } = await q;
+        if (error) throw error;
+        const page = (data ?? []) as unknown as AllocRow[];
+        rows.push(...page);
+        if (page.length < PAGE) break;
+      }
 
       // Coverage rows, fetched per allocation chunk and paged so the 1000-row
       // API cap can never silently drop part payments.
@@ -122,7 +130,6 @@ function Dashboard() {
       const studentIds = [...new Set(rows.map((r) => r.student_id).filter((id): id is string => !!id))];
       const coverage: CoverageRow[] = [];
       const paidStudentIds = new Set<string>();
-      const PAGE = 1000;
       for (let i = 0; i < ids.length; i += 150) {
         const chunk = ids.slice(i, i + 150);
         for (let from = 0; ; from += PAGE) {
