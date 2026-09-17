@@ -4,3 +4,4 @@
 - [x] Open student photos and ID cards in an in-page preview.
 - [x] Verify both updated screens render without errors; the available test account has no student records for a live click-through.
 - [x] Exclude previously paid students after seat reassignment from Awaiting first payment.
+- [x] Remove the dashboard allocation row cap so all awaiting-first-payment students can appear.
