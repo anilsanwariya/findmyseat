@@ -91,6 +91,9 @@ function effectiveStatus(a: { status?: string | null; next_due_date?: string | n
   return s;
 }
 
+const seatLabel = (a: { reservation_type?: string | null; seat_id?: string | null; seats?: { seat_number?: string | null } | null }) =>
+  a.reservation_type === "unreserved" ? "Unreserved" : a.seat_id ? (a.seats?.seat_number ?? "Unassigned") : "Unassigned";
+
 const statusClass = (st: string) =>
   st === "paid"
     ? "bg-emerald/10 text-emerald"
@@ -222,7 +225,10 @@ function AllocationsPage() {
         a.students?.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         a.students?.mobile_number?.includes(searchQuery);
 
-      const matchesStatus = statusFilter === "all" || effectiveStatus(a, partialPaidFor(a)) === statusFilter;
+      const isUnassigned = a.reservation_type === "reserved" && !a.seat_id;
+      const matchesStatus =
+        statusFilter === "all" ||
+        (statusFilter === "unassigned" ? isUnassigned : effectiveStatus(a, partialPaidFor(a)) === statusFilter);
 
       const shiftName = a.shifts?.name ?? "__full_day__";
       const matchesShift = shiftFilter === "all" || shiftName === shiftFilter;
@@ -580,6 +586,7 @@ function AllocationsPage() {
                 <SelectItem value="pending">Pending</SelectItem>
                 <SelectItem value="partial">Partial</SelectItem>
                 <SelectItem value="overdue">Overdue</SelectItem>
+                <SelectItem value="unassigned">Unassigned</SelectItem>
               </SelectContent>
             </Select>
             <Select value={shiftFilter} onValueChange={setShiftFilter}>
@@ -631,7 +638,7 @@ function AllocationsPage() {
                     <div className="min-w-0">
                       <div className="text-[9px] uppercase tracking-widest text-muted-foreground">Seat</div>
                       <div className="truncate font-mono text-cyan">
-                        {a.reservation_type === "unreserved" ? "Unreserved" : (a.seats?.seat_number ?? "—")}
+                        {seatLabel(a)}
                       </div>
                     </div>
                     <div className="min-w-0">
@@ -697,7 +704,7 @@ function AllocationsPage() {
                       </span>
                     </td>
                     <td className="py-3 px-2 font-mono text-cyan">
-                      {a.reservation_type === "unreserved" ? "Unreserved" : (a.seats?.seat_number ?? "—")}
+                      {seatLabel(a)}
                     </td>
                     <td className="py-3 px-2 text-muted-foreground">{a.libraries?.name}</td>
                     <td className="py-3 px-2 text-muted-foreground">{a.shifts?.name ?? "Full day"}</td>
@@ -884,7 +891,7 @@ function AllocationsPage() {
                     if (
                       !(await confirmAction({
                         title: "Vacate this seat?",
-                        description: "The student will be removed from this seat. Their payment history stays intact.",
+                        description: "The seat will become available. The student's fees, due date, and payment history will stay active.",
                         confirmLabel: "Vacate seat",
                         destructive: true,
                       }))
@@ -892,13 +899,13 @@ function AllocationsPage() {
                       return;
                     const { error } = await supabase
                       .from("allocations")
-                      .update({ is_active: false })
+                      .update({ seat_id: null })
                       .eq("id", selectedOccupiedSeat.allocation.id);
                     if (error) {
                       toast.error(error.message);
                       return;
                     }
-                    toast.success("Seat successfully vacated");
+                    toast.success("Seat vacated. Billing remains active.");
                     refreshData();
                     setSelectedOccupiedSeat(null);
                   }}
@@ -1310,7 +1317,9 @@ function NewAllocDialog({
                             <span>
                               {act.reservation_type === "unreserved"
                                 ? "Unreserved"
-                                : `Seat ${act.seats?.seat_number ?? "—"}`}
+                                : act.seat_id
+                                  ? `Seat ${act.seats?.seat_number ?? "Unassigned"}`
+                                  : "Unassigned"}
                               {act.shifts?.name ? ` · ${act.shifts.name}` : ""}
                             </span>
                             {st && <span className={statusText(st)}>{st.toUpperCase()}</span>}

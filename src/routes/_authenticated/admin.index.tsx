@@ -267,7 +267,7 @@ function Dashboard() {
     studentId: a.student_id ?? "",
     name: a.students?.full_name ?? "—",
     branch: libName.get(a.library_id) ?? "—",
-    seat: a.seats?.seat_number ?? "",
+    seat: a.seat_id ? (a.seats?.seat_number ?? "Unassigned") : "Unassigned",
     amount: outstandingOf(a, paidOpen),
     paid: paidOpen.get(a.id) ?? 0,
     fee: Number(a.monthly_fee),

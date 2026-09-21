@@ -355,7 +355,9 @@ export function StudentProfileDialog({ studentId, onClose }: { studentId: string
                             <span className="min-w-0 truncate font-mono">
                               {a.reservation_type === "unreserved"
                                 ? "Unreserved"
-                                : `Seat ${a.seats?.seat_number ?? "—"}`}
+                                : a.seat_id
+                                  ? `Seat ${a.seats?.seat_number ?? "Unassigned"}`
+                                  : "Unassigned"}
                             </span>
                             <span className="min-w-0 truncate text-muted-foreground">
                               {a.shifts?.name ?? "Full day"}
