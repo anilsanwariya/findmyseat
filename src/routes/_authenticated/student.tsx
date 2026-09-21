@@ -315,13 +315,13 @@ function StudentApp() {
                       </div>
                       <div
                         className={cn(
-                          "grid size-12 place-items-center rounded-xl font-mono text-lg font-bold shrink-0",
+                          "grid min-h-12 min-w-12 place-items-center rounded-xl px-2 font-mono text-sm font-bold shrink-0",
                           a.seats?.is_corner
                             ? "border-2 border-gold/60 bg-gold/10 text-gold glow-gold"
                             : "border border-panel-border bg-panel",
                         )}
                       >
-                        {a.reservation_type === "unreserved" ? "Any" : (a.seats?.seat_number ?? "—")}
+                        {a.reservation_type === "unreserved" ? "Any" : (a.seats?.seat_number ?? "Unassigned")}
                       </div>
                     </div>
                     <div className="mt-4 grid grid-cols-3 gap-2 text-xs">
