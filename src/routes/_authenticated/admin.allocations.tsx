@@ -1145,7 +1145,7 @@ function NewAllocDialog({
           // removal) doesn't reset the student to "pending" and cause duplicate payments.
           const { data: prevAllocs } = await supabase
             .from("allocations")
-            .select("next_due_date, start_date, status, is_active, created_at")
+            .select("id, library_id, seat_id, reservation_type, next_due_date, start_date, status, is_active, created_at")
             .eq("student_id", studentId)
             .order("is_active", { ascending: false })
             .order("created_at", { ascending: false })
@@ -1165,7 +1165,43 @@ function NewAllocDialog({
           const paidUntil = (lastPay?.[0] as any)?.covers_until ?? null;
 
 
-          // Release any existing active allocation(s) for this student so they only occupy one seat.
+          const prevDue = prev?.next_due_date ? String(prev.next_due_date).split("T")[0] : null;
+          const payDue = paidUntil ? String(paidUntil).split("T")[0] : null;
+          // Take the furthest coverage we know about
+          const carriedDue = prevDue && payDue ? (prevDue > payDue ? prevDue : payDue) : (prevDue ?? payDue);
+          const carriedStatus = carriedDue ? (carriedDue < todayISO() ? "overdue" : "paid") : "pending";
+
+          // A vacated reserved allocation remains the student's billing record. Assigning
+          // a new seat updates that same row so its payments and fee history stay linked.
+          const reusable = (prevAllocs ?? []).find(
+            (a: any) =>
+              a.is_active &&
+              a.library_id === libraryId &&
+              a.reservation_type === "reserved" &&
+              !a.seat_id,
+          );
+          if (reusable && reservationType === "reserved") {
+            const { error: updateError } = await supabase
+              .from("allocations")
+              .update({
+                seat_id: seatId as string,
+                shift_id: shiftId === "none" || !shiftId ? null : shiftId,
+                monthly_fee: Number(fee || 0),
+                next_due_date: carriedDue,
+                status: carriedStatus as any,
+              })
+              .eq("id", reusable.id);
+            setLoading(false);
+            if (updateError) {
+              toast.error(updateError.message);
+              return;
+            }
+            toast.success("Seat assigned. Existing fees and payment history were preserved.");
+            onDone();
+            return;
+          }
+
+          // Other active subscriptions are ended before creating a different allocation.
           const { error: releaseErr } = await supabase
             .from("allocations")
             .update({ is_active: false })
@@ -1176,12 +1212,6 @@ function NewAllocDialog({
             toast.error(releaseErr.message);
             return;
           }
-
-          const prevDue = prev?.next_due_date ? String(prev.next_due_date).split("T")[0] : null;
-          const payDue = paidUntil ? String(paidUntil).split("T")[0] : null;
-          // Take the furthest coverage we know about
-          const carriedDue = prevDue && payDue ? (prevDue > payDue ? prevDue : payDue) : (prevDue ?? payDue);
-          const carriedStatus = carriedDue ? (carriedDue < todayISO() ? "overdue" : "paid") : "pending";
 
 
           const { data: createdAlloc, error } = await supabase

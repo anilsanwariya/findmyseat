@@ -5,3 +5,9 @@
 - [x] Verify both updated screens render without errors; the available test account has no student records for a live click-through.
 - [x] Exclude previously paid students after seat reassignment from Awaiting first payment.
 - [x] Remove the dashboard allocation row cap so all awaiting-first-payment students can appear.
+## Seat removal and fee visibility
+- [x] Keep billing active when a physical seat is vacated
+- [x] Show active reserved seatless allocations as Unassigned
+- [x] Add Unassigned allocation filtering
+- [x] Preserve the allocation record when assigning a replacement seat
+- [x] Repair legacy vacated records conservatively
