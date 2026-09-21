@@ -91,6 +91,9 @@ function effectiveStatus(a: { status?: string | null; next_due_date?: string | n
   return s;
 }
 
+const seatLabel = (a: { reservation_type?: string | null; seat_id?: string | null; seats?: { seat_number?: string | null } | null }) =>
+  a.reservation_type === "unreserved" ? "Unreserved" : a.seat_id ? (a.seats?.seat_number ?? "Unassigned") : "Unassigned";
+
 const statusClass = (st: string) =>
   st === "paid"
     ? "bg-emerald/10 text-emerald"
@@ -222,7 +225,10 @@ function AllocationsPage() {
         a.students?.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         a.students?.mobile_number?.includes(searchQuery);
 
-      const matchesStatus = statusFilter === "all" || effectiveStatus(a, partialPaidFor(a)) === statusFilter;
+      const isUnassigned = a.reservation_type === "reserved" && !a.seat_id;
+      const matchesStatus =
+        statusFilter === "all" ||
+        (statusFilter === "unassigned" ? isUnassigned : effectiveStatus(a, partialPaidFor(a)) === statusFilter);
 
       const shiftName = a.shifts?.name ?? "__full_day__";
       const matchesShift = shiftFilter === "all" || shiftName === shiftFilter;
@@ -580,6 +586,7 @@ function AllocationsPage() {
                 <SelectItem value="pending">Pending</SelectItem>
                 <SelectItem value="partial">Partial</SelectItem>
                 <SelectItem value="overdue">Overdue</SelectItem>
+                <SelectItem value="unassigned">Unassigned</SelectItem>
               </SelectContent>
             </Select>
             <Select value={shiftFilter} onValueChange={setShiftFilter}>
@@ -631,7 +638,7 @@ function AllocationsPage() {
                     <div className="min-w-0">
                       <div className="text-[9px] uppercase tracking-widest text-muted-foreground">Seat</div>
                       <div className="truncate font-mono text-cyan">
-                        {a.reservation_type === "unreserved" ? "Unreserved" : (a.seats?.seat_number ?? "—")}
+                        {seatLabel(a)}
                       </div>
                     </div>
                     <div className="min-w-0">
@@ -697,7 +704,7 @@ function AllocationsPage() {
                       </span>
                     </td>
                     <td className="py-3 px-2 font-mono text-cyan">
-                      {a.reservation_type === "unreserved" ? "Unreserved" : (a.seats?.seat_number ?? "—")}
+                      {seatLabel(a)}
                     </td>
                     <td className="py-3 px-2 text-muted-foreground">{a.libraries?.name}</td>
                     <td className="py-3 px-2 text-muted-foreground">{a.shifts?.name ?? "Full day"}</td>
@@ -884,7 +891,7 @@ function AllocationsPage() {
                     if (
                       !(await confirmAction({
                         title: "Vacate this seat?",
-                        description: "The student will be removed from this seat. Their payment history stays intact.",
+                        description: "The seat will become available. The student's fees, due date, and payment history will stay active.",
                         confirmLabel: "Vacate seat",
                         destructive: true,
                       }))
@@ -892,13 +899,13 @@ function AllocationsPage() {
                       return;
                     const { error } = await supabase
                       .from("allocations")
-                      .update({ is_active: false })
+                      .update({ seat_id: null })
                       .eq("id", selectedOccupiedSeat.allocation.id);
                     if (error) {
                       toast.error(error.message);
                       return;
                     }
-                    toast.success("Seat successfully vacated");
+                    toast.success("Seat vacated. Billing remains active.");
                     refreshData();
                     setSelectedOccupiedSeat(null);
                   }}
@@ -971,7 +978,7 @@ function NewAllocDialog({
       const { data } = await supabase
         .from("students")
         .select(
-          "id, full_name, mobile_number, created_at, allocations(id, created_at, status, next_due_date, is_active, reservation_type, shift_id, monthly_fee, seats(seat_number), shifts(name))",
+          "id, full_name, mobile_number, created_at, allocations(id, created_at, status, next_due_date, is_active, reservation_type, seat_id, shift_id, monthly_fee, seats(seat_number), shifts(name))",
         )
         .eq("org_id", orgId!)
         .eq("library_id", libraryId)
@@ -1138,7 +1145,7 @@ function NewAllocDialog({
           // removal) doesn't reset the student to "pending" and cause duplicate payments.
           const { data: prevAllocs } = await supabase
             .from("allocations")
-            .select("next_due_date, start_date, status, is_active, created_at")
+            .select("id, library_id, seat_id, reservation_type, next_due_date, start_date, status, is_active, created_at")
             .eq("student_id", studentId)
             .order("is_active", { ascending: false })
             .order("created_at", { ascending: false })
@@ -1158,7 +1165,43 @@ function NewAllocDialog({
           const paidUntil = (lastPay?.[0] as any)?.covers_until ?? null;
 
 
-          // Release any existing active allocation(s) for this student so they only occupy one seat.
+          const prevDue = prev?.next_due_date ? String(prev.next_due_date).split("T")[0] : null;
+          const payDue = paidUntil ? String(paidUntil).split("T")[0] : null;
+          // Take the furthest coverage we know about
+          const carriedDue = prevDue && payDue ? (prevDue > payDue ? prevDue : payDue) : (prevDue ?? payDue);
+          const carriedStatus = carriedDue ? (carriedDue < todayISO() ? "overdue" : "paid") : "pending";
+
+          // A vacated reserved allocation remains the student's billing record. Assigning
+          // a new seat updates that same row so its payments and fee history stay linked.
+          const reusable = (prevAllocs ?? []).find(
+            (a: any) =>
+              a.is_active &&
+              a.library_id === libraryId &&
+              a.reservation_type === "reserved" &&
+              !a.seat_id,
+          );
+          if (reusable && reservationType === "reserved") {
+            const { error: updateError } = await supabase
+              .from("allocations")
+              .update({
+                seat_id: seatId as string,
+                shift_id: shiftId === "none" || !shiftId ? null : shiftId,
+                monthly_fee: Number(fee || 0),
+                next_due_date: carriedDue,
+                status: carriedStatus as any,
+              })
+              .eq("id", reusable.id);
+            setLoading(false);
+            if (updateError) {
+              toast.error(updateError.message);
+              return;
+            }
+            toast.success("Seat assigned. Existing fees and payment history were preserved.");
+            onDone();
+            return;
+          }
+
+          // Other active subscriptions are ended before creating a different allocation.
           const { error: releaseErr } = await supabase
             .from("allocations")
             .update({ is_active: false })
@@ -1169,12 +1212,6 @@ function NewAllocDialog({
             toast.error(releaseErr.message);
             return;
           }
-
-          const prevDue = prev?.next_due_date ? String(prev.next_due_date).split("T")[0] : null;
-          const payDue = paidUntil ? String(paidUntil).split("T")[0] : null;
-          // Take the furthest coverage we know about
-          const carriedDue = prevDue && payDue ? (prevDue > payDue ? prevDue : payDue) : (prevDue ?? payDue);
-          const carriedStatus = carriedDue ? (carriedDue < todayISO() ? "overdue" : "paid") : "pending";
 
 
           const { data: createdAlloc, error } = await supabase
@@ -1310,7 +1347,9 @@ function NewAllocDialog({
                             <span>
                               {act.reservation_type === "unreserved"
                                 ? "Unreserved"
-                                : `Seat ${act.seats?.seat_number ?? "—"}`}
+                                : act.seat_id
+                                  ? `Seat ${act.seats?.seat_number ?? "Unassigned"}`
+                                  : "Unassigned"}
                               {act.shifts?.name ? ` · ${act.shifts.name}` : ""}
                             </span>
                             {st && <span className={statusText(st)}>{st.toUpperCase()}</span>}

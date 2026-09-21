@@ -124,7 +124,7 @@ function StudentApp() {
         await supabase
           .from("allocations")
           .select(
-            "id, library_id, is_active, is_archived, status, monthly_fee, start_date, next_due_date, seats(seat_number, is_corner, facing_direction), shifts(name), libraries(name, city, zone_area)",
+            "id, library_id, is_active, is_archived, status, monthly_fee, start_date, next_due_date, reservation_type, seat_id, seats(seat_number, is_corner, facing_direction), shifts(name), libraries(name, city, zone_area)",
           )
           .in("student_id", studentIds)
           .order("created_at", { ascending: false })
@@ -315,16 +315,21 @@ function StudentApp() {
                       </div>
                       <div
                         className={cn(
-                          "grid size-12 place-items-center rounded-xl font-mono text-lg font-bold shrink-0",
+                          "grid min-h-12 min-w-12 place-items-center rounded-xl px-2 font-mono text-sm font-bold shrink-0",
                           a.seats?.is_corner
                             ? "border-2 border-gold/60 bg-gold/10 text-gold glow-gold"
                             : "border border-panel-border bg-panel",
                         )}
                       >
-                        {a.seats?.seat_number ?? "—"}
+                        {a.reservation_type === "unreserved" ? "Any" : (a.seats?.seat_number ?? "Unassigned")}
                       </div>
                     </div>
                     <div className="mt-4 grid grid-cols-3 gap-2 text-xs">
+                      {a.reservation_type === "reserved" && !a.seat_id && (
+                        <div className="col-span-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2 text-amber-300">
+                          Seat unassigned · Your fee plan remains active
+                        </div>
+                      )}
                       <div className="rounded-lg bg-panel p-2">
                         <div className="text-[9px] uppercase text-muted-foreground">Shift</div>
                         <div className="mt-0.5 font-medium">{a.shifts?.name ?? "Full day"}</div>
