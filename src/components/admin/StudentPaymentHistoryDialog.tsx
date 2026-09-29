@@ -9,6 +9,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { inr, fmtDate } from "@/lib/format";
+import { methodLabel } from "@/lib/student-profile";
 
 export function StudentPaymentHistoryDialog({
   student,
@@ -20,15 +21,18 @@ export function StudentPaymentHistoryDialog({
   const [detailId, setDetailId] = useState<string | null>(null);
 
   const history = useQuery({
-    queryKey: ["student-payment-history", student.id, student.library_id],
+    // Every payment the student made, at any branch: a branch move must not hide history.
+    queryKey: ["student-payment-history", student.id],
     queryFn: async () => {
-      let q = supabase
+      const { data, error } = await supabase
         .from("payments")
-        .select("id, amount_paid, payment_date, method, transaction_reference, covers_until, receipt_url, is_partial")
+        .select(
+          "id, amount_paid, payment_date, method, transaction_reference, covers_until, receipt_url, is_partial",
+        )
         .eq("student_id", student.id)
         .order("payment_date", { ascending: false });
-      if (student.library_id) q = q.eq("library_id", student.library_id);
-      return (await q).data ?? [];
+      if (error) throw error;
+      return data ?? [];
     },
   });
 
@@ -39,7 +43,7 @@ export function StudentPaymentHistoryDialog({
           <DialogHeader>
             <DialogTitle>Payment history — {student.name}</DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
-              All payments logged for this student at this branch.
+              All payments logged for this student.
             </DialogDescription>
           </DialogHeader>
           <div className="overflow-x-auto">
@@ -62,7 +66,7 @@ export function StudentPaymentHistoryDialog({
                   >
                     <td className="py-2 px-2 font-mono">{fmtDate(p.payment_date)}</td>
                     <td className="py-2 px-2 font-mono">{inr(p.amount_paid)}</td>
-                    <td className="py-2 px-2 text-[10px] uppercase">{p.method}</td>
+                    <td className="py-2 px-2 text-xs">{methodLabel(p.method)}</td>
                     <td className="py-2 px-2 font-mono text-xs text-muted-foreground">
                       {p.transaction_reference ?? "—"}
                     </td>
@@ -127,7 +131,7 @@ function PaymentDetail({ paymentId, onClose }: { paymentId: string; onClose: () 
             <Row label="Branch" value={p.libraries?.name ?? "—"} />
             <Row label="Seat" value={p.allocations?.seats?.seat_number ?? "—"} />
             <Row label="Amount" value={inr(p.amount_paid)} mono />
-            <Row label="Method" value={(p.method ?? "").toUpperCase()} />
+            <Row label="Method" value={methodLabel(p.method)} />
             <Row label="Txn reference" value={p.transaction_reference ?? "—"} mono />
             <Row label="Payment date" value={fmtDate(p.payment_date) ?? "—"} mono />
             <Row
