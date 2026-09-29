@@ -36,7 +36,9 @@ function ChartTip({ active, payload, label, money }: any) {
   if (!active || !payload?.length) return null;
   return (
     <div className="rounded-lg border border-panel-border bg-panel-strong px-3 py-2 text-xs shadow-lg backdrop-blur">
-      <div className="mb-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">{label}</div>
+      <div className="mb-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+        {label}
+      </div>
       {payload.map((p: any) => (
         <div key={p.name} className="flex items-center justify-between gap-4">
           <span className="capitalize text-muted-foreground">{p.name}</span>
@@ -49,12 +51,21 @@ function ChartTip({ active, payload, label, money }: any) {
   );
 }
 
-export function TrendCharts({ data, selected }: { data: TrendPoint[]; selected: string }) {
+export function TrendCharts({
+  data,
+  selected,
+  showExpenses = true,
+}: {
+  data: TrendPoint[];
+  selected: string;
+  /** Hide expenses and profit when the viewer may not see expenses. */
+  showExpenses?: boolean;
+}) {
   return (
     <div className="grid gap-4 lg:grid-cols-3">
       <GlassPanel className="p-4 sm:p-5 lg:col-span-2">
         <h3 className="mb-4 font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
-          Collected vs expenses · last 6 months
+          {showExpenses ? "Collected vs expenses" : "Collected"} · last 6 months
         </h3>
         <div className="h-[240px] w-full">
           <ResponsiveContainer width="100%" height="100%">
@@ -68,19 +79,36 @@ export function TrendCharts({ data, selected }: { data: TrendPoint[]; selected: 
                   <Cell key={d.key} fill="var(--violet)" opacity={d.key === selected ? 1 : 0.45} />
                 ))}
               </Bar>
-              <Bar name="expenses" dataKey="expenses" radius={[4, 4, 0, 0]} maxBarSize={26}>
-                {data.map((d) => (
-                  <Cell key={d.key} fill="var(--magenta)" opacity={d.key === selected ? 1 : 0.45} />
-                ))}
-              </Bar>
-              <Line name="profit" type="monotone" dataKey="profit" stroke="var(--emerald)" strokeWidth={2} dot={false} />
+              {showExpenses && (
+                <Bar name="expenses" dataKey="expenses" radius={[4, 4, 0, 0]} maxBarSize={26}>
+                  {data.map((d) => (
+                    <Cell
+                      key={d.key}
+                      fill="var(--magenta)"
+                      opacity={d.key === selected ? 1 : 0.45}
+                    />
+                  ))}
+                </Bar>
+              )}
+              {showExpenses && (
+                <Line
+                  name="profit"
+                  type="monotone"
+                  dataKey="profit"
+                  stroke="var(--emerald)"
+                  strokeWidth={2}
+                  dot={false}
+                />
+              )}
             </ComposedChart>
           </ResponsiveContainer>
         </div>
       </GlassPanel>
 
       <GlassPanel className="p-4 sm:p-5">
-        <h3 className="mb-4 font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Collection rate</h3>
+        <h3 className="mb-4 font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
+          Collection rate
+        </h3>
         <div className="h-[240px] w-full">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
@@ -92,7 +120,9 @@ export function TrendCharts({ data, selected }: { data: TrendPoint[]; selected: 
                 {data.map((d) => (
                   <Cell
                     key={d.key}
-                    fill={d.rate >= 80 ? "var(--emerald)" : d.rate >= 50 ? "var(--gold)" : "var(--rose)"}
+                    fill={
+                      d.rate >= 80 ? "var(--emerald)" : d.rate >= 50 ? "var(--gold)" : "var(--rose)"
+                    }
                     opacity={d.key === selected ? 1 : 0.5}
                   />
                 ))}

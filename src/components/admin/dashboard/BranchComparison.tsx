@@ -19,7 +19,17 @@ type SortKey = "collected" | "dues" | "occupancy" | "name";
 
 const pct = (a: number, b: number) => (b > 0 ? Math.round((a / b) * 100) : 0);
 
-export function BranchComparison({ rows }: { rows: BranchRow[] }) {
+export function BranchComparison({
+  rows,
+  showCollected = true,
+  showExpenses = true,
+}: {
+  rows: BranchRow[];
+  /** False when the viewer may not see payments / expenses: show a dash, not ₹0. */
+  showCollected?: boolean;
+  showExpenses?: boolean;
+}) {
+  const money = (show: boolean, v: number) => (show ? inr(v) : "—");
   const [view, setView] = useDataView("dashboard-branches", "table");
   const [sort, setSort] = useState<SortKey>("collected");
 
@@ -32,7 +42,9 @@ export function BranchComparison({ rows }: { rows: BranchRow[] }) {
   return (
     <GlassPanel className="p-4 sm:p-5">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h3 className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Branch comparison</h3>
+        <h3 className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
+          Branch comparison
+        </h3>
         <div className="flex items-center gap-2">
           <select
             value={sort}
@@ -60,7 +72,9 @@ export function BranchComparison({ rows }: { rows: BranchRow[] }) {
                 <span
                   className={cn(
                     "shrink-0 rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest",
-                    pct(b.occupied, b.seats) >= 75 ? "bg-emerald/15 text-emerald" : "bg-cyan/15 text-cyan",
+                    pct(b.occupied, b.seats) >= 75
+                      ? "bg-emerald/15 text-emerald"
+                      : "bg-cyan/15 text-cyan",
                   )}
                 >
                   {pct(b.occupied, b.seats)}% full
@@ -69,9 +83,17 @@ export function BranchComparison({ rows }: { rows: BranchRow[] }) {
               <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
                 <Cell label="Students" value={String(b.students)} />
                 <Cell label="Seats" value={`${b.occupied}/${b.seats}`} />
-                <Cell label="Collected" value={inr(b.collected)} tone="text-emerald" />
+                <Cell
+                  label="Collected"
+                  value={money(showCollected, b.collected)}
+                  tone="text-emerald"
+                />
                 <Cell label="Dues" value={inr(b.dues)} tone="text-rose" />
-                <Cell label="Expenses" value={inr(b.expenses)} tone="text-magenta" />
+                <Cell
+                  label="Expenses"
+                  value={money(showExpenses, b.expenses)}
+                  tone="text-magenta"
+                />
               </div>
             </div>
           ))}
@@ -99,9 +121,13 @@ export function BranchComparison({ rows }: { rows: BranchRow[] }) {
                       {b.occupied}/{b.seats} · {pct(b.occupied, b.seats)}%
                     </span>
                   </td>
-                  <td className="py-3 pr-3 text-right font-mono text-emerald">{inr(b.collected)}</td>
+                  <td className="py-3 pr-3 text-right font-mono text-emerald">
+                    {money(showCollected, b.collected)}
+                  </td>
                   <td className="py-3 pr-3 text-right font-mono text-rose">{inr(b.dues)}</td>
-                  <td className="py-3 text-right font-mono text-magenta">{inr(b.expenses)}</td>
+                  <td className="py-3 text-right font-mono text-magenta">
+                    {money(showExpenses, b.expenses)}
+                  </td>
                 </tr>
               ))}
             </tbody>
