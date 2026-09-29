@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { createHmac, timingSafeEqual } from "crypto";
 import { escapeLike } from "@/lib/otp";
+import { callOptionalRpc } from "@/lib/optional-rpc";
 
 // -------- Subscription reads ----------
 export const getOwnerBilling = createServerFn({ method: "GET" })
@@ -212,18 +213,32 @@ export const createOwnerSubscription = createServerFn({ method: "POST" })
         "This coupon brings the price below ₹1. Please contact support to activate your plan.",
       );
     }
-    const { data: row, error } = await supabaseAdmin
-      .from("owner_subscriptions")
-      .insert({
-        org_id: orgId,
-        plan_id: plan.id,
-        billing_cycle: data.billing_cycle,
-        status: "created",
-        coupon_id: couponId,
-      })
-      .select()
-      .single();
-    if (error) throw new Error(error.message);
+    // Prefer the database function, which checks the coupon's use limit and
+    // creates the checkout under a row lock (supabase/proposed/02_coupon_limit.sql).
+    const attempt = await callOptionalRpc<string>(supabaseAdmin, "create_subscription_attempt", {
+      _org_id: orgId,
+      _plan_id: plan.id,
+      _billing_cycle: data.billing_cycle,
+      _coupon_id: couponId,
+    });
+    let row: { id: string };
+    if (!attempt.missing) {
+      row = { id: attempt.data };
+    } else {
+      const { data: inserted, error } = await supabaseAdmin
+        .from("owner_subscriptions")
+        .insert({
+          org_id: orgId,
+          plan_id: plan.id,
+          billing_cycle: data.billing_cycle,
+          status: "created",
+          coupon_id: couponId,
+        })
+        .select("id")
+        .single();
+      if (error) throw new Error(error.message);
+      row = inserted;
+    }
 
     const { razorpayRequest } = await import("@/lib/billing.server");
     let order: any;
