@@ -2,6 +2,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { createHmac, timingSafeEqual } from "crypto";
+import { escapeLike } from "@/lib/otp";
+import { callOptionalRpc } from "@/lib/optional-rpc";
 
 // -------- Subscription reads ----------
 export const getOwnerBilling = createServerFn({ method: "GET" })
@@ -99,11 +101,22 @@ export const getOrgSubscriptionState = createServerFn({ method: "GET" })
 // -------- Coupon validation ----------
 export const validateCoupon = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ code: z.string().trim().min(1).max(64) }).parse(d))
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        code: z
+          .string()
+          .trim()
+          .min(1)
+          .max(64)
+          .regex(/^[^*]+$/, "Invalid coupon"),
+      })
+      .parse(d),
+  )
   .handler(async ({ data }) => {
     const code = data.code.toUpperCase();
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: c } = await supabaseAdmin.from("discount_coupons").select("*").ilike("code", code).maybeSingle();
+    const { data: c } = await supabaseAdmin.from("discount_coupons").select("*").ilike("code", escapeLike(code)).maybeSingle();
     if (!c || !c.is_active) throw new Error("Invalid or inactive coupon");
     if (c.valid_until && new Date(c.valid_until) < new Date()) throw new Error("Coupon expired");
     if (c.max_uses != null && (c.current_uses ?? 0) >= c.max_uses) throw new Error("Coupon usage limit reached");
@@ -123,7 +136,13 @@ export const createOwnerSubscription = createServerFn({ method: "POST" })
       .object({
         plan_id: z.string().uuid(),
         billing_cycle: z.enum(["monthly", "annual"]),
-        coupon_code: z.string().trim().max(64).optional().nullable(),
+        coupon_code: z
+          .string()
+          .trim()
+          .max(64)
+          .regex(/^[^*]*$/, "Invalid coupon")
+          .optional()
+          .nullable(),
       })
       .parse(d),
   )
@@ -171,7 +190,7 @@ export const createOwnerSubscription = createServerFn({ method: "POST" })
     let discounted = baseAmount;
     if (data.coupon_code) {
       const code = data.coupon_code.toUpperCase();
-      const { data: c } = await supabaseAdmin.from("discount_coupons").select("*").ilike("code", code).maybeSingle();
+      const { data: c } = await supabaseAdmin.from("discount_coupons").select("*").ilike("code", escapeLike(code)).maybeSingle();
       if (
         c &&
         c.is_active &&
@@ -188,18 +207,38 @@ export const createOwnerSubscription = createServerFn({ method: "POST" })
     }
 
     const amountPaise = Math.round(discounted * 100);
-    const { data: row, error } = await supabaseAdmin
-      .from("owner_subscriptions")
-      .insert({
-        org_id: orgId,
-        plan_id: plan.id,
-        billing_cycle: data.billing_cycle,
-        status: "created",
-        coupon_id: couponId,
-      })
-      .select()
-      .single();
-    if (error) throw new Error(error.message);
+    // Razorpay rejects orders below ₹1 (100 paise).
+    if (amountPaise < 100) {
+      throw new Error(
+        "This coupon brings the price below ₹1. Please contact support to activate your plan.",
+      );
+    }
+    // Prefer the database function, which checks the coupon's use limit and
+    // creates the checkout under a row lock (supabase/proposed/02_coupon_limit.sql).
+    const attempt = await callOptionalRpc<string>(supabaseAdmin, "create_subscription_attempt", {
+      _org_id: orgId,
+      _plan_id: plan.id,
+      _billing_cycle: data.billing_cycle,
+      _coupon_id: couponId,
+    });
+    let row: { id: string };
+    if (!attempt.missing) {
+      row = { id: attempt.data };
+    } else {
+      const { data: inserted, error } = await supabaseAdmin
+        .from("owner_subscriptions")
+        .insert({
+          org_id: orgId,
+          plan_id: plan.id,
+          billing_cycle: data.billing_cycle,
+          status: "created",
+          coupon_id: couponId,
+        })
+        .select("id")
+        .single();
+      if (error) throw new Error(error.message);
+      row = inserted;
+    }
 
     const { razorpayRequest } = await import("@/lib/billing.server");
     let order: any;
@@ -432,9 +471,11 @@ export const getLibraryDetailWithLog = createServerFn({ method: "POST" })
     const actorIds = Array.from(new Set((log ?? []).map((r: any) => r.changed_by).filter(Boolean)));
     const actorMap: Record<string, string> = {};
     if (actorIds.length) {
-      const { data: users } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 200 });
-      for (const u of users?.users ?? []) {
-        if (actorIds.includes(u.id)) actorMap[u.id] = u.email ?? u.id;
+      const results = await Promise.all(
+        actorIds.map((id) => supabaseAdmin.auth.admin.getUserById(id)),
+      );
+      for (const { data: u } of results) {
+        if (u?.user) actorMap[u.user.id] = u.user.email ?? u.user.id;
       }
     }
     const enriched = (log ?? []).map((r: any) => ({

@@ -2,6 +2,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { createHash } from "crypto";
+import { generateOtp } from "@/lib/otp";
+import { callOptionalRpc } from "@/lib/optional-rpc";
 
 async function assertOrgAdminForLibrary(ctx: { supabase: any; userId: string }, library_id: string) {
   const { data: adminRow } = await ctx.supabase
@@ -155,7 +157,7 @@ export const requestLibraryDeleteOtp = createServerFn({ method: "POST" })
     const email = userData?.user?.email;
     if (!email) throw new Error("No email on file for your account");
 
-    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const code = generateOtp();
     const code_hash = createHash("sha256").update(code).digest("hex");
     const expires_at = new Date(Date.now() + 15 * 60 * 1000).toISOString();
 
@@ -206,49 +208,62 @@ export const deleteLibrary = createServerFn({ method: "POST" })
 
     const libId = data.library_id;
 
-    // Remove storage photos first.
+    // Collect photo paths now, but only delete the files once the database
+    // rows are gone — otherwise a failed cleanup would leave a library whose
+    // photos have already been destroyed.
     const { data: photos } = await supabaseAdmin.from("library_photos").select("image_url").eq("library_id", libId);
-    if (photos?.length) {
-      const marker = "/library-photos/";
-      const paths = photos
-        .map((p: any) => {
-          const idx = p.image_url.indexOf(marker);
-          return idx === -1 ? null : p.image_url.slice(idx + marker.length);
-        })
-        .filter(Boolean) as string[];
-      if (paths.length) {
-        await supabaseAdmin.storage.from("library-photos").remove(paths).catch(() => {});
+    const marker = "/library-photos/";
+    const photoPaths = (photos ?? [])
+      .map((p: any) => {
+        const idx = p.image_url.indexOf(marker);
+        return idx === -1 ? null : p.image_url.slice(idx + marker.length);
+      })
+      .filter(Boolean) as string[];
+
+    // Prefer the database function, which deletes everything in one transaction
+    // (supabase/proposed/03_atomic_library_delete.sql). Fall back to the
+    // step-by-step delete until it is deployed.
+    const atomic = await callOptionalRpc<null>(supabaseAdmin, "delete_library_cascade", {
+      _library_id: libId,
+    });
+    if (atomic.missing) {
+      // layout_objects references sections — delete before sections.
+      const { data: secs } = await supabaseAdmin.from("sections").select("id").eq("library_id", libId);
+      const secIds = (secs ?? []).map((s: any) => s.id);
+      if (secIds.length)
+        await supabaseAdmin.from("layout_objects").delete().in("section_id", secIds);
+
+      for (const t of [
+        "payments",
+        "allocations",
+        "tickets",
+        "seat_requests",
+        "library_ratings",
+        "library_photos",
+        "library_change_log",
+        "seats",
+        "shifts",
+        "sections",
+        "notices",
+        "staff_branch_assignments",
+        "bidding_promotions",
+        "expenditures",
+        "branch_transfer_requests",
+      ] as const) {
+        const { error } = await supabaseAdmin.from(t).delete().eq("library_id", libId);
+        if (error) throw new Error(`Failed to clean ${t}: ${error.message}`);
       }
+
+      const { error: delErr } = await supabaseAdmin.from("libraries").delete().eq("id", libId);
+      if (delErr) throw new Error(delErr.message);
     }
 
-    // layout_objects references sections — delete before sections.
-    const { data: secs } = await supabaseAdmin.from("sections").select("id").eq("library_id", libId);
-    const secIds = (secs ?? []).map((s: any) => s.id);
-    if (secIds.length) await supabaseAdmin.from("layout_objects").delete().in("section_id", secIds);
-
-    for (const t of [
-      "payments",
-      "allocations",
-      "tickets",
-      "seat_requests",
-      "library_ratings",
-      "library_photos",
-      "library_change_log",
-      "seats",
-      "shifts",
-      "sections",
-      "notices",
-      "staff_branch_assignments",
-      "bidding_promotions",
-      "expenditures",
-      "branch_transfer_requests",
-    ] as const) {
-      const { error } = await supabaseAdmin.from(t).delete().eq("library_id", libId);
-      if (error) throw new Error(`Failed to clean ${t}: ${error.message}`);
+    if (photoPaths.length) {
+      await supabaseAdmin.storage
+        .from("library-photos")
+        .remove(photoPaths)
+        .catch(() => {});
     }
-
-    const { error: delErr } = await supabaseAdmin.from("libraries").delete().eq("id", libId);
-    if (delErr) throw new Error(delErr.message);
 
     await supabaseAdmin.from("library_delete_otps").delete().eq("id", otp.id);
     return { ok: true };

@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
+import { devCodeOrNull, escapeLike, generateOtp, sha256Hex } from "@/lib/otp";
 
 const StudentEmailDomain = "students.librarybandhu.local";
 const emailFromMobile = (m: string) => `${m}@${StudentEmailDomain}`;
@@ -354,14 +355,6 @@ export const setStudentEmailByAdmin = createServerFn({ method: "POST" })
 
 // ============ PIN Reset (Forgot PIN) via email OTP ============
 
-async function sha256Hex(input: string) {
-  const enc = new TextEncoder().encode(input);
-  const buf = await crypto.subtle.digest("SHA-256", enc);
-  return Array.from(new Uint8Array(buf))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
-
 const StartResetSchema = z.object({ email: z.string().trim().email() });
 export const requestPinReset = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => StartResetSchema.parse(d))
@@ -372,14 +365,14 @@ export const requestPinReset = createServerFn({ method: "POST" })
     const { data: student } = await supabaseAdmin
       .from("students")
       .select("id, email")
-      .ilike("email", email)
+      .ilike("email", escapeLike(email))
       .maybeSingle();
     if (!student) {
       // Simulate small delay
       await new Promise((r) => setTimeout(r, 300));
       return { ok: true, dev_code: null as string | null };
     }
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const code = generateOtp();
     const code_hash = await sha256Hex(code);
     const expires_at = new Date(Date.now() + 15 * 60 * 1000).toISOString();
     await supabaseAdmin.from("pin_reset_otps").insert({
@@ -401,7 +394,7 @@ export const requestPinReset = createServerFn({ method: "POST" })
     } catch (err) {
       console.error("[pin-reset-otp] send failed:", err);
     }
-    return { ok: true, dev_code: sent ? null : code };
+    return { ok: true, dev_code: sent ? null : devCodeOrNull(code) };
   });
 
 const VerifyResetSchema = z.object({
@@ -417,7 +410,7 @@ export const verifyPinReset = createServerFn({ method: "POST" })
     const { data: otp } = await supabaseAdmin
       .from("pin_reset_otps")
       .select("id, student_id, code_hash, expires_at, consumed_at, attempts")
-      .ilike("email", email)
+      .ilike("email", escapeLike(email))
       .is("consumed_at", null)
       .order("created_at", { ascending: false })
       .limit(1)
@@ -425,14 +418,17 @@ export const verifyPinReset = createServerFn({ method: "POST" })
     if (!otp) throw new Error("No reset in progress");
     if (new Date(otp.expires_at).getTime() < Date.now()) throw new Error("Code expired — request a new one");
     if (otp.attempts >= 5) throw new Error("Too many attempts");
+    // Consume one attempt atomically before comparing, so parallel guesses
+    // cannot get around the limit.
+    const { data: bumped } = await supabaseAdmin
+      .from("pin_reset_otps")
+      .update({ attempts: otp.attempts + 1 })
+      .eq("id", otp.id)
+      .eq("attempts", otp.attempts)
+      .select("id");
+    if (!bumped?.length) throw new Error("Please try again.");
     const hash = await sha256Hex(data.code);
-    if (hash !== otp.code_hash) {
-      await supabaseAdmin
-        .from("pin_reset_otps")
-        .update({ attempts: otp.attempts + 1 })
-        .eq("id", otp.id);
-      throw new Error("Invalid code");
-    }
+    if (hash !== otp.code_hash) throw new Error("Invalid code");
     const { data: student } = await supabaseAdmin
       .from("students")
       .select("id, user_id, mobile_number")
@@ -486,7 +482,7 @@ export const sendEmailVerificationOtp = createServerFn({ method: "POST" })
     if (!allowed) throw new Error("Not authorized for this student");
 
     const email = data.email.toLowerCase();
-    const otp_code = Math.floor(100000 + Math.random() * 900000).toString();
+    const otp_code = generateOtp();
     const expires_at = new Date(Date.now() + 5 * 60 * 1000).toISOString();
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -508,9 +504,14 @@ export const sendEmailVerificationOtp = createServerFn({ method: "POST" })
     } catch (err) {
       console.error("[email-otp] send failed:", err);
     }
-    // Dev fallback: expose code only when not sent, so the UX still works
-    // during DNS verification or provider hiccups.
-    return { ok: true, sent, dev_code: sent ? null : otp_code };
+    // Dev fallback: expose the code only in local development builds.
+    const dev_code = sent ? null : devCodeOrNull(otp_code);
+    if (!sent && !dev_code) {
+      throw new Error(
+        "We couldn't send the verification email. Please try again in a few minutes.",
+      );
+    }
+    return { ok: true, sent, dev_code };
   });
 
 const VerifyEmailOtpSchema = z.object({
@@ -570,7 +571,7 @@ export const verifyEmailOtp = createServerFn({ method: "POST" })
     const { data: conflict } = await supabaseAdmin
       .from("students")
       .select("id, user_id")
-      .ilike("email", email)
+      .ilike("email", escapeLike(email))
       .neq("user_id", studentUserId);
     if (conflict && conflict.length > 0) {
       throw new Error("This email is already linked to another student account.");
@@ -623,7 +624,7 @@ export const requestAccountDeletionOtp = createServerFn({ method: "POST" })
       throw new Error("Please verify your email first, then try again.");
     }
 
-    const otp_code = Math.floor(100000 + Math.random() * 900000).toString();
+    const otp_code = generateOtp();
     const expires_at = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -644,7 +645,13 @@ export const requestAccountDeletionOtp = createServerFn({ method: "POST" })
     } catch (err) {
       console.error("[delete-otp] send failed:", err);
     }
-    return { ok: true, sent, email, dev_code: sent ? null : otp_code };
+    const dev_code = sent ? null : devCodeOrNull(otp_code);
+    if (!sent && !dev_code) {
+      throw new Error(
+        "We couldn't send the verification email. Please try again in a few minutes.",
+      );
+    }
+    return { ok: true, sent, email, dev_code };
   });
 
 const ConfirmDeleteSchema = z.object({
