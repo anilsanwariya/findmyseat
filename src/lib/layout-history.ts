@@ -3,7 +3,15 @@ import { supabase } from "@/integrations/supabase/client";
 export type LayoutAction =
   | { type: "add_seats"; label: string; at: number; seatIds: string[] }
   | { type: "add_objects"; label: string; at: number; objIds: string[] }
-  | { type: "delete"; label: string; at: number; seats: any[]; objs: any[] }
+  | {
+      type: "delete";
+      label: string;
+      at: number;
+      seats: any[];
+      objs: any[];
+      /** Students unseated by the delete, so Undo can put them back. */
+      detached?: { id: string; seat_id: string }[];
+    }
   | { type: "update_seats"; label: string; at: number; prev: any[] }
   | {
       type: "resize";
@@ -77,6 +85,34 @@ async function runBatched(tasks: (() => PromiseLike<{ error: any }>)[], size = 2
 
 const TEMP_BASE = -100000;
 
+/** Active students sitting on any of these seats (read fresh, never from cache). */
+export type SeatedStudent = { id: string; seat_id: string; name: string };
+
+export async function studentsOnSeats(seatIds: string[]): Promise<SeatedStudent[]> {
+  if (!seatIds.length) return [];
+  const { data, error } = await supabase
+    .from("allocations")
+    .select("id, seat_id, students(full_name)")
+    .eq("is_active", true)
+    .in("seat_id", seatIds);
+  if (error) throw error;
+  return (data ?? []).map((a: any) => ({
+    id: a.id as string,
+    seat_id: a.seat_id as string,
+    name: (a.students?.full_name as string) ?? "Student",
+  }));
+}
+
+/** Refuse to remove seats that students now sit on — undo/redo must never unseat anyone silently. */
+async function assertNoStudents(seatIds: string[], what: string) {
+  const occ = await studentsOnSeats(seatIds);
+  if (!occ.length) return;
+  const names = occ.slice(0, 5).map((o: SeatedStudent) => o.name).join(", ") + (occ.length > 5 ? ` +${occ.length - 5} more` : "");
+  throw new Error(
+    `Can't ${what}: ${occ.length} student(s) now sit on these seats (${names}). Move them in Allocations first.`,
+  );
+}
+
 async function updateRows(prev: any[]) {
   const tableOf = (p: any) => (p.__table === "layout_objects" ? "layout_objects" : "seats");
   const movers = prev.filter((p) => p.row_position != null && p.column_position != null);
@@ -136,6 +172,7 @@ export async function undoWithRedo(
           facing_direction: s.facing_direction,
           is_corner: s.is_corner,
         }));
+      await assertNoStudents(action.seatIds, "undo");
       const { error } = await (supabase as any).rpc("delete_seats_cascade", { p_seat_ids: action.seatIds });
       if (error) throw error;
       return {
@@ -171,8 +208,26 @@ export async function undoWithRedo(
         const { error } = await supabase.from("layout_objects").insert(action.objs.map(stripMeta));
         if (error) throw error;
       }
+      // Put back students the delete unseated — only if they're still active and
+      // haven't been given another seat since.
+      let reseated = 0;
+      for (const d of action.detached ?? []) {
+        const { data } = await supabase
+          .from("allocations")
+          .update({ seat_id: d.seat_id })
+          .eq("id", d.id)
+          .eq("is_active", true)
+          .is("seat_id", null)
+          .select("id");
+        if (data?.length) reseated += 1;
+      }
+      const total = action.detached?.length ?? 0;
       return {
-        message: "Restored deleted items (student allocations must be re-assigned)",
+        message: !total
+          ? "Restored deleted items"
+          : reseated === total
+            ? `Restored deleted items · ${reseated} student(s) re-seated`
+            : `Restored deleted items · ${reseated} of ${total} student(s) re-seated (others were moved or left since)`,
         redo: {
           type: "delete_ids",
           label: action.label,
@@ -239,6 +294,7 @@ export async function applyRedo(redo: RedoAction): Promise<string> {
     }
     case "delete_ids": {
       if (redo.seatIds.length) {
+        await assertNoStudents(redo.seatIds, "redo");
         const { error } = await (supabase as any).rpc("delete_seats_cascade", { p_seat_ids: redo.seatIds });
         if (error) throw error;
       }

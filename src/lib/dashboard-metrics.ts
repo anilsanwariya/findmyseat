@@ -142,15 +142,37 @@ const toMinutes = (t: string) => {
   return (h || 0) * 60 + (m || 0);
 };
 
+type ShiftHours = Pick<ShiftDef, "start_time" | "end_time"> & { name?: string | null };
+
+// Standard blocks for shifts saved without times (the section form creates them
+// by type): Morning 06–14, Evening 14–22, Night 22–06.
+const MORNING: [number, number] = [6 * 60, 14 * 60];
+const EVENING: [number, number] = [14 * 60, 22 * 60];
+const NIGHT: [number, number][] = [
+  [22 * 60, DAY],
+  [0, 6 * 60],
+];
+
+/** Blocks for a shift type, from its name ("Morning + Night" → morning + night). */
+function rangesFromName(name: string | null | undefined): [number, number][] {
+  const n = (name ?? "").toLowerCase();
+  if (!n || n.includes("24") || n.includes("full")) return [[0, DAY]];
+  const out: [number, number][] = [];
+  if (n.includes("morning")) out.push(MORNING);
+  if (n.includes("evening")) out.push(EVENING);
+  if (n.includes("night")) out.push(...NIGHT);
+  return out.length ? out : [[0, DAY]];
+}
+
 /**
- * A shift's time as minute ranges within one day. Overnight shifts (end before
- * start) wrap into two ranges. A shift without times — or no shift at all,
- * i.e. a full-day booking — covers the whole day.
+ * A shift's time as minute ranges within one day. Uses the shift's own times when
+ * both are set (overnight shifts wrap into two ranges); otherwise the standard
+ * blocks for its type. No shift at all — a full-day booking — covers the whole day,
+ * as does any shift whose type can't be recognised.
  */
-export function shiftRanges(
-  s: Pick<ShiftDef, "start_time" | "end_time"> | null | undefined,
-): [number, number][] {
-  if (!s?.start_time || !s?.end_time) return [[0, DAY]];
+export function shiftRanges(s: ShiftHours | null | undefined): [number, number][] {
+  if (!s) return [[0, DAY]];
+  if (!s.start_time || !s.end_time) return rangesFromName(s.name);
   const a = toMinutes(s.start_time);
   const b = toMinutes(s.end_time);
   if (a === b) return [[0, DAY]];
@@ -162,10 +184,7 @@ export function shiftRanges(
       ];
 }
 
-export function shiftsOverlap(
-  x: Pick<ShiftDef, "start_time" | "end_time"> | null | undefined,
-  y: Pick<ShiftDef, "start_time" | "end_time"> | null | undefined,
-) {
+export function shiftsOverlap(x: ShiftHours | null | undefined, y: ShiftHours | null | undefined) {
   return shiftRanges(x).some(([a1, b1]) => shiftRanges(y).some(([a2, b2]) => a1 < b2 && a2 < b1));
 }
 

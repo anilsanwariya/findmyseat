@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { classifyShiftByName } from "@/lib/shift-utils";
+import { useSeatBookings } from "@/lib/seat-bookings";
+import { friendlySeatError } from "@/lib/seat-status";
 
 export function EditAllocationDialog({
   alloc,
@@ -71,15 +73,34 @@ export function EditAllocationDialog({
         query = query.eq("section_id", sectionId);
       }
 
-      const [seatsRes, allocRes] = await Promise.all([
-        query,
-        supabase.from("allocations").select("seat_id").eq("library_id", alloc.library_id).eq("is_active", true),
-      ]);
-
-      const taken = new Set((allocRes.data ?? []).map((a) => a.seat_id));
-      return (seatsRes.data ?? []).filter((s) => !taken.has(s.id) || s.id === alloc.seat_id);
+      const { data, error } = await query;
+      if (error) throw error;
+      return data ?? [];
     },
   });
+
+  // Shift-aware availability: a seat is offered when it's free for the chosen
+  // shift, ignoring this allocation's own booking.
+  const booked = useSeatBookings(alloc?.library_id);
+  const ignoreSelf = useMemo(() => new Set<string>(alloc?.id ? [alloc.id] : []), [alloc?.id]);
+  const targetShift = shiftId === "none" ? null : shiftId || null;
+  // Leaving seat + shift as they were is always allowed (matches the database check),
+  // so an older booking that already overlaps can still have its fee edited.
+  const unchanged = (id: string, shift: string | null) =>
+    !!alloc && id === alloc.seat_id && shift === (alloc.shift_id ?? null);
+  const seatFree = (id: string, shift: string | null) =>
+    unchanged(id, shift) || booked.isFree(id, shift, ignoreSelf);
+  const seatOptions = (seats.data ?? []).filter((s: any) => s.id === seatId || seatFree(s.id, targetShift));
+
+  // If the chosen shift clashes on the chosen seat, clear the seat so the owner picks again.
+  useEffect(() => {
+    if (!booked.data || reservationType === "unreserved" || !seatId) return;
+    if (!seatFree(seatId, targetShift)) {
+      setSeatId("");
+      toast.info("That seat is taken for this shift — pick another seat.");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetShift, booked.data]);
 
   const shifts = useQuery({
     queryKey: ["shifts-for-edit", alloc?.library_id, sectionId],
@@ -174,6 +195,11 @@ export function EditAllocationDialog({
               return;
             }
 
+            if (reservationType === "reserved" && seatId && !seatFree(seatId, targetShift)) {
+              toast.error("That seat is already booked for an overlapping shift.");
+              return;
+            }
+
             setLoading(true);
 
             const { error } = await supabase
@@ -188,7 +214,8 @@ export function EditAllocationDialog({
 
             setLoading(false);
             if (error) {
-              toast.error(error.message);
+              toast.error(friendlySeatError(error));
+              booked.refetch();
               return;
             }
             toast.success("Allocation updated successfully.");
@@ -248,10 +275,10 @@ export function EditAllocationDialog({
             <Label>New Seat {reservationType === "unreserved" ? "(Not Required)" : ""}</Label>
             <Select value={seatId} onValueChange={setSeatId} disabled={reservationType === "unreserved"}>
               <SelectTrigger className="bg-panel border-panel-border">
-                <SelectValue placeholder={reservationType === "unreserved" ? "—" : "Choose vacant seat"} />
+                <SelectValue placeholder={reservationType === "unreserved" ? "—" : "Choose a seat free for this shift"} />
               </SelectTrigger>
               <SelectContent>
-                {(seats.data ?? []).map((s: any) => (
+                {seatOptions.map((s: any) => (
                   <SelectItem key={s.id} value={s.id}>
                     {s.seat_number}
                     {s.is_corner ? " ★" : ""}
@@ -275,16 +302,31 @@ export function EditAllocationDialog({
                   <SelectValue placeholder="Choose shift" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none" disabled={!!currentSection && !currentSection.allow_full_day}>
-                    Full day{!currentSection?.allow_full_day ? " (Not allowed)" : ""}
-                  </SelectItem>
+                  {(() => {
+                    const fullDayTaken =
+                      reservationType === "reserved" && !!seatId && !seatFree(seatId, null);
+                    return (
+                      <SelectItem
+                        value="none"
+                        disabled={(!!currentSection && !currentSection.allow_full_day) || fullDayTaken}
+                      >
+                        Full day
+                        {!currentSection?.allow_full_day
+                          ? " (Not allowed)"
+                          : fullDayTaken
+                            ? " (Taken on this seat)"
+                            : ""}
+                      </SelectItem>
+                    );
+                  })()}
                   {(shifts.data ?? []).map((s: any) => {
                     const cls = classifyShiftByName(s.name || "");
-                    const isDisabled = !!currentSection && !!cls && !(currentSection as any)[cls.allowKey];
+                    const notAllowed = !!currentSection && !!cls && !(currentSection as any)[cls.allowKey];
+                    const taken = reservationType === "reserved" && !!seatId && !seatFree(seatId, s.id);
 
                     return (
-                      <SelectItem key={s.id} value={s.id} disabled={isDisabled}>
-                        {s.name} {isDisabled ? "(Not allowed)" : ""}
+                      <SelectItem key={s.id} value={s.id} disabled={notAllowed || taken}>
+                        {s.name} {notAllowed ? "(Not allowed)" : taken ? "(Taken on this seat)" : ""}
                       </SelectItem>
                     );
                   })}

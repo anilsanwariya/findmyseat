@@ -7,6 +7,7 @@ export type OccupantInfo = {
   studentId: string;
   name: string;
   shift: string | null;
+  shiftId?: string | null;
   fee: number;
   dueDate: string | null;
   status: SeatStatus;
