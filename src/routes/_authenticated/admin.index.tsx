@@ -2,7 +2,8 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useSession, type StaffPermissions } from "@/lib/auth";
+import { useSession } from "@/lib/auth";
+import { usePermissions } from "@/lib/permissions";
 import { GlassPanel, SectionHeader } from "@/components/glass";
 import { inr, fmtDate } from "@/lib/format";
 import { useLibraries } from "@/lib/data";
@@ -91,19 +92,6 @@ function useToday() {
     return () => clearInterval(id);
   }, []);
   return today;
-}
-
-/** Owners see everything; staff only what their permissions allow (RLS enforces the same). */
-function usePermissions() {
-  const { data: session } = useSession();
-  const perms: StaffPermissions | null = session?.isStaff ? (session.staffPermissions ?? {}) : null;
-  const can = (key: keyof StaffPermissions) => !perms || !!perms[key];
-  return {
-    payments: can("collect_payments"),
-    expenses: can("manage_expenses"),
-    leads: can("manage_leads"),
-    tickets: can("manage_tickets"),
-  };
 }
 
 function Dashboard() {
