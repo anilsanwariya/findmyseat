@@ -15,9 +15,59 @@
 -- that already exist, run the query at the bottom of this file.
 --
 -- Shift hours: a shift's own start/end time when both are set; otherwise its
--- type — Morning 06–14, Evening 14–22, Night 22–06, "+" types combine, 24 Hrs
--- or an unrecognised name is the whole day. No shift (full day) is the whole
--- day. This matches src/lib/dashboard-metrics.ts (shiftRanges).
+-- type, using the branch's timings from the branch form (libraries.shifts,
+-- e.g. "Morning: 6:00 AM - 2:00 PM, Night: 10:00 PM - 6:00 AM"). "+" types
+-- combine their parts; 24 Hrs or an unrecognised name is the whole day; a part
+-- the branch hasn't timed uses 06–14 / 14–22 / 22–06. No shift (full day) is the
+-- whole day. This matches src/lib/branch-timings.ts and shiftRanges() in
+-- src/lib/dashboard-metrics.ts. Changing a branch's timings later does not
+-- re-check existing bookings.
+
+-- "6:00 PM" → minutes after midnight.
+CREATE OR REPLACE FUNCTION public.time12_minutes(p text)
+RETURNS int
+LANGUAGE sql
+IMMUTABLE
+AS $$
+  SELECT ((m[1]::int % 12) + CASE WHEN upper(m[3]) = 'PM' THEN 12 ELSE 0 END) * 60
+         + coalesce(nullif(m[2], '')::int, 0)
+  FROM regexp_match(trim(p), '^(\d{1,2})(?::(\d{2}))?\s*(AM|PM|am|pm)$') AS m
+$$;
+
+-- A branch's hours for one part ('morning' | 'evening' | 'night'), or the standard hours.
+CREATE OR REPLACE FUNCTION public.branch_part_minutes(p_library_id uuid, p_part text)
+RETURNS int4multirange
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  txt text;
+  m text[];
+  a int;
+  b int;
+BEGIN
+  SELECT l.shifts INTO txt FROM public.libraries l WHERE l.id = p_library_id;
+  m := regexp_match(
+    coalesce(txt, ''),
+    '\m' || p_part || '\M[^0-9]*(\d{1,2}(?::\d{2})?\s*(?:AM|PM|am|pm))\s*(?:-|–|to)+\s*(\d{1,2}(?::\d{2})?\s*(?:AM|PM|am|pm))',
+    'i'
+  );
+  a := public.time12_minutes(m[1]);
+  b := public.time12_minutes(m[2]);
+  IF a IS NULL OR b IS NULL THEN
+    a := CASE p_part WHEN 'morning' THEN 360 WHEN 'evening' THEN 840 ELSE 1320 END;
+    b := CASE p_part WHEN 'morning' THEN 840 WHEN 'evening' THEN 1320 ELSE 360 END;
+  END IF;
+  IF a = b THEN
+    RETURN int4multirange(int4range(0, 1440));
+  ELSIF a < b THEN
+    RETURN int4multirange(int4range(a, b));
+  END IF;
+  RETURN int4multirange(int4range(a, 1440), int4range(0, b));
+END;
+$$;
 
 CREATE OR REPLACE FUNCTION public.shift_minutes(p_shift_id uuid)
 RETURNS int4multirange
@@ -37,7 +87,7 @@ BEGIN
   IF p_shift_id IS NULL THEN
     RETURN whole;
   END IF;
-  SELECT name, start_time, end_time INTO s FROM public.shifts WHERE id = p_shift_id;
+  SELECT name, start_time, end_time, library_id INTO s FROM public.shifts WHERE id = p_shift_id;
   IF NOT FOUND THEN
     RETURN whole;
   END IF;
@@ -58,13 +108,17 @@ BEGIN
   IF n = '' OR n LIKE '%24%' OR n LIKE '%full%' THEN
     RETURN whole;
   END IF;
-  IF n LIKE '%morning%' THEN r := r + int4multirange(int4range(360, 840)); END IF;
-  IF n LIKE '%evening%' THEN r := r + int4multirange(int4range(840, 1320)); END IF;
-  IF n LIKE '%night%' THEN r := r + int4multirange(int4range(1320, 1440), int4range(0, 360)); END IF;
+  IF n ~ '\mmorning\M' THEN r := r + public.branch_part_minutes(s.library_id, 'morning'); END IF;
+  IF n ~ '\mevening\M' THEN r := r + public.branch_part_minutes(s.library_id, 'evening'); END IF;
+  IF n ~ '\mnight\M' THEN r := r + public.branch_part_minutes(s.library_id, 'night'); END IF;
   RETURN CASE WHEN isempty(r) THEN whole ELSE r END;
 END;
 $$;
 
+REVOKE ALL ON FUNCTION public.time12_minutes(text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.time12_minutes(text) TO authenticated, service_role;
+REVOKE ALL ON FUNCTION public.branch_part_minutes(uuid, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.branch_part_minutes(uuid, text) TO authenticated, service_role;
 REVOKE ALL ON FUNCTION public.shift_minutes(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.shift_minutes(uuid) TO authenticated, service_role;
 

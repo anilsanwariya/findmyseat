@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/lib/auth";
 import { usePermissions } from "@/lib/permissions";
+import { parseBranchTimings } from "@/lib/branch-timings";
 import { GlassPanel, SectionHeader } from "@/components/glass";
 import { inr, fmtDate } from "@/lib/format";
 import { useLibraries } from "@/lib/data";
@@ -31,6 +32,7 @@ import {
   pctChange,
   recentMonths,
   shiftOccupancy,
+  withBranchTimings,
   sumAmount,
   type AllocRow,
   type CoverageRow,
@@ -458,7 +460,13 @@ function Dashboard() {
     () =>
       ops.data
         ? shiftOccupancy(
-            ops.data.shifts,
+            // Each branch's own shift hours decide which shifts can share a seat.
+            withBranchTimings(ops.data.shifts, (id) =>
+              parseBranchTimings(
+                ((libs ?? []).find((l) => l.id === id) as { shifts?: string | null } | undefined)
+                  ?.shifts,
+              ),
+            ),
             ops.data.seats,
             allocs.map((a) => ({
               seat_id: a.seat_id,
@@ -467,7 +475,7 @@ function Dashboard() {
             })),
           )
         : undefined,
-    [ops.data, allocs],
+    [ops.data, allocs, libs],
   );
   const seatsAny = occupancy?.find((o) => o.name === "Full day");
 

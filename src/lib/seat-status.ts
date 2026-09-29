@@ -3,19 +3,25 @@
  * allocation forms. Pure — no IO — so it can be unit tested.
  *
  * A seat can be sold to different students for shifts whose hours don't overlap.
- * A full-day booking (no shift) or a shift without times blocks the whole day.
+ * Hours come from the shift's own times, else the branch's timings for its type
+ * (Morning / Evening / Night, combined for "+" shifts), else the standard hours.
+ * A full-day booking (no shift), 24 Hrs or an unrecognised shift blocks the whole day.
  * This mirrors the proposed database check in supabase/proposed/05_allocation_overlap.sql.
  */
 
 import { shiftsOverlap } from "@/lib/dashboard-metrics";
 import type { SeatStatus } from "@/lib/layout-types";
+import type { BranchTimings } from "@/lib/branch-timings";
 
 export interface ShiftTimes {
   id: string;
   name: string;
   section_id?: string | null;
+  library_id?: string | null;
   start_time?: string | null;
   end_time?: string | null;
+  /** The branch's shift hours (src/lib/branch-timings.ts); standard hours when absent. */
+  timings?: BranchTimings | null;
 }
 
 export interface SeatBooking {

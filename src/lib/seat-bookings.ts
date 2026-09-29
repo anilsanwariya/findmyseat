@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/lib/fetch-all";
+import { parseBranchTimings } from "@/lib/branch-timings";
 import { seatFreeFor, type SeatBooking, type ShiftTimes } from "@/lib/seat-status";
 
 /**
@@ -13,8 +14,8 @@ export function useSeatBookings(libraryId: string | null | undefined) {
     queryKey: ["seat-bookings", libraryId],
     enabled: !!libraryId,
     staleTime: 15_000,
-    queryFn: async () => {
-      const [bookings, shifts] = await Promise.all([
+    queryFn: async (): Promise<{ bookings: SeatBooking[]; shifts: ShiftTimes[] }> => {
+      const [bookings, shifts, lib] = await Promise.all([
         fetchAllRows<SeatBooking>((from, to) =>
           supabase
             .from("allocations")
@@ -33,8 +34,11 @@ export function useSeatBookings(libraryId: string | null | undefined) {
             .order("id")
             .range(from, to),
         ),
+        supabase.from("libraries").select("shifts").eq("id", libraryId!).maybeSingle(),
       ]);
-      return { bookings, shifts };
+      // The branch's own Morning / Evening / Night hours decide which shifts can share a seat.
+      const timings = parseBranchTimings((lib.data as { shifts?: string | null } | null)?.shifts);
+      return { bookings, shifts: shifts.map((s: ShiftTimes) => ({ ...s, timings })) };
     },
   });
 
