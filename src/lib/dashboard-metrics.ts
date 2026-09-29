@@ -3,7 +3,8 @@
 export const localISO = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
-export const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+export const monthKey = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 
 /** "2026-08" -> { start: "2026-08-01", end: "2026-08-31" } using local calendar days. */
 export function monthRange(key: string) {
@@ -22,7 +23,8 @@ export function monthLabel(key: string) {
 /** Most recent `count` months (including `from`), oldest first. */
 export function recentMonths(from: Date, count: number) {
   const out: string[] = [];
-  for (let i = count - 1; i >= 0; i--) out.push(monthKey(new Date(from.getFullYear(), from.getMonth() - i, 1)));
+  for (let i = count - 1; i >= 0; i--)
+    out.push(monthKey(new Date(from.getFullYear(), from.getMonth() - i, 1)));
   return out;
 }
 
@@ -99,9 +101,156 @@ export function buildPaidOpen(allocs: AllocRow[], coverage: CoverageRow[]) {
 export const outstandingOf = (a: AllocRow, paidOpen: Map<string, number>) =>
   Math.max(0, Number(a.monthly_fee) - (paidOpen.get(a.id) ?? 0));
 
-export const sumAmount = <T extends { amount_paid?: number | string; amount?: number | string }>(rows: T[]) =>
-  rows.reduce((s, r) => s + Number((r as any).amount_paid ?? (r as any).amount ?? 0), 0);
+export const sumAmount = <T extends { amount_paid?: number | string; amount?: number | string }>(
+  rows: T[],
+) => rows.reduce((s, r) => s + Number((r as any).amount_paid ?? (r as any).amount ?? 0), 0);
 
 export const daysBetween = (fromISO: string, toISO: string) =>
-  Math.round((new Date(toISO + "T00:00:00").getTime() - new Date(fromISO + "T00:00:00").getTime()) / 86_400_000);
+  Math.round(
+    (new Date(toISO + "T00:00:00").getTime() - new Date(fromISO + "T00:00:00").getTime()) /
+      86_400_000,
+  );
 
+// ---------------------------------------------------------------------------
+// Seat occupancy by shift
+// ---------------------------------------------------------------------------
+
+export interface ShiftDef {
+  id: string;
+  name: string;
+  library_id: string;
+  section_id?: string | null;
+  start_time?: string | null;
+  end_time?: string | null;
+}
+
+export interface SeatDef {
+  id: string;
+  library_id: string;
+  section_id?: string | null;
+}
+
+export interface SeatBooking {
+  seat_id?: string | null;
+  library_id: string;
+  shift_id?: string | null;
+}
+
+const DAY = 24 * 60;
+const toMinutes = (t: string) => {
+  const [h, m] = t.split(":").map(Number);
+  return (h || 0) * 60 + (m || 0);
+};
+
+/**
+ * A shift's time as minute ranges within one day. Overnight shifts (end before
+ * start) wrap into two ranges. A shift without times — or no shift at all,
+ * i.e. a full-day booking — covers the whole day.
+ */
+export function shiftRanges(
+  s: Pick<ShiftDef, "start_time" | "end_time"> | null | undefined,
+): [number, number][] {
+  if (!s?.start_time || !s?.end_time) return [[0, DAY]];
+  const a = toMinutes(s.start_time);
+  const b = toMinutes(s.end_time);
+  if (a === b) return [[0, DAY]];
+  return a < b
+    ? [[a, b]]
+    : [
+        [a, DAY],
+        [0, b],
+      ];
+}
+
+export function shiftsOverlap(
+  x: Pick<ShiftDef, "start_time" | "end_time"> | null | undefined,
+  y: Pick<ShiftDef, "start_time" | "end_time"> | null | undefined,
+) {
+  return shiftRanges(x).some(([a1, b1]) => shiftRanges(y).some(([a2, b2]) => a1 < b2 && a2 < b1));
+}
+
+export interface ShiftOccupancy {
+  name: string;
+  capacity: number;
+  taken: number;
+}
+
+/**
+ * For every shift name (plus "Full day"), how many seats are taken and how many
+ * exist. A seat counts as taken for a shift when any booking on it overlaps that
+ * shift's hours; a full-day booking blocks every shift. Shifts tied to a section
+ * only count that section's seats. Branches sharing a shift name are summed.
+ */
+export function shiftOccupancy(
+  shifts: ShiftDef[],
+  seats: SeatDef[],
+  bookings: SeatBooking[],
+): ShiftOccupancy[] {
+  const shiftById = new Map(shifts.map((s) => [s.id, s]));
+  const seatsByLib = new Map<string, SeatDef[]>();
+  for (const seat of seats) {
+    const list = seatsByLib.get(seat.library_id) ?? [];
+    list.push(seat);
+    seatsByLib.set(seat.library_id, list);
+  }
+  const bookingsBySeat = new Map<string, SeatBooking[]>();
+  for (const b of bookings) {
+    if (!b.seat_id) continue;
+    const list = bookingsBySeat.get(b.seat_id) ?? [];
+    list.push(b);
+    bookingsBySeat.set(b.seat_id, list);
+  }
+
+  const totals = new Map<string, ShiftOccupancy>();
+  const add = (name: string, capacity: number, taken: number) => {
+    const t = totals.get(name) ?? { name, capacity: 0, taken: 0 };
+    t.capacity += capacity;
+    t.taken += taken;
+    totals.set(name, t);
+  };
+
+  const libIds = new Set([...seatsByLib.keys(), ...shifts.map((s) => s.library_id)]);
+  for (const libId of libIds) {
+    const libSeats = seatsByLib.get(libId) ?? [];
+    const targets: (ShiftDef | null)[] = [null, ...shifts.filter((s) => s.library_id === libId)];
+    for (const target of targets) {
+      const pool = target?.section_id
+        ? libSeats.filter((s) => s.section_id === target.section_id)
+        : libSeats;
+      let taken = 0;
+      for (const seat of pool) {
+        const onSeat = bookingsBySeat.get(seat.id) ?? [];
+        const blocked = onSeat.some((b) => {
+          const booked = b.shift_id ? shiftById.get(b.shift_id) : null;
+          if (!target) return true; // a whole-day slot is blocked by any booking
+          return shiftsOverlap(booked, target);
+        });
+        if (blocked) taken += 1;
+      }
+      add(target?.name?.trim() || "Full day", pool.length, taken);
+    }
+  }
+  return [...totals.values()];
+}
+
+// ---------------------------------------------------------------------------
+// Small presentation helpers
+// ---------------------------------------------------------------------------
+
+/** Percentage change from `prev` to `curr`, or null when there is no base to compare with. */
+export function pctChange(curr: number, prev: number): number | null {
+  if (!prev) return null;
+  return Math.round(((curr - prev) / Math.abs(prev)) * 100);
+}
+
+/** wa.me link for an Indian mobile number (10 digits → +91), or null if unusable. */
+export function whatsappLink(mobile: string | null | undefined, message: string): string | null {
+  const digits = String(mobile ?? "").replace(/\D/g, "");
+  const intl =
+    digits.length === 10
+      ? `91${digits}`
+      : digits.length === 12 && digits.startsWith("91")
+        ? digits
+        : null;
+  return intl ? `https://wa.me/${intl}?text=${encodeURIComponent(message)}` : null;
+}
