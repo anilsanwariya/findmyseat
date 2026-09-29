@@ -15,7 +15,14 @@ export const Route = createFileRoute("/api/public/razorpay-webhook")({
         if (sig.length !== exp.length || !timingSafeEqual(sig, exp)) {
           return new Response("Invalid signature", { status: 401 });
         }
-        const payload = JSON.parse(body);
+        const payload = (() => {
+          try {
+            return JSON.parse(body);
+          } catch {
+            return null;
+          }
+        })();
+        if (!payload) return new Response("Invalid JSON", { status: 400 });
         const event: string = payload.event;
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 

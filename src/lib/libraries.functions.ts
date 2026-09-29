@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { createHash } from "crypto";
+import { generateOtp } from "@/lib/otp";
 
 async function assertOrgAdminForLibrary(ctx: { supabase: any; userId: string }, library_id: string) {
   const { data: adminRow } = await ctx.supabase
@@ -155,7 +156,7 @@ export const requestLibraryDeleteOtp = createServerFn({ method: "POST" })
     const email = userData?.user?.email;
     if (!email) throw new Error("No email on file for your account");
 
-    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const code = generateOtp();
     const code_hash = createHash("sha256").update(code).digest("hex");
     const expires_at = new Date(Date.now() + 15 * 60 * 1000).toISOString();
 
@@ -206,20 +207,17 @@ export const deleteLibrary = createServerFn({ method: "POST" })
 
     const libId = data.library_id;
 
-    // Remove storage photos first.
+    // Collect photo paths now, but only delete the files once the database
+    // rows are gone — otherwise a failed cleanup would leave a library whose
+    // photos have already been destroyed.
     const { data: photos } = await supabaseAdmin.from("library_photos").select("image_url").eq("library_id", libId);
-    if (photos?.length) {
-      const marker = "/library-photos/";
-      const paths = photos
-        .map((p: any) => {
-          const idx = p.image_url.indexOf(marker);
-          return idx === -1 ? null : p.image_url.slice(idx + marker.length);
-        })
-        .filter(Boolean) as string[];
-      if (paths.length) {
-        await supabaseAdmin.storage.from("library-photos").remove(paths).catch(() => {});
-      }
-    }
+    const marker = "/library-photos/";
+    const photoPaths = (photos ?? [])
+      .map((p: any) => {
+        const idx = p.image_url.indexOf(marker);
+        return idx === -1 ? null : p.image_url.slice(idx + marker.length);
+      })
+      .filter(Boolean) as string[];
 
     // layout_objects references sections — delete before sections.
     const { data: secs } = await supabaseAdmin.from("sections").select("id").eq("library_id", libId);
@@ -249,6 +247,13 @@ export const deleteLibrary = createServerFn({ method: "POST" })
 
     const { error: delErr } = await supabaseAdmin.from("libraries").delete().eq("id", libId);
     if (delErr) throw new Error(delErr.message);
+
+    if (photoPaths.length) {
+      await supabaseAdmin.storage
+        .from("library-photos")
+        .remove(photoPaths)
+        .catch(() => {});
+    }
 
     await supabaseAdmin.from("library_delete_otps").delete().eq("id", otp.id);
     return { ok: true };
