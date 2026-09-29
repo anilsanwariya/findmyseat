@@ -7,6 +7,7 @@ import type { QueryClient } from "@tanstack/react-query";
  * which was previously left stale after logging or editing a payment.
  */
 const BILLING_KEYS = [
+  "seat-bookings",
   "payments-list",
   "allocations",
   "allocations-active",

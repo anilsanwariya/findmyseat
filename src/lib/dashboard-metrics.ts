@@ -1,5 +1,7 @@
 /** Pure helpers for the owner Overview screen. No IO, safe to unit test. */
 
+import { minuteRanges, rangesForShiftName, type BranchTimings } from "@/lib/branch-timings";
+
 export const localISO = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
@@ -122,6 +124,7 @@ export interface ShiftDef {
   section_id?: string | null;
   start_time?: string | null;
   end_time?: string | null;
+  timings?: BranchTimings | null;
 }
 
 export interface SeatDef {
@@ -136,36 +139,33 @@ export interface SeatBooking {
   shift_id?: string | null;
 }
 
-const DAY = 24 * 60;
-const toMinutes = (t: string) => {
-  const [h, m] = t.split(":").map(Number);
-  return (h || 0) * 60 + (m || 0);
+type ShiftHours = Pick<ShiftDef, "start_time" | "end_time"> & {
+  name?: string | null;
+  /** The branch's Morning / Evening / Night hours (see src/lib/branch-timings.ts). */
+  timings?: BranchTimings | null;
 };
 
 /**
- * A shift's time as minute ranges within one day. Overnight shifts (end before
- * start) wrap into two ranges. A shift without times — or no shift at all,
- * i.e. a full-day booking — covers the whole day.
+ * A shift's time as minute ranges within one day. Uses the shift's own times when
+ * both are set (overnight shifts wrap into two ranges); otherwise its type, using
+ * the branch's timings or the standard hours. No shift at all — a full-day
+ * booking — covers the whole day, as does any shift whose type can't be recognised.
  */
-export function shiftRanges(
-  s: Pick<ShiftDef, "start_time" | "end_time"> | null | undefined,
-): [number, number][] {
-  if (!s?.start_time || !s?.end_time) return [[0, DAY]];
-  const a = toMinutes(s.start_time);
-  const b = toMinutes(s.end_time);
-  if (a === b) return [[0, DAY]];
-  return a < b
-    ? [[a, b]]
-    : [
-        [a, DAY],
-        [0, b],
-      ];
+export function shiftRanges(s: ShiftHours | null | undefined): [number, number][] {
+  if (!s) return rangesForShiftName(null);
+  if (s.start_time && s.end_time) return minuteRanges(s.start_time, s.end_time);
+  return rangesForShiftName(s.name, s.timings);
 }
 
-export function shiftsOverlap(
-  x: Pick<ShiftDef, "start_time" | "end_time"> | null | undefined,
-  y: Pick<ShiftDef, "start_time" | "end_time"> | null | undefined,
-) {
+/** Attach each branch's timings to its shifts so overlap checks use that branch's hours. */
+export function withBranchTimings<T extends { library_id?: string | null }>(
+  shifts: T[],
+  timingsFor: (libraryId: string | null | undefined) => BranchTimings | null | undefined,
+): (T & { timings: BranchTimings | null })[] {
+  return shifts.map((s) => ({ ...s, timings: timingsFor(s.library_id) ?? null }));
+}
+
+export function shiftsOverlap(x: ShiftHours | null | undefined, y: ShiftHours | null | undefined) {
   return shiftRanges(x).some(([a1, b1]) => shiftRanges(y).some(([a2, b2]) => a1 < b2 && a2 < b1));
 }
 

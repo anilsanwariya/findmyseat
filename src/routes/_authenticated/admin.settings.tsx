@@ -68,6 +68,13 @@ import {
 import { reverseGeocode } from "@/lib/geocode.functions";
 import { computeOrgState } from "@/routes/_authenticated/super-admin.organizations";
 import { useConfirm } from "@/components/ConfirmDialog";
+import {
+  DEFAULT_TIMINGS,
+  parseBranchTimings,
+  serializeBranchTimings,
+  timingWarnings,
+  type BranchTimings,
+} from "@/lib/branch-timings";
 
 export const Route = createFileRoute("/_authenticated/admin/settings")({
   head: () => ({ meta: [{ title: "Branch Settings · LibraryBandhu" }] }),
@@ -167,57 +174,10 @@ function parseClosedOn(s: string): { openAllDays: boolean; days: string[] } {
   return { openAllDays: false, days };
 }
 
-function serializeShifts(v: {
-  hasMorning: boolean;
-  morningStart: string;
-  morningEnd: string;
-  hasEvening: boolean;
-  eveningStart: string;
-  eveningEnd: string;
-}): string | null {
-  const parts: string[] = [];
-  if (v.hasMorning && v.morningStart && v.morningEnd)
-    parts.push(`Morning: ${to12h(v.morningStart)} - ${to12h(v.morningEnd)}`);
-  if (v.hasEvening && v.eveningStart && v.eveningEnd)
-    parts.push(`Evening: ${to12h(v.eveningStart)} - ${to12h(v.eveningEnd)}`);
-  return parts.length ? parts.join(", ") : null;
-}
-function parseShifts(s: string): {
-  hasMorning: boolean;
-  morningStart: string;
-  morningEnd: string;
-  hasEvening: boolean;
-  eveningStart: string;
-  eveningEnd: string;
-} {
-  const raw = (s || "").trim();
-  const out = {
-    hasMorning: false,
-    morningStart: "",
-    morningEnd: "",
-    hasEvening: false,
-    eveningStart: "",
-    eveningEnd: "",
-  };
-  if (!raw) return out;
-  const mm = raw.match(
-    /morning[^0-9]*(\d{1,2}(?::\d{2})?\s*(?:AM|PM|am|pm))\s*[-–to]+\s*(\d{1,2}(?::\d{2})?\s*(?:AM|PM|am|pm))/i,
-  );
-  if (mm) {
-    out.hasMorning = true;
-    out.morningStart = from12h(mm[1]);
-    out.morningEnd = from12h(mm[2]);
-  }
-  const em = raw.match(
-    /evening[^0-9]*(\d{1,2}(?::\d{2})?\s*(?:AM|PM|am|pm))\s*[-–to]+\s*(\d{1,2}(?::\d{2})?\s*(?:AM|PM|am|pm))/i,
-  );
-  if (em) {
-    out.hasEvening = true;
-    out.eveningStart = from12h(em[1]);
-    out.eveningEnd = from12h(em[2]);
-  }
-  return out;
-}
+const TIMING_HELP =
+  "Shown on your listing, and used to decide which shifts can share a seat — e.g. a seat can go to one " +
+  "student in the Morning and another in the Evening. Combined shifts (Morning + Night, Evening + Night) " +
+  "use these hours; 24 Hrs is the whole day. Shifts left off use 6 AM–2 PM, 2 PM–10 PM and 10 PM–6 AM.";
 
 function SettingsPage() {
   const { data: session, isLoading } = useSession();
@@ -804,6 +764,9 @@ function LibraryFormDialog({
   const [hasEvening, setHasEvening] = useState(false);
   const [eveningStart, setEveningStart] = useState("");
   const [eveningEnd, setEveningEnd] = useState("");
+  const [hasNight, setHasNight] = useState(false);
+  const [nightStart, setNightStart] = useState("");
+  const [nightEnd, setNightEnd] = useState("");
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
   const [placeId, setPlaceId] = useState<string | null>(null);
@@ -839,13 +802,16 @@ function LibraryFormDialog({
       const co = parseClosedOn(existingLib.closed_on || "");
       setOpenAllDays(co.openAllDays);
       setClosedDays(new Set(co.days));
-      const sh = parseShifts(existingLib.shifts || "");
-      setHasMorning(sh.hasMorning);
-      setMorningStart(sh.morningStart);
-      setMorningEnd(sh.morningEnd);
-      setHasEvening(sh.hasEvening);
-      setEveningStart(sh.eveningStart);
-      setEveningEnd(sh.eveningEnd);
+      const sh = parseBranchTimings(existingLib.shifts);
+      setHasMorning(!!sh.morning);
+      setMorningStart(sh.morning?.start ?? "");
+      setMorningEnd(sh.morning?.end ?? "");
+      setHasEvening(!!sh.evening);
+      setEveningStart(sh.evening?.start ?? "");
+      setEveningEnd(sh.evening?.end ?? "");
+      setHasNight(!!sh.night);
+      setNightStart(sh.night?.start ?? "");
+      setNightEnd(sh.night?.end ?? "");
       setSelectedExams(new Set(existingLib.targeted_exam_ids || []));
       setAmenities(existingLib.amenities || {});
       setLatitude(existingLib.latitude ?? null);
@@ -876,6 +842,9 @@ function LibraryFormDialog({
     hasEvening,
     eveningStart,
     eveningEnd,
+    hasNight,
+    nightStart,
+    nightEnd,
     latitude,
     longitude,
     placeId,
@@ -914,6 +883,19 @@ function LibraryFormDialog({
     googleMapsUrl: mapsRef,
   };
 
+  /** Shift hours as entered; parts that are switched off or incomplete are left out. */
+  function currentTimings(): BranchTimings {
+    const t: BranchTimings = {};
+    if (hasMorning && morningStart && morningEnd) {
+      t.morning = { start: morningStart, end: morningEnd };
+    }
+    if (hasEvening && eveningStart && eveningEnd) {
+      t.evening = { start: eveningStart, end: eveningEnd };
+    }
+    if (hasNight && nightStart && nightEnd) t.night = { start: nightStart, end: nightEnd };
+    return t;
+  }
+
   const warnings: Record<string, string> = {};
   if (!open24 && openTime && closeTime && closeTime <= openTime)
     warnings.hours = "Closing time is before opening time — save only if this branch runs overnight.";
@@ -921,6 +903,8 @@ function LibraryFormDialog({
     warnings.morning = "Morning shift ends before it starts.";
   if (hasEvening && eveningStart && eveningEnd && eveningEnd <= eveningStart)
     warnings.evening = "Evening shift ends before it starts — fine only for overnight shifts.";
+  const overlapWarnings = timingWarnings(currentTimings());
+  if (overlapWarnings.length) warnings.overlap = overlapWarnings.join(" ");
 
   function tabStatus(tab: (typeof TABS)[number]): "error" | "todo" | "done" {
     if (tab === "basic") {
@@ -928,7 +912,7 @@ function LibraryFormDialog({
       return name.trim() && address.trim() && city.trim() ? "done" : "todo";
     }
     if (tab === "schedule") {
-      if (warnings.hours || warnings.morning || warnings.evening) return "todo";
+      if (warnings.hours || warnings.morning || warnings.evening || warnings.overlap) return "todo";
       return open24 || (openTime && closeTime) ? "done" : "todo";
     }
     if (tab === "features") {
@@ -1089,7 +1073,7 @@ function LibraryFormDialog({
             city: city || null,
             show_public_availability: showPublic,
             opening_hours: serializeOpeningHours({ open24, openTime, closeTime }),
-            shifts: serializeShifts({ hasMorning, morningStart, morningEnd, hasEvening, eveningStart, eveningEnd }),
+            shifts: serializeBranchTimings(currentTimings()),
             closed_on: serializeClosedOn({ openAllDays, days: Array.from(closedDays) }),
             targeted_exam_ids: Array.from(selectedExams),
             amenities: amenities,
@@ -1336,12 +1320,22 @@ function LibraryFormDialog({
 
             {/* Shifts */}
             <div className="space-y-4 rounded-lg border border-panel-border bg-panel/40 p-4">
-              <Label className="text-sm font-semibold block border-b border-panel-border/50 pb-2">
-                Specific Shifts
-              </Label>
+              <div className="border-b border-panel-border/50 pb-2">
+                <Label className="text-sm font-semibold block">Shift timings</Label>
+                <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{TIMING_HELP}</p>
+              </div>
               <div className="space-y-3">
                 <label className="flex items-center gap-2 text-sm cursor-pointer">
-                  <Switch checked={hasMorning} onCheckedChange={setHasMorning} />
+                  <Switch
+                    checked={hasMorning}
+                    onCheckedChange={(v) => {
+                      setHasMorning(v);
+                      if (v && !morningStart && !morningEnd) {
+                        setMorningStart(DEFAULT_TIMINGS.morning.start);
+                        setMorningEnd(DEFAULT_TIMINGS.morning.end);
+                      }
+                    }}
+                  />
                   <span className="font-medium text-slate-300">Morning shift</span>
                 </label>
                 {hasMorning && (
@@ -1371,7 +1365,16 @@ function LibraryFormDialog({
 
               <div className="space-y-3 pt-3 border-t border-panel-border/50">
                 <label className="flex items-center gap-2 text-sm cursor-pointer">
-                  <Switch checked={hasEvening} onCheckedChange={setHasEvening} />
+                  <Switch
+                    checked={hasEvening}
+                    onCheckedChange={(v) => {
+                      setHasEvening(v);
+                      if (v && !eveningStart && !eveningEnd) {
+                        setEveningStart(DEFAULT_TIMINGS.evening.start);
+                        setEveningEnd(DEFAULT_TIMINGS.evening.end);
+                      }
+                    }}
+                  />
                   <span className="font-medium text-slate-300">Evening shift</span>
                 </label>
                 {hasEvening && (
@@ -1398,6 +1401,52 @@ function LibraryFormDialog({
                 )}
                 {warnings.evening && <p className="text-[11px] text-amber-300">{warnings.evening}</p>}
               </div>
+
+              <div className="space-y-3 pt-3 border-t border-panel-border/50">
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <Switch
+                    checked={hasNight}
+                    onCheckedChange={(v) => {
+                      setHasNight(v);
+                      if (v && !nightStart && !nightEnd) {
+                        setNightStart(DEFAULT_TIMINGS.night.start);
+                        setNightEnd(DEFAULT_TIMINGS.night.end);
+                      }
+                    }}
+                  />
+                  <span className="font-medium text-slate-300">Night shift</span>
+                </label>
+                {hasNight && (
+                  <div className="flex flex-col sm:flex-row gap-4 w-full pl-0 sm:pl-10">
+                    <div className="space-y-1 w-full">
+                      <Label className="text-[11px] text-muted-foreground">Starts</Label>
+                      <Input
+                        type="time"
+                        value={nightStart}
+                        onChange={(e) => setNightStart(e.target.value)}
+                        className="bg-panel border-panel-border font-mono w-full"
+                      />
+                    </div>
+                    <div className="space-y-1 w-full">
+                      <Label className="text-[11px] text-muted-foreground">
+                        Ends (next morning)
+                      </Label>
+                      <Input
+                        type="time"
+                        value={nightEnd}
+                        onChange={(e) => setNightEnd(e.target.value)}
+                        className="bg-panel border-panel-border font-mono w-full"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {warnings.overlap && (
+                <p className="rounded-md border border-amber-400/30 bg-amber-400/10 p-2 text-[11px] text-amber-300">
+                  {warnings.overlap}
+                </p>
+              )}
 
             </div>
           </div>
