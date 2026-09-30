@@ -98,7 +98,7 @@ function Rows({
                 <div className="truncate text-sm font-medium">{r.name}</div>
                 <div className="truncate text-[11px] text-muted-foreground">
                   {r.branch}
-                  {r.seat ? ` · Seat ${r.seat}` : ""}
+                  {!r.seat ? "" : NO_SEAT.has(r.seat) ? ` · ${r.seat}` : ` · Seat ${r.seat}`}
                 </div>
               </button>
               <div className="shrink-0 text-right">{render(r)}</div>
@@ -146,8 +146,9 @@ function Rows({
   );
 }
 
-const seatText = (r: ActionStudent) =>
-  r.seat && r.seat !== "Unassigned" ? ` (seat ${r.seat})` : "";
+/** Labels used instead of a seat number for students without a fixed seat. */
+const NO_SEAT = new Set(["Unassigned", "Unreserved"]);
+const seatText = (r: ActionStudent) => (r.seat && !NO_SEAT.has(r.seat) ? ` (seat ${r.seat})` : "");
 
 export function ActionList({
   awaitingFirstPayment,
@@ -195,7 +196,9 @@ export function ActionList({
                 <>
                   <div className="font-mono text-sm font-semibold text-amber">{inr(r.amount)}</div>
                   <div className="text-[11px] text-muted-foreground">
-                    {r.startDate ? `Allocated ${fmtDate(r.startDate)}` : "Payment not logged"}
+                    {r.startDate
+                      ? `Joined ${fmtDate(r.startDate)}${r.days ? ` · ${r.days} day${r.days === 1 ? "" : "s"} unpaid` : ""}`
+                      : "Payment not logged"}
                   </div>
                 </>
               )}

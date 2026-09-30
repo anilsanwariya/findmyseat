@@ -24,6 +24,7 @@ import {
   buildPaidOpen,
   cycleMonthOf,
   dayOnly,
+  effectiveDue,
   daysBetween,
   localISO,
   monthLabel,
@@ -54,6 +55,7 @@ export const Route = createFileRoute("/_authenticated/admin/")({
 
 type DashAlloc = AllocRow & {
   shift_id?: string | null;
+  reservation_type?: string | null;
   students?: { full_name?: string | null; mobile_number?: string | null } | null;
   seats?: { seat_number?: string | null; section_id?: string | null } | null;
 };
@@ -177,11 +179,11 @@ function Dashboard() {
     placeholderData: keepPreviousData,
     staleTime: 30_000,
     queryFn: async () => {
-      const allocs = await fetchAllRows<DashAlloc>((from, to) => {
+      const rawAllocs = await fetchAllRows<DashAlloc>((from, to) => {
         let q = supabase
           .from("allocations")
           .select(
-            "id, library_id, student_id, seat_id, shift_id, monthly_fee, start_date, next_due_date, status, students!inner(full_name, is_active, mobile_number), seats(seat_number, section_id), shifts(name)",
+            "id, library_id, student_id, seat_id, shift_id, reservation_type, monthly_fee, start_date, next_due_date, status, students!inner(full_name, is_active, mobile_number), seats(seat_number, section_id), shifts(name)",
           )
           .eq("org_id", orgId!)
           .eq("is_active", true)
@@ -196,6 +198,9 @@ function Dashboard() {
           error: { message: string } | null;
         }>;
       });
+      // A student who has never paid has no stored due date; their first fee is due on
+      // the joining date, so every calculation below treats that as the due date.
+      const allocs = rawAllocs.map((a) => ({ ...a, next_due_date: effectiveDue(a) }));
       if (!can.payments)
         return { allocs, coverage: [] as CoverageRow[], paidStudentIds: [] as string[] };
 
@@ -404,7 +409,12 @@ function Dashboard() {
       name: a.students?.full_name ?? "—",
       mobile: a.students?.mobile_number ?? null,
       branch: libName.get(a.library_id) ?? "—",
-      seat: a.seat_id ? (a.seats?.seat_number ?? "Unassigned") : "Unassigned",
+      seat:
+        a.reservation_type === "unreserved"
+          ? "Unreserved"
+          : a.seat_id
+            ? (a.seats?.seat_number ?? "Unassigned")
+            : "Unassigned",
       amount: outstandingOf(a, paidOpen),
       paid: paidOpen.get(a.id) ?? 0,
       fee: Number(a.monthly_fee),
@@ -414,6 +424,11 @@ function Dashboard() {
 
     const overdueAllocs = allocs.filter(isOverdue);
     const paidStudentIds = new Set(alloc.data?.paidStudentIds ?? []);
+    // Never-paid students are listed under "Awaiting first payment" (with or without a
+    // seat), so they aren't repeated in the overdue / due-soon lists. They still count
+    // in the dues totals. Without payment access that list is hidden, so keep them.
+    const neverPaid = (a: DashAlloc) => !!a.student_id && !paidStudentIds.has(a.student_id);
+    const listed = (a: DashAlloc) => !can.payments || !neverPaid(a);
     return {
       isOverdue,
       overdueCount: overdueAllocs.length,
@@ -425,10 +440,18 @@ function Dashboard() {
         })
         .reduce((s, a) => s + outstandingOf(a, paidOpen), 0),
       awaitingFirstPayment: allocs
-        .filter((a) => !!a.seat_id && !!a.student_id && !paidStudentIds.has(a.student_id))
-        .map(toRow)
-        .sort((a, b) => (b.startDate ?? "").localeCompare(a.startDate ?? "")),
+        .filter(neverPaid)
+        .map((a) => {
+          const r = toRow(a);
+          r.days = r.dueDate ? Math.max(0, daysBetween(r.dueDate, today)) : 0;
+          return r;
+        })
+        .sort(
+          (a, b) =>
+            (b.days ?? 0) - (a.days ?? 0) || (b.startDate ?? "").localeCompare(a.startDate ?? ""),
+        ),
       overdue: overdueAllocs
+        .filter(listed)
         .map((a) => {
           const r = toRow(a);
           r.days = r.dueDate ? Math.max(0, daysBetween(r.dueDate, today)) : 0;
@@ -443,7 +466,11 @@ function Dashboard() {
         .filter((a) => {
           const due = dayOnly(a.next_due_date);
           return (
-            !!due && due >= today && daysBetween(today, due) <= 7 && outstandingOf(a, paidOpen) > 0
+            listed(a) &&
+            !!due &&
+            due >= today &&
+            daysBetween(today, due) <= 7 &&
+            outstandingOf(a, paidOpen) > 0
           );
         })
         .map((a) => {
@@ -453,7 +480,7 @@ function Dashboard() {
         })
         .sort((a, b) => (a.days ?? 0) - (b.days ?? 0)),
     };
-  }, [allocs, alloc.data?.paidStudentIds, paidOpen, libName, selMonth, today]);
+  }, [allocs, alloc.data?.paidStudentIds, paidOpen, libName, selMonth, today, can.payments]);
 
   /** Seats taken per shift (a full-day booking blocks every shift). */
   const occupancy = useMemo(

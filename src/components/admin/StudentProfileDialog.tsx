@@ -39,7 +39,13 @@ import { EditAllocationDialog } from "@/components/admin/EditAllocationDialog";
 import { StudentFormDialog } from "@/components/admin/StudentFormDialog";
 import { useSession } from "@/lib/auth";
 import { usePermissions } from "@/lib/permissions";
-import { buildPaidOpen, localISO, whatsappLink, type CoverageRow } from "@/lib/dashboard-metrics";
+import {
+  buildPaidOpen,
+  effectiveDue,
+  localISO,
+  whatsappLink,
+  type CoverageRow,
+} from "@/lib/dashboard-metrics";
 import { pickLatestFullPayment } from "@/lib/payments";
 import {
   ageOn,
@@ -149,6 +155,7 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: str
 }
 
 const STANDING_TONE: Record<Standing["kind"], { text: string; chip: string }> = {
+  awaiting: { text: "text-rose", chip: "border-rose/40 bg-rose/10 text-rose" },
   overdue: { text: "text-rose", chip: "border-rose/40 bg-rose/10 text-rose" },
   partial: { text: "text-gold", chip: "border-gold/40 bg-gold/10 text-gold" },
   due_soon: { text: "text-amber", chip: "border-amber/40 bg-amber/10 text-amber" },
@@ -270,13 +277,17 @@ export function StudentProfileDialog({
     [rows],
   );
 
+  // Never paid anything (only knowable with payment access, once history has loaded):
+  // their first fee is due on the joining date.
+  const neverPaid = can.payments && history.isSuccess && rows.length === 0;
+
   // Part payments toward each seat's open cycle, exactly as the dashboard computes them.
   const standings = useMemo(() => {
     const { paidOpen } = buildPaidOpen(active, rows as CoverageRow[]);
     return new Map<string, Standing>(
-      active.map((a) => [a.id, allocationStanding(a, paidOpen, today)]),
+      active.map((a) => [a.id, allocationStanding(a, paidOpen, today, neverPaid)]),
     );
-  }, [active, rows, today]);
+  }, [active, rows, today, neverPaid]);
   const ranked = useMemo(
     () => [...active].sort((a, b) => byUrgency(standings.get(a.id)!, standings.get(b.id)!)),
     [active, standings],
@@ -286,7 +297,7 @@ export function StudentProfileDialog({
   const totalOwed = [...standings.values()].reduce((sum, st) => sum + st.owed, 0);
   const monthlyFee = active.reduce((sum, a) => sum + Number(a.monthly_fee ?? 0), 0);
   const earliestDue = active
-    .map((a) => a.next_due_date as string | null)
+    .map((a) => effectiveDue(a))
     .filter(Boolean)
     .sort()[0] as string | undefined;
 
@@ -298,6 +309,8 @@ export function StudentProfileDialog({
     const first = s?.full_name?.split(" ")[0] ?? "";
     const branch = s?.libraries?.name ?? "the library";
     if (!top || top.owed <= 0) return `Hi ${first}, this is ${branch}.`;
+    if (top.kind === "awaiting")
+      return `Hi ${first}, welcome to ${branch}! Your library fee of ${inr(top.owed)} is pending. Please pay at the earliest. Thank you!`;
     if (top.kind === "overdue")
       return `Hi ${first}, your library fee of ${inr(top.owed)} at ${branch} was due on ${fmtDate(top.dueDate)}. Please pay at the earliest. Thank you!`;
     if (top.kind === "partial")
@@ -685,7 +698,7 @@ export function StudentProfileDialog({
                                 <span
                                   className={`font-mono ${can.payments ? STANDING_TONE[st.kind].text : ""}`}
                                 >
-                                  Due {fmtDate(a.next_due_date)}
+                                  Due {fmtDate(effectiveDue(a))}
                                 </span>
                               </div>
                               {can.payments && st.kind !== "paid" && (

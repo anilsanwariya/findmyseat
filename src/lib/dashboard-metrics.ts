@@ -32,6 +32,14 @@ export function recentMonths(from: Date, count: number) {
 
 export const dayOnly = (v: string | null | undefined) => (v ? String(v).split("T")[0] : null);
 
+/**
+ * The due date to act on. A student's first fee is due on the joining date, so a
+ * booking with no stored due date (a student who has never paid) is due from its
+ * start date rather than looking like "nothing owed".
+ */
+export const effectiveDue = (a: { next_due_date?: string | null; start_date?: string | null }) =>
+  dayOnly(a.next_due_date) ?? dayOnly(a.start_date);
+
 /** Shift an ISO day by whole months, clamping to the end of shorter months. */
 export function addMonthsISO(iso: string, n: number) {
   const [y, m, d] = iso.split("-").map(Number);
