@@ -12,7 +12,7 @@ import {
 } from "@/lib/layout-history";
 import { useSeatBookings } from "@/lib/seat-bookings";
 import { feeStatus, friendlySeatError } from "@/lib/seat-status";
-import { localISO, shiftsOverlap } from "@/lib/dashboard-metrics";
+import { effectiveDue, localISO, shiftsOverlap } from "@/lib/dashboard-metrics";
 import { type BuilderMode, type LayoutCell, type OccupantInfo, type SeatStatus, cellKey as key } from "@/lib/layout-types";
 import { LayoutCanvas, OBJ_META } from "@/components/admin/layout/LayoutCanvas";
 import { RenumberDialog } from "@/components/admin/layout/RenumberDialog";
@@ -185,7 +185,9 @@ function LayoutBuilderPage() {
 
       const { data: allocs } = await supabase
         .from("allocations")
-        .select("id, seat_id, student_id, shift_id, monthly_fee, next_due_date, status, students(full_name), shifts(name)")
+        .select(
+          "id, seat_id, student_id, shift_id, monthly_fee, next_due_date, start_date, status, students(full_name), shifts(name)",
+        )
         .eq("is_active", true)
         .in("seat_id", seatIds);
 
@@ -211,7 +213,9 @@ function LayoutBuilderPage() {
         if (!a.seat_id) continue;
         const name = (a as any).students?.full_name ?? "Student";
         // Same fee status as the Allocations floor plan (src/lib/seat-status.ts).
-        const status: SeatStatus = feeStatus(a, partial.has(a.id) ? 1 : 0, todayISO);
+        // Never-paid students have no stored due date; their first fee is due on joining.
+        const due = effectiveDue(a);
+        const status: SeatStatus = feeStatus({ ...a, next_due_date: due }, partial.has(a.id) ? 1 : 0, todayISO);
         occupancy[a.seat_id] = [...(occupancy[a.seat_id] ?? []), name];
         occInfo[a.seat_id] = [
           ...(occInfo[a.seat_id] ?? []),
@@ -222,7 +226,7 @@ function LayoutBuilderPage() {
             shift: (a as any).shifts?.name ?? null,
             shiftId: (a as any).shift_id ?? null,
             fee: Number(a.monthly_fee ?? 0),
-            dueDate: a.next_due_date ?? null,
+            dueDate: due,
             status,
           },
         ];

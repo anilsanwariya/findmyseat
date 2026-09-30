@@ -1,9 +1,9 @@
 /** Pure helpers for the admin Student Profile. No IO, safe to unit test. */
 
-import { daysBetween, dayOnly, outstandingOf, type AllocRow } from "@/lib/dashboard-metrics";
+import { daysBetween, effectiveDue, outstandingOf, type AllocRow } from "@/lib/dashboard-metrics";
 import { STUDENT_EMAIL_DOMAIN } from "@/lib/student-utils";
 
-export type StandingKind = "overdue" | "partial" | "due_soon" | "paid";
+export type StandingKind = "awaiting" | "overdue" | "partial" | "due_soon" | "paid";
 
 export interface Standing {
   kind: StandingKind;
@@ -12,8 +12,10 @@ export interface Standing {
   /** Already paid toward the open cycle. */
   paid: number;
   dueDate: string | null;
-  /** Days late (overdue) or days left (due_soon / partial / paid). */
+  /** Days late (overdue / awaiting) or days left (due_soon / partial / paid). */
   days: number | null;
+  /** Joining date, shown for students awaiting their first payment. */
+  joined?: string | null;
 }
 
 /**
@@ -25,11 +27,24 @@ export function allocationStanding(
   a: AllocRow,
   paidOpen: Map<string, number>,
   today: string,
+  /** The student has never made any payment: their first fee is due from joining. */
+  neverPaid = false,
 ): Standing {
-  const due = dayOnly(a.next_due_date);
+  // No stored due date means the first fee is due on the joining date.
+  const due = effectiveDue(a);
   const owed = outstandingOf(a, paidOpen);
   const paid = paidOpen.get(a.id) ?? 0;
   const days = due ? daysBetween(today, due) : null;
+  if (neverPaid && owed > 0) {
+    return {
+      kind: "awaiting",
+      owed,
+      paid,
+      dueDate: due,
+      days: days === null ? null : Math.max(0, -days),
+      joined: effectiveDue({ next_due_date: a.start_date }),
+    };
+  }
   if (owed > 0 && ((due && due < today) || a.status === "overdue")) {
     return {
       kind: "overdue",
@@ -45,7 +60,13 @@ export function allocationStanding(
   return { kind: "paid", owed: 0, paid, dueDate: due, days };
 }
 
-const RANK: Record<StandingKind, number> = { overdue: 0, partial: 1, due_soon: 2, paid: 3 };
+const RANK: Record<StandingKind, number> = {
+  awaiting: 0,
+  overdue: 0,
+  partial: 1,
+  due_soon: 2,
+  paid: 3,
+};
 
 /** Most urgent first; ties broken by earliest due date. */
 export function byUrgency(x: Standing, y: Standing) {
@@ -59,6 +80,10 @@ export function standingLabel(
   money: (n: number) => string,
 ) {
   switch (s.kind) {
+    case "awaiting":
+      return `Awaiting first payment · ${money(s.owed)}${s.joined ? ` (joined ${fmt(s.joined)})` : ""}${
+        s.days ? ` · ${s.days} day${s.days === 1 ? "" : "s"} unpaid` : ""
+      }`;
     case "overdue":
       return `Overdue${s.days ? ` ${s.days} day${s.days === 1 ? "" : "s"}` : ""} · ${money(s.owed)} due`;
     case "partial":

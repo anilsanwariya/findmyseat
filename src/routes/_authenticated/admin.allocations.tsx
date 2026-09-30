@@ -42,7 +42,7 @@ import {
 import { useConfirm } from "@/components/ConfirmDialog";
 import { useSeatBookings } from "@/lib/seat-bookings";
 import { fetchLatestFullPayment } from "@/lib/payments";
-import { localISO } from "@/lib/dashboard-metrics";
+import { effectiveDue, localISO } from "@/lib/dashboard-metrics";
 import { feeStatus, friendlySeatError, openShifts, seatFreeFor, seatState, sellableShifts } from "@/lib/seat-status";
 import { STATUS_META, worstStatus, type SeatStatus } from "@/lib/layout-types";
 
@@ -170,14 +170,16 @@ function AllocationsPage() {
       const { data, error } = await supabase
         .from("allocations")
         .select(
-          "id, monthly_fee, next_due_date, status, reservation_type, is_active, library_id, seat_id, shift_id, student_id, students(full_name, mobile_number), seats(id, seat_number, section_id), libraries(name), shifts(name)",
+          "id, monthly_fee, next_due_date, start_date, status, reservation_type, is_active, library_id, seat_id, shift_id, student_id, students(full_name, mobile_number), seats(id, seat_number, section_id), libraries(name), shifts(name)",
         )
         .eq("org_id", orgId!)
         .eq("library_id", currentLibId!)
         .eq("is_active", true)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data ?? [];
+      // Never-paid students have no stored due date; their first fee is due on joining.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- rows are untyped across this page
+      return (data ?? []).map((a: any) => ({ ...a, next_due_date: effectiveDue(a) }));
     },
   });
 
@@ -1382,8 +1384,12 @@ function NewAllocDialog({
             return;
           }
           const prevDue = prev?.next_due_date ? String(prev.next_due_date).split("T")[0] : null;
-          const carriedDue = latest?.covers_until ?? prevDue;
-          const carriedStatus = carriedDue ? (carriedDue < todayISO() ? "overdue" : "paid") : "pending";
+          // A student who has never paid owes their first fee on the joining date.
+          const joining = prev?.start_date ? String(prev.start_date).split("T")[0] : todayISO();
+          const carriedDue = latest?.covers_until ?? prevDue ?? joining;
+          // "Paid" only when a real payment covers the date; never-paid students stay
+          // pending until the joining date passes, then show as overdue.
+          const carriedStatus = carriedDue < todayISO() ? "overdue" : latest ? "paid" : "pending";
 
           // A vacated reserved allocation remains the student's billing record. Assigning
           // a new seat updates that same row so its payments and fee history stay linked.
