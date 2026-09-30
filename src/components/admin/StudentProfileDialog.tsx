@@ -40,6 +40,7 @@ import { StudentFormDialog } from "@/components/admin/StudentFormDialog";
 import { useSession } from "@/lib/auth";
 import { usePermissions } from "@/lib/permissions";
 import { buildPaidOpen, localISO, whatsappLink, type CoverageRow } from "@/lib/dashboard-metrics";
+import { pickLatestFullPayment } from "@/lib/payments";
 import {
   ageOn,
   allocationStanding,
@@ -238,7 +239,7 @@ export function StudentProfileDialog({
       const { data, error } = await supabase
         .from("payments")
         .select(
-          "id, allocation_id, amount_paid, payment_date, method, transaction_reference, covers_until, receipt_url, is_partial",
+          "id, allocation_id, amount_paid, payment_date, logged_at, created_at, method, transaction_reference, covers_until, receipt_url, is_partial",
         )
         .eq("student_id", studentId)
         .order("payment_date", { ascending: false });
@@ -383,6 +384,39 @@ export function StudentProfileDialog({
     else qc.invalidateQueries({ queryKey: ["student-notes", studentId] });
   };
 
+  // Due-date rule (src/lib/payments.ts): the date chosen on the latest full payment is the
+  // due date. Older code could leave a different date on the seat (e.g. after a seat
+  // change); offer a one-tap fix when the student has a single seat and they disagree.
+  const latestPaid = useMemo(
+    () => pickLatestFullPayment(rows as Parameters<typeof pickLatestFullPayment>[0]),
+    [rows],
+  );
+  const shownDue =
+    active.length === 1 && active[0].next_due_date
+      ? String(active[0].next_due_date).split("T")[0]
+      : null;
+  const dueMismatch =
+    can.payments && shownDue && latestPaid && shownDue !== latestPaid.covers_until
+      ? { alloc: active[0], shown: shownDue, expected: latestPaid }
+      : null;
+  const [fixingDue, setFixingDue] = useState(false);
+  const fixDue = async () => {
+    if (!dueMismatch) return;
+    setFixingDue(true);
+    const expected = dueMismatch.expected.covers_until;
+    const { error } = await supabase
+      .from("allocations")
+      .update({ next_due_date: expected, status: expected < today ? "overdue" : "paid" })
+      .eq("id", dueMismatch.alloc.id);
+    setFixingDue(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success(`Due date set to ${fmtDate(expected)}.`);
+    refresh();
+  };
+
   const openImagePreview = (url: string, label: string) => setImagePreview({ url, label });
   const showMore = can.students;
 
@@ -424,6 +458,25 @@ export function StudentProfileDialog({
                     · {inr(totalOwed)} owed across {active.length} seats
                   </span>
                 )}
+              </div>
+            )}
+
+            {dueMismatch && (
+              <div className="mt-2 flex flex-col gap-2 rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-xs text-amber-200 sm:flex-row sm:items-center sm:justify-between">
+                <span>
+                  Due date shows {fmtDate(dueMismatch.shown)}, but the latest payment (
+                  {fmtDate(dueMismatch.expected.payment_date)}) set it to{" "}
+                  {fmtDate(dueMismatch.expected.covers_until)}.
+                </span>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={fixingDue}
+                  className="h-8 shrink-0 bg-amber-500 text-amber-950 hover:bg-amber-400"
+                  onClick={() => void fixDue()}
+                >
+                  {fixingDue ? "Fixing…" : `Set to ${fmtDate(dueMismatch.expected.covers_until)}`}
+                </Button>
               </div>
             )}
 

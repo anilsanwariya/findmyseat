@@ -41,6 +41,7 @@ import {
 } from "lucide-react";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { useSeatBookings } from "@/lib/seat-bookings";
+import { fetchLatestFullPayment } from "@/lib/payments";
 import { localISO } from "@/lib/dashboard-metrics";
 import { feeStatus, friendlySeatError, openShifts, seatFreeFor, seatState, sellableShifts } from "@/lib/seat-status";
 import { STATUS_META, worstStatus, type SeatStatus } from "@/lib/layout-types";
@@ -485,10 +486,10 @@ function AllocationsPage() {
           <div className="mb-4 flex flex-col gap-3 px-2 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] text-muted-foreground">
               <span className="flex items-center gap-1.5">
-                <span className="size-2.5 rounded-sm border border-emerald/60 bg-emerald/20" /> Free
+                <span className="size-2.5 rounded-sm border border-slate-500/50 bg-slate-500/20" /> Free
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="size-2.5 rounded-sm border-2 border-gold/60 bg-gold/10" /> Corner (free)
+                <span className="size-2.5 rounded-sm border-2 border-gold/50 bg-slate-500/20" /> Corner (free)
               </span>
               <span className="flex items-center gap-1.5">
                 <span className="size-2.5 rounded-sm border border-dashed border-foreground/60" /> Some shifts free
@@ -672,9 +673,10 @@ function AllocationsPage() {
                       className={cn(
                         "group relative z-10 flex flex-col items-center justify-center rounded border text-[10px] font-mono transition-all hover:scale-110",
                         free
-                          ? seat.is_corner
-                            ? "border-2 border-gold/60 bg-gold/10 text-gold glow-gold hover:bg-gold/20"
-                            : "border border-emerald/50 bg-emerald/10 text-emerald shadow-[0_0_10px_rgba(16,185,129,0.1)] hover:border-emerald hover:bg-emerald/20"
+                          ? // Free seats are neutral grey so they never look like "Paid" (green).
+                            seat.is_corner
+                            ? "border-2 border-gold/50 bg-slate-500/10 text-slate-300 hover:bg-slate-500/20"
+                            : "border border-slate-500/40 bg-slate-500/10 text-slate-400 hover:border-slate-400/60 hover:bg-slate-500/20"
                           : STATUS_META[seat.pay as SeatStatus].cell,
                         seat.state === "partial" && "border-2 border-dashed",
                         seat.match === true && "ring-2 ring-white ring-offset-1 ring-offset-transparent",
@@ -1367,23 +1369,20 @@ function NewAllocDialog({
             .limit(10);
           const prev = (prevAllocs ?? []).find((a: any) => a.next_due_date) ?? prevAllocs?.[0];
 
-          // Also consider the furthest paid coverage from logged payments.
-          // Partial payments only hold a cycle TARGET, not paid coverage — ignore them.
-          const { data: lastPay } = await supabase
-            .from("payments")
-            .select("covers_until")
-            .eq("student_id", studentId)
-            .eq("is_partial", false)
-            .not("covers_until", "is", null)
-            .order("covers_until", { ascending: false })
-            .limit(1);
-          const paidUntil = (lastPay?.[0] as any)?.covers_until ?? null;
-
-
+          // The due date chosen on the student's most recent full payment stays their
+          // due date (src/lib/payments.ts) — not the furthest date any older payment
+          // ever covered, which could undo a date the owner deliberately changed.
+          // Without any payment, keep the due date of their previous allocation.
+          let latest = null as Awaited<ReturnType<typeof fetchLatestFullPayment>>;
+          try {
+            latest = await fetchLatestFullPayment(studentId);
+          } catch (err: any) {
+            setLoading(false);
+            toast.error(err?.message ?? "Couldn't read the student's payments. Try again.");
+            return;
+          }
           const prevDue = prev?.next_due_date ? String(prev.next_due_date).split("T")[0] : null;
-          const payDue = paidUntil ? String(paidUntil).split("T")[0] : null;
-          // Take the furthest coverage we know about
-          const carriedDue = prevDue && payDue ? (prevDue > payDue ? prevDue : payDue) : (prevDue ?? payDue);
+          const carriedDue = latest?.covers_until ?? prevDue;
           const carriedStatus = carriedDue ? (carriedDue < todayISO() ? "overdue" : "paid") : "pending";
 
           // A vacated reserved allocation remains the student's billing record. Assigning
