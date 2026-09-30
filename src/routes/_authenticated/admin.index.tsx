@@ -264,7 +264,15 @@ function Dashboard() {
     placeholderData: keepPreviousData,
     staleTime: 30_000,
     queryFn: async () => {
-      const count = async (table: "seat_requests" | "tickets", status: string[]) => {
+      type OpsStatus =
+        | "contacted"
+        | "converted"
+        | "in_progress"
+        | "lost"
+        | "open"
+        | "pending"
+        | "resolved";
+      const count = async (table: "seat_requests" | "tickets", status: OpsStatus[]) => {
         let q = supabase
           .from(table)
           .select("id", { count: "exact", head: true })
