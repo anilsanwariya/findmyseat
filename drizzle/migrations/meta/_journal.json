@@ -8,6 +8,13 @@
       "when": 1790769343003,
       "tag": "0000_due_date_repair",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790769735456,
+      "tag": "0001_tighten_selected_public_read_policies",
+      "breakpoints": true
     }
   ]
 }
