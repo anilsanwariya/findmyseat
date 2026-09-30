@@ -12,6 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { inr, fmtDate } from "@/lib/format";
 import { Pencil } from "lucide-react";
+import { fetchLatestFullPayment } from "@/lib/payments";
 
 const todayISO = () => new Date().toISOString().split("T")[0];
 
@@ -32,7 +33,7 @@ export function PaymentDetailDialog({
         await supabase
           .from("payments")
           .select(
-            "id, allocation_id, amount_paid, payment_date, logged_at, method, reference_note, transaction_reference, receipt_url, covers_until, is_partial, students(full_name, mobile_number), libraries(name), allocations(seats(seat_number))",
+            "id, allocation_id, student_id, amount_paid, payment_date, logged_at, method, reference_note, transaction_reference, receipt_url, covers_until, is_partial, students(full_name, mobile_number), libraries(name), allocations(seats(seat_number))",
           )
           .eq("id", paymentId)
           .single()
@@ -55,6 +56,20 @@ export function PaymentDetailDialog({
 
   const p: any = detail.data;
 
+  // Only the student's most recent full payment sets their due date (src/lib/payments.ts).
+  // Editing an older payment must not overwrite a date chosen on a later one.
+  const latest = useQuery({
+    queryKey: ["latest-full-payment", p?.student_id],
+    enabled: !!p?.student_id,
+    queryFn: () => fetchLatestFullPayment(p.student_id),
+  });
+  const isLatest = !!p && (!latest.data || latest.data.id === p.id);
+  // If editing started before the check finished, correct the default once it arrives.
+  useEffect(() => {
+    if (latest.data && p && latest.data.id !== p.id) setSyncDue(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [latest.data?.id, p?.id]);
+
   const startEdit = () => {
     setForm({
       amount_paid: Number(p.amount_paid ?? 0),
@@ -65,7 +80,7 @@ export function PaymentDetailDialog({
       reference_note: p.reference_note ?? "",
       is_partial: !!p.is_partial,
     });
-    setSyncDue(true);
+    setSyncDue(isLatest);
     setEditing(true);
   };
 
@@ -111,6 +126,7 @@ export function PaymentDetailDialog({
       toast.success("Payment updated.");
       qc.invalidateQueries({ queryKey: ["payment-detail", paymentId] });
       invalidateBillingCaches(qc);
+      qc.invalidateQueries({ queryKey: ["latest-full-payment"] });
       setEditing(false);
     } catch (err: any) {
       toast.error(err.message ?? "Failed to update payment");
@@ -216,6 +232,13 @@ export function PaymentDetailDialog({
                   <p className="mt-0.5 text-[11px] text-muted-foreground">
                     Sets the allocation's next due date to the "covers until" date above.
                   </p>
+                  {!isLatest && latest.data && (
+                    <p className="mt-1 text-[11px] text-amber-300">
+                      This isn't the latest payment. The due date follows the payment of{" "}
+                      {fmtDate(latest.data.payment_date)} (due {fmtDate(latest.data.covers_until)}),
+                      so it's left unchanged unless you switch this on.
+                    </p>
+                  )}
                 </div>
                 <Switch checked={syncDue} onCheckedChange={setSyncDue} />
               </div>
