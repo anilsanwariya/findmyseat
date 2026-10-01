@@ -21,6 +21,7 @@ import {
 import { loadRazorpayScript } from "@/lib/razorpay";
 import { fmtDate } from "@/lib/format";
 import { useSession } from "@/lib/auth";
+import { useIsAndroidApp } from "@/lib/android-app";
 
 export const Route = createFileRoute("/_authenticated/admin/subscription")({
   head: () => ({ meta: [{ title: "Subscription · LibraryBandhu" }] }),
@@ -50,6 +51,8 @@ function SubscriptionPageInner() {
   const checkCoupon = useServerFn(validateCoupon);
   const abandonAttempt = useServerFn(abandonSubscriptionAttempt);
   const verifyPayment = useServerFn(verifyOwnerPayment);
+  // Google Play only allows selling the plan through Play billing, so the app hides purchases.
+  const inApp = useIsAndroidApp();
 
 
   const [cycle, setCycle] = useState<"monthly" | "annual">("monthly");
@@ -160,7 +163,7 @@ function SubscriptionPageInner() {
     <div className="space-y-8">
       <SectionHeader title="Subscription & billing" hint="Manage your LibraryBandhu SaaS plan" />
 
-      {offerActive && (
+      {offerActive && !inApp && (
         <GlassPanel
           className="relative overflow-hidden border-gold/40 p-5 shadow-[0_0_40px_-8px_rgba(212,175,55,0.55)]"
           strong
@@ -219,165 +222,171 @@ function SubscriptionPageInner() {
       </GlassPanel>
 
       {/* Upgrade / choose */}
-      <div>
-        <div className="mb-4 flex items-center justify-between gap-4">
-          <h3 className="text-lg font-bold">Choose your plan</h3>
-          <div className="inline-flex rounded-full border border-panel-border bg-panel p-1 text-xs">
-            {(["monthly", "annual"] as const).map((c) => (
-              <button
-                key={c}
-                onClick={() => setCycle(c)}
-                className={cn(
-                  "rounded-full px-3 py-1 font-mono uppercase tracking-widest transition",
-                  cycle === c ? "bg-white text-slate-900" : "text-muted-foreground",
-                )}
-              >
-                {c}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="mb-4 flex flex-wrap items-end gap-3">
-          <div className="flex-1 min-w-[240px]">
-            <label className="mb-1 block font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-              Coupon code
-            </label>
-            <div className="flex gap-2">
-              <Input
-                value={couponCode}
-                onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                placeholder="LAUNCH50"
-                className="bg-panel border-panel-border font-mono uppercase"
-              />
-              <Button
-                variant="outline"
-                disabled={!couponCode || applyMut.isPending}
-                onClick={() => applyMut.mutate(couponCode)}
-              >
-                <TagIcon className="mr-1 size-4" /> Apply
-              </Button>
+      {inApp ? (
+        <GlassPanel className="p-6 text-sm text-muted-foreground">
+          Plan purchases and renewals aren't available in the Android app.
+        </GlassPanel>
+      ) : (
+        <div>
+          <div className="mb-4 flex items-center justify-between gap-4">
+            <h3 className="text-lg font-bold">Choose your plan</h3>
+            <div className="inline-flex rounded-full border border-panel-border bg-panel p-1 text-xs">
+              {(["monthly", "annual"] as const).map((c) => (
+                <button
+                  key={c}
+                  onClick={() => setCycle(c)}
+                  className={cn(
+                    "rounded-full px-3 py-1 font-mono uppercase tracking-widest transition",
+                    cycle === c ? "bg-white text-slate-900" : "text-muted-foreground",
+                  )}
+                >
+                  {c}
+                </button>
+              ))}
             </div>
-            {appliedCoupon && (
-              <div className="mt-1 text-xs text-emerald">
-                ✓ {appliedCoupon.code} —{" "}
-                {appliedCoupon.discount_type === "flat"
-                  ? `₹${appliedCoupon.discount_value} off`
-                  : `${appliedCoupon.discount_value}% off`}
+          </div>
+
+          <div className="mb-4 flex flex-wrap items-end gap-3">
+            <div className="flex-1 min-w-[240px]">
+              <label className="mb-1 block font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                Coupon code
+              </label>
+              <div className="flex gap-2">
+                <Input
+                  value={couponCode}
+                  onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                  placeholder="LAUNCH50"
+                  className="bg-panel border-panel-border font-mono uppercase"
+                />
+                <Button
+                  variant="outline"
+                  disabled={!couponCode || applyMut.isPending}
+                  onClick={() => applyMut.mutate(couponCode)}
+                >
+                  <TagIcon className="mr-1 size-4" /> Apply
+                </Button>
               </div>
+              {appliedCoupon && (
+                <div className="mt-1 text-xs text-emerald">
+                  ✓ {appliedCoupon.code} —{" "}
+                  {appliedCoupon.discount_type === "flat"
+                    ? `₹${appliedCoupon.discount_value} off`
+                    : `${appliedCoupon.discount_value}% off`}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {(plans.data ?? []).map((p: any) => {
+              const basePrice = cycle === "monthly" ? Number(p.monthly_price) : Number(p.annual_price);
+              // Per-plan global discount
+              const planPct =
+                cycle === "monthly" ? Number(p.discount_monthly_pct) || 0 : Number(p.discount_annual_pct) || 0;
+              const planOfferActive =
+                planPct > 0 && p.discount_valid_until && new Date(p.discount_valid_until) > new Date();
+              const customPct = planOfferActive ? planPct : 0;
+              const afterCustom = customPct > 0 ? Math.max(0, basePrice * (1 - customPct / 100)) : basePrice;
+              // Then coupon on top
+              const couponOff = appliedCoupon
+                ? appliedCoupon.discount_type === "flat"
+                  ? appliedCoupon.discount_value
+                  : (afterCustom * appliedCoupon.discount_value) / 100
+                : 0;
+              const finalPrice = Math.max(0, afterCustom - couponOff);
+              const hasDiscount = finalPrice < basePrice;
+              const isCurrent = sub?.plan_id === p.id && sub?.status === "active";
+
+              // Annual savings vs paying standard monthly for 12 months
+              const stdMonthly = Number(p.monthly_price) || 0;
+              const annualSavingsPct =
+                cycle === "annual" && stdMonthly > 0
+                  ? Math.round(((stdMonthly * 12 - finalPrice) / (stdMonthly * 12)) * 100)
+                  : 0;
+
+              return (
+                <GlassPanel
+                  key={p.id}
+                  className={cn(
+                    "relative flex flex-col p-6 transition-all duration-300",
+                    isCurrent && "ring-2 ring-emerald/60 bg-emerald/5",
+                    hasDiscount && !isCurrent && "border-gold/40 shadow-[0_0_36px_-10px_rgba(212,175,55,0.55)]",
+                  )}
+                >
+                  {cycle === "annual" && annualSavingsPct > 0 && (
+                    <div className="absolute -top-3 right-4 rounded-full bg-gradient-to-r from-gold to-magenta px-3 py-1 text-[11px] font-bold text-slate-950 shadow-[0_0_20px_-4px_rgba(236,72,153,0.7)]">
+                      🔥 Save {annualSavingsPct}%
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="size-4 text-violet" />
+                    <h4 className="font-bold">{p.name}</h4>
+                  </div>
+                  {p.description && <p className="mt-1 text-xs text-muted-foreground">{p.description}</p>}
+                  <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-panel-border bg-panel/60 px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-widest text-cyan">
+                    {p.max_branches == null
+                      ? "Unlimited branches"
+                      : `Up to ${p.max_branches} branch${p.max_branches === 1 ? "" : "es"}`}
+                  </div>
+                  <div className="mt-4">
+                    {hasDiscount && (
+                      <div className="text-xs text-muted-foreground line-through">
+                        ₹{basePrice.toLocaleString("en-IN")}/{cycle === "monthly" ? "mo" : "yr"}
+                      </div>
+                    )}
+                    <div
+                      className={cn(
+                        "text-3xl font-extrabold tracking-tight",
+                        hasDiscount &&
+                          "bg-gradient-to-r from-gold via-magenta to-cyan bg-clip-text text-transparent drop-shadow-[0_0_18px_rgba(212,175,55,0.35)]",
+                      )}
+                    >
+                      ₹{finalPrice.toLocaleString("en-IN")}
+                      <span className="ml-1 text-sm font-medium text-muted-foreground">
+                        /{cycle === "monthly" ? "mo" : "yr"}
+                      </span>
+                    </div>
+                    {hasDiscount && customPct > 0 && (
+                      <div className="mt-1 inline-flex items-center gap-1 rounded-full border border-gold/40 bg-gold/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest text-gold">
+                        Offer price · {customPct}% off
+                      </div>
+                    )}
+                  </div>
+                  <ul className="mt-4 flex-1 space-y-1.5 text-xs">
+                    {(Array.isArray(p.features) ? p.features : []).map((f: string, i: number) => (
+                      <li key={i} className="flex items-start gap-2">
+                        <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-emerald" />
+                        <span>{f}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <Button
+                    className={cn(
+                      "mt-6 w-full font-semibold transition-all",
+                      isCurrent
+                        ? "bg-emerald/10 text-emerald border border-emerald/20 hover:bg-emerald/20"
+                        : "bg-cyan text-cyan-950 hover:bg-cyan/90",
+                    )}
+                    disabled={subscribe.isPending || finalPrice <= 0}
+                    onClick={() => subscribe.mutate(p.id)}
+                  >
+                    {subscribe.isPending ? "Connecting..." : isCurrent ? "Renew access" : "Pay securely"}
+                  </Button>
+
+                  {!isCurrent && (
+                    <div className="mt-2 flex items-center justify-center gap-1 text-[9px] text-muted-foreground uppercase tracking-widest">
+                      <ShieldCheck className="size-3" /> Razorpay Checkout
+                    </div>
+                  )}
+                </GlassPanel>
+              );
+            })}
+            {plans.isLoading && (
+              <GlassPanel className="p-10 text-center text-muted-foreground col-span-full">Loading plans…</GlassPanel>
             )}
           </div>
         </div>
-
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {(plans.data ?? []).map((p: any) => {
-            const basePrice = cycle === "monthly" ? Number(p.monthly_price) : Number(p.annual_price);
-            // Per-plan global discount
-            const planPct =
-              cycle === "monthly" ? Number(p.discount_monthly_pct) || 0 : Number(p.discount_annual_pct) || 0;
-            const planOfferActive =
-              planPct > 0 && p.discount_valid_until && new Date(p.discount_valid_until) > new Date();
-            const customPct = planOfferActive ? planPct : 0;
-            const afterCustom = customPct > 0 ? Math.max(0, basePrice * (1 - customPct / 100)) : basePrice;
-            // Then coupon on top
-            const couponOff = appliedCoupon
-              ? appliedCoupon.discount_type === "flat"
-                ? appliedCoupon.discount_value
-                : (afterCustom * appliedCoupon.discount_value) / 100
-              : 0;
-            const finalPrice = Math.max(0, afterCustom - couponOff);
-            const hasDiscount = finalPrice < basePrice;
-            const isCurrent = sub?.plan_id === p.id && sub?.status === "active";
-
-            // Annual savings vs paying standard monthly for 12 months
-            const stdMonthly = Number(p.monthly_price) || 0;
-            const annualSavingsPct =
-              cycle === "annual" && stdMonthly > 0
-                ? Math.round(((stdMonthly * 12 - finalPrice) / (stdMonthly * 12)) * 100)
-                : 0;
-
-            return (
-              <GlassPanel
-                key={p.id}
-                className={cn(
-                  "relative flex flex-col p-6 transition-all duration-300",
-                  isCurrent && "ring-2 ring-emerald/60 bg-emerald/5",
-                  hasDiscount && !isCurrent && "border-gold/40 shadow-[0_0_36px_-10px_rgba(212,175,55,0.55)]",
-                )}
-              >
-                {cycle === "annual" && annualSavingsPct > 0 && (
-                  <div className="absolute -top-3 right-4 rounded-full bg-gradient-to-r from-gold to-magenta px-3 py-1 text-[11px] font-bold text-slate-950 shadow-[0_0_20px_-4px_rgba(236,72,153,0.7)]">
-                    🔥 Save {annualSavingsPct}%
-                  </div>
-                )}
-                <div className="flex items-center gap-2">
-                  <Sparkles className="size-4 text-violet" />
-                  <h4 className="font-bold">{p.name}</h4>
-                </div>
-                {p.description && <p className="mt-1 text-xs text-muted-foreground">{p.description}</p>}
-                <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-panel-border bg-panel/60 px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-widest text-cyan">
-                  {p.max_branches == null
-                    ? "Unlimited branches"
-                    : `Up to ${p.max_branches} branch${p.max_branches === 1 ? "" : "es"}`}
-                </div>
-                <div className="mt-4">
-                  {hasDiscount && (
-                    <div className="text-xs text-muted-foreground line-through">
-                      ₹{basePrice.toLocaleString("en-IN")}/{cycle === "monthly" ? "mo" : "yr"}
-                    </div>
-                  )}
-                  <div
-                    className={cn(
-                      "text-3xl font-extrabold tracking-tight",
-                      hasDiscount &&
-                        "bg-gradient-to-r from-gold via-magenta to-cyan bg-clip-text text-transparent drop-shadow-[0_0_18px_rgba(212,175,55,0.35)]",
-                    )}
-                  >
-                    ₹{finalPrice.toLocaleString("en-IN")}
-                    <span className="ml-1 text-sm font-medium text-muted-foreground">
-                      /{cycle === "monthly" ? "mo" : "yr"}
-                    </span>
-                  </div>
-                  {hasDiscount && customPct > 0 && (
-                    <div className="mt-1 inline-flex items-center gap-1 rounded-full border border-gold/40 bg-gold/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest text-gold">
-                      Offer price · {customPct}% off
-                    </div>
-                  )}
-                </div>
-                <ul className="mt-4 flex-1 space-y-1.5 text-xs">
-                  {(Array.isArray(p.features) ? p.features : []).map((f: string, i: number) => (
-                    <li key={i} className="flex items-start gap-2">
-                      <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-emerald" />
-                      <span>{f}</span>
-                    </li>
-                  ))}
-                </ul>
-                <Button
-                  className={cn(
-                    "mt-6 w-full font-semibold transition-all",
-                    isCurrent
-                      ? "bg-emerald/10 text-emerald border border-emerald/20 hover:bg-emerald/20"
-                      : "bg-cyan text-cyan-950 hover:bg-cyan/90",
-                  )}
-                  disabled={subscribe.isPending || finalPrice <= 0}
-                  onClick={() => subscribe.mutate(p.id)}
-                >
-                  {subscribe.isPending ? "Connecting..." : isCurrent ? "Renew access" : "Pay securely"}
-                </Button>
-
-                {!isCurrent && (
-                  <div className="mt-2 flex items-center justify-center gap-1 text-[9px] text-muted-foreground uppercase tracking-widest">
-                    <ShieldCheck className="size-3" /> Razorpay Checkout
-                  </div>
-                )}
-              </GlassPanel>
-            );
-          })}
-          {plans.isLoading && (
-            <GlassPanel className="p-10 text-center text-muted-foreground col-span-full">Loading plans…</GlassPanel>
-          )}
-        </div>
-      </div>
+      )}
 
       {/* Invoices */}
       <GlassPanel className="overflow-hidden">

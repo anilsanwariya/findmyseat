@@ -65,6 +65,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "theme-color", content: "#050913" },
+      { name: "apple-mobile-web-app-title", content: "LibraryBandhu" },
       { title: "Find your study space — LibraryBandhu Marketplace" },
       { name: "description", content: "Discover libraries and study spaces near you by zone or target exam. Reserve a seat with a single request." },
       { property: "og:title", content: "Find your study space — LibraryBandhu Marketplace" },
@@ -79,6 +81,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     links: [
       { rel: "stylesheet", href: appCss },
       { rel: "icon", href: "/favicon.png", type: "image/png" },
+      { rel: "manifest", href: "/manifest.webmanifest" },
+      { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "" },
       { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" },
@@ -114,6 +118,13 @@ function RootComponent() {
     });
     return () => sub.subscription.unsubscribe();
   }, [router, queryClient]);
+
+  useEffect(() => {
+    // The offline-page service worker only runs on the live site, never in previews.
+    const host = window.location.hostname;
+    if (!("serviceWorker" in navigator) || !/(^|\.)librarybandhu\.com$/.test(host)) return;
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>

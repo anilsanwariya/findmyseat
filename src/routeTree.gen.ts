@@ -24,6 +24,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedSuperAdminRouteImport } from './routes/_authenticated/super-admin'
 import { Route as AuthenticatedStudentRouteImport } from './routes/_authenticated/student'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
+import { Route as DotwellKnownAssetlinksDotjsonRouteImport } from './routes/[.]well-known/assetlinks[.]json'
 import { Route as AuthenticatedSuperAdminIndexRouteImport } from './routes/_authenticated/super-admin.index'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin.index'
 import { Route as ApiPublicRazorpayWebhookRouteImport } from './routes/api/public/razorpay-webhook'
@@ -123,6 +124,12 @@ const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const DotwellKnownAssetlinksDotjsonRoute =
+  DotwellKnownAssetlinksDotjsonRouteImport.update({
+    id: '/.well-known/assetlinks.json',
+    path: '/.well-known/assetlinks.json',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AuthenticatedSuperAdminIndexRoute =
   AuthenticatedSuperAdminIndexRouteImport.update({
     id: '/',
@@ -275,6 +282,7 @@ export interface FileRoutesByFullPath {
   '/staff-login': typeof StaffLoginRoute
   '/student-login': typeof StudentLoginRoute
   '/terms': typeof TermsRoute
+  '/.well-known/assetlinks.json': typeof DotwellKnownAssetlinksDotjsonRoute
   '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/student': typeof AuthenticatedStudentRoute
   '/super-admin': typeof AuthenticatedSuperAdminRouteWithChildren
@@ -315,6 +323,7 @@ export interface FileRoutesByTo {
   '/staff-login': typeof StaffLoginRoute
   '/student-login': typeof StudentLoginRoute
   '/terms': typeof TermsRoute
+  '/.well-known/assetlinks.json': typeof DotwellKnownAssetlinksDotjsonRoute
   '/student': typeof AuthenticatedStudentRoute
   '/admin/allocations': typeof AuthenticatedAdminAllocationsRoute
   '/admin/expenses': typeof AuthenticatedAdminExpensesRoute
@@ -355,6 +364,7 @@ export interface FileRoutesById {
   '/staff-login': typeof StaffLoginRoute
   '/student-login': typeof StudentLoginRoute
   '/terms': typeof TermsRoute
+  '/.well-known/assetlinks.json': typeof DotwellKnownAssetlinksDotjsonRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/_authenticated/student': typeof AuthenticatedStudentRoute
   '/_authenticated/super-admin': typeof AuthenticatedSuperAdminRouteWithChildren
@@ -397,6 +407,7 @@ export interface FileRouteTypes {
     | '/staff-login'
     | '/student-login'
     | '/terms'
+    | '/.well-known/assetlinks.json'
     | '/admin'
     | '/student'
     | '/super-admin'
@@ -437,6 +448,7 @@ export interface FileRouteTypes {
     | '/staff-login'
     | '/student-login'
     | '/terms'
+    | '/.well-known/assetlinks.json'
     | '/student'
     | '/admin/allocations'
     | '/admin/expenses'
@@ -476,6 +488,7 @@ export interface FileRouteTypes {
     | '/staff-login'
     | '/student-login'
     | '/terms'
+    | '/.well-known/assetlinks.json'
     | '/_authenticated/admin'
     | '/_authenticated/student'
     | '/_authenticated/super-admin'
@@ -518,6 +531,7 @@ export interface RootRouteChildren {
   StaffLoginRoute: typeof StaffLoginRoute
   StudentLoginRoute: typeof StudentLoginRoute
   TermsRoute: typeof TermsRoute
+  DotwellKnownAssetlinksDotjsonRoute: typeof DotwellKnownAssetlinksDotjsonRoute
   ApiPublicRazorpayWebhookRoute: typeof ApiPublicRazorpayWebhookRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
   LovableEmailAuthWebhookRoute: typeof LovableEmailAuthWebhookRoute
@@ -630,6 +644,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin'
       preLoaderRoute: typeof AuthenticatedAdminRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/.well-known/assetlinks.json': {
+      id: '/.well-known/assetlinks.json'
+      path: '/.well-known/assetlinks.json'
+      fullPath: '/.well-known/assetlinks.json'
+      preLoaderRoute: typeof DotwellKnownAssetlinksDotjsonRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/super-admin/': {
       id: '/_authenticated/super-admin/'
@@ -896,6 +917,7 @@ const rootRouteChildren: RootRouteChildren = {
   StaffLoginRoute: StaffLoginRoute,
   StudentLoginRoute: StudentLoginRoute,
   TermsRoute: TermsRoute,
+  DotwellKnownAssetlinksDotjsonRoute: DotwellKnownAssetlinksDotjsonRoute,
   ApiPublicRazorpayWebhookRoute: ApiPublicRazorpayWebhookRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
   LovableEmailAuthWebhookRoute: LovableEmailAuthWebhookRoute,
@@ -904,13 +926,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

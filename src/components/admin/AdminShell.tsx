@@ -31,6 +31,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { useSession, hasPerm, type StaffPermissions } from "@/lib/auth";
 import { getOwnerBilling, getOrgSubscriptionState } from "@/lib/billing.functions";
+import { useIsAndroidApp } from "@/lib/android-app";
 import type { ReactNode } from "react";
 
 type NavItem = {
@@ -235,6 +236,7 @@ function SubscriptionCard({ onClick }: { onClick?: () => void }) {
     staleTime: 60_000,
   });
 
+  const inApp = useIsAndroidApp();
   const sub = data?.subscription as any;
   const plan = data?.plan as any;
   const status = sub?.status as string | undefined;
@@ -283,7 +285,9 @@ function SubscriptionCard({ onClick }: { onClick?: () => void }) {
         {dueLabel ? (
           <span className="text-amber-100/90">Valid to {dueLabel}</span>
         ) : (
-          <span className="text-amber-100/70 group-hover:text-amber-50">Upgrade →</span>
+          <span className="text-amber-100/70 group-hover:text-amber-50">
+            {inApp ? "View plan →" : "Upgrade →"}
+          </span>
         )}
       </div>
     </Link>
@@ -291,6 +295,7 @@ function SubscriptionCard({ onClick }: { onClick?: () => void }) {
 }
 
 function TrialBanner() {
+  const inApp = useIsAndroidApp();
   const fetchState = useServerFn(getOrgSubscriptionState);
   const { data } = useQuery({
     queryKey: ["org-sub-state"],
@@ -331,6 +336,16 @@ function TrialBanner() {
     title = "Workspace suspended";
     body = "Your workspace is read-only. Contact the platform team for assistance.";
     cta = "View subscription";
+  }
+
+  // The Android app can't sell or link to plan purchases (Google Play billing rules).
+  if (inApp) {
+    cta = "View subscription";
+    if (data.state === "trial") body = "Full access to every feature during your trial.";
+    else if (data.state === "expired_grace")
+      body = "You can still make changes during this grace period.";
+    else if (data.state === "expired_delisted")
+      body = "The library is hidden from the marketplace and all changes are blocked.";
   }
 
   return (
