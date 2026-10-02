@@ -17,6 +17,8 @@ export const ANDROID_PACKAGE = "com.librarybandhu.app";
 export const ANDROID_SHA256_FINGERPRINTS: string[] = [
   // Upload key (android.keystore, built with Bubblewrap)
   "B1:67:85:30:4E:A2:2A:A8:0E:67:3C:06:7C:4C:3E:1A:B8:99:11:BC:75:3E:3D:3B:0C:4B:4D:A6:37:53:3C:B5",
+  // Play App Signing key (Play Console → Protected with Play → Protect app signing key)
+  "82:FB:F0:5E:4E:20:A0:74:D0:5D:7A:41:AC:D9:FC:3A:77:AB:F7:8F:74:F9:BE:9B:E5:31:BF:75:C4:E4:96:B0",
 ];
 
 export function assetLinks() {
