@@ -14,7 +14,10 @@ export const ANDROID_PACKAGE = "com.librarybandhu.app";
  * PWABuilder and the "App signing key" from Play Console → Setup → App integrity.
  * Format: "AB:CD:...".
  */
-export const ANDROID_SHA256_FINGERPRINTS: string[] = [];
+export const ANDROID_SHA256_FINGERPRINTS: string[] = [
+  // Upload key (android.keystore, built with Bubblewrap)
+  "B1:67:85:30:4E:A2:2A:A8:0E:67:3C:06:7C:4C:3E:1A:B8:99:11:BC:75:3E:3D:3B:0C:4B:4D:A6:37:53:3C:B5",
+];
 
 export function assetLinks() {
   return [
