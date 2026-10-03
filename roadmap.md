@@ -15,4 +15,4 @@
 ## Corner-seat removal
 - [x] Remove corner-seat controls and visual distinctions
 - [x] Stop reading and writing corner-seat metadata in current app flows
-- [ ] Verify layout, allocation, and student views after removal
+- [x] Verify layout, allocation, and student views after removal
