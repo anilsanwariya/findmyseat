@@ -358,10 +358,7 @@ const CellView = memo(function CellView({
           "group relative flex flex-col items-center justify-center rounded border text-[9px] font-mono transition-all",
           isSelected && "border-cyan bg-cyan/25 shadow-[0_0_8px_rgba(34,211,238,0.5)]",
           !isSelected && occupancyView && STATUS_META[status].cell,
-          !isSelected && !occupancyView && cell.is_corner && "border-2 border-gold/60 bg-gold/10 text-gold glow-gold",
-          !isSelected &&
-            !occupancyView &&
-            !cell.is_corner &&
+          !isSelected && !occupancyView &&
             "border-emerald/50 bg-emerald/10 text-emerald hover:border-emerald hover:bg-emerald/20",
           isDup && "ring-2 ring-rose/70",
         )}

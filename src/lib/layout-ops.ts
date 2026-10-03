@@ -11,7 +11,6 @@ export type SeatRow = {
   row_position: number;
   column_position: number;
   facing_direction: "north" | "south" | "east" | "west";
-  is_corner: boolean;
   is_active?: boolean;
 };
 
@@ -202,7 +201,6 @@ export async function pasteBlock(opts: {
       row_position: s.row_position + dr,
       column_position: s.column_position + dc,
       facing_direction: s.facing_direction,
-      is_corner: s.is_corner,
     }));
     const { data, error } = await supabase.from("seats").insert(insert).select("id");
     if (error) throw error;
@@ -283,7 +281,6 @@ export async function duplicateSection(opts: {
           row_position: s.row_position,
           column_position: s.column_position,
           facing_direction: s.facing_direction,
-          is_corner: s.is_corner,
         })),
       );
       if (e1) throw e1;

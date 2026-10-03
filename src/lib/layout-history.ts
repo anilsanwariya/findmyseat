@@ -170,7 +170,6 @@ export async function undoWithRedo(
           row_position: s.row_position,
           column_position: s.column_position,
           facing_direction: s.facing_direction,
-          is_corner: s.is_corner,
         }));
       await assertNoStudents(action.seatIds, "undo");
       const { error } = await (supabase as any).rpc("delete_seats_cascade", { p_seat_ids: action.seatIds });

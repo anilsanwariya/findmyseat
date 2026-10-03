@@ -11,3 +11,8 @@
 - [x] Add Unassigned allocation filtering
 - [x] Preserve the allocation record when assigning a replacement seat
 - [x] Repair legacy vacated records conservatively
+
+## Corner-seat removal
+- [x] Remove corner-seat controls and visual distinctions
+- [x] Stop reading and writing corner-seat metadata in current app flows
+- [x] Verify layout, allocation, and student views after removal

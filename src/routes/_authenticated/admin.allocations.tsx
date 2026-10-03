@@ -263,7 +263,10 @@ function AllocationsPage() {
     staleTime: 30_000,
     queryFn: async () => {
       const [seats, objs] = await Promise.all([
-        supabase.from("seats").select("*").eq("section_id", currentSectionId!),
+        supabase
+          .from("seats")
+          .select("id, section_id, library_id, org_id, seat_number, row_position, column_position, facing_direction, is_active, created_at")
+          .eq("section_id", currentSectionId!),
         supabase.from("layout_objects").select("*").eq("section_id", currentSectionId!),
       ]);
       if (seats.error) throw seats.error;
@@ -491,9 +494,6 @@ function AllocationsPage() {
                 <span className="size-2.5 rounded-sm border border-slate-500/50 bg-slate-500/20" /> Free
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="size-2.5 rounded-sm border-2 border-gold/50 bg-slate-500/20" /> Corner (free)
-              </span>
-              <span className="flex items-center gap-1.5">
                 <span className="size-2.5 rounded-sm border border-dashed border-foreground/60" /> Some shifts free
               </span>
               {(["paid", "pending", "partial", "overdue"] as const).map((k) => (
@@ -676,9 +676,7 @@ function AllocationsPage() {
                         "group relative z-10 flex flex-col items-center justify-center rounded border text-[10px] font-mono transition-all hover:scale-110",
                         free
                           ? // Free seats are neutral grey so they never look like "Paid" (green).
-                            seat.is_corner
-                            ? "border-2 border-gold/50 bg-slate-500/10 text-slate-300 hover:bg-slate-500/20"
-                            : "border border-slate-500/40 bg-slate-500/10 text-slate-400 hover:border-slate-400/60 hover:bg-slate-500/20"
+                            "border border-slate-500/40 bg-slate-500/10 text-slate-400 hover:border-slate-400/60 hover:bg-slate-500/20"
                           : STATUS_META[seat.pay as SeatStatus].cell,
                         seat.state === "partial" && "border-2 border-dashed",
                         seat.match === true && "ring-2 ring-white ring-offset-1 ring-offset-transparent",
@@ -1198,7 +1196,7 @@ function NewAllocDialog({
     queryFn: async () => {
       let query = supabase
         .from("seats")
-        .select("id, seat_number, is_corner")
+        .select("id, seat_number")
         .eq("library_id", libraryId)
         .eq("is_active", true)
         .order("seat_number");
@@ -1654,7 +1652,6 @@ function NewAllocDialog({
                 {seatOptions.map((s: any) => (
                   <SelectItem key={s.id} value={s.id}>
                     {s.seat_number}
-                    {s.is_corner ? " ★" : ""}
                   </SelectItem>
                 ))}
               </SelectContent>
