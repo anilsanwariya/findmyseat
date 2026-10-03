@@ -64,7 +64,7 @@ export function EditAllocationDialog({
     queryFn: async () => {
       let query = supabase
         .from("seats")
-        .select("id, seat_number, is_corner")
+        .select("id, seat_number")
         .eq("library_id", alloc.library_id)
         .eq("is_active", true)
         .order("seat_number");
@@ -281,7 +281,6 @@ export function EditAllocationDialog({
                 {seatOptions.map((s: any) => (
                   <SelectItem key={s.id} value={s.id}>
                     {s.seat_number}
-                    {s.is_corner ? " ★" : ""}
                   </SelectItem>
                 ))}
               </SelectContent>

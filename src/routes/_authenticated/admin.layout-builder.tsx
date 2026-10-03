@@ -157,7 +157,10 @@ function LayoutBuilderPage() {
     staleTime: 15_000,
     queryFn: async () => {
       const [seats, objs] = await Promise.all([
-        supabase.from("seats").select("*").eq("section_id", currentSectionId!),
+        supabase
+          .from("seats")
+          .select("id, section_id, library_id, org_id, seat_number, row_position, column_position, facing_direction, is_active, created_at")
+          .eq("section_id", currentSectionId!),
         supabase.from("layout_objects").select("*").eq("section_id", currentSectionId!),
       ]);
       if (seats.error) throw seats.error;
@@ -273,7 +276,6 @@ function LayoutBuilderPage() {
         id: s.id,
         seat_number: s.seat_number,
         facing: s.facing_direction,
-        is_corner: s.is_corner,
         occupants: visible(occQ.data?.occInfo?.[s.id] ?? []).map((o) => o.name),
         occInfo: visible(occQ.data?.occInfo?.[s.id] ?? []),
       };
@@ -1490,15 +1492,12 @@ function InspectorPanel({
       <GlassPanel className="p-5 flex flex-col h-full">
         <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Inspector</div>
         <p className="mt-4 text-sm text-muted-foreground">
-          Click a seat to view details, rotate it, or mark it as premium.
+          Click a seat to view its details or change its facing direction.
         </p>
 
         <div className="mt-8 space-y-3 text-xs text-muted-foreground border-t border-panel-border/50 pt-6">
           <div className="flex items-center gap-2">
-            <span className="inline-block size-3 rounded border border-emerald/50 bg-emerald/10" /> Standard Seat
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="inline-block size-3 rounded border-2 border-gold/60 bg-gold/10" /> Corner Seat (Premium)
+            <span className="inline-block size-3 rounded border border-emerald/50 bg-emerald/10" /> Seat
           </div>
         </div>
       </GlassPanel>
@@ -1508,30 +1507,13 @@ function InspectorPanel({
   return (
     <GlassPanel className="p-5 flex flex-col h-full">
       <div className="font-mono text-[10px] uppercase tracking-widest text-cyan">Selected seat</div>
-      <div className="mt-1 flex items-center justify-between">
-        <div className="text-2xl font-extrabold">{selected.seat_number}</div>
-        {selected.is_corner && (
-          <span className="px-2 py-0.5 rounded text-[10px] uppercase tracking-wider bg-gold/10 text-gold border border-gold/30">
-            Premium
-          </span>
-        )}
-      </div>
+      <div className="mt-1 text-2xl font-extrabold">{selected.seat_number}</div>
       <div className="mt-1 text-xs text-muted-foreground mb-6">
         Row {selected.row_position + 1} · Col {selected.column_position + 1} · Facing {selected.facing_direction}
       </div>
 
       <div className="space-y-3">
         <div className="text-[10px] uppercase text-muted-foreground font-mono">Quick Actions</div>
-        <Button
-          variant={selected.is_corner ? "default" : "outline"}
-          className={cn(
-            "w-full justify-start",
-            selected.is_corner && "bg-gold/20 text-gold border-gold/40 hover:bg-gold/30",
-          )}
-          onClick={() => onUpdate({ is_corner: !selected.is_corner })}
-        >
-          {selected.is_corner ? "★ Remove Premium Status" : "☆ Mark as Corner (Premium)"}
-        </Button>
         <div className="grid grid-cols-2 gap-2">
           <Button
             variant="outline"
@@ -2025,7 +2007,6 @@ function AddSeatDialog({ open, onOpenChange, pos, section, orgId, libraryId, onD
   const [mode, setMode] = useState<"seat" | "object">("seat");
   const [seatNumber, setSeatNumber] = useState("");
   const [facing, setFacing] = useState<"north" | "south" | "east" | "west">("north");
-  const [isCorner, setIsCorner] = useState(false);
   const [objectType, setObjectType] = useState("wall");
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -2068,7 +2049,6 @@ function AddSeatDialog({ open, onOpenChange, pos, section, orgId, libraryId, onD
                   row_position: pos.row,
                   column_position: pos.col,
                   facing_direction: facing,
-                  is_corner: isCorner,
                 })
                 .select("id");
               if (error) {
@@ -2112,10 +2092,6 @@ function AddSeatDialog({ open, onOpenChange, pos, section, orgId, libraryId, onD
                 </SelectContent>
               </Select>
             </div>
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={isCorner} onChange={(e) => setIsCorner(e.target.checked)} /> Corner seat
-              (premium)
-            </label>
             <Button type="submit" className="w-full bg-white text-slate-900 hover:bg-white/90">
               Add seat
             </Button>
@@ -2254,7 +2230,6 @@ function BulkSeatDialog({
   const [prefix, setPrefix] = useState("A");
   const [start, setStart] = useState(1);
   const [facing, setFacing] = useState<"north" | "south" | "east" | "west">("north");
-  const [isCorner, setIsCorner] = useState(false);
   const [loading, setLoading] = useState(false);
   const [order, setOrder] = useState<SeatOrder>("rows_ltr");
   const [descending, setDescending] = useState(false);
@@ -2292,7 +2267,6 @@ function BulkSeatDialog({
                 row_position: pos.r,
                 column_position: pos.c,
                 facing_direction: facing,
-                is_corner: isCorner,
               }));
               const { data, error } = await supabase.from("seats").insert(rows).select("id");
               setLoading(false);
@@ -2372,10 +2346,6 @@ function BulkSeatDialog({
                 First seat: {emptyCells[0] ? `R${emptyCells[0].r + 1}C${emptyCells[0].c + 1}` : "—"}
               </p>
             </div>
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={isCorner} onChange={(e) => setIsCorner(e.target.checked)} /> Mark all as
-              Corner (Premium)
-            </label>
             <Button disabled={loading} type="submit" className="w-full bg-emerald text-emerald-950 hover:bg-emerald/90">
               {loading ? "Generating…" : "Generate Seats"}
             </Button>
@@ -2389,7 +2359,6 @@ function BulkSeatDialog({
 // Target Bulk Edit Seats
 function BulkEditSeatsDialog({ open, onOpenChange, cells, existingSeats, onDone }: any) {
   const [facing, setFacing] = useState<string>("no_change");
-  const [isCorner, setIsCorner] = useState<string>("no_change");
   const [loading, setLoading] = useState(false);
 
   // Find actual seats inside the selection
@@ -2414,7 +2383,6 @@ function BulkEditSeatsDialog({ open, onOpenChange, cells, existingSeats, onDone 
               setLoading(true);
               const updates: any = {};
               if (facing !== "no_change") updates.facing_direction = facing;
-              if (isCorner !== "no_change") updates.is_corner = isCorner === "true";
 
               const prev = existingSeats
                 .filter((s: any) => selectedSeatIds.includes(s.id))
@@ -2459,21 +2427,8 @@ function BulkEditSeatsDialog({ open, onOpenChange, cells, existingSeats, onDone 
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label>Premium / Corner Status</Label>
-              <Select value={isCorner} onValueChange={setIsCorner}>
-                <SelectTrigger className="bg-panel border-panel-border">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="no_change">-- Do not change --</SelectItem>
-                  <SelectItem value="true">Make all Premium (Corner)</SelectItem>
-                  <SelectItem value="false">Make all Standard</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
             <Button
-              disabled={loading || (facing === "no_change" && isCorner === "no_change")}
+              disabled={loading || facing === "no_change"}
               type="submit"
               className="w-full bg-amber-500 text-amber-950 hover:bg-amber-400"
             >

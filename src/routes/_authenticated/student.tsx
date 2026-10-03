@@ -124,7 +124,7 @@ function StudentApp() {
         await supabase
           .from("allocations")
           .select(
-            "id, library_id, is_active, is_archived, status, monthly_fee, start_date, next_due_date, reservation_type, seat_id, seats(seat_number, is_corner, facing_direction), shifts(name), libraries(name, city, zone_area)",
+            "id, library_id, is_active, is_archived, status, monthly_fee, start_date, next_due_date, reservation_type, seat_id, seats(seat_number, facing_direction), shifts(name), libraries(name, city, zone_area)",
           )
           .in("student_id", studentIds)
           .order("created_at", { ascending: false })
@@ -313,14 +313,7 @@ function StudentApp() {
                           {[a.libraries?.zone_area, a.libraries?.city].filter(Boolean).join(" · ") || "—"}
                         </div>
                       </div>
-                      <div
-                        className={cn(
-                          "grid min-h-12 min-w-12 place-items-center rounded-xl px-2 font-mono text-sm font-bold shrink-0",
-                          a.seats?.is_corner
-                            ? "border-2 border-gold/60 bg-gold/10 text-gold glow-gold"
-                            : "border border-panel-border bg-panel",
-                        )}
-                      >
+                      <div className="grid min-h-12 min-w-12 shrink-0 place-items-center rounded-xl border border-panel-border bg-panel px-2 font-mono text-sm font-bold">
                         {a.reservation_type === "unreserved" ? "Any" : (a.seats?.seat_number ?? "Unassigned")}
                       </div>
                     </div>
@@ -682,7 +675,10 @@ function StudentSeatMapDialog({ libraryId }: { libraryId: string }) {
     enabled: !!currentSectionId && open,
     queryFn: async () => {
       const [seats, objs, allocs] = await Promise.all([
-        supabase.from("seats").select("*").eq("section_id", currentSectionId!),
+        supabase
+          .from("seats")
+          .select("id, section_id, library_id, org_id, seat_number, row_position, column_position, facing_direction, is_active, created_at")
+          .eq("section_id", currentSectionId!),
         supabase.from("layout_objects").select("*").eq("section_id", currentSectionId!),
         supabase
           .from("allocations")

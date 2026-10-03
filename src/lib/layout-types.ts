@@ -19,7 +19,6 @@ export type LayoutCell =
       id: string;
       seat_number: string;
       facing: "north" | "south" | "east" | "west";
-      is_corner: boolean;
       occupants: string[];
       occInfo: OccupantInfo[];
     }

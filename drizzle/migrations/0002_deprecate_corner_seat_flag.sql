@@ -1,0 +1,1 @@
+COMMENT ON COLUMN public.seats.is_corner IS 'DEPRECATED: corner-seat functionality was removed; retained only for backward compatibility.';
