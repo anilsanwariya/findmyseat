@@ -68,6 +68,7 @@ import {
 import { reverseGeocode } from "@/lib/geocode.functions";
 import { computeOrgState } from "@/routes/_authenticated/super-admin.organizations";
 import { useConfirm } from "@/components/ConfirmDialog";
+import { BranchPaymentDialog } from "@/components/admin/BranchPaymentDialog";
 import {
   DEFAULT_TIMINGS,
   parseBranchTimings,
@@ -77,7 +78,14 @@ import {
 } from "@/lib/branch-timings";
 
 export const Route = createFileRoute("/_authenticated/admin/settings")({
-  head: () => ({ meta: [{ title: "Branch Settings · LibraryBandhu" }] }),
+  head: () => ({ meta: [
+    { title: "Branch & Payment Settings · LibraryBandhu" },
+    { name: "description", content: "Manage your library branches, UPI payment details and student payment QR codes." },
+    { property: "og:title", content: "Branch & Payment Settings · LibraryBandhu" },
+    { property: "og:description", content: "Manage your library branches and student payment details." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   component: SettingsPage,
 });
 
@@ -280,6 +288,8 @@ function SettingsPage() {
 }
 
 function BranchCard({ lib, onChanged, orgId }: { lib: any; onChanged: () => void; orgId: string }) {
+  const { data: session } = useSession();
+  const [paymentOpen, setPaymentOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
@@ -345,6 +355,8 @@ function BranchCard({ lib, onChanged, orgId }: { lib: any; onChanged: () => void
         )}
 
         {/* Clean Action Footer */}
+        {!session?.isStaff && session?.role === "org_admin" && <Button variant="outline" size="sm" className="w-full" onClick={() => setPaymentOpen(true)}>Payment details</Button>}
+        <BranchPaymentDialog libraryId={lib.id} branchName={lib.name} open={paymentOpen} onOpenChange={setPaymentOpen} />
         <div className="pt-3 border-t border-panel-border/50 flex items-center gap-2">
           <div className="flex-1">
             <LibraryFormDialogGuarded

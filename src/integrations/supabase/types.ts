@@ -601,6 +601,41 @@ export type Database = {
           },
         ]
       }
+      library_payment_settings: {
+        Row: {
+          library_id: string
+          payee_name: string | null
+          payment_link: string | null
+          qr_path: string | null
+          updated_at: string
+          upi_id: string | null
+        }
+        Insert: {
+          library_id: string
+          payee_name?: string | null
+          payment_link?: string | null
+          qr_path?: string | null
+          updated_at?: string
+          upi_id?: string | null
+        }
+        Update: {
+          library_id?: string
+          payee_name?: string | null
+          payment_link?: string | null
+          qr_path?: string | null
+          updated_at?: string
+          upi_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "library_payment_settings_library_id_fkey"
+            columns: ["library_id"]
+            isOneToOne: true
+            referencedRelation: "libraries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       library_photos: {
         Row: {
           created_at: string
@@ -1878,6 +1913,17 @@ export type Database = {
           library_ids: string[]
           org_id: string
           permissions: Json
+        }[]
+      }
+      get_library_payment_details: {
+        Args: { _library_id: string }
+        Returns: {
+          branch_name: string
+          library_id: string
+          payee_name: string
+          payment_link: string
+          qr_path: string
+          upi_id: string
         }[]
       }
       get_library_rating_summary: {
