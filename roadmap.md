@@ -22,3 +22,7 @@
 - [x] Include branch payment details in dashboard and profile WhatsApp reminders
 - [x] Add a shareable student payment page; verified public empty state and reminder/link formatting
 - [ ] Complete owner save/upload click-through: the requesting account is a Super Admin without an owner workspace
+
+## Payment-details save restriction
+- [ ] Correct QR image folder checks for upload, read and delete
+- [ ] Verify owner text saves, QR upload/replacement/removal and denied non-owner edits
