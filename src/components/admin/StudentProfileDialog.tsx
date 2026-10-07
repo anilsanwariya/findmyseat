@@ -219,7 +219,7 @@ export function StudentProfileDialog({
       const { data, error } = await supabase
         .from("students")
         .select(
-          "id, org_id, full_name, mobile_number, dob, email, address, notes, photo_url, id_card_url, is_active, created_at, library_id, libraries(name), master_exams(name), allocations(id, is_active, monthly_fee, start_date, updated_at, next_due_date, reservation_type, status, seat_id, shift_id, library_id, seats(seat_number, section_id), shifts(name))",
+          "id, org_id, full_name, mobile_number, dob, email, address, notes, photo_url, id_card_url, is_active, created_at, library_id, libraries(name), master_exams(name), allocations(id, is_active, monthly_fee, start_date, updated_at, next_due_date, reservation_type, status, seat_id, shift_id, library_id, libraries(name), seats(seat_number, section_id), shifts(name))",
         )
         .eq("id", studentId)
         .maybeSingle();
@@ -310,7 +310,7 @@ export function StudentProfileDialog({
 
   const reminderText = () => {
     const first = s?.full_name?.split(" ")[0] ?? "";
-    const branch = paymentDetails.data?.has(primary?.library_id) ? (primary?.libraries?.name ?? s?.libraries?.name ?? "the library") : (s?.libraries?.name ?? "the library");
+    const branch = primary?.libraries?.name ?? s?.libraries?.name ?? "the library";
     if (!top || top.owed <= 0) return `Hi ${first}, this is ${branch}.`;
     if (top.kind === "awaiting")
       return `Hi ${first}, welcome to ${branch}! Your library fee of ${inr(top.owed)} is pending. Please pay at the earliest. Thank you!`;

@@ -25,6 +25,7 @@ import { Route as DotwellKnownAssetlinksDotjsonRouteImport } from './routes/[.]w
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedStudentRouteImport } from './routes/_authenticated/student'
 import { Route as AuthenticatedSuperAdminRouteImport } from './routes/_authenticated/super-admin'
+import { Route as PayLibraryIdRouteImport } from './routes/pay.$libraryId'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin.index'
 import { Route as AuthenticatedAdminAllocationsRouteImport } from './routes/_authenticated/admin.allocations'
 import { Route as AuthenticatedAdminExpensesRouteImport } from './routes/_authenticated/admin.expenses'
@@ -129,6 +130,11 @@ const AuthenticatedSuperAdminRoute = AuthenticatedSuperAdminRouteImport.update({
   id: '/super-admin',
   path: '/super-admin',
   getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const PayLibraryIdRoute = PayLibraryIdRouteImport.update({
+  id: '/pay/$libraryId',
+  path: '/pay/$libraryId',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
   id: '/',
@@ -286,6 +292,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/student': typeof AuthenticatedStudentRoute
   '/super-admin': typeof AuthenticatedSuperAdminRouteWithChildren
+  '/pay/$libraryId': typeof PayLibraryIdRoute
   '/admin/allocations': typeof AuthenticatedAdminAllocationsRoute
   '/admin/expenses': typeof AuthenticatedAdminExpensesRoute
   '/admin/layout-builder': typeof AuthenticatedAdminLayoutBuilderRoute
@@ -325,6 +332,7 @@ export interface FileRoutesByTo {
   '/terms': typeof TermsRoute
   '/.well-known/assetlinks.json': typeof DotwellKnownAssetlinksDotjsonRoute
   '/student': typeof AuthenticatedStudentRoute
+  '/pay/$libraryId': typeof PayLibraryIdRoute
   '/admin/allocations': typeof AuthenticatedAdminAllocationsRoute
   '/admin/expenses': typeof AuthenticatedAdminExpensesRoute
   '/admin/layout-builder': typeof AuthenticatedAdminLayoutBuilderRoute
@@ -368,6 +376,7 @@ export interface FileRoutesById {
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/_authenticated/student': typeof AuthenticatedStudentRoute
   '/_authenticated/super-admin': typeof AuthenticatedSuperAdminRouteWithChildren
+  '/pay/$libraryId': typeof PayLibraryIdRoute
   '/_authenticated/admin/allocations': typeof AuthenticatedAdminAllocationsRoute
   '/_authenticated/admin/expenses': typeof AuthenticatedAdminExpensesRoute
   '/_authenticated/admin/layout-builder': typeof AuthenticatedAdminLayoutBuilderRoute
@@ -411,6 +420,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/student'
     | '/super-admin'
+    | '/pay/$libraryId'
     | '/admin/allocations'
     | '/admin/expenses'
     | '/admin/layout-builder'
@@ -450,6 +460,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/.well-known/assetlinks.json'
     | '/student'
+    | '/pay/$libraryId'
     | '/admin/allocations'
     | '/admin/expenses'
     | '/admin/layout-builder'
@@ -492,6 +503,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin'
     | '/_authenticated/student'
     | '/_authenticated/super-admin'
+    | '/pay/$libraryId'
     | '/_authenticated/admin/allocations'
     | '/_authenticated/admin/expenses'
     | '/_authenticated/admin/layout-builder'
@@ -532,6 +544,7 @@ export interface RootRouteChildren {
   StudentLoginRoute: typeof StudentLoginRoute
   TermsRoute: typeof TermsRoute
   DotwellKnownAssetlinksDotjsonRoute: typeof DotwellKnownAssetlinksDotjsonRoute
+  PayLibraryIdRoute: typeof PayLibraryIdRoute
   ApiPublicRazorpayWebhookRoute: typeof ApiPublicRazorpayWebhookRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
   LovableEmailAuthWebhookRoute: typeof LovableEmailAuthWebhookRoute
@@ -651,6 +664,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/super-admin'
       preLoaderRoute: typeof AuthenticatedSuperAdminRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/pay/$libraryId': {
+      id: '/pay/$libraryId'
+      path: '/pay/$libraryId'
+      fullPath: '/pay/$libraryId'
+      preLoaderRoute: typeof PayLibraryIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/admin/': {
       id: '/_authenticated/admin/'
@@ -918,6 +938,7 @@ const rootRouteChildren: RootRouteChildren = {
   StudentLoginRoute: StudentLoginRoute,
   TermsRoute: TermsRoute,
   DotwellKnownAssetlinksDotjsonRoute: DotwellKnownAssetlinksDotjsonRoute,
+  PayLibraryIdRoute: PayLibraryIdRoute,
   ApiPublicRazorpayWebhookRoute: ApiPublicRazorpayWebhookRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
   LovableEmailAuthWebhookRoute: LovableEmailAuthWebhookRoute,
