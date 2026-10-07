@@ -21,8 +21,8 @@
 - [x] Add branch-specific UPI, payee, payment-link and QR-image settings
 - [x] Include branch payment details in dashboard and profile WhatsApp reminders
 - [x] Add a shareable student payment page; verified public empty state and reminder/link formatting
-- [ ] Complete owner save/upload click-through: the requesting account is a Super Admin without an owner workspace
+- [x] Complete owner save/upload click-through using the approved Dev Library owner session; original settings restored after testing
 
 ## Payment-details save restriction
-- [ ] Correct QR image folder checks for upload, read and delete
-- [ ] Verify owner text saves, QR upload/replacement/removal and denied non-owner edits
+- [x] Correct QR image folder checks for upload, read and delete
+- [x] Verify owner text saves, QR upload/replacement/removal, public readback and denied guest/cross-branch-owner writes; staff exclusion retained and inspected in policies (no staff-session test)
