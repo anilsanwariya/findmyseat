@@ -1,0 +1,3 @@
+DROP POLICY payment_settings_org_read ON public.library_payment_settings;
+CREATE POLICY payment_settings_org_read ON public.library_payment_settings FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.libraries l WHERE l.id=library_id AND ((public.is_org_admin(auth.uid(),l.org_id) AND NOT public.is_staff_user(auth.uid())) OR (public.is_staff_user(auth.uid()) AND public.staff_lib_ok(auth.uid(),l.id)))) OR public.has_role(auth.uid(),'super_admin'));
+ALTER TABLE public.library_payment_settings ADD CONSTRAINT upi_requires_payee CHECK (upi_id IS NULL OR (payee_name IS NOT NULL AND length(trim(payee_name))>0));
