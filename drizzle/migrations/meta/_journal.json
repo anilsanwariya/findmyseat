@@ -22,6 +22,13 @@
       "when": 1790997625296,
       "tag": "0002_deprecate_corner_seat_flag",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791388754206,
+      "tag": "0003_branch_payment_details",
+      "breakpoints": true
     }
   ]
 }
