@@ -13,3 +13,4 @@
 - Keep branch fee-receiving settings separate from marketplace metadata; owner-only RLS protects edits and a narrow public RPC exposes only payment-page fields, so reminders never expose student records or trigger listing reapproval.
 - Store owner QR images in a dedicated public image bucket with branch-scoped owner writes; WhatsApp shares a payment-page URL instead of attempting to attach images through text-only wa.me links.
 - Share payment-detail formatting across dashboard and profile reminders and choose the allocation's branch, so reassigned students receive the correct payment destination.
+- Payment-page previews use loader-fed branch cover metadata from a narrow public RPC; never put shared preview images on the root route, so branches without covers cannot inherit platform artwork.

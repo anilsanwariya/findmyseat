@@ -43,6 +43,13 @@
       "when": 1791389853208,
       "tag": "0005_fix_branch_payment_qr_folder_policies",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791397868599,
+      "tag": "0006_branch_payment_page_cover",
+      "breakpoints": true
     }
   ]
 }

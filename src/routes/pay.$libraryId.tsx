@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getPublicPaymentDetails } from "@/lib/payment-details.functions";
 import { safePaymentLink, upiPaymentUrl } from "@/lib/payment-details";
+import { paymentPageMeta } from "@/lib/payment-page-meta";
 
 const paymentQuery = (libraryId: string) => queryOptions({
   queryKey: ["public-payment-details", libraryId],
@@ -27,11 +28,7 @@ export const Route = createFileRoute("/pay/$libraryId")({
     if (!details) throw notFound();
     return details;
   },
-  head: ({ loaderData }) => {
-    const title = `${loaderData?.branch_name ?? "Library"} · Fee payment | LibraryBandhu`;
-    const description = "View your library’s payment details and QR code. Verify the recipient before paying.";
-    return { meta: [{ title }, { name: "description", content: description }, { property: "og:title", content: title }, { property: "og:description", content: description }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }, { name: "robots", content: "noindex, nofollow" }] };
-  },
+  head: ({ loaderData }) => ({ meta: paymentPageMeta(loaderData) }),
   component: PaymentPage,
   errorComponent: ({ reset }) => <main className="mx-auto max-w-lg space-y-4 px-6 py-20"><h1 className="text-2xl font-bold">Payment details unavailable</h1><p className="text-muted-foreground">Please try again or contact your library owner.</p><Button onClick={reset}>Try again</Button></main>,
   notFoundComponent: () => <main className="mx-auto max-w-lg space-y-4 px-6 py-20"><h1 className="text-2xl font-bold">Payment details unavailable</h1><p className="text-muted-foreground">This library has not shared payment details, or this link is no longer active.</p></main>,
@@ -49,6 +46,7 @@ function PaymentPage() {
   const link = safePaymentLink(data.payment_link);
   return <main className="mx-auto min-h-dvh w-full max-w-lg space-y-8 px-5 py-8 sm:px-8 sm:py-12">
     <Logo />
+    {data.cover_photo_url && <img src={data.cover_photo_url} alt={`${data.branch_name} cover photo`} className="aspect-video w-full rounded-md bg-muted object-contain" fetchPriority="high" />}
     <header className="space-y-2"><p className="text-sm text-cyan">Library fee payment</p><h1 className="break-words text-3xl font-bold">{data.branch_name}</h1>{data.payee_name && <p className="break-words text-muted-foreground">Payee: <span className="text-foreground">{data.payee_name}</span></p>}</header>
     {data.upi_id && <section className="space-y-4 border-y border-panel-border py-5">
       <div className="flex min-w-0 items-center justify-between gap-3"><div className="min-w-0"><p className="text-xs text-muted-foreground">UPI ID</p><p className="break-all font-mono text-lg">{data.upi_id}</p></div><Button variant="outline" size="icon" aria-label="Copy UPI ID" onClick={async () => { try { await navigator.clipboard.writeText(data.upi_id ?? ""); toast.success("UPI ID copied"); } catch { toast.error("Could not copy the UPI ID."); } }}><Copy className="size-4" /></Button></div>
