@@ -76,8 +76,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "Find your study space — LibraryBandhu Marketplace" },
       { name: "twitter:description", content: "Discover libraries and study spaces near you by zone or target exam. Reserve a seat with a single request." },
-      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/69246084-6427-456f-bed1-72a7f7d24858" },
-      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/69246084-6427-456f-bed1-72a7f7d24858" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
