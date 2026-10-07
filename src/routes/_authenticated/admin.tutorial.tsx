@@ -35,7 +35,7 @@ import {
 export const Route = createFileRoute("/_authenticated/admin/tutorial")({
   head: () => ({ meta: [{ title: "Tutorial · LibraryBandhu" }] }),
   component: TutorialPage,
-  errorComponent: ({ error }) => <div className="p-6 text-rose">{error.message}</div>,
+  errorComponent: ({ error }) => <div className="p-6 text-rose">{error instanceof Error ? error.message : "Could not load tutorial."}</div>,
   notFoundComponent: () => <div className="p-6">Not found</div>,
 });
 

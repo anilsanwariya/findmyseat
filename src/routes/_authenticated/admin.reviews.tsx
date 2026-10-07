@@ -12,7 +12,7 @@ import { StarRating, StarBar } from "@/components/RatingStars";
 export const Route = createFileRoute("/_authenticated/admin/reviews")({
   head: () => ({ meta: [{ title: "Reviews · LibraryBandhu" }] }),
   component: ReviewsPage,
-  errorComponent: ({ error }) => <div className="p-6 text-rose">{error.message}</div>,
+  errorComponent: ({ error }) => <div className="p-6 text-rose">{error instanceof Error ? error.message : "Could not load reviews."}</div>,
   notFoundComponent: () => <div className="p-6">Not found</div>,
 });
 
