@@ -42,7 +42,14 @@ import {
 } from "@/lib/dashboard-metrics";
 
 export const Route = createFileRoute("/_authenticated/admin/")({
-  head: () => ({ meta: [{ title: "Dashboard · LibraryBandhu" }] }),
+  head: () => ({ meta: [
+    { title: "Library Overview · LibraryBandhu" },
+    { name: "description", content: "Your library students, fee collections, outstanding payments and branch overview." },
+    { property: "og:title", content: "Library Overview · LibraryBandhu" },
+    { property: "og:description", content: "Review student fees, collections and branch activity." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   validateSearch: (search: Record<string, unknown>): { branch?: string; month?: string } => ({
     branch: typeof search.branch === "string" ? search.branch : undefined,
     month:
@@ -412,6 +419,7 @@ function Dashboard() {
       return (a.status === "overdue" || (!!due && due < today)) && outstandingOf(a, paidOpen) > 0;
     };
     const toRow = (a: DashAlloc): ActionStudent => ({
+      libraryId: a.library_id,
       allocationId: a.id,
       studentId: a.student_id ?? "",
       name: a.students?.full_name ?? "—",

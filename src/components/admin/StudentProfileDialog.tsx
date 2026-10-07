@@ -47,6 +47,8 @@ import {
   type CoverageRow,
 } from "@/lib/dashboard-metrics";
 import { pickLatestFullPayment } from "@/lib/payments";
+import { appendPaymentDetails } from "@/lib/payment-details";
+import { usePaymentDetails } from "@/lib/use-payment-details";
 import {
   ageOn,
   allocationStanding,
@@ -227,6 +229,7 @@ export function StudentProfileDialog({
   });
 
   const s = profile.data;
+  const paymentDetails = usePaymentDetails();
   const { allAllocs, active, past } = useMemo(() => {
     const all: any[] = s?.allocations ?? [];
     return {
@@ -307,7 +310,7 @@ export function StudentProfileDialog({
 
   const reminderText = () => {
     const first = s?.full_name?.split(" ")[0] ?? "";
-    const branch = s?.libraries?.name ?? "the library";
+    const branch = paymentDetails.data?.has(primary?.library_id) ? (primary?.libraries?.name ?? s?.libraries?.name ?? "the library") : (s?.libraries?.name ?? "the library");
     if (!top || top.owed <= 0) return `Hi ${first}, this is ${branch}.`;
     if (top.kind === "awaiting")
       return `Hi ${first}, welcome to ${branch}! Your library fee of ${inr(top.owed)} is pending. Please pay at the earliest. Thank you!`;
@@ -333,7 +336,7 @@ export function StudentProfileDialog({
       .filter(Boolean)
       .join(" ");
   };
-  const waReminder = whatsappLink(s?.mobile_number, reminderText());
+  const waReminder = whatsappLink(s?.mobile_number, top && top.owed > 0 ? appendPaymentDetails(reminderText(), paymentDetails.data?.get(primary?.library_id ?? s?.library_id), typeof window === "undefined" ? "https://librarybandhu.com" : window.location.origin, top.owed) : reminderText());
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ["student-profile", studentId] });

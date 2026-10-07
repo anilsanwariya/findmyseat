@@ -2,6 +2,8 @@ import { Link } from "@tanstack/react-router";
 import { GlassPanel } from "@/components/glass";
 import { fmtDate, inr } from "@/lib/format";
 import { whatsappLink } from "@/lib/dashboard-metrics";
+import { appendPaymentDetails } from "@/lib/payment-details";
+import { usePaymentDetails } from "@/lib/use-payment-details";
 import { cn } from "@/lib/utils";
 import {
   AlertTriangle,
@@ -16,6 +18,7 @@ import {
 import { useState, type ReactNode } from "react";
 
 export interface ActionStudent {
+  libraryId: string;
   allocationId: string;
   studentId: string;
   name: string;
@@ -80,6 +83,7 @@ function Rows({
   render: (r: ActionStudent) => ReactNode;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const paymentDetails = usePaymentDetails();
   if (rows.length === 0)
     return <p className="mt-2 text-[11px] text-muted-foreground">Nothing here right now.</p>;
   const visible = expanded ? rows : rows.slice(0, PREVIEW);
@@ -87,7 +91,7 @@ function Rows({
     <>
       <div className="mt-2 divide-y divide-panel-border/60">
         {visible.map((r) => {
-          const wa = reminder ? whatsappLink(r.mobile, reminder(r)) : null;
+          const wa = reminder ? whatsappLink(r.mobile, appendPaymentDetails(reminder(r), paymentDetails.data?.get(r.libraryId), typeof window === "undefined" ? "https://librarybandhu.com" : window.location.origin, r.amount)) : null;
           return (
             <div key={r.allocationId} className="flex items-center justify-between gap-2 py-2">
               <button
