@@ -1926,6 +1926,18 @@ export type Database = {
           upi_id: string
         }[]
       }
+      get_library_payment_page_details: {
+        Args: { _library_id: string }
+        Returns: {
+          branch_name: string
+          cover_photo_url: string
+          library_id: string
+          payee_name: string
+          payment_link: string
+          qr_path: string
+          upi_id: string
+        }[]
+      }
       get_library_rating_summary: {
         Args: { _library_id: string }
         Returns: {
