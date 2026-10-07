@@ -26,3 +26,7 @@
 ## Payment-details save restriction
 - [x] Correct QR image folder checks for upload, read and delete
 - [x] Verify owner text saves, QR upload/replacement/removal, public readback and denied guest/cross-branch-owner writes; staff exclusion retained and inspected in policies (no staff-session test)
+
+## Branch payment-link previews
+- [ ] Use branch cover photos and names in payment-link previews and on the payment page
+- [ ] Verify public preview metadata and payment-page rendering
