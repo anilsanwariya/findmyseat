@@ -28,5 +28,5 @@
 - [x] Verify owner text saves, QR upload/replacement/removal, public readback and denied guest/cross-branch-owner writes; staff exclusion retained and inspected in policies (no staff-session test)
 
 ## Branch payment-link previews
-- [ ] Use branch cover photos and names in payment-link previews and on the payment page
-- [ ] Verify public preview metadata and payment-page rendering
+- [x] Use branch cover photos and names in payment-link previews and on the payment page
+- [x] Verify public server-rendered metadata and payment-page rendering; seven tests pass. Dev Library has no cover photo, so verified its name-only fallback without inherited platform artwork. Actual WhatsApp cache refresh is external and unverified.
