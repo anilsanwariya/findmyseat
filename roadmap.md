@@ -18,6 +18,7 @@
 - [x] Verify layout, allocation, and student views after removal
 
 ## Owner payment details
-- [ ] Add branch-specific UPI, payee, payment-link and QR-image settings
-- [ ] Include branch payment details in dashboard and profile WhatsApp reminders
-- [ ] Add a shareable student payment page and verify saving, uploads and reminders
+- [x] Add branch-specific UPI, payee, payment-link and QR-image settings
+- [x] Include branch payment details in dashboard and profile WhatsApp reminders
+- [x] Add a shareable student payment page; verified public empty state and reminder/link formatting
+- [ ] Complete owner save/upload click-through: the requesting account is a Super Admin without an owner workspace
