@@ -1,5 +1,9 @@
 # Roadmap
 
+## Homepage owner registration
+- [x] Replace the vague Partner label and add a prominent owner-registration banner with owner sign-in.
+- [ ] Verify homepage layout and registration/sign-in navigation.
+
 - [x] Show active seat allocations with no payment on the dashboard.
 - [x] Open student photos and ID cards in an in-page preview.
 - [x] Verify both updated screens render without errors; the available test account has no student records for a live click-through.
