@@ -29,4 +29,5 @@
 
 ## Branch payment-link previews
 - [x] Use branch cover photos and names in payment-link previews and on the payment page
-- [x] Verify public server-rendered metadata and payment-page rendering; seven tests pass. Dev Library has no cover photo, so verified its name-only fallback without inherited platform artwork. Actual WhatsApp cache refresh is external and unverified.
+- [x] Verify public server-rendered metadata and payment-page rendering; seven tests pass. Actual WhatsApp cache refresh is external and unverified.
+- [ ] Correct the payment-preview cover source to use the gallery cover and verify Dev Library on the live site.
