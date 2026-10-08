@@ -2,7 +2,8 @@
 
 ## Returning owner access
 - [x] Automatically send signed-in owners from the homepage to their dashboard without changing visitor/student discovery.
-- [ ] Verify saved-owner-session access and signed-out discovery.
+- [x] Verify signed-out and signed-in non-owner discovery without page errors; seven existing tests pass.
+- [ ] Verify owner dashboard redirect with a real owner session; available requesting-user session is Super Admin, not a library owner.
 
 ## Homepage owner registration
 - [x] Replace the vague Partner label and add a prominent owner-registration banner with owner sign-in.
