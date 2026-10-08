@@ -1,5 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, useMemo, useRef } from "react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { AuroraBackground, GlassPanel } from "@/components/glass";
@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { fetchSession } from "@/lib/auth";
 import {
   Search,
   MapPin,
@@ -92,6 +93,24 @@ export const AMENITIES_DICT: Record<string, { en: string; hi: string }> = {
 };
 
 function Marketplace() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    let cancelled = false;
+    // Personalize after hydration so public discovery remains server-rendered.
+    // The existing protected dashboard gate still validates the saved session.
+    fetchSession()
+      .then((session) => {
+        if (!cancelled && session.userId && session.role === "org_admin" && !session.isStaff) {
+          void navigate({ to: "/admin", replace: true });
+        }
+      })
+      .catch(() => {
+        // A missing or unavailable session must not block public discovery.
+      });
+    return () => { cancelled = true; };
+  }, [navigate]);
+
   const [query, setQuery] = useState("");
   const [city, setCity] = useState<string>("");
   const [zone, setZone] = useState<string>("");

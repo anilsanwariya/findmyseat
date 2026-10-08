@@ -1,5 +1,9 @@
 # Roadmap
 
+## Returning owner access
+- [x] Automatically send signed-in owners from the homepage to their dashboard without changing visitor/student discovery.
+- [ ] Verify saved-owner-session access and signed-out discovery.
+
 ## Homepage owner registration
 - [x] Replace the vague Partner label and add a prominent owner-registration banner with owner sign-in.
 - [x] Verify desktop/mobile layout without overflow and both registration/sign-in paths without page errors.
