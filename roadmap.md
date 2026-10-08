@@ -30,4 +30,4 @@
 ## Branch payment-link previews
 - [x] Use branch cover photos and names in payment-link previews and on the payment page
 - [x] Verify public server-rendered metadata and payment-page rendering; seven tests pass. Actual WhatsApp cache refresh is external and unverified.
-- [ ] Correct the payment-preview cover source to use the gallery cover and verify Dev Library on the live site.
+- [x] Correct the payment-preview cover source to use the gallery cover; verified live social-image tags, publicly accessible photo, rendered payment-page cover and seven passing tests.
