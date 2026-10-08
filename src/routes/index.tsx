@@ -183,19 +183,14 @@ function Marketplace() {
     <div className="relative min-h-screen text-foreground flex flex-col">
       <AuroraBackground />
       <div className="relative z-10 flex-1 flex flex-col">
-        <header className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-5 sm:px-6">
+        <header className="mx-auto flex w-full max-w-7xl items-center justify-between gap-2 px-4 py-5 sm:px-6">
           <Link to="/" className="flex items-center gap-2">
             <Logo size={32} />
             <span className="text-lg font-extrabold tracking-tight">LibraryBandhu</span>
           </Link>
-          <nav className="flex items-center gap-2">
-            <Link to="/student-login">
-              <Button variant="ghost" size="sm">
-                Student sign in
-              </Button>
-            </Link>
-            <Button asChild size="sm" className="bg-gold text-primary-foreground hover:bg-gold/90">
-              <Link to="/owners">Register your library <ArrowRight aria-hidden="true" /></Link>
+          <nav className="ml-auto flex shrink-0 items-center">
+            <Button asChild variant="ghost" size="sm">
+              <Link to="/student-login">Student sign in</Link>
             </Button>
           </nav>
         </header>
