@@ -22,6 +22,7 @@ import {
   Flame,
   ArrowRight,
   BookOpen,
+  Building2,
   Languages,
   Clock,
   CalendarX,
@@ -182,7 +183,7 @@ function Marketplace() {
     <div className="relative min-h-screen text-foreground flex flex-col">
       <AuroraBackground />
       <div className="relative z-10 flex-1 flex flex-col">
-        <header className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-5 sm:px-6">
+        <header className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-5 sm:px-6">
           <Link to="/" className="flex items-center gap-2">
             <Logo size={32} />
             <span className="text-lg font-extrabold tracking-tight">LibraryBandhu</span>
@@ -193,16 +194,31 @@ function Marketplace() {
                 Student sign in
               </Button>
             </Link>
-            <Link to="/owners">
-              <Button
-                size="sm"
-                className="bg-gradient-to-r from-gold to-magenta text-slate-950 hover:opacity-90 shadow-[0_0_24px_-6px_rgba(236,72,153,0.6)] transition-all hover:scale-105"
-              >
-                Partner
-              </Button>
-            </Link>
+            <Button asChild size="sm" className="bg-gold text-primary-foreground hover:bg-gold/90">
+              <Link to="/owners">Register your library <ArrowRight aria-hidden="true" /></Link>
+            </Button>
           </nav>
         </header>
+
+        <section aria-labelledby="owner-registration-heading" className="w-full border-y border-gold/20 bg-gold/5">
+          <div className="mx-auto flex w-full max-w-5xl flex-col items-start justify-between gap-4 px-4 py-5 sm:flex-row sm:items-center sm:px-6">
+            <div className="flex items-center gap-3">
+              <Building2 aria-hidden="true" className="size-6 shrink-0 text-gold" />
+              <h2 id="owner-registration-heading" className="text-lg font-semibold">Own a library or study space?</h2>
+            </div>
+            <div className="flex w-full flex-col items-start gap-2 sm:w-auto sm:items-end">
+              <Button asChild className="h-auto min-h-11 w-full whitespace-normal bg-gold py-3 text-primary-foreground hover:bg-gold/90 sm:w-auto">
+                <Link to="/owners">Click here to register your library <ArrowRight aria-hidden="true" /></Link>
+              </Button>
+              <div className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+                <span>Already registered?</span>
+                <Button asChild variant="link" size="sm" className="h-auto px-1 py-1 text-foreground">
+                  <Link to="/owner-login">Owner sign in <ArrowRight aria-hidden="true" /></Link>
+                </Button>
+              </div>
+            </div>
+          </div>
+        </section>
 
         <section className="mx-auto w-full max-w-5xl px-4 pt-6 pb-4 text-center sm:px-6 sm:pt-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
           <div className="inline-flex items-center gap-2 rounded-full border border-panel-border bg-panel px-3 py-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
