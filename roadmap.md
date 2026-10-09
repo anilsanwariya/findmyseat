@@ -1,5 +1,9 @@
 # Roadmap
 
+## Compact dashboard shifts
+- [x] Collapse Students & seats by shift by default, keeping totals visible and the entire header expandable.
+- [ ] Verify expand/collapse and compact layout on the signed-in dashboard.
+
 ## Returning owner access
 - [x] Automatically send signed-in owners from the homepage to their dashboard without changing visitor/student discovery.
 - [x] Verify signed-out and signed-in non-owner discovery without page errors; seven existing tests pass.

@@ -1,7 +1,9 @@
 import { GlassPanel } from "@/components/glass";
+import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { inr } from "@/lib/format";
 import type { ShiftOccupancy } from "@/lib/dashboard-metrics";
-import { Users } from "lucide-react";
+import { ChevronDown, Users } from "lucide-react";
 
 export interface ShiftRow {
   name: string;
@@ -43,15 +45,25 @@ export function ShiftBreakdown({
 
   return (
     <GlassPanel className="p-4 sm:p-5">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <h3 className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
-          <Users className="size-3.5 text-cyan" /> Students &amp; seats by shift
-        </h3>
-        <span className="text-xs text-muted-foreground">
-          {seatedStudents} student{seatedStudents === 1 ? "" : "s"} with seats · {inr(totalRevenue)}{" "}
-          / month
-        </span>
-      </div>
+      <Collapsible defaultOpen={false}>
+        <CollapsibleTrigger asChild>
+          <Button
+            variant="ghost"
+            className="group h-auto min-h-11 w-full justify-between gap-3 whitespace-normal px-0 py-1 text-left hover:bg-transparent"
+          >
+            <span className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <span className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
+                <Users className="size-3.5 text-cyan" /> Students &amp; seats by shift
+              </span>
+              <span className="text-xs font-normal text-muted-foreground">
+                {seatedStudents} student{seatedStudents === 1 ? "" : "s"} with seats · {inr(totalRevenue)}{" "}
+                / month
+              </span>
+            </span>
+            <ChevronDown className="shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180 motion-reduce:transition-none" />
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="pt-4">
 
       {merged.length === 0 ? (
         <p className="py-8 text-center text-sm text-muted-foreground">
@@ -99,6 +111,8 @@ export function ShiftBreakdown({
           })}
         </div>
       )}
+        </CollapsibleContent>
+      </Collapsible>
     </GlassPanel>
   );
 }
