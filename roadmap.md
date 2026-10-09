@@ -1,9 +1,10 @@
 # Roadmap
 
 ## Accumulated overdue fees
-- [ ] Calculate all overdue calendar-month cycles, deduct open-cycle payments, and respect settled coverage.
-- [ ] Use accumulated balances in dashboard totals, branch comparisons and reminders, with overdue-month counts.
-- [ ] Test calendar boundaries and payment cases, and verify the dashboard with real owner data.
+- [x] Calculate all overdue calendar-month cycles, credit payments beyond the unsettled due date, and respect settled coverage.
+- [x] Use accumulated balances in dashboard totals, branch comparisons and reminders, with overdue-month counts.
+- [x] Test calendar boundaries, partial payments, settled/waived coverage and multi-month credits; all 17 tests pass and preview builds cleanly.
+- [ ] Verify the dashboard with real owner data; signed-in preview stays on loading placeholders and provides no student balances to check.
 
 ## Compact dashboard shifts
 - [x] Collapse Students & seats by shift by default, keeping totals visible and the entire header expandable.
