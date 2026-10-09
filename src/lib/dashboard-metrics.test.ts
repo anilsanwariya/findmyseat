@@ -53,4 +53,20 @@ describe("accumulated overdue fees", () => {
     expect(overdueBalance(allocation(), new Map([["allocation", 400]]), "2026-09-01"))
       .toEqual({ months: 2, amount: 1600 });
   });
+  it("credits multi-month coverage after a manual due reset without double charging", () => {
+    const a = allocation();
+    const { paidOpen, prepaid } = buildPaidOpen([a], [
+      { allocation_id: a.id, amount_paid: 2000, covers_until: "2026-09-03" },
+    ]);
+    expect(overdueBalance(a, paidOpen, "2026-09-04", prepaid)).toEqual({ months: 1, amount: 1000 });
+  });
+  it("recognizes partial payments ending on a restored month-end anchor", () => {
+    const a = allocation({ start_date: "2026-01-31", next_due_date: "2026-02-28" });
+    const { paidOpen, prepaid } = buildPaidOpen([a], [
+      { allocation_id: a.id, amount_paid: 400, covers_until: "2026-03-31" },
+    ]);
+    expect(paidOpen.get(a.id)).toBe(400);
+    expect(prepaid.size).toBe(0);
+    expect(overdueBalance(a, paidOpen, "2026-04-01", prepaid)).toEqual({ months: 2, amount: 1600 });
+  });
 });

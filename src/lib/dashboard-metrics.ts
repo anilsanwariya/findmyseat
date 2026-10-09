@@ -94,6 +94,7 @@ export interface CoverageRow {
  */
 export function buildPaidOpen(allocs: AllocRow[], coverage: CoverageRow[]) {
   const dueByAlloc = new Map(allocs.map((a) => [a.id, dayOnly(a.next_due_date)]));
+  const anchorByAlloc = new Map(allocs.map((a) => [a.id, anchorDayOf(a.start_date)]));
   const paidOpen = new Map<string, number>();
   const prepaid = new Map<string, number>();
   for (const p of coverage) {
@@ -102,7 +103,7 @@ export function buildPaidOpen(allocs: AllocRow[], coverage: CoverageRow[]) {
     if (!due) continue;
     const cov = dayOnly(p.covers_until)!;
     if (cov <= due) continue;
-    const cycleEnd = addMonthsISO(due, 1);
+    const cycleEnd = addCalendarMonthsISO(due, 1, anchorByAlloc.get(p.allocation_id));
     const bucket = cov <= cycleEnd ? paidOpen : prepaid;
     bucket.set(p.allocation_id, (bucket.get(p.allocation_id) ?? 0) + Number(p.amount_paid));
   }
@@ -116,9 +117,15 @@ export const outstandingOf = (a: AllocRow, paidOpen: Map<string, number>) =>
  * Unpaid monthly charges whose due dates are strictly before `asOf` (today is
  * due, not overdue). next_due_date is the first unsettled cycle: completed
  * payments, legacy coverage and waivers already advance it, so never subtract
- * those payments again. Only credit money toward the still-open cycle.
+ * those payments again. Credit payments reaching beyond the unsettled due date,
+ * including multi-cycle payments if coverage was manually reset.
  */
-export function overdueBalance(a: AllocRow, paidOpen: Map<string, number>, asOf: string) {
+export function overdueBalance(
+  a: AllocRow,
+  paidOpen: Map<string, number>,
+  asOf: string,
+  prepaid: Map<string, number> = new Map(),
+) {
   const due = effectiveDue(a);
   const fee = Number(a.monthly_fee);
   if (!due || due >= asOf || !Number.isFinite(fee) || fee <= 0)
@@ -130,8 +137,10 @@ export function overdueBalance(a: AllocRow, paidOpen: Map<string, number>, asOf:
   const elapsed = (year - dueYear) * 12 + month - dueMonth;
   const anniversary = addCalendarMonthsISO(due, elapsed, anchorDayOf(a.start_date));
   const months = elapsed + (anniversary < asOf ? 1 : 0);
-  const amount = Math.max(0, months * fee - (paidOpen.get(a.id) ?? 0));
-  return { months: amount > 0 ? months : 0, amount };
+  const credit = (paidOpen.get(a.id) ?? 0) + (prepaid.get(a.id) ?? 0);
+  const amount = Math.max(0, months * fee - credit);
+  // Fully credited oldest months are not outstanding; a part-paid month remains.
+  return { months: amount > 0 ? Math.ceil(amount / fee) : 0, amount };
 }
 
 export const sumAmount = <T extends { amount_paid?: number | string; amount?: number | string }>(

@@ -345,7 +345,7 @@ function Dashboard() {
   });
 
   const allocs = useMemo(() => alloc.data?.allocs ?? [], [alloc.data]);
-  const { paidOpen } = useMemo(
+  const { paidOpen, prepaid } = useMemo(
     () => buildPaidOpen(allocs, alloc.data?.coverage ?? []),
     [allocs, alloc.data],
   );
@@ -415,7 +415,7 @@ function Dashboard() {
 
   const lists = useMemo(() => {
     const monthStart = monthRange(selMonth).start;
-    const balances = new Map(allocs.map((a) => [a.id, overdueBalance(a, paidOpen, today)]));
+    const balances = new Map(allocs.map((a) => [a.id, overdueBalance(a, paidOpen, today, prepaid)]));
     const overdueOf = (a: DashAlloc) => balances.get(a.id)?.amount ?? 0;
     const isOverdue = (a: DashAlloc) => overdueOf(a) > 0;
     const toRow = (a: DashAlloc): ActionStudent => ({
@@ -433,8 +433,10 @@ function Dashboard() {
             : "Unassigned",
       amount: isOverdue(a) ? overdueOf(a) : outstandingOf(a, paidOpen),
       overdueMonths: balances.get(a.id)?.months ?? 0,
-      paid: paidOpen.get(a.id) ?? 0,
-      fee: Number(a.monthly_fee) * Math.max(1, balances.get(a.id)?.months ?? 0),
+      paid: (paidOpen.get(a.id) ?? 0) + (isOverdue(a) ? (prepaid.get(a.id) ?? 0) : 0),
+      fee: isOverdue(a)
+        ? overdueOf(a) + (paidOpen.get(a.id) ?? 0) + (prepaid.get(a.id) ?? 0)
+        : Number(a.monthly_fee),
       dueDate: dayOnly(a.next_due_date),
       startDate: dayOnly(a.start_date),
     });
@@ -452,7 +454,7 @@ function Dashboard() {
       overdueCount: overdueAllocs.length,
       duesTotal: overdueAllocs.reduce((s, a) => s + overdueOf(a), 0),
       carriedOver: allocs.reduce(
-        (s, a) => s + overdueBalance(a, paidOpen, monthStart < today ? monthStart : today).amount,
+        (s, a) => s + overdueBalance(a, paidOpen, monthStart < today ? monthStart : today, prepaid).amount,
         0,
       ),
       awaitingFirstPayment: allocs
@@ -496,7 +498,7 @@ function Dashboard() {
         })
         .sort((a, b) => (a.days ?? 0) - (b.days ?? 0)),
     };
-  }, [allocs, alloc.data?.paidStudentIds, paidOpen, libName, selMonth, today, can.payments]);
+  }, [allocs, alloc.data?.paidStudentIds, paidOpen, prepaid, libName, selMonth, today, can.payments]);
 
   /** Seats taken per shift (a full-day booking blocks every shift). */
   const occupancy = useMemo(
