@@ -15,3 +15,4 @@
 - Share payment-detail formatting across dashboard and profile reminders and choose the allocation's branch, so reassigned students receive the correct payment destination.
 - Payment-page previews use loader-fed branch cover metadata from a narrow public RPC, taking the first ordered gallery photo with the legacy cover field as fallback to match branch settings; never put shared preview images on the root route.
 - Personalize the public homepage after hydration using the existing session classifier, sending only library owners to /admin with history replacement; keep public SSR discovery and the protected dashboard's session validation intact.
+- Dashboard overdue balances use a shared calendar-cycle helper starting at the first unsettled due date, credit payments extending beyond that date, and leave monthly revenue calculations separate; settled payments and waivers already advance coverage and must not be deducted twice.

@@ -29,6 +29,7 @@ export interface ActionStudent {
   paid?: number;
   fee?: number;
   days?: number;
+  overdueMonths?: number;
   dueDate?: string | null;
   startDate?: string | null;
 }
@@ -199,6 +200,11 @@ export function ActionList({
               render={(r) => (
                 <>
                   <div className="font-mono text-sm font-semibold text-amber">{inr(r.amount)}</div>
+                  {!!r.overdueMonths && (
+                    <div className="text-[11px] text-amber">
+                      {r.overdueMonths} month{r.overdueMonths === 1 ? "" : "s"} overdue
+                    </div>
+                  )}
                   <div className="text-[11px] text-muted-foreground">
                     {r.startDate
                       ? `Joined ${fmtDate(r.startDate)}${r.days ? ` · ${r.days} day${r.days === 1 ? "" : "s"} unpaid` : ""}`
@@ -235,6 +241,9 @@ export function ActionList({
             render={(r) => (
               <>
                 <div className="font-mono text-sm font-semibold text-rose">{inr(r.amount)}</div>
+                <div className="text-[11px] text-rose">
+                  {r.overdueMonths} month{r.overdueMonths === 1 ? "" : "s"} overdue
+                </div>
                 <div className="text-[11px] text-muted-foreground">
                   {r.days === 1 ? "1 day late" : `${r.days} days late`}
                 </div>
@@ -265,6 +274,11 @@ export function ActionList({
                   <div className="text-[11px] text-muted-foreground">
                     {inr(r.paid ?? 0)} of {inr(r.fee ?? 0)}
                   </div>
+                  {!!r.overdueMonths && (
+                    <div className="text-[11px] text-gold">
+                      {r.overdueMonths} month{r.overdueMonths === 1 ? "" : "s"} overdue
+                    </div>
+                  )}
                 </>
               )}
             />

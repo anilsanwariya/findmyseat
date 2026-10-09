@@ -30,6 +30,7 @@ import {
   monthLabel,
   monthRange,
   outstandingOf,
+  overdueBalance,
   pctChange,
   recentMonths,
   shiftOccupancy,
@@ -344,7 +345,7 @@ function Dashboard() {
   });
 
   const allocs = useMemo(() => alloc.data?.allocs ?? [], [alloc.data]);
-  const { paidOpen } = useMemo(
+  const { paidOpen, prepaid } = useMemo(
     () => buildPaidOpen(allocs, alloc.data?.coverage ?? []),
     [allocs, alloc.data],
   );
@@ -414,10 +415,9 @@ function Dashboard() {
 
   const lists = useMemo(() => {
     const monthStart = monthRange(selMonth).start;
-    const isOverdue = (a: DashAlloc) => {
-      const due = dayOnly(a.next_due_date);
-      return (a.status === "overdue" || (!!due && due < today)) && outstandingOf(a, paidOpen) > 0;
-    };
+    const balances = new Map(allocs.map((a) => [a.id, overdueBalance(a, paidOpen, today, prepaid)]));
+    const overdueOf = (a: DashAlloc) => balances.get(a.id)?.amount ?? 0;
+    const isOverdue = (a: DashAlloc) => overdueOf(a) > 0;
     const toRow = (a: DashAlloc): ActionStudent => ({
       libraryId: a.library_id,
       allocationId: a.id,
@@ -431,9 +431,12 @@ function Dashboard() {
           : a.seat_id
             ? (a.seats?.seat_number ?? "Unassigned")
             : "Unassigned",
-      amount: outstandingOf(a, paidOpen),
-      paid: paidOpen.get(a.id) ?? 0,
-      fee: Number(a.monthly_fee),
+      amount: isOverdue(a) ? overdueOf(a) : outstandingOf(a, paidOpen),
+      overdueMonths: balances.get(a.id)?.months ?? 0,
+      paid: (paidOpen.get(a.id) ?? 0) + (isOverdue(a) ? (prepaid.get(a.id) ?? 0) : 0),
+      fee: isOverdue(a)
+        ? overdueOf(a) + (paidOpen.get(a.id) ?? 0) + (prepaid.get(a.id) ?? 0)
+        : Number(a.monthly_fee),
       dueDate: dayOnly(a.next_due_date),
       startDate: dayOnly(a.start_date),
     });
@@ -447,14 +450,13 @@ function Dashboard() {
     const listed = (a: DashAlloc) => !can.payments || !neverPaid(a);
     return {
       isOverdue,
+      overdueOf,
       overdueCount: overdueAllocs.length,
-      duesTotal: overdueAllocs.reduce((s, a) => s + outstandingOf(a, paidOpen), 0),
-      carriedOver: allocs
-        .filter((a) => {
-          const due = dayOnly(a.next_due_date);
-          return !!due && due < monthStart;
-        })
-        .reduce((s, a) => s + outstandingOf(a, paidOpen), 0),
+      duesTotal: overdueAllocs.reduce((s, a) => s + overdueOf(a), 0),
+      carriedOver: allocs.reduce(
+        (s, a) => s + overdueBalance(a, paidOpen, monthStart < today ? monthStart : today, prepaid).amount,
+        0,
+      ),
       awaitingFirstPayment: allocs
         .filter(neverPaid)
         .map((a) => {
@@ -496,7 +498,7 @@ function Dashboard() {
         })
         .sort((a, b) => (a.days ?? 0) - (b.days ?? 0)),
     };
-  }, [allocs, alloc.data?.paidStudentIds, paidOpen, libName, selMonth, today, can.payments]);
+  }, [allocs, alloc.data?.paidStudentIds, paidOpen, prepaid, libName, selMonth, today, can.payments]);
 
   /** Seats taken per shift (a full-day booking blocks every shift). */
   const occupancy = useMemo(
@@ -540,7 +542,7 @@ function Dashboard() {
         ),
         dues: branchAllocs
           .filter(lists.isOverdue)
-          .reduce((s, a) => s + outstandingOf(a, paidOpen), 0),
+          .reduce((s, a) => s + lists.overdueOf(a), 0),
         expenses: expenses
           .filter((e) => e.library_id === id && inMonth(dayOnly(e.spent_on)))
           .reduce((s, e) => s + Number(e.amount), 0),
