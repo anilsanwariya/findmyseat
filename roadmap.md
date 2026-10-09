@@ -3,6 +3,7 @@
 ## Compact dashboard shifts
 - [x] Collapse Students & seats by shift by default, keeping totals visible and the entire header expandable.
 - [ ] Verify expand/collapse and compact layout on the signed-in dashboard.
+- [x] Verify the control independently with sample shift data: collapsed totals, click expansion, keyboard collapse and mobile layout pass without page errors.
 
 ## Returning owner access
 - [x] Automatically send signed-in owners from the homepage to their dashboard without changing visitor/student discovery.
