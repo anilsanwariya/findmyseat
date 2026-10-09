@@ -705,7 +705,7 @@ function Dashboard() {
           <StatCard
             label="Net profit"
             value={inr(sel.collected - sel.expenses)}
-            tone="emerald"
+            tone={sel.collected - sel.expenses < 0 ? "rose" : "emerald"}
             locked={!can.payments || !can.expenses}
             delta={delta(sel.collected - sel.expenses, prev && prev.collected - prev.expenses)}
           />
