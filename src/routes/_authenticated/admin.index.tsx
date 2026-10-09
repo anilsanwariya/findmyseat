@@ -30,6 +30,7 @@ import {
   monthLabel,
   monthRange,
   outstandingOf,
+  overdueBalance,
   pctChange,
   recentMonths,
   shiftOccupancy,
@@ -414,10 +415,9 @@ function Dashboard() {
 
   const lists = useMemo(() => {
     const monthStart = monthRange(selMonth).start;
-    const isOverdue = (a: DashAlloc) => {
-      const due = dayOnly(a.next_due_date);
-      return (a.status === "overdue" || (!!due && due < today)) && outstandingOf(a, paidOpen) > 0;
-    };
+    const balances = new Map(allocs.map((a) => [a.id, overdueBalance(a, paidOpen, today)]));
+    const overdueOf = (a: DashAlloc) => balances.get(a.id)?.amount ?? 0;
+    const isOverdue = (a: DashAlloc) => overdueOf(a) > 0;
     const toRow = (a: DashAlloc): ActionStudent => ({
       libraryId: a.library_id,
       allocationId: a.id,
@@ -431,9 +431,10 @@ function Dashboard() {
           : a.seat_id
             ? (a.seats?.seat_number ?? "Unassigned")
             : "Unassigned",
-      amount: outstandingOf(a, paidOpen),
+      amount: isOverdue(a) ? overdueOf(a) : outstandingOf(a, paidOpen),
+      overdueMonths: balances.get(a.id)?.months ?? 0,
       paid: paidOpen.get(a.id) ?? 0,
-      fee: Number(a.monthly_fee),
+      fee: Number(a.monthly_fee) * Math.max(1, balances.get(a.id)?.months ?? 0),
       dueDate: dayOnly(a.next_due_date),
       startDate: dayOnly(a.start_date),
     });
@@ -447,14 +448,13 @@ function Dashboard() {
     const listed = (a: DashAlloc) => !can.payments || !neverPaid(a);
     return {
       isOverdue,
+      overdueOf,
       overdueCount: overdueAllocs.length,
-      duesTotal: overdueAllocs.reduce((s, a) => s + outstandingOf(a, paidOpen), 0),
-      carriedOver: allocs
-        .filter((a) => {
-          const due = dayOnly(a.next_due_date);
-          return !!due && due < monthStart;
-        })
-        .reduce((s, a) => s + outstandingOf(a, paidOpen), 0),
+      duesTotal: overdueAllocs.reduce((s, a) => s + overdueOf(a), 0),
+      carriedOver: allocs.reduce(
+        (s, a) => s + overdueBalance(a, paidOpen, monthStart < today ? monthStart : today).amount,
+        0,
+      ),
       awaitingFirstPayment: allocs
         .filter(neverPaid)
         .map((a) => {
@@ -540,7 +540,7 @@ function Dashboard() {
         ),
         dues: branchAllocs
           .filter(lists.isOverdue)
-          .reduce((s, a) => s + outstandingOf(a, paidOpen), 0),
+          .reduce((s, a) => s + lists.overdueOf(a), 0),
         expenses: expenses
           .filter((e) => e.library_id === id && inMonth(dayOnly(e.spent_on)))
           .reduce((s, e) => s + Number(e.amount), 0),
