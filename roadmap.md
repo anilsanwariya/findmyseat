@@ -1,5 +1,10 @@
 # Roadmap
 
+## Compact dashboard shifts
+- [x] Collapse Students & seats by shift by default, keeping totals visible and the entire header expandable.
+- [ ] Verify with real owner dashboard data; blocked because the available requesting-user session has no owner workspace.
+- [x] Verify the control independently with sample shift data: collapsed totals, click expansion, keyboard collapse and mobile layout pass without page errors.
+
 ## Returning owner access
 - [x] Automatically send signed-in owners from the homepage to their dashboard without changing visitor/student discovery.
 - [x] Verify signed-out and signed-in non-owner discovery without page errors; seven existing tests pass.
