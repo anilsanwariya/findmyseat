@@ -450,6 +450,7 @@ export type Database = {
           rejection_reason: string | null
           reviewed_at: string | null
           reviewed_by: string | null
+          shift_schedule_configured: boolean
           shifts: string | null
           show_public_availability: boolean
           targeted_exam_ids: string[]
@@ -478,6 +479,7 @@ export type Database = {
           rejection_reason?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          shift_schedule_configured?: boolean
           shifts?: string | null
           show_public_availability?: boolean
           targeted_exam_ids?: string[]
@@ -506,6 +508,7 @@ export type Database = {
           rejection_reason?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          shift_schedule_configured?: boolean
           shifts?: string | null
           show_public_availability?: boolean
           targeted_exam_ids?: string[]
@@ -1219,6 +1222,7 @@ export type Database = {
           message: string | null
           mobile_number: string
           org_id: string
+          preferred_shift: string | null
           status: Database["public"]["Enums"]["lead_status"]
           student_name: string
           target_exam_id: string | null
@@ -1232,6 +1236,7 @@ export type Database = {
           message?: string | null
           mobile_number: string
           org_id: string
+          preferred_shift?: string | null
           status?: Database["public"]["Enums"]["lead_status"]
           student_name: string
           target_exam_id?: string | null
@@ -1245,6 +1250,7 @@ export type Database = {
           message?: string | null
           mobile_number?: string
           org_id?: string
+          preferred_shift?: string | null
           status?: Database["public"]["Enums"]["lead_status"]
           student_name?: string
           target_exam_id?: string | null
@@ -1967,6 +1973,18 @@ export type Database = {
       }
       is_staff_user: { Args: { _uid: string }; Returns: boolean }
       org_subscription_state: { Args: { _org_id: string }; Returns: string }
+      schedule_parts: { Args: { p_text: string }; Returns: Json }
+      schedule_range: { Args: { a: number; b: number }; Returns: unknown }
+      shift_minutes: { Args: { p_shift_id: string }; Returns: unknown }
+      shift_ranges_for: {
+        Args: {
+          p_end: string
+          p_name: string
+          p_schedule: string
+          p_start: string
+        }
+        Returns: unknown
+      }
       shift_section_layout: {
         Args: { p_dc: number; p_dr: number; p_section_id: string }
         Returns: undefined
