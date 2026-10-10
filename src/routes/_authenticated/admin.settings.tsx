@@ -1,3 +1,4 @@
+import { validateSchedule } from "@/lib/branch-timings";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useRef } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -185,7 +186,7 @@ function parseClosedOn(s: string): { openAllDays: boolean; days: string[] } {
 const TIMING_HELP =
   "Shown on your listing, and used to decide which shifts can share a seat — e.g. a seat can go to one " +
   "student in the Morning and another in the Evening. Combined shifts (Morning + Night, Evening + Night) " +
-  "use these hours; 24 Hrs is the whole day. Shifts left off use 6 AM–2 PM, 2 PM–10 PM and 10 PM–6 AM.";
+  "use these hours; 24 Hrs is the whole day. Switched-off shifts cannot be allocated to new students.";
 
 function SettingsPage() {
   const { data: session, isLoading } = useSession();
@@ -751,6 +752,7 @@ function LibraryFormDialog({
   onDone: () => void;
   dirtyRef?: React.MutableRefObject<boolean>;
 }) {
+  const scheduleCache = useQueryClient();
   const [loading, setLoading] = useState(false);
   const [lang, setLang] = useState<"en" | "hi">("en");
   const [activeTab, setActiveTab] = useState<(typeof TABS)[number]>("basic");
@@ -882,9 +884,16 @@ function LibraryFormDialog({
     if (phone.trim() && !/^\d{10}$/.test(phone.replace(/\D/g, ""))) e.phone = "Enter a valid 10-digit phone number";
     if (googleMapsUrl.trim() && !/^https?:\/\/\S+$/i.test(googleMapsUrl.trim()))
       e.googleMapsUrl = "Link must start with http:// or https://";
+    const scheduleErrors = validateSchedule({
+      ...(hasMorning ? { morning: { start: morningStart, end: morningEnd } } : {}),
+      ...(hasEvening ? { evening: { start: eveningStart, end: eveningEnd } } : {}),
+      ...(hasNight ? { night: { start: nightStart, end: nightEnd } } : {}),
+    }, { open24, openTime, closeTime });
+    if (scheduleErrors.length) e.schedule = scheduleErrors.join(" ");
     return e;
   }
   const FIELD_TAB: Record<string, (typeof TABS)[number]> = {
+    schedule: "schedule",
     name: "basic",
     phone: "basic",
     googleMapsUrl: "basic",
@@ -1086,6 +1095,7 @@ function LibraryFormDialog({
             show_public_availability: showPublic,
             opening_hours: serializeOpeningHours({ open24, openTime, closeTime }),
             shifts: serializeBranchTimings(currentTimings()),
+            shift_schedule_configured: true,
             closed_on: serializeClosedOn({ openAllDays, days: Array.from(closedDays) }),
             targeted_exam_ids: Array.from(selectedExams),
             amenities: amenities,
@@ -1109,6 +1119,7 @@ function LibraryFormDialog({
             toast.error(error.message);
             return;
           }
+          await scheduleCache.invalidateQueries({ predicate: (q) => ["libraries", "seat-bookings", "shifts-for-alloc", "shifts-for-edit", "dash-ops", "marketplace", "layout", "sections"].includes(String(q.queryKey[0])) });
           baselineRef.current = serialized;
           if (dirtyRef) dirtyRef.current = false;
           toast.success(existingLib ? "Library updated successfully" : "Branch successfully created");
@@ -1330,6 +1341,7 @@ function LibraryFormDialog({
               )}
             </div>
 
+            {errors.schedule && <p role="alert" className="text-sm text-rose">{errors.schedule}</p>}
             {/* Shifts */}
             <div className="space-y-4 rounded-lg border border-panel-border bg-panel/40 p-4">
               <div className="border-b border-panel-border/50 pb-2">

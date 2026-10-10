@@ -1,3 +1,4 @@
+import { matchesShift } from "@/lib/shift-selection";
 import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
 import { fmtDate } from "@/lib/format";
@@ -16,6 +17,7 @@ export async function buildStudentExportRows(opts: {
   orgId: string;
   libraryId?: string | null;
   isActive: boolean;
+  shiftFilter?: string;
   studentIds?: string[] | null;
 }): Promise<StudentExportRow[]> {
   let q = supabase
@@ -31,7 +33,10 @@ export async function buildStudentExportRows(opts: {
 
   const { data: students, error } = await q;
   if (error) throw error;
-  const list = students ?? [];
+  const list = (students ?? []).filter((s: any) => {
+    const rows = opts.isActive ? s.allocations?.filter((a: any) => a.is_active) : s.allocations;
+    return !opts.shiftFilter || opts.shiftFilter === "all" || (rows ?? []).some((a: any) => matchesShift(a.shifts?.name, opts.shiftFilter ?? "all"));
+  });
   if (!list.length) return [];
 
   const ids = list.map((s: any) => s.id);
@@ -55,7 +60,7 @@ export async function buildStudentExportRows(opts: {
   }
 
   return list.map((s: any) => {
-    const allocs = (s.allocations ?? []) as any[];
+    const allocs = ((s.allocations ?? []) as any[]).filter((a) => !opts.shiftFilter || matchesShift(a.shifts?.name, opts.shiftFilter));
     const alloc =
       allocs.find((a) => a.is_active) ??
       [...allocs].sort((a, b) => (a.created_at < b.created_at ? 1 : -1))[0] ??

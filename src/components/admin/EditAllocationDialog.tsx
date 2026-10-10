@@ -1,3 +1,5 @@
+import { selectableShifts, matchesShift as matchesShiftPackage } from "@/lib/shift-selection";
+import { ShiftFilter } from "@/components/admin/ShiftFilter";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -107,7 +109,7 @@ export function EditAllocationDialog({
     enabled: !!alloc?.library_id,
     queryFn: async () => {
       let q = supabase.from("shifts").select("id, name, section_id, base_fee").eq("library_id", alloc.library_id);
-      if (sectionId) q = q.eq("section_id", sectionId);
+      if (sectionId) q = q.or(`section_id.eq.${sectionId},section_id.is.null`);
       const rows = (await q).data ?? [];
       // Dedupe by classified shift key (fallback to name) — legacy rows can create duplicates.
       const seen = new Set<string>();
@@ -200,6 +202,10 @@ export function EditAllocationDialog({
               return;
             }
 
+            if (shiftId && shiftId !== "none" && !selectableShifts(shifts.data ?? [], sectionId, currentSection, booked.data?.timingText, booked.data?.configured).some((s) => s.id === shiftId)) {
+              toast.error("Choose an enabled shift for this hall.");
+              return;
+            }
             setLoading(true);
 
             const { error } = await supabase
@@ -318,7 +324,7 @@ export function EditAllocationDialog({
                       </SelectItem>
                     );
                   })()}
-                  {(shifts.data ?? []).map((s: any) => {
+                  {selectableShifts(shifts.data ?? [], sectionId, currentSection, booked.data?.timingText, booked.data?.configured).map((s: any) => {
                     const cls = classifyShiftByName(s.name || "");
                     const notAllowed = !!currentSection && !!cls && !(currentSection as any)[cls.allowKey];
                     const taken = reservationType === "reserved" && !!seatId && !seatFree(seatId, s.id);

@@ -1,3 +1,4 @@
+import { selectableShifts } from "@/lib/shift-selection";
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -245,14 +246,8 @@ function LayoutBuilderPage() {
   useEffect(() => setOccShift("all"), [currentSectionId]);
   const occShiftOptions = useMemo(() => {
     const seen = new Set<string>();
-    return (booked.data?.shifts ?? []).filter((sh) => {
-      if (sh.section_id && sh.section_id !== currentSectionId) return false;
-      const k = (sh.name || "").trim().toLowerCase();
-      if (seen.has(k)) return false;
-      seen.add(k);
-      return true;
-    });
-  }, [booked.data, currentSectionId]);
+    return selectableShifts(booked.data?.shifts ?? [], currentSectionId, currentSection, booked.data?.timingText, booked.data?.configured);
+  }, [booked.data, currentSectionId, currentSection]);
 
   const grid = useMemo(() => {
     if (!currentSection) return null;
@@ -1754,16 +1749,18 @@ async function syncSectionShifts(
     const match = byKey.get(s.key);
     if (match) {
       if (Number(match.base_fee ?? 0) !== fee) {
-        await supabase.from("shifts").update({ base_fee: fee, name: s.label }).eq("id", match.id);
+        const { error } = await supabase.from("shifts").update({ base_fee: fee, name: s.label }).eq("id", match.id);
+        if (error) throw error;
       }
     } else {
-      await supabase.from("shifts").insert({
+      const { error } = await supabase.from("shifts").insert({
         section_id: sectionId,
         library_id: libraryId,
         org_id: orgId,
         name: s.label,
         base_fee: fee,
       } as any);
+      if (error) throw error;
     }
   }
 }
