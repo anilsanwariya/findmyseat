@@ -1994,6 +1994,10 @@ export type Database = {
         Returns: boolean
       }
       staff_perm_ok: { Args: { _perm: string; _uid: string }; Returns: boolean }
+      student_shift_availability: {
+        Args: { p_library_id: string }
+        Returns: Json
+      }
       transfer_branch_ownership: {
         Args: { _library_id: string; _new_org_id: string }
         Returns: undefined
