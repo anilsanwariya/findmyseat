@@ -49,7 +49,7 @@ import { feeStatus, friendlySeatError, openShifts, seatFreeFor, seatState, sella
 import { STATUS_META, worstStatus, type SeatStatus } from "@/lib/layout-types";
 
 export const Route = createFileRoute("/_authenticated/admin/allocations")({
-  head: () => ({ meta: [{ title: "Allocations · LibraryBandhu" }] }),
+  head: () => ({ meta: [{ title: "Allocations · LibraryBandhu" }, { name: "description", content: "Manage student seat allocations and shift availability." }, { property: "og:title", content: "Allocations · LibraryBandhu" }, { property: "og:description", content: "Manage student seat allocations and shift availability." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }] }),
   validateSearch: (search: Record<string, unknown>) => ({
     newStudentId: typeof search.newStudentId === "string" ? search.newStudentId : undefined,
     newStudentName: typeof search.newStudentName === "string" ? search.newStudentName : undefined,

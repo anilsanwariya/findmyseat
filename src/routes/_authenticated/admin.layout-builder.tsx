@@ -76,7 +76,7 @@ import {
 
 
 export const Route = createFileRoute("/_authenticated/admin/layout-builder")({
-  head: () => ({ meta: [{ title: "Layout Builder · LibraryBandhu" }] }),
+  head: () => ({ meta: [{ title: "Layout Builder · LibraryBandhu" }, { name: "description", content: "Manage library halls, seat layouts and shift availability." }, { property: "og:title", content: "Layout Builder · LibraryBandhu" }, { property: "og:description", content: "Manage library halls, seat layouts and shift availability." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }] }),
   component: LayoutBuilderPage,
 });
 

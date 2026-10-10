@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/admin/leads")({
-  head: () => ({ meta: [{ title: "Leads · LibraryBandhu" }] }),
+  head: () => ({ meta: [{ title: "Leads · LibraryBandhu" }, { name: "description", content: "Manage study space enquiries and preferred shifts." }, { property: "og:title", content: "Leads · LibraryBandhu" }, { property: "og:description", content: "Manage study space enquiries and preferred shifts." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }] }),
   component: LeadsPage,
 });
 
