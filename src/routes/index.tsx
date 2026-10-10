@@ -1,3 +1,5 @@
+import { ShiftFilter } from "@/components/admin/ShiftFilter";
+import { SHIFT_OPTIONS } from "@/lib/shift-selection";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, useMemo, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -111,6 +113,7 @@ function Marketplace() {
     return () => { cancelled = true; };
   }, [navigate]);
 
+  const [shiftFilter, setShiftFilter] = useState("all");
   const [query, setQuery] = useState("");
   const [city, setCity] = useState<string>("");
   const [zone, setZone] = useState<string>("");
@@ -138,6 +141,7 @@ function Marketplace() {
   const results = useQuery({
     queryKey: [
       "marketplace",
+      shiftFilter,
       query,
       zone,
       examId,
@@ -148,6 +152,7 @@ function Marketplace() {
     queryFn: () =>
       search({
         data: {
+          shift: shiftFilter,
           query: query || null,
           zone: zone || null,
           exam_id: examId || null,
@@ -191,6 +196,7 @@ function Marketplace() {
   }
 
   function clearFilters() {
+    setShiftFilter("all");
     setQuery("");
     setCity("");
     setZone("");
@@ -247,7 +253,7 @@ function Marketplace() {
             Search by city, zone, or target exam. Request a seat in one tap — the library owner will reach out.
           </p>
 
-          <GlassPanel className="mx-auto mt-8 flex flex-col lg:flex-row gap-3 p-3 items-stretch lg:items-center">
+          <GlassPanel className="mx-auto mt-8 flex flex-col xl:flex-row gap-3 p-3 items-stretch lg:items-center">
             <div className="flex-1 flex items-center gap-2 rounded-lg bg-black/20 px-3 py-2.5 border border-panel-border focus-within:border-cyan/50 focus-within:ring-1 focus-within:ring-cyan/50 transition-all relative">
               <Search className="size-4 text-muted-foreground shrink-0" />
               <input
@@ -267,7 +273,8 @@ function Marketplace() {
               )}
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:flex gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:flex gap-3">
+              <ShiftFilter value={shiftFilter} onChange={setShiftFilter} />
               <Select value={city} onValueChange={(v) => setCity(v === "__all" ? "" : v)}>
                 <SelectTrigger className="bg-panel border-panel-border lg:w-[130px]">
                   <SelectValue placeholder="Any city" />
@@ -874,16 +881,18 @@ function RequestSeatDialog({ lib, onClose, exams }: { lib: any | null; onClose: 
   const [name, setName] = useState("");
   const [mobile, setMobile] = useState("");
   const [examId, setExamId] = useState<string>("");
+  const [preferredShift, setPreferredShift] = useState("unspecified");
   const [message, setMessage] = useState("");
   const mutation = useMutation({
     mutationFn: async () =>
       submit({
         data: {
-          library_id: lib!.id,
+          library_id: lib?.id ?? "",
           student_name: name.trim(),
           mobile_number: mobile,
           target_exam_id: examId || null,
           message: message.trim() || null,
+          preferred_shift: preferredShift === "unspecified" ? null : preferredShift as "morning",
         },
       }),
     onSuccess: () => {
@@ -892,6 +901,7 @@ function RequestSeatDialog({ lib, onClose, exams }: { lib: any | null; onClose: 
       setMobile("");
       setExamId("");
       setMessage("");
+      setPreferredShift("unspecified");
       onClose();
     },
     onError: (e: any) => toast.error(e.message ?? "Could not submit"),
@@ -956,6 +966,13 @@ function RequestSeatDialog({ lib, onClose, exams }: { lib: any | null; onClose: 
                   </SelectItem>
                 ))}
               </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Preferred shift</Label>
+            <Select value={preferredShift} onValueChange={setPreferredShift}>
+              <SelectTrigger aria-label="Preferred shift" className="bg-panel border-panel-border"><SelectValue /></SelectTrigger>
+              <SelectContent><SelectItem value="unspecified">Not specified</SelectItem>{SHIFT_OPTIONS.filter((o) => (lib?.available_shifts ?? []).includes(o.value)).map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div className="space-y-2">

@@ -487,7 +487,8 @@ function PaymentsPage() {
                         className="flex-1 text-muted-foreground"
                         onClick={() =>
                           setSearch({
-                            method: undefined,
+                            shift: undefined,
+                             method: undefined,
                             branch: undefined,
                             type: undefined,
                             from: undefined,
@@ -582,7 +583,8 @@ function PaymentsPage() {
                     className="text-muted-foreground self-end"
                     onClick={() =>
                       setSearch({
-                        method: undefined,
+                        shift: undefined,
+                             method: undefined,
                         branch: undefined,
                         type: undefined,
                         from: undefined,
