@@ -1,3 +1,5 @@
+import { ShiftFilter } from "@/components/admin/ShiftFilter";
+import { matchesShift } from "@/lib/shift-selection";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -22,7 +24,7 @@ import { ViewToggle, useDataView } from "@/components/admin/ViewToggle";
 
 
 export const Route = createFileRoute("/_authenticated/admin/students")({
-  head: () => ({ meta: [{ title: "Students · LibraryBandhu" }] }),
+  head: () => ({ meta: [{ title: "Students · LibraryBandhu" }, { name: "description", content: "Manage library students and filter their shift allocations." }, { property: "og:title", content: "Students · LibraryBandhu" }, { property: "og:description", content: "Manage library students and filter their shift allocations." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }] }),
   component: StudentsPage,
 });
 
@@ -30,6 +32,7 @@ function StudentsPage() {
   const { data: session } = useSession();
   const orgId = session?.orgId;
   const { data: libs } = useLibraries();
+  const [shiftFilter, setShiftFilter] = useState("all");
   const [q, setQ] = useState("");
   const [tab, setTab] = useState<"active" | "inactive">("active");
   const [libraryFilter, setLibraryFilter] = useState<string>("all");
@@ -49,6 +52,7 @@ function StudentsPage() {
         orgId,
         libraryId: libraryFilter === "all" ? null : libraryFilter,
         isActive: tab === "active",
+        shiftFilter,
       });
       if (!rows.length) {
         toast.info("No students to export for this filter.");
@@ -73,7 +77,7 @@ function StudentsPage() {
       let query = supabase
         .from("students")
         .select(
-          "id, full_name, mobile_number, dob, requires_pin_change, is_active, created_at, library_id, target_exam_id, address, notes, photo_url, id_card_url, libraries(name), master_exams(name), allocations(is_active)",
+          "id, full_name, mobile_number, dob, requires_pin_change, is_active, created_at, library_id, target_exam_id, address, notes, photo_url, id_card_url, libraries(name), master_exams(name), allocations(is_active, created_at, shifts(name))",
         )
         .eq("org_id", orgId!)
         .eq("is_active", tab === "active")
@@ -87,6 +91,10 @@ function StudentsPage() {
     },
   });
 
+  const visibleStudents = (students.data ?? []).filter((s: any) => {
+    const rows = tab === "active" ? s.allocations?.filter((a: any) => a.is_active) : s.allocations;
+    return shiftFilter === "all" || (rows ?? []).some((a: any) => matchesShift(a.shifts?.name, shiftFilter));
+  });
   const invalidate = () => qc.invalidateQueries({ queryKey: ["students"] });
 
   return (
@@ -172,13 +180,14 @@ function StudentsPage() {
                 </button>
               )}
             </div>
+            <ShiftFilter value={shiftFilter} onChange={setShiftFilter} />
             <ViewToggle value={view} onChange={setView} />
           </div>
         </div>
 
         {view === "cards" ? (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {(students.data ?? []).map((s: any) => {
+            {visibleStudents.map((s: any) => {
               const hasActiveSeat = s.allocations?.some((a: any) => a.is_active);
               return (
                 <div key={s.id} className="rounded-xl border border-panel-border bg-panel p-3">
@@ -217,7 +226,7 @@ function StudentsPage() {
                 </div>
               );
             })}
-            {(students.data ?? []).length === 0 && (
+            {visibleStudents.length === 0 && (
               <p className="col-span-full py-8 text-center text-sm text-muted-foreground">
                 {tab === "inactive" ? "No inactive students." : "No students found."}
               </p>
@@ -236,7 +245,7 @@ function StudentsPage() {
                 </tr>
               </thead>
               <tbody>
-                {(students.data ?? []).map((s: any) => {
+                {visibleStudents.map((s: any) => {
                   const hasActiveSeat = s.allocations?.some((a: any) => a.is_active);
                   return (
                     <tr
@@ -269,7 +278,7 @@ function StudentsPage() {
                     </tr>
                   );
                 })}
-                {(students.data ?? []).length === 0 && (
+                {visibleStudents.length === 0 && (
                   <tr>
                     <td colSpan={tab === "active" ? 5 : 4} className="py-8 text-center text-sm text-muted-foreground">
                       {tab === "inactive" ? "No inactive students." : "No students found."}

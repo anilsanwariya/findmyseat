@@ -1,3 +1,5 @@
+import { selectableShifts, matchesShift as matchesShiftPackage } from "@/lib/shift-selection";
+import { ShiftFilter } from "@/components/admin/ShiftFilter";
 import { invalidateBillingCaches } from "@/lib/cache";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
@@ -47,7 +49,7 @@ import { feeStatus, friendlySeatError, openShifts, seatFreeFor, seatState, sella
 import { STATUS_META, worstStatus, type SeatStatus } from "@/lib/layout-types";
 
 export const Route = createFileRoute("/_authenticated/admin/allocations")({
-  head: () => ({ meta: [{ title: "Allocations · LibraryBandhu" }] }),
+  head: () => ({ meta: [{ title: "Allocations · LibraryBandhu" }, { name: "description", content: "Manage student seat allocations and shift availability." }, { property: "og:title", content: "Allocations · LibraryBandhu" }, { property: "og:description", content: "Manage student seat allocations and shift availability." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }] }),
   validateSearch: (search: Record<string, unknown>) => ({
     newStudentId: typeof search.newStudentId === "string" ? search.newStudentId : undefined,
     newStudentName: typeof search.newStudentName === "string" ? search.newStudentName : undefined,
@@ -239,7 +241,7 @@ function AllocationsPage() {
         (statusFilter === "unassigned" ? isUnassigned : effectiveStatus(a, partialPaidFor(a)) === statusFilter);
 
       const shiftName = a.shifts?.name ?? "__full_day__";
-      const matchesShift = shiftFilter === "all" || shiftName === shiftFilter;
+      const matchesShift = matchesShiftPackage(a.shifts?.name, shiftFilter);
 
       return matchesSearch && matchesStatus && matchesShift;
     });
@@ -286,14 +288,7 @@ function AllocationsPage() {
   // Shifts sold in this section (allowed by its settings), one per name.
   const sectionShifts = useMemo(() => {
     const seen = new Set<string>();
-    return sellableShifts(currentSectionId, booked.data?.shifts ?? []).filter((sh) => {
-      const cls = classifyShiftByName(sh.name || "");
-      if (cls && currentSection && !(currentSection as any)[cls.allowKey]) return false;
-      const k = (sh.name || "").trim().toLowerCase();
-      if (seen.has(k)) return false;
-      seen.add(k);
-      return true;
-    });
+    return selectableShifts(booked.data?.shifts ?? [], currentSectionId, currentSection, booked.data?.timingText, booked.data?.configured);
   }, [booked.data, currentSectionId, currentSection]);
 
   const allocsBySeat = useMemo(() => {
@@ -736,20 +731,7 @@ function AllocationsPage() {
                 <SelectItem value="unassigned">Unassigned</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={shiftFilter} onValueChange={setShiftFilter}>
-              <SelectTrigger className="w-full md:w-36 lg:w-40 bg-panel border-panel-border">
-                <SelectValue placeholder="Shift Filter" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Shifts</SelectItem>
-                {shiftOptions.hasFullDay && <SelectItem value="__full_day__">Full day</SelectItem>}
-                {shiftOptions.names.map((n) => (
-                  <SelectItem key={n} value={n}>
-                    {n}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <ShiftFilter value={shiftFilter} onChange={setShiftFilter} />
           </div>
           <ViewToggle value={view} onChange={setView} />
         </div>
@@ -1219,16 +1201,10 @@ function NewAllocDialog({
     enabled: !!libraryId,
     queryFn: async () => {
       let q = supabase.from("shifts").select("id, name, section_id, base_fee").eq("library_id", libraryId);
-      if (sectionId) q = q.eq("section_id", sectionId);
-      const rows = (await q).data ?? [];
-      const seen = new Set<string>();
-      return rows.filter((r: any) => {
-        const cls = classifyShiftByName(r.name || "");
-        const key = cls?.allowKey || (r.name || "").toLowerCase();
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
+      if (sectionId) q = q.or(`section_id.eq.${sectionId},section_id.is.null`);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data ?? [];
     },
   });
 
@@ -1283,7 +1259,7 @@ function NewAllocDialog({
       )[0];
     if (!prior) return;
     const nextShift = prior.shift_id ?? "none";
-    const shiftAvailable = nextShift === "none" || (shifts.data ?? []).some((sh: any) => sh.id === nextShift);
+    const shiftAvailable = nextShift === "none" || selectableShifts(shifts.data ?? [], sectionId, currentSection, booked.data?.timingText, booked.data?.configured).some((sh: any) => sh.id === nextShift);
     skipFeeCalc.current = true;
     if (shiftAvailable) setShiftId(nextShift);
     if (prior.monthly_fee != null) setFee(Number(prior.monthly_fee));
@@ -1356,6 +1332,10 @@ function NewAllocDialog({
             return;
           }
 
+          if (shiftId && shiftId !== "none" && !selectableShifts(shifts.data ?? [], sectionId, currentSection, booked.data?.timingText, booked.data?.configured).some((s) => s.id === shiftId)) {
+            toast.error("Choose an enabled shift for this hall.");
+            return;
+          }
           setLoading(true);
 
           // Carry over any existing paid coverage so a seat change (or re-allocation after
@@ -1679,7 +1659,7 @@ function NewAllocDialog({
                     </SelectItem>
                   );
                 })()}
-                {(shifts.data ?? []).map((s: any) => {
+                {selectableShifts(shifts.data ?? [], sectionId, currentSection, booked.data?.timingText, booked.data?.configured).map((s: any) => {
                   const cls = classifyShiftByName(s.name || "");
                   const notAllowed = !!currentSection && !!cls && !(currentSection as any)[cls.allowKey];
                   const taken = reservationType === "reserved" && !!seatId && !seatFree(seatId, s.id);

@@ -1,3 +1,4 @@
+import { selectableShifts } from "@/lib/shift-selection";
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -75,7 +76,7 @@ import {
 
 
 export const Route = createFileRoute("/_authenticated/admin/layout-builder")({
-  head: () => ({ meta: [{ title: "Layout Builder · LibraryBandhu" }] }),
+  head: () => ({ meta: [{ title: "Layout Builder · LibraryBandhu" }, { name: "description", content: "Manage library halls, seat layouts and shift availability." }, { property: "og:title", content: "Layout Builder · LibraryBandhu" }, { property: "og:description", content: "Manage library halls, seat layouts and shift availability." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }] }),
   component: LayoutBuilderPage,
 });
 
@@ -245,14 +246,8 @@ function LayoutBuilderPage() {
   useEffect(() => setOccShift("all"), [currentSectionId]);
   const occShiftOptions = useMemo(() => {
     const seen = new Set<string>();
-    return (booked.data?.shifts ?? []).filter((sh) => {
-      if (sh.section_id && sh.section_id !== currentSectionId) return false;
-      const k = (sh.name || "").trim().toLowerCase();
-      if (seen.has(k)) return false;
-      seen.add(k);
-      return true;
-    });
-  }, [booked.data, currentSectionId]);
+    return selectableShifts(booked.data?.shifts ?? [], currentSectionId, currentSection, booked.data?.timingText, booked.data?.configured);
+  }, [booked.data, currentSectionId, currentSection]);
 
   const grid = useMemo(() => {
     if (!currentSection) return null;
@@ -924,6 +919,7 @@ function LayoutBuilderPage() {
                 orgId={orgId}
                 onCreated={(id) => {
                   qc.invalidateQueries({ queryKey: ["sections", currentLibId] });
+                  qc.invalidateQueries({ queryKey: ["seat-bookings", currentLibId] });
                   setSectionId(id);
                 }}
               />
@@ -944,7 +940,12 @@ function LayoutBuilderPage() {
                   open={editSectionOpen}
                   onOpenChange={setEditSectionOpen}
                   section={currentSection}
-                  onSaved={() => qc.invalidateQueries({ queryKey: ["sections", currentLibId] })}
+                  onSaved={() => {
+                    qc.invalidateQueries({ queryKey: ["sections", currentLibId] });
+                    qc.invalidateQueries({ queryKey: ["seat-bookings", currentLibId] });
+                    qc.invalidateQueries({ queryKey: ["shifts-for-alloc", currentLibId] });
+                    qc.invalidateQueries({ queryKey: ["shifts-for-edit", currentLibId] });
+                  }}
                 />
               </div>
             )}
@@ -1754,16 +1755,18 @@ async function syncSectionShifts(
     const match = byKey.get(s.key);
     if (match) {
       if (Number(match.base_fee ?? 0) !== fee) {
-        await supabase.from("shifts").update({ base_fee: fee, name: s.label }).eq("id", match.id);
+        const { error } = await supabase.from("shifts").update({ base_fee: fee, name: s.label }).eq("id", match.id);
+        if (error) throw error;
       }
     } else {
-      await supabase.from("shifts").insert({
+      const { error } = await supabase.from("shifts").insert({
         section_id: sectionId,
         library_id: libraryId,
         org_id: orgId,
         name: s.label,
         base_fee: fee,
       } as any);
+      if (error) throw error;
     }
   }
 }
@@ -1827,7 +1830,14 @@ function AddSectionDialog({
               toast.error(error.message);
               return;
             }
-            await syncSectionShifts(data.id, libraryId, orgId, allows, fees);
+            try {
+              await syncSectionShifts(data.id, libraryId, orgId, allows, fees);
+            } catch (err) {
+              toast.error(err instanceof Error ? err.message : "Unable to save section shifts");
+              onCreated(data.id);
+              onOpenChange(false);
+              return;
+            }
             toast.success("Section created");
             onCreated(data.id);
             onOpenChange(false);
@@ -1963,7 +1973,14 @@ function EditSectionDialog({
               toast.error(error.message);
               return;
             }
-            await syncSectionShifts(section.id, section.library_id, section.org_id, allows, fees);
+            try {
+              await syncSectionShifts(section.id, section.library_id, section.org_id, allows, fees);
+            } catch (err) {
+              setSaving(false);
+              toast.error(err instanceof Error ? err.message : "Unable to save section shifts");
+              onSaved();
+              return;
+            }
             setSaving(false);
             toast.success("Section updated");
             onSaved();

@@ -16,3 +16,7 @@
 - Payment-page previews use loader-fed branch cover metadata from a narrow public RPC, taking the first ordered gallery photo with the legacy cover field as fallback to match branch settings; never put shared preview images on the root route.
 - Personalize the public homepage after hydration using the existing session classifier, sending only library owners to /admin with history replacement; keep public SSR discovery and the protected dashboard's session validation intact.
 - Dashboard overdue balances use a shared calendar-cycle helper starting at the first unsettled due date, credit payments extending beyond that date, and leave monthly revenue calculations separate; settled payments and waivers already advance coverage and must not be deducted twice.
+
+- Use shared exact shift-package keys for register filters, and time-overlap checks for seat availability; these are distinct questions and combined shifts must not silently match single-package filters.
+- Branch schedule configuration controls new shift sales while historical bookings keep fallback occupancy; enforce scoped shift permissions and serialized overlap checks in database triggers so concurrent bookings cannot bypass the UI.
+- Student floor-plan availability uses the authenticated, membership-scoped aggregate RPC returning only anonymized seat/shift bookings, never other students' identities.

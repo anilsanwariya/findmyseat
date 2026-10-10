@@ -1,3 +1,6 @@
+import { Label } from "@/components/ui/label";
+import { ShiftFilter } from "@/components/admin/ShiftFilter";
+import { matchesShift } from "@/lib/shift-selection";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
@@ -112,6 +115,7 @@ function Dashboard() {
   const can = usePermissions();
   const qc = useQueryClient();
   const { data: libs } = useLibraries();
+  const [actionShift, setActionShift] = useState("all");
   const { branch, month } = Route.useSearch();
   const navigate = useNavigate({ from: "/admin/" });
   const [profileId, setProfileId] = useState<string | null>(null);
@@ -571,6 +575,7 @@ function Dashboard() {
     [allocs],
   );
 
+  const filterActions = (rows: ActionStudent[]) => rows.filter((r) => matchesShift(allocs.find((a) => a.id === r.allocationId)?.shifts?.name, actionShift));
   const setSearch = (patch: { branch?: string; month?: string }) =>
     navigate({ search: (prev: any) => ({ ...prev, ...patch }), replace: true });
 
@@ -737,6 +742,7 @@ function Dashboard() {
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
+          <div className="mb-3 flex flex-wrap items-center gap-3"><Label className="text-sm text-muted-foreground">Student fee reminders</Label><ShiftFilter value={actionShift} onChange={setActionShift} /></div>
           {alloc.isPending ? (
             <GlassPanel className="space-y-3 p-4 sm:p-5">
               <Skeleton className="h-3 w-40 bg-white/10" />
@@ -746,10 +752,10 @@ function Dashboard() {
             </GlassPanel>
           ) : (
             <ActionList
-              awaitingFirstPayment={can.payments ? lists.awaitingFirstPayment : null}
-              overdue={lists.overdue}
-              partial={can.payments ? lists.partial : null}
-              upcoming={lists.upcoming}
+              awaitingFirstPayment={can.payments ? filterActions(lists.awaitingFirstPayment) : null}
+              overdue={filterActions(lists.overdue)}
+              partial={can.payments ? filterActions(lists.partial) : null}
+              upcoming={filterActions(lists.upcoming)}
               pendingLeads={ops.data?.pendingLeads ?? null}
               openTickets={ops.data?.openTickets ?? null}
               onOpenStudent={setProfileId}

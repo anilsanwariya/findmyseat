@@ -1,3 +1,5 @@
+import { ShiftFilter } from "@/components/admin/ShiftFilter";
+import { matchesShift } from "@/lib/shift-selection";
 import { invalidateBillingCaches } from "@/lib/cache";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect, useMemo } from "react";
@@ -67,9 +69,10 @@ function SummaryChip({
 }
 
 export const Route = createFileRoute("/_authenticated/admin/payments")({
-  head: () => ({ meta: [{ title: "Payments · LibraryBandhu" }] }),
+  head: () => ({ meta: [{ title: "Payments · LibraryBandhu" }, { name: "description", content: "Review library fee collections by branch, date and shift." }, { property: "og:title", content: "Payments · LibraryBandhu" }, { property: "og:description", content: "Review library fee collections by branch, date and shift." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }] }),
   validateSearch: (search: Record<string, unknown>) => ({
     newAllocId: typeof search.newAllocId === "string" ? search.newAllocId : undefined,
+    shift: typeof search.shift === "string" ? search.shift : undefined,
     method: typeof search.method === "string" ? search.method : undefined,
     branch: typeof search.branch === "string" ? search.branch : undefined,
     type: typeof search.type === "string" ? search.type : undefined,
@@ -157,10 +160,11 @@ function PaymentsPage() {
   const toDate = search.to ?? todayISO();
   const methodFilter = METHODS.includes(search.method as any) ? search.method! : "all";
   const branchFilter = search.branch ?? "all";
+  const shiftFilter = search.shift ?? "all";
   const typeFilter = ["full", "partial", "discounted"].includes(search.type ?? "") ? search.type! : "all";
   const filtersActive =
-    methodFilter !== "all" || branchFilter !== "all" || typeFilter !== "all" || !!search.from || !!search.to;
-  const activeFilterCount = [methodFilter, branchFilter, typeFilter].filter((v) => v !== "all").length;
+    shiftFilter !== "all" || methodFilter !== "all" || branchFilter !== "all" || typeFilter !== "all" || !!search.from || !!search.to;
+  const activeFilterCount = [methodFilter, branchFilter, typeFilter, shiftFilter].filter((v) => v !== "all").length;
   const activeRange = RANGE_PRESETS.find((r) => {
     const { from, to } = r.range();
     return from === fromDate && to === toDate;
@@ -181,6 +185,7 @@ function PaymentsPage() {
 
   const filterFields = (
     <>
+      <div className="space-y-1 w-full sm:w-44"><Label className="text-[10px] uppercase text-muted-foreground">Shift</Label><ShiftFilter value={shiftFilter} onChange={(v) => setSearch({ shift: v === "all" ? undefined : v })} unspecified /></div>
       <div className="space-y-1 w-full sm:w-36">
         <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Method</Label>
         <Select value={methodFilter} onValueChange={(v) => setSearch({ method: v === "all" ? undefined : v })}>
@@ -238,7 +243,7 @@ function PaymentsPage() {
       let q = sb
         .from("payments")
         .select(
-          "id, amount_paid, payment_date, method, reference_note, transaction_reference, receipt_url, covers_until, is_partial, student_id, library_id, collected_by_staff_id, students(full_name, mobile_number), libraries(name), allocations(monthly_fee), collector:staff_profiles!payments_collected_by_staff_id_fkey(full_name, employee_id)",
+          "id, amount_paid, payment_date, method, reference_note, transaction_reference, receipt_url, covers_until, is_partial, student_id, library_id, collected_by_staff_id, students(full_name, mobile_number), libraries(name), allocation_id, allocations(monthly_fee, shifts(name)), collector:staff_profiles!payments_collected_by_staff_id_fkey(full_name, employee_id)",
         )
         .eq("org_id", orgId!)
         .gte("payment_date", fromDate)
@@ -274,13 +279,14 @@ function PaymentsPage() {
           p.transaction_reference?.toLowerCase().includes(q);
         if (!hit) return false;
       }
+      if (shiftFilter === "unspecified" ? !!p.allocation_id : shiftFilter !== "all" && (!p.allocations || !matchesShift(p.allocations.shifts?.name, shiftFilter))) return false;
       if (methodFilter !== "all" && p.method !== methodFilter) return false;
       if (typeFilter === "partial" && !p.is_partial) return false;
       if (typeFilter === "discounted" && !isDiscounted(p)) return false;
       if (typeFilter === "full" && (p.is_partial || isDiscounted(p))) return false;
       return true;
     });
-  }, [payments.data, searchQuery, methodFilter, typeFilter]);
+  }, [payments.data, searchQuery, methodFilter, typeFilter, shiftFilter]);
 
   const summary = useMemo(() => {
     const byMethod: Record<string, { amount: number; count: number }> = {};
@@ -481,7 +487,8 @@ function PaymentsPage() {
                         className="flex-1 text-muted-foreground"
                         onClick={() =>
                           setSearch({
-                            method: undefined,
+                            shift: undefined,
+                             method: undefined,
                             branch: undefined,
                             type: undefined,
                             from: undefined,
@@ -576,7 +583,8 @@ function PaymentsPage() {
                     className="text-muted-foreground self-end"
                     onClick={() =>
                       setSearch({
-                        method: undefined,
+                        shift: undefined,
+                             method: undefined,
                         branch: undefined,
                         type: undefined,
                         from: undefined,

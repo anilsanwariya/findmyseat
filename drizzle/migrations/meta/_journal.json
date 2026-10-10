@@ -57,6 +57,20 @@
       "when": 1791430729296,
       "tag": "0007_use_gallery_cover_for_payment_preview",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791604338676,
+      "tag": "0008_enforce_shift_schedules_and_seat_overlap",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791604503692,
+      "tag": "0009_safe_student_shift_availability",
+      "breakpoints": true
     }
   ]
 }

@@ -1,3 +1,6 @@
+import { parseBranchTimings } from "@/lib/branch-timings";
+import { selectableShifts } from "@/lib/shift-selection";
+import { seatFreeFor, type ShiftTimes, type SeatBooking } from "@/lib/seat-status";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -49,7 +52,7 @@ import {
 import { useConfirm } from "@/components/ConfirmDialog";
 
 export const Route = createFileRoute("/_authenticated/student")({
-  head: () => ({ meta: [{ title: "My Study Space · LibraryBandhu" }] }),
+  head: () => ({ meta: [{ title: "My Study Space · LibraryBandhu" }, { name: "description", content: "View your study space, student fees and seat availability." }, { property: "og:title", content: "My Study Space · LibraryBandhu" }, { property: "og:description", content: "View your study space, student fees and seat availability." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }] }),
   component: StudentApp,
 });
 
@@ -657,6 +660,7 @@ function EmailVerificationGate({ profile }: { profile: any }) {
 // ==========================================
 function StudentSeatMapDialog({ libraryId }: { libraryId: string }) {
   const [open, setOpen] = useState(false);
+  const [mapShift, setMapShift] = useState("all");
   const [sectionId, setSectionId] = useState<string | undefined>();
   const [selectedSeat, setSelectedSeat] = useState<any | null>(null);
 
@@ -670,6 +674,18 @@ function StudentSeatMapDialog({ libraryId }: { libraryId: string }) {
   const currentSectionId = sectionId ?? sectionsQ.data?.[0]?.id;
   const currentSection = sectionsQ.data?.find((s: any) => s.id === currentSectionId);
 
+  const availability = useQuery({
+    queryKey: ["student-shift-availability", libraryId], enabled: open,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("student_shift_availability", { p_library_id: libraryId });
+      if (error) throw error;
+      return data as unknown as { shifts: ShiftTimes[]; bookings: SeatBooking[]; timingText: string | null; configured: boolean };
+    },
+  });
+  const timedShifts = (availability.data?.shifts ?? []).map((s) => ({ ...s, timings: parseBranchTimings(availability.data?.timingText) }));
+  const shiftLookup = new Map(timedShifts.map((s) => [s.id, s]));
+  const choices = selectableShifts(timedShifts, currentSectionId, currentSection, availability.data?.timingText, availability.data?.configured);
+  useEffect(() => { setMapShift("all"); setSelectedSeat(null); }, [currentSectionId]);
   const layoutData = useQuery({
     queryKey: ["layout", currentSectionId],
     enabled: !!currentSectionId && open,
@@ -693,12 +709,16 @@ function StudentSeatMapDialog({ libraryId }: { libraryId: string }) {
   const mapSeats = useMemo(() => {
     if (!layoutData.data) return [];
     return layoutData.data.seats.map((seat: any) => {
-      const seatAllocs = layoutData.data.allocs.filter((a: any) => a.seat_id === seat.id);
-      const isFullDay = seatAllocs.some((a: any) => !a.shifts);
-      const shifts = seatAllocs.filter((a: any) => a.shifts).map((a: any) => a.shifts.name);
-      return { ...seat, isOccupied: seatAllocs.length > 0, isFullDay, shifts };
+      const bookings = availability.data?.bookings ?? [];
+      const seatAllocs = bookings.filter((a) => a.seat_id === seat.id);
+      const isFullDay = seatAllocs.some((a) => !a.shift_id || /24|full/i.test(shiftLookup.get(a.shift_id)?.name ?? ""));
+      const shifts = seatAllocs.map((a) => a.shift_id ? shiftLookup.get(a.shift_id)?.name : "Full day").filter(Boolean);
+      const openChoices = choices.filter((s) => seatFreeFor(seat.id, s.id, bookings, shiftLookup));
+      const fullDayFree = !!currentSection?.allow_full_day && seatFreeFor(seat.id, null, bookings, shiftLookup);
+      const isOccupied = !availability.data || (mapShift === "all" ? seatAllocs.length > 0 : !seatFreeFor(seat.id, mapShift === "none" ? null : mapShift, bookings, shiftLookup));
+      return { ...seat, isOccupied, isFullDay, shifts, openNames: [...(fullDayFree ? ["Full day"] : []), ...openChoices.map((s) => s.name)] };
     });
-  }, [layoutData.data]);
+  }, [layoutData.data, availability.data, currentSection, mapShift]);
 
   // Layout processing for Walls/Areas (Matches Admin)
   const processedLayout = useMemo(() => {
@@ -767,6 +787,10 @@ function StudentSeatMapDialog({ libraryId }: { libraryId: string }) {
         <DialogHeader className="p-4 md:p-6 border-b border-panel-border/50 bg-black/20 flex-shrink-0">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <DialogTitle>Library Floor Plan</DialogTitle>
+            <Select value={mapShift} onValueChange={(v) => { setMapShift(v); setSelectedSeat(null); }}>
+              <SelectTrigger aria-label="Show seats for shift" className="w-full sm:w-48 bg-panel border-panel-border"><SelectValue /></SelectTrigger>
+              <SelectContent><SelectItem value="all">All shifts</SelectItem>{currentSection?.allow_full_day && <SelectItem value="none">Full day</SelectItem>}{choices.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+            </Select>
             <Select
               value={currentSectionId ?? ""}
               onValueChange={(v) => {
@@ -788,6 +812,7 @@ function StudentSeatMapDialog({ libraryId }: { libraryId: string }) {
           </div>
         </DialogHeader>
 
+        {availability.isError && <p role="alert" className="px-4 text-sm text-rose">Seat availability could not load. Please reopen the floor plan.</p>}
         <div className="flex-1 overflow-auto bg-black/40 touch-pan-x touch-pan-y custom-scrollbar p-6 relative flex justify-center items-start">
           {currentSection && (
             <div
@@ -924,7 +949,7 @@ function StudentSeatMapDialog({ libraryId }: { libraryId: string }) {
                     <div className="text-rose bg-rose/10 px-2 py-0.5 rounded text-[10px] font-medium border border-rose/20">
                       Reserved: {selectedSeat.shifts.join(", ")}
                     </div>
-                    <div className="text-emerald text-[10px]">Other shifts vacant</div>
+                    <div className="text-[10px] text-muted-foreground">{selectedSeat.openNames?.length ? `Available: ${selectedSeat.openNames.join(", ")}` : "No enabled shifts available"}</div>
                   </div>
                 ) : (
                   <div className="inline-flex items-center gap-1.5 text-emerald bg-emerald/10 px-2.5 py-1 rounded text-xs font-medium border border-emerald/20">

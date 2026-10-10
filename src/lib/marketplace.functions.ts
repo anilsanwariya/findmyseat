@@ -1,3 +1,6 @@
+import { selectableShifts, shiftKey, SHIFT_OPTIONS } from "@/lib/shift-selection";
+import { shiftsOverlap, withBranchTimings } from "@/lib/dashboard-metrics";
+import { parseBranchTimings } from "@/lib/branch-timings";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
@@ -18,6 +21,7 @@ export const marketplaceSearch = createServerFn({ method: "POST" })
       .object({
         query: z.string().trim().max(120).optional().nullable(),
         zone: z.string().trim().max(120).optional().nullable(),
+        shift: z.string().optional().nullable(),
         exam_id: z.string().uuid().optional().nullable(),
         near_lat: z.number().gte(-90).lte(90).optional().nullable(),
         near_lng: z.number().gte(-180).lte(180).optional().nullable(),
@@ -40,7 +44,7 @@ export const marketplaceSearch = createServerFn({ method: "POST" })
       .from("libraries")
       // Added our new columns to the select query
       .select(
-        "id, org_id, name, zone_area, city, address, google_maps_url, opening_hours, shifts, closed_on, amenities, cover_photo_url, description, show_public_availability, targeted_exam_ids, is_active, latitude, longitude",
+        "id, org_id, name, zone_area, city, address, google_maps_url, opening_hours, shifts, shift_schedule_configured, closed_on, amenities, cover_photo_url, description, show_public_availability, targeted_exam_ids, is_active, latitude, longitude",
       )
       .eq("is_active", true)
       .eq("approval_status", "approved");
@@ -53,11 +57,11 @@ export const marketplaceSearch = createServerFn({ method: "POST" })
     if (!libraries.length) return { libraries: [] as any[] };
 
     const libIds = libraries.map((l: any) => l.id);
-    const [seatsRes, allocsRes, examsRes, photosRes, ratingsRes] = await Promise.all([
-      supabaseAdmin.from("seats").select("id, library_id").in("library_id", libIds).eq("is_active", true),
+    const [seatsRes, allocsRes, examsRes, photosRes, ratingsRes, shiftsRes, sectionsRes] = await Promise.all([
+      supabaseAdmin.from("seats").select("id, library_id, section_id").in("library_id", libIds).eq("is_active", true),
       supabaseAdmin
         .from("allocations")
-        .select("library_id, seat_id, student_id")
+        .select("library_id, seat_id, student_id, shift_id")
         .eq("is_active", true)
         .in("library_id", libIds),
       supabaseAdmin.from("master_exams").select("id, name"),
@@ -67,6 +71,8 @@ export const marketplaceSearch = createServerFn({ method: "POST" })
         .in("library_id", libIds)
         .order("display_order", { ascending: true }),
       supabaseAdmin.from("library_ratings").select("library_id, overall_rating").in("library_id", libIds),
+      supabaseAdmin.from("shifts").select("id, name, library_id, section_id, start_time, end_time").in("library_id", libIds),
+      supabaseAdmin.from("sections").select("*").in("library_id", libIds),
     ]);
 
     const seats = seatsRes.data ?? [];
@@ -105,8 +111,23 @@ export const marketplaceSearch = createServerFn({ method: "POST" })
       const libSeats = seats.filter((s: any) => s.library_id === l.id);
       const libAllocs = allocs.filter((a: any) => a.library_id === l.id);
       const total = libSeats.length;
-      const occupied = libAllocs.length;
-      const vacant = Math.max(0, total - occupied);
+      const occupied = new Set(libAllocs.filter((a: any) => a.seat_id).map((a: any) => a.seat_id)).size;
+      const branchShifts = withBranchTimings((shiftsRes.data ?? []).filter((s) => s.library_id === l.id), () => parseBranchTimings(l.shifts));
+      const shiftMap = new Map(branchShifts.map((s) => [s.id, s]));
+      const branchSections = (sectionsRes.data ?? []).filter((sec) => sec.library_id === l.id);
+      const availableKeys = new Set<string>();
+      const targetsBySection = new Map<string, (typeof branchShifts[number] | null)[]>();
+      for (const section of branchSections) {
+        const choices = selectableShifts(branchShifts, section.id, section, l.shifts, l.shift_schedule_configured);
+        const targets = [...(section.allow_full_day ? [null] : []), ...choices];
+        targetsBySection.set(section.id, targets);
+        for (const target of targets) availableKeys.add(shiftKey(target?.name));
+      }
+      const vacant = libSeats.filter((seat: any) => {
+        const targets = (targetsBySection.get(seat.section_id) ?? []).filter((s) => !data.shift || data.shift === "all" || shiftKey(s?.name) === data.shift);
+        const bookings = libAllocs.filter((a: any) => a.seat_id === seat.id);
+        return targets.some((target) => !bookings.some((a: any) => shiftsOverlap(a.shift_id ? shiftMap.get(a.shift_id) : null, target)));
+      }).length;
       const examCounts = new Map<string, number>();
       for (const a of libAllocs) {
         const ex = studentExam.get(a.student_id);
@@ -142,6 +163,7 @@ export const marketplaceSearch = createServerFn({ method: "POST" })
         google_maps_url: l.google_maps_url,
         opening_hours: l.opening_hours,
         shifts: l.shifts,
+        available_shifts: [...availableKeys],
         closed_on: l.closed_on,
         amenities: l.amenities ?? {},
         cover_photo_url: firstPhotoByLib.get(l.id) ?? l.cover_photo_url,
@@ -159,7 +181,7 @@ export const marketplaceSearch = createServerFn({ method: "POST" })
     });
 
 
-    let final = mapped;
+    let final = mapped.filter((l) => !data.shift || data.shift === "all" || l.available_shifts.includes(data.shift));
     if (nearOrigin) {
       if (radius) final = final.filter((l) => l.distance_km !== null && (l.distance_km as number) <= radius);
       final = final.slice().sort((a, b) => {
@@ -215,6 +237,7 @@ export const submitSeatRequest = createServerFn({ method: "POST" })
         mobile_number: z.string().regex(/^[0-9]{10}$/),
         target_exam_id: z.string().uuid().optional().nullable(),
         message: z.string().trim().max(1000).optional().nullable(),
+        preferred_shift: z.enum(["full_day", "morning", "evening", "night", "morning_night", "evening_night", "24_hrs"]).optional().nullable(),
       })
       .parse(d),
   )
@@ -233,6 +256,7 @@ export const submitSeatRequest = createServerFn({ method: "POST" })
       mobile_number: data.mobile_number,
       target_exam_id: data.target_exam_id ?? null,
       message: data.message ?? null,
+      preferred_shift: data.preferred_shift ?? null,
       status: "pending",
     });
     if (error) throw new Error(error.message);
