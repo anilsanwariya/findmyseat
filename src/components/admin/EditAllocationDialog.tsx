@@ -110,16 +110,9 @@ export function EditAllocationDialog({
     queryFn: async () => {
       let q = supabase.from("shifts").select("id, name, section_id, base_fee").eq("library_id", alloc.library_id);
       if (sectionId) q = q.or(`section_id.eq.${sectionId},section_id.is.null`);
-      const rows = (await q).data ?? [];
-      // Dedupe by classified shift key (fallback to name) — legacy rows can create duplicates.
-      const seen = new Set<string>();
-      return rows.filter((r: any) => {
-        const cls = classifyShiftByName(r.name || "");
-        const key = cls?.allowKey || (r.name || "").toLowerCase();
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
+      const { data, error } = await q;
+      if (error) throw error;
+      return data ?? [];
     },
   });
 

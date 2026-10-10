@@ -919,6 +919,7 @@ function LayoutBuilderPage() {
                 orgId={orgId}
                 onCreated={(id) => {
                   qc.invalidateQueries({ queryKey: ["sections", currentLibId] });
+                  qc.invalidateQueries({ queryKey: ["seat-bookings", currentLibId] });
                   setSectionId(id);
                 }}
               />
@@ -939,7 +940,12 @@ function LayoutBuilderPage() {
                   open={editSectionOpen}
                   onOpenChange={setEditSectionOpen}
                   section={currentSection}
-                  onSaved={() => qc.invalidateQueries({ queryKey: ["sections", currentLibId] })}
+                  onSaved={() => {
+                    qc.invalidateQueries({ queryKey: ["sections", currentLibId] });
+                    qc.invalidateQueries({ queryKey: ["seat-bookings", currentLibId] });
+                    qc.invalidateQueries({ queryKey: ["shifts-for-alloc", currentLibId] });
+                    qc.invalidateQueries({ queryKey: ["shifts-for-edit", currentLibId] });
+                  }}
                 />
               </div>
             )}
@@ -1824,7 +1830,14 @@ function AddSectionDialog({
               toast.error(error.message);
               return;
             }
-            await syncSectionShifts(data.id, libraryId, orgId, allows, fees);
+            try {
+              await syncSectionShifts(data.id, libraryId, orgId, allows, fees);
+            } catch (err) {
+              toast.error(err instanceof Error ? err.message : "Unable to save section shifts");
+              onCreated(data.id);
+              onOpenChange(false);
+              return;
+            }
             toast.success("Section created");
             onCreated(data.id);
             onOpenChange(false);
@@ -1960,7 +1973,14 @@ function EditSectionDialog({
               toast.error(error.message);
               return;
             }
-            await syncSectionShifts(section.id, section.library_id, section.org_id, allows, fees);
+            try {
+              await syncSectionShifts(section.id, section.library_id, section.org_id, allows, fees);
+            } catch (err) {
+              setSaving(false);
+              toast.error(err instanceof Error ? err.message : "Unable to save section shifts");
+              onSaved();
+              return;
+            }
             setSaving(false);
             toast.success("Section updated");
             onSaved();

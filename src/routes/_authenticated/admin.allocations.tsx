@@ -1202,15 +1202,9 @@ function NewAllocDialog({
     queryFn: async () => {
       let q = supabase.from("shifts").select("id, name, section_id, base_fee").eq("library_id", libraryId);
       if (sectionId) q = q.or(`section_id.eq.${sectionId},section_id.is.null`);
-      const rows = (await q).data ?? [];
-      const seen = new Set<string>();
-      return rows.filter((r: any) => {
-        const cls = classifyShiftByName(r.name || "");
-        const key = cls?.allowKey || (r.name || "").toLowerCase();
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
+      const { data, error } = await q;
+      if (error) throw error;
+      return data ?? [];
     },
   });
 
