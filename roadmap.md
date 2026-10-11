@@ -1,5 +1,9 @@
 # Roadmap
 
+## Full day distinction
+- [ ] Use Morning + Evening for Full day in shared availability and database booking checks; keep 24 Hrs whole-day.
+- [ ] Update floor-plan occupancy and verify branch-specific timing boundaries with regression tests.
+
 ## Shift consistency
 - [x] Validate branch schedules and refresh shift availability after edits.
 - [x] Enforce seat overlap and shift scope/permissions for new or changed allocations without changing existing bookings.
