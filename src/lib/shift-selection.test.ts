@@ -32,7 +32,7 @@ describe("shift schedules and selections", () => {
   });
   it("does not count Night-only bookings as taking a Full day slot", () => {
     const shifts = [{ id: "n", name: "Night", library_id: "branch", timings: parseBranchTimings(schedule) }];
-    const counts = shiftOccupancy(shifts, [{ id: "seat", library_id: "branch", section_id: "hall" }], [{ seat_id: "seat", shift_id: "n" }]);
+    const counts = shiftOccupancy(shifts, [{ id: "seat", library_id: "branch", section_id: "hall" }], [{ seat_id: "seat", shift_id: "n", library_id: "branch" }]);
     expect(counts.find((s) => s.name === "Full day")?.taken).toBe(0);
     expect(counts.find((s) => s.name === "Night")?.taken).toBe(1);
   });

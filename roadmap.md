@@ -1,8 +1,9 @@
 # Roadmap
 
 ## Full day distinction
-- [ ] Use Morning + Evening for Full day in shared availability and database booking checks; keep 24 Hrs whole-day.
-- [ ] Update floor-plan occupancy and verify branch-specific timing boundaries with regression tests.
+- [x] Use Morning + Evening for Full day in shared availability and database booking checks; keep 24 Hrs whole-day.
+- [x] Update floor-plan occupancy and verify branch-specific timing boundaries; 27 focused and regression tests pass.
+- [ ] Verify an owner booking Full day and Night on the same seat through the UI; no available owner workspace session.
 
 ## Shift consistency
 - [x] Validate branch schedules and refresh shift availability after edits.
