@@ -892,7 +892,7 @@ function RequestSeatDialog({ lib, onClose, exams }: { lib: any | null; onClose: 
           mobile_number: mobile,
           target_exam_id: examId || null,
           message: message.trim() || null,
-          preferred_shift: preferredShift === "unspecified" ? null : preferredShift as "morning",
+          preferred_shift: SHIFT_OPTIONS.find((s) => s.value === preferredShift)?.value ?? null,
         },
       }),
     onSuccess: () => {

@@ -690,19 +690,17 @@ function StudentSeatMapDialog({ libraryId }: { libraryId: string }) {
     queryKey: ["layout", currentSectionId],
     enabled: !!currentSectionId && open,
     queryFn: async () => {
-      const [seats, objs, allocs] = await Promise.all([
+      if (!currentSectionId) return { seats: [], objs: [] };
+      const [seats, objs] = await Promise.all([
         supabase
           .from("seats")
           .select("id, section_id, library_id, org_id, seat_number, row_position, column_position, facing_direction, is_active, created_at")
-          .eq("section_id", currentSectionId!),
-        supabase.from("layout_objects").select("*").eq("section_id", currentSectionId!),
-        supabase
-          .from("allocations")
-          .select("seat_id, shifts(name), seats!inner(section_id)")
-          .eq("seats.section_id", currentSectionId!)
-          .eq("is_active", true),
+          .eq("section_id", currentSectionId),
+        supabase.from("layout_objects").select("*").eq("section_id", currentSectionId),
       ]);
-      return { seats: seats.data ?? [], objs: objs.data ?? [], allocs: allocs.data ?? [] };
+      if (seats.error) throw seats.error;
+      if (objs.error) throw objs.error;
+      return { seats: seats.data ?? [], objs: objs.data ?? [] };
     },
   });
 

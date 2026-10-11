@@ -1119,7 +1119,7 @@ function LibraryFormDialog({
             toast.error(error.message);
             return;
           }
-          await scheduleCache.invalidateQueries({ predicate: (q) => ["libraries", "seat-bookings", "shifts-for-alloc", "shifts-for-edit", "dash-ops", "marketplace", "layout", "sections"].includes(String(q.queryKey[0])) });
+          await scheduleCache.invalidateQueries({ predicate: (q) => ["libraries", "seat-bookings", "student-shift-availability", "shifts-for-alloc", "shifts-for-edit", "dash-ops", "marketplace", "layout", "sections"].includes(String(q.queryKey[0])) });
           baselineRef.current = serialized;
           if (dirtyRef) dirtyRef.current = false;
           toast.success(existingLib ? "Library updated successfully" : "Branch successfully created");

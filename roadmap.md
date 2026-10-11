@@ -1,11 +1,12 @@
 # Roadmap
 
 ## Shift consistency
-- [ ] Validate branch schedules and refresh shift availability after edits.
-- [ ] Enforce seat overlap and shift scope/permissions for new or changed allocations without changing existing bookings.
-- [ ] Align allocation and floor-plan choices and correct student availability.
-- [ ] Add consistent shift filters to students, payments, dashboard actions, marketplace and enquiries.
-- [ ] Test timing boundaries, disabled shifts, combined shifts and real owner workflows.
+- [x] Validate branch schedules and refresh shift availability after edits.
+- [x] Enforce seat overlap and shift scope/permissions for new or changed allocations without changing existing bookings.
+- [x] Align allocation and floor-plan choices and correct student availability.
+- [x] Add consistent shift filters to students, payments, dashboard actions, marketplace and enquiries.
+- [x] Test timing boundaries, disabled shifts and combined shifts; nine focused shift tests and fifteen regression tests pass.
+- [ ] Verify timing saves and seat bookings with real owner data; requesting-user session provides no owner workspace and dashboard remains on loading placeholders.
 
 ## Accumulated overdue fees
 - [x] Calculate all overdue calendar-month cycles, credit payments beyond the unsettled due date, and respect settled coverage.
