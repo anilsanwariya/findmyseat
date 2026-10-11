@@ -1975,7 +1975,12 @@ export type Database = {
       org_subscription_state: { Args: { _org_id: string }; Returns: string }
       schedule_parts: { Args: { p_text: string }; Returns: Json }
       schedule_range: { Args: { a: number; b: number }; Returns: unknown }
-      shift_minutes: { Args: { p_shift_id: string }; Returns: unknown }
+      shift_minutes:
+        | { Args: { p_shift_id: string }; Returns: unknown }
+        | {
+            Args: { p_library_id: string; p_shift_id: string }
+            Returns: unknown
+          }
       shift_ranges_for: {
         Args: {
           p_end: string

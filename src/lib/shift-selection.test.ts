@@ -2,11 +2,40 @@ import { describe, expect, it } from "vitest";
 import { branchShiftEnabled, matchesShift, selectableShifts } from "./shift-selection";
 import { from12h, parseBranchTimings, serializeBranchTimings, validateSchedule } from "./branch-timings";
 import { seatFreeFor } from "./seat-status";
+import { shiftsOverlap, shiftRanges, shiftOccupancy } from "./dashboard-metrics";
 
 const schedule = "Morning: 7:00 AM - 2:00 PM, Evening: 2:00 PM - 10:00 PM, Night: 10:00 PM - 7:00 AM";
 const hours = { open24: true, openTime: "00:00", closeTime: "00:00" };
 
 describe("shift schedules and selections", () => {
+  it("allows Night with Full day but never with 24 Hrs", () => {
+    const timings = parseBranchTimings(schedule);
+    const lookup = new Map([
+      ["n", { id: "n", name: "Night", timings }],
+      ["m", { id: "m", name: "Morning", timings }],
+      ["e", { id: "e", name: "Evening", timings }],
+      ["24", { id: "24", name: "24 Hrs", timings }],
+    ]);
+    const full = [{ id: "booking", seat_id: "seat", shift_id: null }];
+    expect(seatFreeFor("seat", "n", full, lookup)).toBe(true);
+    expect(seatFreeFor("seat", "m", full, lookup)).toBe(false);
+    expect(seatFreeFor("seat", "e", full, lookup)).toBe(false);
+    expect(seatFreeFor("seat", "24", full, lookup)).toBe(false);
+    expect(seatFreeFor("seat", null, [{ id: "night", seat_id: "seat", shift_id: "n" }], lookup)).toBe(true);
+  });
+  it("uses custom branch hours, not default full-day hours", () => {
+    const timings = parseBranchTimings("Morning: 8:00 AM - 1:00 PM, Evening: 3:00 PM - 8:00 PM, Night: 8:00 PM - 8:00 AM");
+    expect(shiftRanges({ name: "Full day", timings })).toEqual([[480,780],[900,1200]]);
+    expect(shiftsOverlap(null, { name: "Night", timings })).toBe(false);
+    expect(shiftsOverlap({ name: "24 Hrs", timings }, { name: "Night", timings })).toBe(true);
+    expect(shiftRanges({ name: "24 Hrs", start_time: "08:00", end_time: "20:00" })).toEqual([[0,1440]]);
+  });
+  it("does not count Night-only bookings as taking a Full day slot", () => {
+    const shifts = [{ id: "n", name: "Night", library_id: "branch", timings: parseBranchTimings(schedule) }];
+    const counts = shiftOccupancy(shifts, [{ id: "seat", library_id: "branch", section_id: "hall" }], [{ seat_id: "seat", shift_id: "n", library_id: "branch" }]);
+    expect(counts.find((s) => s.name === "Full day")?.taken).toBe(0);
+    expect(counts.find((s) => s.name === "Night")?.taken).toBe(1);
+  });
   it("roundtrips midnight, noon and overnight times", () => {
     expect(from12h("12:00 AM")).toBe("00:00");
     expect(from12h("12:00 PM")).toBe("12:00");

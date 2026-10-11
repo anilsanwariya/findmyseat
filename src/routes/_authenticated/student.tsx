@@ -709,7 +709,7 @@ function StudentSeatMapDialog({ libraryId }: { libraryId: string }) {
     return layoutData.data.seats.map((seat: any) => {
       const bookings = availability.data?.bookings ?? [];
       const seatAllocs = bookings.filter((a) => a.seat_id === seat.id);
-      const isFullDay = seatAllocs.some((a) => !a.shift_id || /24|full/i.test(shiftLookup.get(a.shift_id)?.name ?? ""));
+      const isFullDay = seatAllocs.some((a) => /24/i.test(a.shift_id ? shiftLookup.get(a.shift_id)?.name ?? "" : ""));
       const shifts = seatAllocs.map((a) => a.shift_id ? shiftLookup.get(a.shift_id)?.name : "Full day").filter(Boolean);
       const openChoices = choices.filter((s) => seatFreeFor(seat.id, s.id, bookings, shiftLookup));
       const fullDayFree = !!currentSection?.allow_full_day && seatFreeFor(seat.id, null, bookings, shiftLookup);
@@ -940,7 +940,7 @@ function StudentSeatMapDialog({ libraryId }: { libraryId: string }) {
               <div className="text-right">
                 {selectedSeat.isFullDay ? (
                   <div className="inline-flex items-center gap-1.5 text-rose bg-rose/10 px-2.5 py-1 rounded text-xs font-medium border border-rose/20">
-                    <span className="size-2 rounded-full bg-rose animate-pulse" /> Occupied (Full Day)
+                    <span className="size-2 rounded-full bg-rose animate-pulse" /> Occupied (24 Hrs)
                   </div>
                 ) : selectedSeat.shifts?.length > 0 ? (
                   <div className="inline-flex flex-col items-end gap-1">

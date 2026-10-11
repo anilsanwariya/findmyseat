@@ -251,7 +251,7 @@ function LayoutBuilderPage() {
 
   const grid = useMemo(() => {
     if (!currentSection) return null;
-    const filterShift = occShift === "all" ? undefined : occShift === "none" ? null : booked.shiftMap.get(occShift);
+    const filterShift = occShift === "all" ? undefined : occShift === "none" ? { name: "Full day", timings: booked.data?.shifts[0]?.timings } : booked.shiftMap.get(occShift);
     const visible = (list: OccupantInfo[]) =>
       filterShift === undefined
         ? list

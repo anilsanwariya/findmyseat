@@ -4,8 +4,8 @@
  * in `libraries.shifts`, e.g. "Morning: 6:00 AM - 2:00 PM, Night: 10:00 PM - 6:00 AM".
  *
  * These hours decide which shifts can share a seat. Combined shifts use their
- * parts ("Morning + Night" = morning hours + night hours); "24 Hrs", full day and
- * unrecognised shift names take the whole day. A part the branch hasn't timed
+ * parts ("Morning + Night" = morning hours + night hours); Full day uses Morning
+ * + Evening, while "24 Hrs" and unrecognised names take the whole day. An untimed part
  * falls back to the standard hours below. Mirrored by public.shift_minutes() in
  * supabase/proposed/05_allocation_overlap.sql.
  */
@@ -102,7 +102,8 @@ export function minuteRanges(start: string, end: string): [number, number][] {
 /** Which parts a shift name covers: "Morning + Night" → morning, night. null = whole day. */
 export function partsOfShiftName(name: string | null | undefined): ShiftPart[] | null {
   const n = (name ?? "").toLowerCase();
-  if (!n || n.includes("24") || n.includes("full")) return null;
+  if (!n || n.includes("full")) return ["morning", "evening"];
+  if (n.includes("24")) return null;
   const parts = SHIFT_PARTS.filter((p) => new RegExp(`\\b${p}\\b`).test(n));
   return parts.length ? parts : null;
 }

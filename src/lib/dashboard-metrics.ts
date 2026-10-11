@@ -189,10 +189,11 @@ type ShiftHours = Pick<ShiftDef, "start_time" | "end_time"> & {
  * A shift's time as minute ranges within one day. Uses the shift's own times when
  * both are set (overnight shifts wrap into two ranges); otherwise its type, using
  * the branch's timings or the standard hours. No shift at all — a full-day
- * booking — covers the whole day, as does any shift whose type can't be recognised.
+ * booking — covers Morning + Evening. Unknown types cover the whole day.
  */
 export function shiftRanges(s: ShiftHours | null | undefined): [number, number][] {
   if (!s) return rangesForShiftName(null);
+  if (!s.name || /full|24/i.test(s.name)) return rangesForShiftName(s.name, s.timings);
   if (s.start_time && s.end_time) return minuteRanges(s.start_time, s.end_time);
   return rangesForShiftName(s.name, s.timings);
 }
@@ -206,7 +207,9 @@ export function withBranchTimings<T extends { library_id?: string | null }>(
 }
 
 export function shiftsOverlap(x: ShiftHours | null | undefined, y: ShiftHours | null | undefined) {
-  return shiftRanges(x).some(([a1, b1]) => shiftRanges(y).some(([a2, b2]) => a1 < b2 && a2 < b1));
+  const left = x ?? { name: "Full day", timings: y?.timings };
+  const right = y ?? { name: "Full day", timings: x?.timings };
+  return shiftRanges(left).some(([a1, b1]) => shiftRanges(right).some(([a2, b2]) => a1 < b2 && a2 < b1));
 }
 
 export interface ShiftOccupancy {
@@ -218,7 +221,7 @@ export interface ShiftOccupancy {
 /**
  * For every shift name (plus "Full day"), how many seats are taken and how many
  * exist. A seat counts as taken for a shift when any booking on it overlaps that
- * shift's hours; a full-day booking blocks every shift. Shifts tied to a section
+ * shift's hours; Full day covers Morning + Evening. Shifts tied to a section
  * only count that section's seats. Branches sharing a shift name are summed.
  */
 export function shiftOccupancy(
@@ -262,7 +265,6 @@ export function shiftOccupancy(
         const onSeat = bookingsBySeat.get(seat.id) ?? [];
         const blocked = onSeat.some((b) => {
           const booked = b.shift_id ? shiftById.get(b.shift_id) : null;
-          if (!target) return true; // a whole-day slot is blocked by any booking
           return shiftsOverlap(booked, target);
         });
         if (blocked) taken += 1;

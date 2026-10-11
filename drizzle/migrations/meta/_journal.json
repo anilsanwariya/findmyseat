@@ -71,6 +71,13 @@
       "when": 1791604503692,
       "tag": "0009_safe_student_shift_availability",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791700264426,
+      "tag": "0010_full_day_morning_evening_coverage",
+      "breakpoints": true
     }
   ]
 }

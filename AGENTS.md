@@ -18,5 +18,6 @@
 - Dashboard overdue balances use a shared calendar-cycle helper starting at the first unsettled due date, credit payments extending beyond that date, and leave monthly revenue calculations separate; settled payments and waivers already advance coverage and must not be deducted twice.
 
 - Use shared exact shift-package keys for register filters, and time-overlap checks for seat availability; these are distinct questions and combined shifts must not silently match single-package filters.
+- Resolve seatless shift IDs representing Full day with branch timing context in both shared overlap helpers and database guards, so availability calculations agree without changing allocation IDs or fees.
 - Branch schedule configuration controls new shift sales while historical bookings keep fallback occupancy; enforce scoped shift permissions and serialized overlap checks in database triggers so concurrent bookings cannot bypass the UI.
 - Student floor-plan availability uses the authenticated, membership-scoped aggregate RPC returning only anonymized seat/shift bookings, never other students' identities.
