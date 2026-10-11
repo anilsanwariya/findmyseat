@@ -5,7 +5,7 @@
  * A seat can be sold to different students for shifts whose hours don't overlap.
  * Hours come from the shift's own times, else the branch's timings for its type
  * (Morning / Evening / Night, combined for "+" shifts), else the standard hours.
- * A full-day booking (no shift), 24 Hrs or an unrecognised shift blocks the whole day.
+ * Full day (no shift) covers Morning + Evening. 24 Hrs blocks the whole day.
  * This mirrors the proposed database check in supabase/proposed/05_allocation_overlap.sql.
  */
 
@@ -32,8 +32,10 @@ export interface SeatBooking {
 
 type ShiftLookup = Map<string, ShiftTimes>;
 
-const shiftOf = (id: string | null | undefined, shifts: ShiftLookup) =>
-  id ? (shifts.get(id) ?? null) : null;
+const shiftOf = (id: string | null | undefined, shifts: ShiftLookup): ShiftTimes =>
+  id ? (shifts.get(id) ?? { id, name: "Unknown" }) : {
+    id: "full_day", name: "Full day", timings: shifts.values().next().value?.timings,
+  };
 
 /**
  * Would a booking for `targetShiftId` on this seat clash with an existing one?
