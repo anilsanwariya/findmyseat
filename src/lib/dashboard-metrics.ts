@@ -193,6 +193,7 @@ type ShiftHours = Pick<ShiftDef, "start_time" | "end_time"> & {
  */
 export function shiftRanges(s: ShiftHours | null | undefined): [number, number][] {
   if (!s) return rangesForShiftName(null);
+  if (!s.name || /full|24/i.test(s.name)) return rangesForShiftName(s.name, s.timings);
   if (s.start_time && s.end_time) return minuteRanges(s.start_time, s.end_time);
   return rangesForShiftName(s.name, s.timings);
 }
