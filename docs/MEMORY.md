@@ -9,7 +9,8 @@ _Last updated: 2026-11-04_
 - Android app built with Bubblewrap and uploaded to Play Console internal testing. Both signing
   fingerprints (upload key `B1:67:85…`, Play App Signing `82:FB:F0…`) are in `src/lib/android-app.ts`.
 - Checks on `main`: 29/29 unit tests pass, 0 TypeScript errors, production build succeeds.
-  ESLint reports ~4,400 problems (≈3,860 formatting only, ≈510 `any` types).
+  ESLint: 0 errors; ~510 warnings for `any` types (to tighten gradually). All TypeScript files
+  formatted with Prettier on 2026-11-04.
 
 ## Recently completed
 - Security fixes; owner dashboard; student profile; layout builder safety.
@@ -22,12 +23,12 @@ _Last updated: 2026-11-04_
 - Play Console: store listing, data safety, content rating, app access (demo login), testers.
 - Open items in `roadmap.md` that need checking with real owner data.
 - Owner-flow E2E test needs a dedicated test owner account + GitHub secrets (`e2e/README.md`).
-- Planned engineering work: a one-off formatting clean-up (then add lint to CI), uptime
-  monitoring and confirmed database backups.
+- Planned engineering work: uptime monitoring and confirmed database backups; replace `any`
+  types file by file.
 
 ## Known issues
 - Lovable commits are titled "Changes", so history is hard to read.
-- Lint is not clean (see above), so CI does not run lint yet.
+- Lovable doesn't run Prettier, so its edits may add formatting warnings; run `npm run format`.
 
 ## Where tasks live
 `roadmap.md` is the task list (checked = done).

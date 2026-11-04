@@ -34,7 +34,12 @@ export default tseslint.config(
       ],
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
       "@typescript-eslint/no-unused-vars": "off",
+      // ~500 existing uses; tighten gradually instead of failing every check.
+      "@typescript-eslint/no-explicit-any": "warn",
     },
   },
   eslintPluginPrettier,
+  // Lovable writes code without running Prettier, so formatting is a warning, not a failure.
+  // Run `npm run format` to fix it.
+  { rules: { "prettier/prettier": "warn" } },
 );

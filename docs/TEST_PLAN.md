@@ -2,6 +2,7 @@
 
 ## Automated (run on every pull request)
 ```
+npm run lint        # ESLint (errors fail CI)
 npm run typecheck   # TypeScript
 npm test            # Vitest unit tests (src/**/*.test.ts)
 npm run build       # production build
