@@ -67,3 +67,15 @@ test("Android asset links list the app and both signing keys", async ({ request 
   expect(link.target.package_name).toBe("com.librarybandhu.app");
   expect(link.target.sha256_cert_fingerprints).toHaveLength(2);
 });
+
+test("health check reports the app and database status", async ({ request }) => {
+  const res = await request.get("/api/public/health");
+  const body = await res.json();
+  expect(res.headers()["cache-control"]).toContain("no-store");
+  expect(["ok", "degraded"]).toContain(body.status);
+  // On GitHub the database is reachable, so it must be healthy there.
+  if (process.env.CI) {
+    expect(res.status()).toBe(200);
+    expect(body).toMatchObject({ status: "ok", database: "ok" });
+  }
+});
