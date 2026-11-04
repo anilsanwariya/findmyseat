@@ -202,6 +202,9 @@ export function StudentFormDialog({
         </div>
         <div className="space-y-2">
           <Label>Internal notes (optional)</Label>
+          <p className="text-[11px] text-muted-foreground">
+            Only you and your staff can see notes. Students never do.
+          </p>
           <Textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}

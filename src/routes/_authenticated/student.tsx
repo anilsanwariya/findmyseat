@@ -157,7 +157,10 @@ function StudentApp() {
       (
         await supabase
           .from("students")
-          .select("*, libraries(name), master_exams(name)")
+          // Only what this page shows — never the owner's internal fields.
+          .select(
+            "id, org_id, library_id, full_name, mobile_number, email, requires_pin_change, created_at, libraries(name), master_exams(name)",
+          )
           .eq("user_id", session!.userId!)
           .order("created_at", { ascending: true })
           .limit(1)

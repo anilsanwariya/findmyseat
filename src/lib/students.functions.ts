@@ -323,26 +323,6 @@ export const changeMyPin = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-const SetEmailSchema = z.object({ email: z.string().trim().email().max(255) });
-export const setMyStudentEmail = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => SetEmailSchema.parse(d))
-  .handler(async ({ data, context }) => {
-    const { data: student } = await context.supabase
-      .from("students")
-      .select("id")
-      .eq("user_id", context.userId)
-      .maybeSingle();
-    if (!student) throw new Error("No student profile");
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin
-      .from("students")
-      .update({ email: data.email.toLowerCase() })
-      .eq("id", student.id);
-    if (error) throw new Error(error.message);
-    return { ok: true };
-  });
-
 const SetStudentEmailAdminSchema = z.object({
   student_id: z.string().uuid(),
   email: z.string().trim().email().max(255),

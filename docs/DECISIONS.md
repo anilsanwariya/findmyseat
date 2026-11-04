@@ -40,3 +40,11 @@ Permanent decisions. Don't reverse one without the owner's agreement; add a new 
 ## ADR-010 — Android app is a Trusted Web Activity
 **Decision:** The Play Store app (`com.librarybandhu.app`) wraps the live site. Start URL `/?source=android-app`. Signing fingerprints live in `src/lib/android-app.ts` and are served at `/.well-known/assetlinks.json`.
 **Rule:** Owner plan purchases are hidden inside the app to comply with Google Play billing policy. The upload keystore is kept by the owner, not in the repo.
+
+## ADR-011 — Internal notes live outside the student's record
+**Decision:** Owner/staff notes about a student are stored in `student_notes` (owner and staff
+with "Manage students" only), not in `students.notes`. A trigger moves anything written to
+`students.notes` into `student_notes`. Students can't update their own `students` row; PIN and
+email changes go through server functions.
+**Reason:** Students can read their own `students` row, so notes stored there reached them.
+**SQL:** `supabase/proposed/08_private_student_notes.sql`.
