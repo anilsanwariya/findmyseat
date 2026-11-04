@@ -21,3 +21,25 @@
 - Resolve seatless shift IDs representing Full day with branch timing context in both shared overlap helpers and database guards, so availability calculations agree without changing allocation IDs or fees.
 - Branch schedule configuration controls new shift sales while historical bookings keep fallback occupancy; enforce scoped shift permissions and serialized overlap checks in database triggers so concurrent bookings cannot bypass the UI.
 - Student floor-plan availability uses the authenticated, membership-scoped aggregate RPC returning only anonymized seat/shift bookings, never other students' identities.
+
+## Working rules (for Lovable, Claude Code and any other AI tool)
+
+Read before changing code: `docs/PRD.md` (business rules), `docs/ARCHITECTURE.md`,
+`docs/DESIGN.md`, `docs/DECISIONS.md`, `docs/SECURITY.md`. Update `docs/MEMORY.md` and
+`roadmap.md` when you finish something.
+
+Business rules that must not change without the owner's approval:
+- First fee is due on the joining date; never-paid students show as "Awaiting first payment".
+- The due date is the "covers until" of the most recently entered full payment (`src/lib/payments.ts`); part payments never move it.
+- Shift hours come from each branch's Morning/Evening/Night timings; Full day = Morning + Evening; 24 Hrs = whole day; seats are sold per shift by time overlap.
+- Inside the Android app (`useIsAndroidApp()`), owner plan purchases stay hidden.
+
+How to work:
+- Keep each rule in one place in `src/lib` and reuse it; don't re-implement it in a page.
+- Add or update a unit test (`src/**/*.test.ts`) when changing money, due-date or shift logic.
+- Never run destructive SQL on the live database; write reviewed migrations and keep existing student and payment data intact.
+- Enforce access in the database (RLS/triggers); UI checks only hide buttons.
+- Never put secrets in client code or `VITE_*` variables.
+- Follow `docs/DESIGN.md`: existing tokens and components, mobile first (375px), loading/empty/error states.
+- Before finishing: `npm run typecheck`, `npm test`, `npm run build` must pass.
+- Don't change unrelated files; don't edit generated files (`src/routeTree.gen.ts`, `src/integrations/supabase/types.ts`).
