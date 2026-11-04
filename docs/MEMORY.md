@@ -1,0 +1,32 @@
+# Project Memory
+
+Current state of the project. Update this at the end of each piece of work.
+
+_Last updated: 2026-11-04_
+
+## Status
+- Web app live at librarybandhu.com; owners use it with real students and payments.
+- Android app built with Bubblewrap and uploaded to Play Console internal testing. Both signing
+  fingerprints (upload key `B1:67:85…`, Play App Signing `82:FB:F0…`) are in `src/lib/android-app.ts`.
+- Checks on `main`: 29/29 unit tests pass, 0 TypeScript errors, production build succeeds.
+  ESLint reports ~4,400 problems (≈3,860 formatting only, ≈510 `any` types).
+
+## Recently completed
+- Security fixes; owner dashboard; student profile; layout builder safety.
+- Per-branch shift timings; seats sold per shift; Full day = Morning + Evening.
+- Due date follows latest full payment; first fee due on joining date; never-paid students visible.
+- Branch payment details + public payment page; WhatsApp reminders with payment link.
+- PWA manifest, offline page, assetlinks; plan purchases hidden in the Android app.
+
+## In progress / next
+- Play Console: store listing, data safety, content rating, app access (demo login), testers.
+- Open items in `roadmap.md` that need checking with real owner data.
+- Planned engineering work: CI on pull requests (added), end-to-end tests for core flows,
+  a one-off formatting clean-up, uptime monitoring and confirmed database backups.
+
+## Known issues
+- Lovable commits are titled "Changes", so history is hard to read.
+- Lint is not clean (see above), so CI does not run lint yet.
+
+## Where tasks live
+`roadmap.md` is the task list (checked = done).
