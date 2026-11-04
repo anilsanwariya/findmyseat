@@ -9,6 +9,15 @@ npm run build       # production build
 Unit tests cover the money and shift rules: `dashboard-metrics.test.ts`, `payment-details.test.ts`,
 `payment-page-meta.test.ts`, `shift-selection.test.ts`. Add a test next to any rule you change in `src/lib`.
 
+## End-to-end (Playwright, `e2e/`)
+```
+npm run test:e2e
+```
+- `public.spec.ts` (every pull request, read-only): homepage, login pages, logged-out redirects,
+  404, manifest and Android asset links, on desktop and phone sizes.
+- `owner-flow.spec.ts` (started by hand, test owner account only): add student → allot seat →
+  log first payment → due date checks. See `e2e/README.md` for setup and safety rules.
+
 ## Manual checks before publishing
 Use a **test library**, not a real one.
 

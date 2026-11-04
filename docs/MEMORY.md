@@ -21,8 +21,9 @@ _Last updated: 2026-11-04_
 ## In progress / next
 - Play Console: store listing, data safety, content rating, app access (demo login), testers.
 - Open items in `roadmap.md` that need checking with real owner data.
-- Planned engineering work: CI on pull requests (added), end-to-end tests for core flows,
-  a one-off formatting clean-up, uptime monitoring and confirmed database backups.
+- Owner-flow E2E test needs a dedicated test owner account + GitHub secrets (`e2e/README.md`).
+- Planned engineering work: a one-off formatting clean-up (then add lint to CI), uptime
+  monitoring and confirmed database backups.
 
 ## Known issues
 - Lovable commits are titled "Changes", so history is hard to read.

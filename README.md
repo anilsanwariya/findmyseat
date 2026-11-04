@@ -30,10 +30,11 @@ npm run dev
 npm run typecheck
 npm test
 npm run build
+npm run test:e2e          # browser tests (Playwright); see e2e/README.md
 npm run lint              # not clean yet; see docs/MEMORY.md
 ```
-The same typecheck, tests and build run automatically on every pull request
-(`.github/workflows/ci.yml`).
+Typecheck, unit tests and build (`.github/workflows/ci.yml`) and the public browser tests
+(`.github/workflows/e2e.yml`) run automatically on every pull request.
 
 ## How changes reach production
 1. Lovable edits `main` directly, or Claude Code opens a pull request from a branch.
