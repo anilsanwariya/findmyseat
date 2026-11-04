@@ -11,12 +11,31 @@ import { AuroraBackground, GlassPanel, SectionHeader } from "@/components/glass"
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { inr, fmtDate } from "@/lib/format";
-import { changeMyPin, sendEmailVerificationOtp, verifyEmailOtp, archiveMyAllocation, requestAccountDeletionOtp, deleteMyAccount } from "@/lib/students.functions";
+import {
+  changeMyPin,
+  sendEmailVerificationOtp,
+  verifyEmailOtp,
+  archiveMyAllocation,
+  requestAccountDeletionOtp,
+  deleteMyAccount,
+} from "@/lib/students.functions";
 import { cn } from "@/lib/utils";
 import { RateBranchDialog } from "@/components/student/RateBranchDialog";
 import { Logo } from "@/components/Logo";
@@ -52,7 +71,22 @@ import {
 import { useConfirm } from "@/components/ConfirmDialog";
 
 export const Route = createFileRoute("/_authenticated/student")({
-  head: () => ({ meta: [{ title: "My Study Space · LibraryBandhu" }, { name: "description", content: "View your study space, student fees and seat availability." }, { property: "og:title", content: "My Study Space · LibraryBandhu" }, { property: "og:description", content: "View your study space, student fees and seat availability." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }] }),
+  head: () => ({
+    meta: [
+      { title: "My Study Space · LibraryBandhu" },
+      {
+        name: "description",
+        content: "View your study space, student fees and seat availability.",
+      },
+      { property: "og:title", content: "My Study Space · LibraryBandhu" },
+      {
+        property: "og:description",
+        content: "View your study space, student fees and seat availability.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
   component: StudentApp,
 });
 
@@ -61,20 +95,40 @@ const DIR_ICON = { north: ArrowUp, south: ArrowDown, east: ArrowRight, west: Arr
 // Object Meta for the Student Map (Read-Only)
 const OBJ_META: Record<string, { icon: any; label: string; color: string }> = {
   aisle: { icon: null, label: "Aisle", color: "bg-transparent" },
-  entry_gate: { icon: DoorOpen, label: "Entry", color: "bg-slate-800/60 text-slate-300 border-slate-700" },
+  entry_gate: {
+    icon: DoorOpen,
+    label: "Entry",
+    color: "bg-slate-800/60 text-slate-300 border-slate-700",
+  },
   washroom: { icon: Waves, label: "W/C", color: "bg-magenta/10 text-magenta border-magenta/30" },
   water_cooler: { icon: Droplets, label: "H₂O", color: "bg-cyan/10 text-cyan border-cyan/30" },
   reception: { icon: null, label: "Rcpt", color: "bg-panel-strong text-muted-foreground" },
   wall: { icon: null, label: "", color: "bg-slate-600 border-slate-500 shadow-md" },
-  window: { icon: AppWindow, label: "Window", color: "bg-sky-500/20 text-sky-300 border-sky-500/30 backdrop-blur-sm" },
-  gallery: { icon: ImageIcon, label: "Gallery", color: "bg-purple-500/10 text-purple-300 border-purple-500/30" },
-  hallway: { icon: Navigation, label: "Hallway", color: "bg-stone-500/10 text-stone-300 border-stone-500/30" },
+  window: {
+    icon: AppWindow,
+    label: "Window",
+    color: "bg-sky-500/20 text-sky-300 border-sky-500/30 backdrop-blur-sm",
+  },
+  gallery: {
+    icon: ImageIcon,
+    label: "Gallery",
+    color: "bg-purple-500/10 text-purple-300 border-purple-500/30",
+  },
+  hallway: {
+    icon: Navigation,
+    label: "Hallway",
+    color: "bg-stone-500/10 text-stone-300 border-stone-500/30",
+  },
   discussion: {
     icon: MessageSquare,
     label: "Discussion Area",
     color: "bg-amber-500/10 text-amber-300 border-amber-500/30",
   },
-  dining: { icon: Utensils, label: "Dining Area", color: "bg-orange-500/10 text-orange-300 border-orange-500/30" },
+  dining: {
+    icon: Utensils,
+    label: "Dining Area",
+    color: "bg-orange-500/10 text-orange-300 border-orange-500/30",
+  },
 };
 
 function StudentApp() {
@@ -82,10 +136,13 @@ function StudentApp() {
   const { data: session, isLoading } = useSession();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const [rateTarget, setRateTarget] = useState<{ libId: string; libName: string; studentId: string } | null>(null);
+  const [rateTarget, setRateTarget] = useState<{
+    libId: string;
+    libName: string;
+    studentId: string;
+  } | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const archiveAllocation = useServerFn(archiveMyAllocation);
-
 
   useEffect(() => {
     if (isLoading) return;
@@ -108,15 +165,22 @@ function StudentApp() {
       ).data,
   });
 
-
   // All student rows for this user (one per org).
   const myStudents = useQuery({
     queryKey: ["my-student-rows", session?.userId],
     enabled: !!session?.userId,
     queryFn: async () =>
-      (await supabase.from("students").select("id, org_id, library_id").eq("user_id", session!.userId!)).data ?? [],
+      (
+        await supabase
+          .from("students")
+          .select("id, org_id, library_id")
+          .eq("user_id", session!.userId!)
+      ).data ?? [],
   });
-  const studentIds = useMemo(() => (myStudents.data ?? []).map((s: any) => s.id), [myStudents.data]);
+  const studentIds = useMemo(
+    () => (myStudents.data ?? []).map((s: any) => s.id),
+    [myStudents.data],
+  );
 
   // All allocations across every library the student is subscribed to.
   const myAllocations = useQuery({
@@ -135,11 +199,17 @@ function StudentApp() {
   });
 
   const activeAllocations = useMemo(
-    () => (myAllocations.data ?? []).filter((a: any) => !a.is_archived && (a.is_active || a.status === "paid")),
+    () =>
+      (myAllocations.data ?? []).filter(
+        (a: any) => !a.is_archived && (a.is_active || a.status === "paid"),
+      ),
     [myAllocations.data],
   );
   const inactiveAllocations = useMemo(
-    () => (myAllocations.data ?? []).filter((a: any) => !a.is_archived && !a.is_active && a.status !== "paid"),
+    () =>
+      (myAllocations.data ?? []).filter(
+        (a: any) => !a.is_archived && !a.is_active && a.status !== "paid",
+      ),
     [myAllocations.data],
   );
   const archivedAllocations = useMemo(
@@ -151,7 +221,13 @@ function StudentApp() {
     queryKey: ["my-notices", session?.userId],
     enabled: !!session?.userId,
     queryFn: async () =>
-      (await supabase.from("notices").select("*").order("created_at", { ascending: false }).limit(20)).data ?? [],
+      (
+        await supabase
+          .from("notices")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(20)
+      ).data ?? [],
   });
 
   const payments = useQuery({
@@ -196,7 +272,8 @@ function StudentApp() {
   }
 
   const showPinGate = session.requiresPinChange;
-  const isDefaultEmail = !profile.data?.email || profile.data.email.endsWith("@students.librarybandhu.local");
+  const isDefaultEmail =
+    !profile.data?.email || profile.data.email.endsWith("@students.librarybandhu.local");
   const showEmailGate = !showPinGate && isDefaultEmail;
 
   return (
@@ -243,12 +320,16 @@ function StudentApp() {
               <div className="rounded-lg bg-panel p-3 flex justify-between items-center">
                 <span className="text-[10px] uppercase text-muted-foreground">Email</span>
                 <span className="font-medium truncate max-w-[150px]">
-                  {profile.data?.email && !profile.data.email.includes(".local") ? profile.data.email : "Not set"}
+                  {profile.data?.email && !profile.data.email.includes(".local")
+                    ? profile.data.email
+                    : "Not set"}
                 </span>
               </div>
               <div className="rounded-lg bg-panel p-3 flex justify-between items-center">
                 <span className="text-[10px] uppercase text-muted-foreground">Target Exam</span>
-                <span className="font-medium text-cyan">{profile.data?.master_exams?.name || "None"}</span>
+                <span className="font-medium text-cyan">
+                  {profile.data?.master_exams?.name || "None"}
+                </span>
               </div>
             </div>
           </GlassPanel>
@@ -260,7 +341,9 @@ function StudentApp() {
             <div className="grid grid-cols-2 gap-3">
               <div className="rounded-lg bg-panel p-3">
                 <div className="text-[10px] uppercase text-muted-foreground">Active</div>
-                <div className="mt-0.5 font-mono text-2xl text-cyan">{activeAllocations.length}</div>
+                <div className="mt-0.5 font-mono text-2xl text-cyan">
+                  {activeAllocations.length}
+                </div>
               </div>
               <div className="rounded-lg bg-panel p-3">
                 <div className="text-[10px] uppercase text-muted-foreground">History</div>
@@ -275,7 +358,9 @@ function StudentApp() {
           </GlassPanel>
 
           <GlassPanel className="p-5">
-            <div className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground mb-4">Security</div>
+            <div className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground mb-4">
+              Security
+            </div>
             <div className="space-y-3">
               <div className="rounded-lg bg-panel p-3">
                 <div className="text-[10px] uppercase text-muted-foreground">Login Username</div>
@@ -289,16 +374,20 @@ function StudentApp() {
 
         {/* MY LIBRARIES */}
         <div className="mt-8">
-          <SectionHeader title="My Libraries" hint="Every study space you're currently subscribed to." />
+          <SectionHeader
+            title="My Libraries"
+            hint="Every study space you're currently subscribed to."
+          />
           {activeAllocations.length === 0 && inactiveAllocations.length === 0 ? (
             <GlassPanel className="mt-4 p-6 text-center text-sm text-muted-foreground">
-              You don't have any library subscriptions yet. Visit reception at any LibraryBandhu partner branch to get
-              started.
+              You don't have any library subscriptions yet. Visit reception at any LibraryBandhu
+              partner branch to get started.
             </GlassPanel>
           ) : (
             <div className="mt-4 grid gap-4 md:grid-cols-2">
               {activeAllocations.map((a: any) => {
-                const student = (myStudents.data ?? []).find((s: any) => s.library_id === a.library_id) ??
+                const student =
+                  (myStudents.data ?? []).find((s: any) => s.library_id === a.library_id) ??
                   (myStudents.data ?? [])[0];
                 return (
                   <div
@@ -311,13 +400,19 @@ function StudentApp() {
                         <div className="inline-flex items-center gap-1.5 rounded-full bg-cyan/10 border border-cyan/30 px-2 py-0.5 text-[9px] uppercase tracking-widest text-cyan">
                           <span className="size-1.5 rounded-full bg-cyan animate-pulse" /> Active
                         </div>
-                        <div className="mt-2 font-semibold text-lg truncate">{a.libraries?.name}</div>
+                        <div className="mt-2 font-semibold text-lg truncate">
+                          {a.libraries?.name}
+                        </div>
                         <div className="text-xs text-muted-foreground truncate">
-                          {[a.libraries?.zone_area, a.libraries?.city].filter(Boolean).join(" · ") || "—"}
+                          {[a.libraries?.zone_area, a.libraries?.city]
+                            .filter(Boolean)
+                            .join(" · ") || "—"}
                         </div>
                       </div>
                       <div className="grid min-h-12 min-w-12 shrink-0 place-items-center rounded-xl border border-panel-border bg-panel px-2 font-mono text-sm font-bold">
-                        {a.reservation_type === "unreserved" ? "Any" : (a.seats?.seat_number ?? "Unassigned")}
+                        {a.reservation_type === "unreserved"
+                          ? "Any"
+                          : (a.seats?.seat_number ?? "Unassigned")}
                       </div>
                     </div>
                     <div className="mt-4 grid grid-cols-3 gap-2 text-xs">
@@ -335,7 +430,9 @@ function StudentApp() {
                         <div className="mt-0.5 font-mono">{inr(a.monthly_fee)}</div>
                       </div>
                       <div className="rounded-lg bg-panel p-2">
-                        <div className="text-[9px] uppercase text-muted-foreground">Valid until</div>
+                        <div className="text-[9px] uppercase text-muted-foreground">
+                          Valid until
+                        </div>
                         <div className="mt-0.5 font-mono">{fmtDate(a.next_due_date)}</div>
                       </div>
                     </div>
@@ -361,7 +458,10 @@ function StudentApp() {
               })}
 
               {inactiveAllocations.map((a: any) => (
-                <div key={a.id} className="glass rounded-2xl border border-panel-border p-5 opacity-90">
+                <div
+                  key={a.id}
+                  className="glass rounded-2xl border border-panel-border p-5 opacity-90"
+                >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="inline-flex items-center gap-1.5 rounded-full bg-rose/10 border border-rose/30 px-2 py-0.5 text-[9px] uppercase tracking-widest text-rose">
@@ -384,7 +484,9 @@ function StudentApp() {
                         )
                           return;
                         try {
-                          await archiveAllocation({ data: { allocation_id: a.id, archived: true } });
+                          await archiveAllocation({
+                            data: { allocation_id: a.id, archived: true },
+                          });
                           toast.success("Moved to history");
                           qc.invalidateQueries({ queryKey: ["my-allocations"] });
                         } catch (e: any) {
@@ -407,7 +509,11 @@ function StudentApp() {
                 onClick={() => setHistoryOpen((v) => !v)}
                 className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest text-muted-foreground hover:text-white"
               >
-                {historyOpen ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
+                {historyOpen ? (
+                  <ChevronDown className="size-3.5" />
+                ) : (
+                  <ChevronRight className="size-3.5" />
+                )}
                 Library History ({archivedAllocations.length})
               </button>
               {historyOpen && (
@@ -419,7 +525,9 @@ function StudentApp() {
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <div className="text-[9px] uppercase tracking-widest text-muted-foreground">Archived</div>
+                          <div className="text-[9px] uppercase tracking-widest text-muted-foreground">
+                            Archived
+                          </div>
                           <div className="mt-1 font-medium truncate">{a.libraries?.name}</div>
                           <div className="text-[11px] text-muted-foreground">
                             Ended {fmtDate(a.next_due_date)} · Seat {a.seats?.seat_number ?? "—"}
@@ -428,7 +536,9 @@ function StudentApp() {
                         <button
                           onClick={async () => {
                             try {
-                              await archiveAllocation({ data: { allocation_id: a.id, archived: false } });
+                              await archiveAllocation({
+                                data: { allocation_id: a.id, archived: false },
+                              });
                               toast.success("Restored to your dashboard");
                               qc.invalidateQueries({ queryKey: ["my-allocations"] });
                             } catch (e: any) {
@@ -462,13 +572,17 @@ function StudentApp() {
                     >
                       {n.type}
                     </span>
-                    <span className="text-[10px] text-muted-foreground">{fmtDate(n.created_at)}</span>
+                    <span className="text-[10px] text-muted-foreground">
+                      {fmtDate(n.created_at)}
+                    </span>
                   </div>
                   <div className="mt-1 font-medium">{n.title}</div>
                   <p className="mt-0.5 text-xs text-muted-foreground line-clamp-3">{n.content}</p>
                 </div>
               ))}
-              {(notices.data ?? []).length === 0 && <p className="text-sm text-muted-foreground">No notices.</p>}
+              {(notices.data ?? []).length === 0 && (
+                <p className="text-sm text-muted-foreground">No notices.</p>
+              )}
             </div>
           </GlassPanel>
 
@@ -505,7 +619,9 @@ function StudentApp() {
                     )}
                   </div>
                 ))}
-                {(tickets.data ?? []).length === 0 && <p className="text-sm text-muted-foreground">No tickets.</p>}
+                {(tickets.data ?? []).length === 0 && (
+                  <p className="text-sm text-muted-foreground">No tickets.</p>
+                )}
               </div>
             </GlassPanel>
 
@@ -517,11 +633,15 @@ function StudentApp() {
                 {(payments.data ?? []).map((p: any) => (
                   <div key={p.id} className="flex items-center justify-between py-3 text-sm">
                     <div>
-                      <div className="font-mono text-xs text-muted-foreground">{fmtDate(p.payment_date)}</div>
+                      <div className="font-mono text-xs text-muted-foreground">
+                        {fmtDate(p.payment_date)}
+                      </div>
                       <div className="mt-0.5">Covers until {fmtDate(p.covers_until)}</div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="rounded bg-panel px-2 py-0.5 text-[10px] uppercase">{p.method}</span>
+                      <span className="rounded bg-panel px-2 py-0.5 text-[10px] uppercase">
+                        {p.method}
+                      </span>
                       <span className="font-mono font-semibold">{inr(p.amount_paid)}</span>
                     </div>
                   </div>
@@ -548,7 +668,6 @@ function StudentApp() {
   );
 }
 
-
 // ==========================================
 // COMPONENT: Email Verification Gate
 // ==========================================
@@ -563,7 +682,10 @@ function EmailVerificationGate({ profile }: { profile: any }) {
 
   return (
     <Dialog open modal>
-      <DialogContent className="glass-strong border-panel-border" onEscapeKeyDown={(e) => e.preventDefault()}>
+      <DialogContent
+        className="glass-strong border-panel-border"
+        onEscapeKeyDown={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle>Verify Your Email</DialogTitle>
         </DialogHeader>
@@ -579,7 +701,9 @@ function EmailVerificationGate({ profile }: { profile: any }) {
               setLoading(true);
               try {
                 // 1. Request Email Update OTP via custom edge function
-                const res = await sendOtp({ data: { email: email.trim().toLowerCase(), student_id: profile.id } });
+                const res = await sendOtp({
+                  data: { email: email.trim().toLowerCase(), student_id: profile.id },
+                });
                 if ((res as any)?.dev_code) {
                   toast.success(`OTP sent. Dev code: ${(res as any).dev_code}`);
                 } else {
@@ -604,7 +728,11 @@ function EmailVerificationGate({ profile }: { profile: any }) {
                 placeholder="you@example.com"
               />
             </div>
-            <Button disabled={loading} type="submit" className="w-full bg-cyan text-cyan-950 hover:bg-cyan/90">
+            <Button
+              disabled={loading}
+              type="submit"
+              className="w-full bg-cyan text-cyan-950 hover:bg-cyan/90"
+            >
               {loading ? "Sending..." : "Send Verification OTP"}
             </Button>
           </form>
@@ -615,7 +743,13 @@ function EmailVerificationGate({ profile }: { profile: any }) {
               e.preventDefault();
               setLoading(true);
               try {
-                await verifyOtp({ data: { email: email.trim().toLowerCase(), otp: otp.trim(), student_id: profile.id } });
+                await verifyOtp({
+                  data: {
+                    email: email.trim().toLowerCase(),
+                    otp: otp.trim(),
+                    student_id: profile.id,
+                  },
+                });
                 toast.success("Email successfully verified!");
                 qc.invalidateQueries({ queryKey: ["student-profile"] });
               } catch (err: any) {
@@ -638,7 +772,11 @@ function EmailVerificationGate({ profile }: { profile: any }) {
                 placeholder="------"
               />
             </div>
-            <Button disabled={loading} type="submit" className="w-full bg-white text-slate-900 hover:bg-white/90">
+            <Button
+              disabled={loading}
+              type="submit"
+              className="w-full bg-white text-slate-900 hover:bg-white/90"
+            >
               {loading ? "Verifying..." : "Verify & Continue"}
             </Button>
             <button
@@ -668,24 +806,45 @@ function StudentSeatMapDialog({ libraryId }: { libraryId: string }) {
     queryKey: ["sections", libraryId],
     enabled: !!libraryId && open,
     queryFn: async () =>
-      (await supabase.from("sections").select("*").eq("library_id", libraryId).order("created_at")).data ?? [],
+      (await supabase.from("sections").select("*").eq("library_id", libraryId).order("created_at"))
+        .data ?? [],
   });
 
   const currentSectionId = sectionId ?? sectionsQ.data?.[0]?.id;
   const currentSection = sectionsQ.data?.find((s: any) => s.id === currentSectionId);
 
   const availability = useQuery({
-    queryKey: ["student-shift-availability", libraryId], enabled: open,
+    queryKey: ["student-shift-availability", libraryId],
+    enabled: open,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("student_shift_availability", { p_library_id: libraryId });
+      const { data, error } = await supabase.rpc("student_shift_availability", {
+        p_library_id: libraryId,
+      });
       if (error) throw error;
-      return data as unknown as { shifts: ShiftTimes[]; bookings: SeatBooking[]; timingText: string | null; configured: boolean };
+      return data as unknown as {
+        shifts: ShiftTimes[];
+        bookings: SeatBooking[];
+        timingText: string | null;
+        configured: boolean;
+      };
     },
   });
-  const timedShifts = (availability.data?.shifts ?? []).map((s) => ({ ...s, timings: parseBranchTimings(availability.data?.timingText) }));
+  const timedShifts = (availability.data?.shifts ?? []).map((s) => ({
+    ...s,
+    timings: parseBranchTimings(availability.data?.timingText),
+  }));
   const shiftLookup = new Map(timedShifts.map((s) => [s.id, s]));
-  const choices = selectableShifts(timedShifts, currentSectionId, currentSection, availability.data?.timingText, availability.data?.configured);
-  useEffect(() => { setMapShift("all"); setSelectedSeat(null); }, [currentSectionId]);
+  const choices = selectableShifts(
+    timedShifts,
+    currentSectionId,
+    currentSection,
+    availability.data?.timingText,
+    availability.data?.configured,
+  );
+  useEffect(() => {
+    setMapShift("all");
+    setSelectedSeat(null);
+  }, [currentSectionId]);
   const layoutData = useQuery({
     queryKey: ["layout", currentSectionId],
     enabled: !!currentSectionId && open,
@@ -694,7 +853,9 @@ function StudentSeatMapDialog({ libraryId }: { libraryId: string }) {
       const [seats, objs] = await Promise.all([
         supabase
           .from("seats")
-          .select("id, section_id, library_id, org_id, seat_number, row_position, column_position, facing_direction, is_active, created_at")
+          .select(
+            "id, section_id, library_id, org_id, seat_number, row_position, column_position, facing_direction, is_active, created_at",
+          )
           .eq("section_id", currentSectionId),
         supabase.from("layout_objects").select("*").eq("section_id", currentSectionId),
       ]);
@@ -709,18 +870,34 @@ function StudentSeatMapDialog({ libraryId }: { libraryId: string }) {
     return layoutData.data.seats.map((seat: any) => {
       const bookings = availability.data?.bookings ?? [];
       const seatAllocs = bookings.filter((a) => a.seat_id === seat.id);
-      const isFullDay = seatAllocs.some((a) => /24/i.test(a.shift_id ? shiftLookup.get(a.shift_id)?.name ?? "" : ""));
-      const shifts = seatAllocs.map((a) => a.shift_id ? shiftLookup.get(a.shift_id)?.name : "Full day").filter(Boolean);
+      const isFullDay = seatAllocs.some((a) =>
+        /24/i.test(a.shift_id ? (shiftLookup.get(a.shift_id)?.name ?? "") : ""),
+      );
+      const shifts = seatAllocs
+        .map((a) => (a.shift_id ? shiftLookup.get(a.shift_id)?.name : "Full day"))
+        .filter(Boolean);
       const openChoices = choices.filter((s) => seatFreeFor(seat.id, s.id, bookings, shiftLookup));
-      const fullDayFree = !!currentSection?.allow_full_day && seatFreeFor(seat.id, null, bookings, shiftLookup);
-      const isOccupied = !availability.data || (mapShift === "all" ? seatAllocs.length > 0 : !seatFreeFor(seat.id, mapShift === "none" ? null : mapShift, bookings, shiftLookup));
-      return { ...seat, isOccupied, isFullDay, shifts, openNames: [...(fullDayFree ? ["Full day"] : []), ...openChoices.map((s) => s.name)] };
+      const fullDayFree =
+        !!currentSection?.allow_full_day && seatFreeFor(seat.id, null, bookings, shiftLookup);
+      const isOccupied =
+        !availability.data ||
+        (mapShift === "all"
+          ? seatAllocs.length > 0
+          : !seatFreeFor(seat.id, mapShift === "none" ? null : mapShift, bookings, shiftLookup));
+      return {
+        ...seat,
+        isOccupied,
+        isFullDay,
+        shifts,
+        openNames: [...(fullDayFree ? ["Full day"] : []), ...openChoices.map((s) => s.name)],
+      };
     });
   }, [layoutData.data, availability.data, currentSection, mapShift]);
 
   // Layout processing for Walls/Areas (Matches Admin)
   const processedLayout = useMemo(() => {
-    if (!currentSection || !layoutData.data?.objs) return { areas: [], lines: [], objMap: new Map() };
+    if (!currentSection || !layoutData.data?.objs)
+      return { areas: [], lines: [], objMap: new Map() };
     const objs = layoutData.data.objs;
     const areas: any[] = [];
     const lines: any[] = [];
@@ -744,7 +921,12 @@ function StudentSeatMapDialog({ libraryId }: { libraryId: string }) {
         let width = 1;
         while (c + width < currentSection.grid_cols) {
           const nextKey = `${r}-${c + width}`;
-          if (visited.has(nextKey) || !objMap.has(nextKey) || objMap.get(nextKey).object_type !== type) break;
+          if (
+            visited.has(nextKey) ||
+            !objMap.has(nextKey) ||
+            objMap.get(nextKey).object_type !== type
+          )
+            break;
           width++;
         }
         let height = 1;
@@ -752,7 +934,11 @@ function StudentSeatMapDialog({ libraryId }: { libraryId: string }) {
         while (r + height < currentSection.grid_rows && canExpandDown) {
           for (let i = 0; i < width; i++) {
             const nextKey = `${r + height}-${c + i}`;
-            if (visited.has(nextKey) || !objMap.has(nextKey) || objMap.get(nextKey).object_type !== type) {
+            if (
+              visited.has(nextKey) ||
+              !objMap.has(nextKey) ||
+              objMap.get(nextKey).object_type !== type
+            ) {
               canExpandDown = false;
               break;
             }
@@ -785,9 +971,28 @@ function StudentSeatMapDialog({ libraryId }: { libraryId: string }) {
         <DialogHeader className="p-4 md:p-6 border-b border-panel-border/50 bg-black/20 flex-shrink-0">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <DialogTitle>Library Floor Plan</DialogTitle>
-            <Select value={mapShift} onValueChange={(v) => { setMapShift(v); setSelectedSeat(null); }}>
-              <SelectTrigger aria-label="Show seats for shift" className="w-full sm:w-48 bg-panel border-panel-border"><SelectValue /></SelectTrigger>
-              <SelectContent><SelectItem value="all">All shifts</SelectItem>{currentSection?.allow_full_day && <SelectItem value="none">Full day</SelectItem>}{choices.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+            <Select
+              value={mapShift}
+              onValueChange={(v) => {
+                setMapShift(v);
+                setSelectedSeat(null);
+              }}
+            >
+              <SelectTrigger
+                aria-label="Show seats for shift"
+                className="w-full sm:w-48 bg-panel border-panel-border"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All shifts</SelectItem>
+                {currentSection?.allow_full_day && <SelectItem value="none">Full day</SelectItem>}
+                {choices.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
             </Select>
             <Select
               value={currentSectionId ?? ""}
@@ -810,7 +1015,11 @@ function StudentSeatMapDialog({ libraryId }: { libraryId: string }) {
           </div>
         </DialogHeader>
 
-        {availability.isError && <p role="alert" className="px-4 text-sm text-rose">Seat availability could not load. Please reopen the floor plan.</p>}
+        {availability.isError && (
+          <p role="alert" className="px-4 text-sm text-rose">
+            Seat availability could not load. Please reopen the floor plan.
+          </p>
+        )}
         <div className="flex-1 overflow-auto bg-black/40 touch-pan-x touch-pan-y custom-scrollbar p-6 relative flex justify-center items-start">
           {currentSection && (
             <div
@@ -842,7 +1051,10 @@ function StudentSeatMapDialog({ libraryId }: { libraryId: string }) {
                       {Icon && <Icon className={cn(isMultiCell ? "size-5" : "size-3.5")} />}
                       {meta.label && (
                         <span
-                          className={cn("truncate", isMultiCell ? "font-bold tracking-widest uppercase" : "mt-0.5")}
+                          className={cn(
+                            "truncate",
+                            isMultiCell ? "font-bold tracking-widest uppercase" : "mt-0.5",
+                          )}
                         >
                           {meta.label}
                         </span>
@@ -879,25 +1091,37 @@ function StudentSeatMapDialog({ libraryId }: { libraryId: string }) {
                     />
                     {top && (
                       <div
-                        className={cn("absolute top-0 bottom-[50%] left-1/2 -translate-x-1/2", color)}
+                        className={cn(
+                          "absolute top-0 bottom-[50%] left-1/2 -translate-x-1/2",
+                          color,
+                        )}
                         style={{ width: thickness, zIndex: isWindow ? 5 : 4 }}
                       />
                     )}
                     {bottom && (
                       <div
-                        className={cn("absolute top-[50%] bottom-0 left-1/2 -translate-x-1/2", color)}
+                        className={cn(
+                          "absolute top-[50%] bottom-0 left-1/2 -translate-x-1/2",
+                          color,
+                        )}
                         style={{ width: thickness, zIndex: isWindow ? 5 : 4 }}
                       />
                     )}
                     {(left || isolated) && (
                       <div
-                        className={cn("absolute left-0 right-[50%] top-1/2 -translate-y-1/2", color)}
+                        className={cn(
+                          "absolute left-0 right-[50%] top-1/2 -translate-y-1/2",
+                          color,
+                        )}
                         style={{ height: thickness, zIndex: isWindow ? 5 : 4 }}
                       />
                     )}
                     {(right || isolated) && (
                       <div
-                        className={cn("absolute left-[50%] right-0 top-1/2 -translate-y-1/2", color)}
+                        className={cn(
+                          "absolute left-[50%] right-0 top-1/2 -translate-y-1/2",
+                          color,
+                        )}
                         style={{ height: thickness, zIndex: isWindow ? 5 : 4 }}
                       />
                     )}
@@ -934,7 +1158,9 @@ function StudentSeatMapDialog({ libraryId }: { libraryId: string }) {
           <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-full max-w-sm px-4">
             <div className="bg-panel border border-panel-border rounded-xl shadow-2xl p-4 flex items-center justify-between animate-in slide-in-from-bottom-4">
               <div>
-                <div className="text-xs text-muted-foreground uppercase tracking-widest font-mono">Seat</div>
+                <div className="text-xs text-muted-foreground uppercase tracking-widest font-mono">
+                  Seat
+                </div>
                 <div className="text-xl font-bold text-white">{selectedSeat.seat_number}</div>
               </div>
               <div className="text-right">
@@ -947,12 +1173,16 @@ function StudentSeatMapDialog({ libraryId }: { libraryId: string }) {
                     <div className="text-rose bg-rose/10 px-2 py-0.5 rounded text-[10px] font-medium border border-rose/20">
                       Reserved: {selectedSeat.shifts.join(", ")}
                     </div>
-                    <div className="text-[10px] text-muted-foreground">{selectedSeat.openNames?.length ? `Available: ${selectedSeat.openNames.join(", ")}` : "No enabled shifts available"}</div>
+                    <div className="text-[10px] text-muted-foreground">
+                      {selectedSeat.openNames?.length
+                        ? `Available: ${selectedSeat.openNames.join(", ")}`
+                        : "No enabled shifts available"}
+                    </div>
                   </div>
                 ) : (
                   <div className="inline-flex items-center gap-1.5 text-emerald bg-emerald/10 px-2.5 py-1 rounded text-xs font-medium border border-emerald/20">
-                    <span className="size-2 rounded-full bg-emerald shadow-[0_0_8px_rgba(16,185,129,0.8)]" /> Fully
-                    Vacant
+                    <span className="size-2 rounded-full bg-emerald shadow-[0_0_8px_rgba(16,185,129,0.8)]" />{" "}
+                    Fully Vacant
                   </div>
                 )}
               </div>
@@ -970,7 +1200,10 @@ function StudentSeatMapDialog({ libraryId }: { libraryId: string }) {
 function PinChangeGate() {
   return (
     <Dialog open modal>
-      <DialogContent className="glass-strong border-panel-border" onEscapeKeyDown={(e) => e.preventDefault()}>
+      <DialogContent
+        className="glass-strong border-panel-border"
+        onEscapeKeyDown={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle>Set your 6-digit PIN</DialogTitle>
         </DialogHeader>
@@ -1048,7 +1281,9 @@ function DeleteAccountDialog() {
               library you've joined, and releases any active seats. This cannot be undone.
             </div>
             <div>
-              <Label className="text-xs">Type <span className="font-mono text-red-300">DELETE</span> to continue</Label>
+              <Label className="text-xs">
+                Type <span className="font-mono text-red-300">DELETE</span> to continue
+              </Label>
               <Input
                 value={confirmText}
                 onChange={(e) => setConfirmText(e.target.value)}
@@ -1083,8 +1318,8 @@ function DeleteAccountDialog() {
         ) : (
           <div className="space-y-4 text-sm">
             <p className="text-muted-foreground">
-              We sent a 6-digit code to <span className="text-foreground font-medium">{email}</span>.
-              Enter it below to permanently delete your account.
+              We sent a 6-digit code to <span className="text-foreground font-medium">{email}</span>
+              . Enter it below to permanently delete your account.
             </p>
             <div>
               <Label className="text-xs">Verification code</Label>
@@ -1187,21 +1422,39 @@ function PinChangeForm({ forced, onDone }: { forced?: boolean; onDone?: () => vo
           />
         </div>
       </div>
-      <Button disabled={loading} type="submit" className="w-full bg-white text-slate-900 hover:bg-white/90">
+      <Button
+        disabled={loading}
+        type="submit"
+        className="w-full bg-white text-slate-900 hover:bg-white/90"
+      >
         {loading ? "…" : "Set PIN"}
       </Button>
     </form>
   );
 }
 
-function NewTicketDialog({ studentId, orgId, onDone }: { studentId: string; orgId: string; onDone: () => void }) {
+function NewTicketDialog({
+  studentId,
+  orgId,
+  onDone,
+}: {
+  studentId: string;
+  orgId: string;
+  onDone: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const [subject, setSubject] = useState("");
   const [description, setDescription] = useState("");
-  const [category, setCategory] = useState<"complaint" | "lost_and_found" | "suggestion">("complaint");
+  const [category, setCategory] = useState<"complaint" | "lost_and_found" | "suggestion">(
+    "complaint",
+  );
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <Button size="sm" onClick={() => setOpen(true)} className="bg-white text-slate-900 hover:bg-white/90">
+      <Button
+        size="sm"
+        onClick={() => setOpen(true)}
+        className="bg-white text-slate-900 hover:bg-white/90"
+      >
         New ticket
       </Button>
       <DialogContent className="glass-strong border-panel-border w-[95vw] max-w-md">

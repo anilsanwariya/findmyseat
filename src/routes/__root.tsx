@@ -22,9 +22,7 @@ function NotFoundComponent() {
       <div className="max-w-md text-center">
         <h1 className="text-7xl font-black text-foreground">404</h1>
         <h2 className="mt-4 text-xl font-semibold text-foreground">Page not found</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          This route doesn't exist.
-        </p>
+        <p className="mt-2 text-sm text-muted-foreground">This route doesn't exist.</p>
         <div className="mt-6">
           <Link
             to="/"
@@ -51,10 +49,20 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
         <p className="mt-2 text-sm text-muted-foreground">Try again, or head home.</p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
-            onClick={() => { router.invalidate(); reset(); }}
+            onClick={() => {
+              router.invalidate();
+              reset();
+            }}
             className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-          >Try again</button>
-          <a href="/" className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-accent">Go home</a>
+          >
+            Try again
+          </button>
+          <a
+            href="/"
+            className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
+          >
+            Go home
+          </a>
         </div>
       </div>
     </div>
@@ -69,13 +77,25 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "theme-color", content: "#050913" },
       { name: "apple-mobile-web-app-title", content: "LibraryBandhu" },
       { title: "Find your study space — LibraryBandhu Marketplace" },
-      { name: "description", content: "Discover libraries and study spaces near you by zone or target exam. Reserve a seat with a single request." },
+      {
+        name: "description",
+        content:
+          "Discover libraries and study spaces near you by zone or target exam. Reserve a seat with a single request.",
+      },
       { property: "og:title", content: "Find your study space — LibraryBandhu Marketplace" },
-      { property: "og:description", content: "Discover libraries and study spaces near you by zone or target exam. Reserve a seat with a single request." },
+      {
+        property: "og:description",
+        content:
+          "Discover libraries and study spaces near you by zone or target exam. Reserve a seat with a single request.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "Find your study space — LibraryBandhu Marketplace" },
-      { name: "twitter:description", content: "Discover libraries and study spaces near you by zone or target exam. Reserve a seat with a single request." },
+      {
+        name: "twitter:description",
+        content:
+          "Discover libraries and study spaces near you by zone or target exam. Reserve a seat with a single request.",
+      },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
@@ -84,7 +104,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "" },
-      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap",
+      },
     ],
   }),
   shellComponent: RootShell,
@@ -96,7 +119,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 function RootShell({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <head><HeadContent /></head>
+      <head>
+        <HeadContent />
+      </head>
       <body>
         {children}
         <Scripts />

@@ -46,14 +46,23 @@ import {
 } from "@/lib/dashboard-metrics";
 
 export const Route = createFileRoute("/_authenticated/admin/")({
-  head: () => ({ meta: [
-    { title: "Library Overview · LibraryBandhu" },
-    { name: "description", content: "Your library students, fee collections, outstanding payments and branch overview." },
-    { property: "og:title", content: "Library Overview · LibraryBandhu" },
-    { property: "og:description", content: "Review student fees, collections and branch activity." },
-    { property: "og:type", content: "website" },
-    { name: "twitter:card", content: "summary" },
-  ] }),
+  head: () => ({
+    meta: [
+      { title: "Library Overview · LibraryBandhu" },
+      {
+        name: "description",
+        content:
+          "Your library students, fee collections, outstanding payments and branch overview.",
+      },
+      { property: "og:title", content: "Library Overview · LibraryBandhu" },
+      {
+        property: "og:description",
+        content: "Review student fees, collections and branch activity.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
   validateSearch: (search: Record<string, unknown>): { branch?: string; month?: string } => ({
     branch: typeof search.branch === "string" ? search.branch : undefined,
     month:
@@ -277,13 +286,7 @@ function Dashboard() {
     staleTime: 30_000,
     queryFn: async () => {
       type OpsStatus =
-        | "contacted"
-        | "converted"
-        | "in_progress"
-        | "lost"
-        | "open"
-        | "pending"
-        | "resolved";
+        "contacted" | "converted" | "in_progress" | "lost" | "open" | "pending" | "resolved";
       const count = async (table: "seat_requests" | "tickets", status: OpsStatus[]) => {
         let q = supabase
           .from(table)
@@ -419,7 +422,9 @@ function Dashboard() {
 
   const lists = useMemo(() => {
     const monthStart = monthRange(selMonth).start;
-    const balances = new Map(allocs.map((a) => [a.id, overdueBalance(a, paidOpen, today, prepaid)]));
+    const balances = new Map(
+      allocs.map((a) => [a.id, overdueBalance(a, paidOpen, today, prepaid)]),
+    );
     const overdueOf = (a: DashAlloc) => balances.get(a.id)?.amount ?? 0;
     const isOverdue = (a: DashAlloc) => overdueOf(a) > 0;
     const toRow = (a: DashAlloc): ActionStudent => ({
@@ -458,7 +463,8 @@ function Dashboard() {
       overdueCount: overdueAllocs.length,
       duesTotal: overdueAllocs.reduce((s, a) => s + overdueOf(a), 0),
       carriedOver: allocs.reduce(
-        (s, a) => s + overdueBalance(a, paidOpen, monthStart < today ? monthStart : today, prepaid).amount,
+        (s, a) =>
+          s + overdueBalance(a, paidOpen, monthStart < today ? monthStart : today, prepaid).amount,
         0,
       ),
       awaitingFirstPayment: allocs
@@ -502,7 +508,16 @@ function Dashboard() {
         })
         .sort((a, b) => (a.days ?? 0) - (b.days ?? 0)),
     };
-  }, [allocs, alloc.data?.paidStudentIds, paidOpen, prepaid, libName, selMonth, today, can.payments]);
+  }, [
+    allocs,
+    alloc.data?.paidStudentIds,
+    paidOpen,
+    prepaid,
+    libName,
+    selMonth,
+    today,
+    can.payments,
+  ]);
 
   /** Seats taken per shift (a full-day booking blocks every shift). */
   const occupancy = useMemo(
@@ -544,9 +559,7 @@ function Dashboard() {
         collected: sumAmount(
           payments.filter((p) => p.library_id === id && inMonth(dayOnly(p.payment_date))),
         ),
-        dues: branchAllocs
-          .filter(lists.isOverdue)
-          .reduce((s, a) => s + lists.overdueOf(a), 0),
+        dues: branchAllocs.filter(lists.isOverdue).reduce((s, a) => s + lists.overdueOf(a), 0),
         expenses: expenses
           .filter((e) => e.library_id === id && inMonth(dayOnly(e.spent_on)))
           .reduce((s, e) => s + Number(e.amount), 0),
@@ -575,7 +588,10 @@ function Dashboard() {
     [allocs],
   );
 
-  const filterActions = (rows: ActionStudent[]) => rows.filter((r) => matchesShift(allocs.find((a) => a.id === r.allocationId)?.shifts?.name, actionShift));
+  const filterActions = (rows: ActionStudent[]) =>
+    rows.filter((r) =>
+      matchesShift(allocs.find((a) => a.id === r.allocationId)?.shifts?.name, actionShift),
+    );
   const setSearch = (patch: { branch?: string; month?: string }) =>
     navigate({ search: (prev: any) => ({ ...prev, ...patch }), replace: true });
 
@@ -742,7 +758,10 @@ function Dashboard() {
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <div className="mb-3 flex flex-wrap items-center gap-3"><Label className="text-sm text-muted-foreground">Student fee reminders</Label><ShiftFilter value={actionShift} onChange={setActionShift} /></div>
+          <div className="mb-3 flex flex-wrap items-center gap-3">
+            <Label className="text-sm text-muted-foreground">Student fee reminders</Label>
+            <ShiftFilter value={actionShift} onChange={setActionShift} />
+          </div>
           {alloc.isPending ? (
             <GlassPanel className="space-y-3 p-4 sm:p-5">
               <Skeleton className="h-3 w-40 bg-white/10" />

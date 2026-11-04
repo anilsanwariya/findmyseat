@@ -121,13 +121,18 @@ function PaymentDetail({ paymentId, onClose }: { paymentId: string; onClose: () 
       <DialogContent className="glass-strong border-panel-border w-[95vw] max-w-lg max-h-[90vh] overflow-y-auto p-4 md:p-6">
         <DialogHeader>
           <DialogTitle>Payment details</DialogTitle>
-          <DialogDescription className="sr-only">Full details of the recorded payment.</DialogDescription>
+          <DialogDescription className="sr-only">
+            Full details of the recorded payment.
+          </DialogDescription>
         </DialogHeader>
         {!p ? (
           <div className="py-6 text-center text-sm text-muted-foreground">Loading…</div>
         ) : (
           <div className="space-y-3 text-sm">
-            <Row label="Student" value={`${p.students?.full_name} (${p.students?.mobile_number})`} />
+            <Row
+              label="Student"
+              value={`${p.students?.full_name} (${p.students?.mobile_number})`}
+            />
             <Row label="Branch" value={p.libraries?.name ?? "—"} />
             <Row label="Seat" value={p.allocations?.seats?.seat_number ?? "—"} />
             <Row label="Amount" value={inr(p.amount_paid)} mono />
@@ -140,11 +145,16 @@ function PaymentDetail({ paymentId, onClose }: { paymentId: string; onClose: () 
               mono
             />
             <Row label="Covers until" value={fmtDate(p.covers_until) ?? "—"} mono />
-            <Row label="Payment status" value={p.is_partial ? "Partially paid (due date unchanged)" : "Full payment"} />
+            <Row
+              label="Payment status"
+              value={p.is_partial ? "Partially paid (due date unchanged)" : "Full payment"}
+            />
             <Row label="Note" value={p.reference_note ?? "—"} />
             {p.receipt_url && (
               <div className="space-y-1">
-                <div className="text-xs uppercase tracking-widest text-muted-foreground">Receipt</div>
+                <div className="text-xs uppercase tracking-widest text-muted-foreground">
+                  Receipt
+                </div>
                 {signed ? (
                   <a href={signed} target="_blank" rel="noopener noreferrer">
                     <img

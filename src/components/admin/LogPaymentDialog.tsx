@@ -6,8 +6,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DateInput } from "@/components/ui/date-input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { inr, fmtDate, addCalendarMonthsISO, anchorDayOf } from "@/lib/format";
@@ -16,7 +27,10 @@ import { Search, Upload, X } from "lucide-react";
 const todayISO = () => new Date().toISOString().split("T")[0];
 
 // Match the allocation tab's colour coding for fee status.
-function allocEffectiveStatus(a: { status?: string | null; next_due_date?: string | null }): string {
+function allocEffectiveStatus(a: {
+  status?: string | null;
+  next_due_date?: string | null;
+}): string {
   const s = a?.status ?? "pending";
   if (a?.next_due_date) {
     const due = new Date(a.next_due_date);
@@ -37,7 +51,13 @@ const allocStatusClass = (st: string) =>
         ? "bg-cyan/10 text-cyan"
         : "bg-amber-500/10 text-amber-400";
 
-export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => void; initialAllocId?: string }) {
+export function LogPaymentDialog({
+  onDone,
+  initialAllocId,
+}: {
+  onDone: () => void;
+  initialAllocId?: string;
+}) {
   const { data: session } = useSession();
   const orgId = session?.orgId;
 
@@ -47,7 +67,9 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
   const [amount, setAmount] = useState<number | "">("");
   const [startDate, setStartDate] = useState(todayISO());
   const [endDate, setEndDate] = useState("");
-  const [method, setMethod] = useState<"upi" | "cash" | "card" | "bank_transfer" | "offline_legacy">("upi");
+  const [method, setMethod] = useState<
+    "upi" | "cash" | "card" | "bank_transfer" | "offline_legacy"
+  >("upi");
   const [txnRef, setTxnRef] = useState("");
   const [note, setNote] = useState("");
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
@@ -56,7 +78,6 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
   const [dueTouched, setDueTouched] = useState(false);
   const [legacyDueDate, setLegacyDueDate] = useState("");
   const [settle, setSettle] = useState(false);
-
 
   const active = useQuery({
     queryKey: ["allocations-active", orgId],
@@ -90,7 +111,8 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
     if (!studentSearch) return active.data;
     const q = studentSearch.toLowerCase();
     return active.data.filter(
-      (a: any) => a.students?.full_name?.toLowerCase().includes(q) || a.students?.mobile_number?.includes(q),
+      (a: any) =>
+        a.students?.full_name?.toLowerCase().includes(q) || a.students?.mobile_number?.includes(q),
     );
   }, [active.data, studentSearch]);
 
@@ -127,8 +149,7 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
       setAmount(Math.max(Number(chosen.monthly_fee) - paidBefore, 0));
       // Coverage starts from the current due date; for a student with no coverage yet
       // it starts from the date they were allocated (so payment can be collected later).
-      const startFrom =
-        (chosen as any).next_due_date ?? (chosen as any).start_date ?? null;
+      const startFrom = (chosen as any).next_due_date ?? (chosen as any).start_date ?? null;
       setStartDate(startFrom ? String(startFrom).split("T")[0] : todayISO());
     } else {
       setAmount("");
@@ -147,7 +168,6 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
   const shortfall = Math.max(fee - totalTowardsCycle, 0);
   const waiving = !!chosen && settle && shortfall > 0;
 
-
   // Allocations with money already paid towards an unfinished cycle, so the picker can
   // show PARTIAL instead of only OVERDUE/PENDING (matches the allocations screen).
   const openPartialIds = useQuery({
@@ -160,10 +180,16 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
         .eq("org_id", orgId!)
         .eq("is_partial", true);
       const dueByAlloc = new Map<string, string | null>(
-        (active.data ?? []).map((a: any) => [a.id, a.next_due_date ? String(a.next_due_date).split("T")[0] : null]),
+        (active.data ?? []).map((a: any) => [
+          a.id,
+          a.next_due_date ? String(a.next_due_date).split("T")[0] : null,
+        ]),
       );
       const ids = new Set<string>();
-      for (const p of (data ?? []) as { allocation_id: string | null; covers_until: string | null }[]) {
+      for (const p of (data ?? []) as {
+        allocation_id: string | null;
+        covers_until: string | null;
+      }[]) {
         if (!p.allocation_id || !p.covers_until) continue;
         const due = dueByAlloc.get(p.allocation_id);
         if (!due || String(p.covers_until).split("T")[0] > due) ids.add(p.allocation_id);
@@ -179,7 +205,6 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
     setSettle(false);
   }, [chosen?.id]);
 
-
   useEffect(() => {
     if (!chosen || !startDate || dueTouched) return;
     // The cycle being paid for ends one month after the coverage start, unless an earlier
@@ -187,11 +212,14 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
     // start day is the billing anchor, so a short month never shifts the billing day forever.
     const anchor = anchorDayOf((chosen as any).start_date);
     const cycleEnd = openTarget ?? addCalendarMonthsISO(startDate, 1, anchor);
-    setEndDate(monthsCovered > 1 ? addCalendarMonthsISO(cycleEnd, monthsCovered - 1, anchor) : cycleEnd);
+    setEndDate(
+      monthsCovered > 1 ? addCalendarMonthsISO(cycleEnd, monthsCovered - 1, anchor) : cycleEnd,
+    );
   }, [startDate, chosen, monthsCovered, dueTouched, openTarget]);
 
-
-  const dueSoon = chosen?.next_due_date ? (new Date(chosen.next_due_date).getTime() - Date.now()) / 86400000 : null;
+  const dueSoon = chosen?.next_due_date
+    ? (new Date(chosen.next_due_date).getTime() - Date.now()) / 86400000
+    : null;
   const statusColor =
     chosen?.status === "paid" && dueSoon !== null && dueSoon > 7
       ? "text-emerald"
@@ -203,7 +231,9 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
     <DialogContent className="glass-strong border-panel-border w-[95vw] max-w-lg max-h-[90vh] overflow-y-auto p-4 md:p-6">
       <DialogHeader>
         <DialogTitle>Log payment</DialogTitle>
-        <DialogDescription className="sr-only">Record a payment and extend the student's due date.</DialogDescription>
+        <DialogDescription className="sr-only">
+          Record a payment and extend the student's due date.
+        </DialogDescription>
       </DialogHeader>
       <form
         className="space-y-4"
@@ -243,7 +273,6 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
               toast.error("Transaction reference is required for non-cash payments.");
               return;
             }
-
           }
           setLoading(true);
 
@@ -271,7 +300,11 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
                 allocation_id: chosen.id,
                 amount_paid: effectiveAmount,
                 method: effectiveMethod,
-                transaction_reference: isLegacy ? null : method === "cash" ? txnRef.trim() || null : txnRef.trim(),
+                transaction_reference: isLegacy
+                  ? null
+                  : method === "cash"
+                    ? txnRef.trim() || null
+                    : txnRef.trim(),
                 reference_note: effectiveNote,
                 covers_until: effectiveCoversUntil,
                 is_partial: !isLegacy && isPartial,
@@ -292,18 +325,22 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
               .from("allocations")
               .update({
                 next_due_date: newDue,
-                status: partialNow ? (isOverdue ? "overdue" : "pending") : isOverdue ? "overdue" : "paid",
+                status: partialNow
+                  ? isOverdue
+                    ? "overdue"
+                    : "pending"
+                  : isOverdue
+                    ? "overdue"
+                    : "paid",
               })
               .eq("id", chosen.id);
 
             if (allocErr) {
               // Roll the payment back so the owner can safely retry the whole action.
               await supabase.from("payments").delete().eq("id", inserted!.id);
-              
+
               throw allocErr;
             }
-
-
 
             toast.success(
               isLegacy
@@ -319,7 +356,8 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
             onDone();
           } catch (err: any) {
             // Nothing partial is left behind: drop an orphaned receipt file.
-            if (uploadedPath) await supabase.storage.from("payment-receipts").remove([uploadedPath]);
+            if (uploadedPath)
+              await supabase.storage.from("payment-receipts").remove([uploadedPath]);
             toast.error(err.message ?? "Failed to log payment");
           } finally {
             setLoading(false);
@@ -330,8 +368,8 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
           <div className="min-w-0">
             <div className="text-sm font-medium">Existing Student (Already Paid Offline)</div>
             <p className="mt-0.5 text-[11px] text-muted-foreground">
-              Use this for students who paid before you started using the app. This will not add to your revenue
-              dashboard.
+              Use this for students who paid before you started using the app. This will not add to
+              your revenue dashboard.
             </p>
           </div>
           <Switch checked={isLegacy} onCheckedChange={setIsLegacy} />
@@ -384,20 +422,26 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
                       <span className="font-mono text-cyan/80">{a.students?.mobile_number}</span>
                       <span>·</span>
                       <span>
-                        {a.reservation_type === "unreserved" ? "Unreserved" : `Seat ${a.seats?.seat_number ?? "—"}`}
+                        {a.reservation_type === "unreserved"
+                          ? "Unreserved"
+                          : `Seat ${a.seats?.seat_number ?? "—"}`}
                       </span>
                       <span>·</span>
                       <span
                         className={`rounded px-1.5 py-0.5 text-[9px] uppercase tracking-wider font-semibold ${allocStatusClass(rowStatus(a))}`}
                       >
                         {rowStatus(a)}
-                        {rowStatus(a) === "partial" && allocEffectiveStatus(a) === "overdue" ? " · overdue" : ""}
+                        {rowStatus(a) === "partial" && allocEffectiveStatus(a) === "overdue"
+                          ? " · overdue"
+                          : ""}
                       </span>
                     </div>
                   </div>
                 ))}
                 {filteredAllocations.length === 0 && (
-                  <div className="p-4 text-xs text-muted-foreground text-center">No active allocations found.</div>
+                  <div className="p-4 text-xs text-muted-foreground text-center">
+                    No active allocations found.
+                  </div>
                 )}
               </div>
             )}
@@ -408,11 +452,15 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
           <>
             {/* Status Card */}
             <div className="rounded-lg border border-panel-border bg-black/20 p-3 space-y-1 mt-4">
-              <div className="text-xs uppercase tracking-widest text-muted-foreground">Current status</div>
+              <div className="text-xs uppercase tracking-widest text-muted-foreground">
+                Current status
+              </div>
               <div className="flex items-center justify-between">
                 <div>
                   <div className="font-semibold">{chosen.students?.full_name}</div>
-                  <div className="text-xs text-muted-foreground font-mono">{chosen.students?.mobile_number}</div>
+                  <div className="text-xs text-muted-foreground font-mono">
+                    {chosen.students?.mobile_number}
+                  </div>
                 </div>
                 <div className="text-right">
                   <div className={`text-xs uppercase tracking-widest font-semibold ${statusColor}`}>
@@ -441,8 +489,8 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
                     className="bg-panel border-panel-border font-mono w-full text-emerald font-semibold"
                   />
                   <p className="text-[10px] text-muted-foreground">
-                    The date when this student's current offline cycle ends. Pick a past date if the student already has
-                    dues pending — they'll show up as overdue.
+                    The date when this student's current offline cycle ends. Pick a past date if the
+                    student already has dues pending — they'll show up as overdue.
                   </p>
                 </div>
               </div>
@@ -458,7 +506,9 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
                 {paidBefore > 0 && (
                   <div className="flex justify-between items-center rounded-md border border-amber-400/30 bg-amber-400/5 p-2 text-xs">
                     <span className="text-amber-300/90">Already paid this cycle</span>
-                    <span className="font-mono font-semibold text-amber-300">{inr(paidBefore)}</span>
+                    <span className="font-mono font-semibold text-amber-300">
+                      {inr(paidBefore)}
+                    </span>
                   </div>
                 )}
 
@@ -470,7 +520,9 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
                       type="number"
                       min={0}
                       value={amount}
-                      onChange={(e) => setAmount(e.target.value === "" ? "" : Number(e.target.value))}
+                      onChange={(e) =>
+                        setAmount(e.target.value === "" ? "" : Number(e.target.value))
+                      }
                       className="bg-panel border-panel-border font-mono w-full"
                     />
                   </div>
@@ -490,23 +542,26 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
                     <div className="min-w-0">
                       <div className="text-sm font-medium">Mark cycle as fully paid</div>
                       <p className="mt-0.5 text-[11px] text-muted-foreground">
-                        Apply a discount or waiver — completes the cycle even if the amount is short.
+                        Apply a discount or waiver — completes the cycle even if the amount is
+                        short.
                       </p>
                     </div>
                     <Switch checked={settle} onCheckedChange={setSettle} />
                   </div>
                   {waiving && (
                     <p className="rounded-md border border-amber-400/30 bg-amber-400/5 p-2 text-[11px] text-amber-300">
-                      This will extend the due date to the next cycle and waive the remaining {inr(shortfall)} balance.
+                      This will extend the due date to the next cycle and waive the remaining{" "}
+                      {inr(shortfall)} balance.
                     </p>
                   )}
                 </div>
 
-
                 <div className="space-y-2">
                   <Label>
                     {isPartial ? "Cycle Covers Until" : "New Due Date"}{" "}
-                    <span className="text-[10px] text-muted-foreground normal-case">(editable)</span>
+                    <span className="text-[10px] text-muted-foreground normal-case">
+                      (editable)
+                    </span>
                   </Label>
                   <DateInput
                     required
@@ -530,17 +585,20 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
                   )}
                   {isPartial ? (
                     <p className="text-[10px] text-amber-300/90 mt-1">
-                      Partial payment towards the cycle ending {fmtDate(endDate)} — {inr(shortfall)} still pending. The
-                      due date stays {fmtDate(chosen.next_due_date) ?? "unchanged"} until the cycle is paid in full.
+                      Partial payment towards the cycle ending {fmtDate(endDate)} — {inr(shortfall)}{" "}
+                      still pending. The due date stays{" "}
+                      {fmtDate(chosen.next_due_date) ?? "unchanged"} until the cycle is paid in
+                      full.
                     </p>
                   ) : (
                     <p className="text-[10px] text-muted-foreground mt-1">
-                      Date-to-date monthly cycle — {monthsCovered} month{monthsCovered > 1 ? "s" : ""} covered
-                      {openTarget ? ", continuing the part-paid cycle" : ""}, the due day stays the same each month.
+                      Date-to-date monthly cycle — {monthsCovered} month
+                      {monthsCovered > 1 ? "s" : ""} covered
+                      {openTarget ? ", continuing the part-paid cycle" : ""}, the due day stays the
+                      same each month.
                     </p>
                   )}
                 </div>
-
               </div>
             )}
           </>
@@ -566,7 +624,10 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
 
               <div className="space-y-2">
                 <Label>
-                  Transaction Reference {method !== "cash" && Number(amount || 0) > 0 && <span className="text-red-400">*</span>}
+                  Transaction Reference{" "}
+                  {method !== "cash" && Number(amount || 0) > 0 && (
+                    <span className="text-red-400">*</span>
+                  )}
                   {(method === "cash" || Number(amount || 0) <= 0) && (
                     <span className="text-muted-foreground text-[10px]"> (optional)</span>
                   )}
@@ -599,7 +660,9 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
                   <div className="flex items-center gap-2 rounded-md border border-dashed border-panel-border bg-black/20 px-3 py-2 hover:bg-black/30 transition">
                     <Upload className="size-4 text-muted-foreground" />
                     <span className="text-xs text-muted-foreground truncate">
-                      {receiptFile ? receiptFile.name : "Screenshot or cash receipt (JPG/PNG, max 5MB)"}
+                      {receiptFile
+                        ? receiptFile.name
+                        : "Screenshot or cash receipt (JPG/PNG, max 5MB)"}
                     </span>
                   </div>
                   <input
@@ -618,7 +681,12 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
                   />
                 </label>
                 {receiptFile && (
-                  <Button type="button" variant="ghost" size="sm" onClick={() => setReceiptFile(null)}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setReceiptFile(null)}
+                  >
                     <X className="size-3" />
                   </Button>
                 )}
@@ -632,7 +700,11 @@ export function LogPaymentDialog({ onDone, initialAllocId }: { onDone: () => voi
           type="submit"
           className="w-full mt-2 bg-white text-slate-900 hover:bg-white/90"
         >
-          {loading ? "Processing…" : isLegacy ? "Onboard Existing Student" : "Log Payment & Extend Due Date"}
+          {loading
+            ? "Processing…"
+            : isLegacy
+              ? "Onboard Existing Student"
+              : "Log Payment & Extend Due Date"}
         </Button>
       </form>
     </DialogContent>

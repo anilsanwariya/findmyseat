@@ -38,9 +38,17 @@ export function worstStatus(list: OccupantInfo[]): SeatStatus {
 }
 
 export const STATUS_META: Record<SeatStatus, { label: string; dot: string; cell: string }> = {
-  vacant: { label: "Vacant", dot: "bg-muted-foreground/50", cell: "border-panel-border bg-white/[0.03] text-muted-foreground" },
+  vacant: {
+    label: "Vacant",
+    dot: "bg-muted-foreground/50",
+    cell: "border-panel-border bg-white/[0.03] text-muted-foreground",
+  },
   paid: { label: "Paid", dot: "bg-emerald", cell: "border-emerald/50 bg-emerald/15 text-emerald" },
-  partial: { label: "Part paid", dot: "bg-amber-400", cell: "border-amber-400/50 bg-amber-400/15 text-amber-300" },
+  partial: {
+    label: "Part paid",
+    dot: "bg-amber-400",
+    cell: "border-amber-400/50 bg-amber-400/15 text-amber-300",
+  },
   overdue: { label: "Overdue", dot: "bg-rose", cell: "border-rose/50 bg-rose/15 text-rose" },
   pending: { label: "Pending", dot: "bg-cyan", cell: "border-cyan/50 bg-cyan/15 text-cyan" },
 };

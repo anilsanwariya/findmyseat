@@ -79,20 +79,31 @@ import {
 } from "@/lib/branch-timings";
 
 export const Route = createFileRoute("/_authenticated/admin/settings")({
-  head: () => ({ meta: [
-    { title: "Branch & Payment Settings · LibraryBandhu" },
-    { name: "description", content: "Manage your library branches, UPI payment details and student payment QR codes." },
-    { property: "og:title", content: "Branch & Payment Settings · LibraryBandhu" },
-    { property: "og:description", content: "Manage your library branches and student payment details." },
-    { property: "og:type", content: "website" },
-    { name: "twitter:card", content: "summary" },
-  ] }),
+  head: () => ({
+    meta: [
+      { title: "Branch & Payment Settings · LibraryBandhu" },
+      {
+        name: "description",
+        content: "Manage your library branches, UPI payment details and student payment QR codes.",
+      },
+      { property: "og:title", content: "Branch & Payment Settings · LibraryBandhu" },
+      {
+        property: "og:description",
+        content: "Manage your library branches and student payment details.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
   component: SettingsPage,
 });
 
 export const AMENITIES_DICT: Record<string, { en: string; hi: string }> = {
   ac: { en: "Fully air-conditioned halls", hi: "पूरी तरह से वातानुकूलित हॉल" },
-  wifi: { en: "High-speed Wi-Fi & individual charging", hi: "हाई-स्पीड वाई-फाई और व्यक्तिगत चार्जिंग" },
+  wifi: {
+    en: "High-speed Wi-Fi & individual charging",
+    hi: "हाई-स्पीड वाई-फाई और व्यक्तिगत चार्जिंग",
+  },
   power_backup: { en: "100% Power backup (AC & Wi-Fi)", hi: "100% पावर बैकअप (एसी और वाई-फाई)" },
   cctv: { en: "24/7 CCTV security", hi: "24/7 सीसीटीवी सुरक्षा" },
   lockers: { en: "Secure personal lockers", hi: "सुरक्षित व्यक्तिगत लॉकर" },
@@ -101,7 +112,10 @@ export const AMENITIES_DICT: Record<string, { en: string; hi: string }> = {
   desk_lights: { en: "Individual desk lighting", hi: "व्यक्तिगत डेस्क लाइट" },
   female_seating: { en: "Dedicated female seating zone", hi: "समर्पित महिला बैठने का क्षेत्र" },
   hygienic_washrooms: { en: "Hygienic washrooms", hi: "स्वच्छ वॉशरूम" },
-  female_washroom: { en: "Separate washroom for female students", hi: "महिला छात्रों के लिए अलग वॉशरूम" },
+  female_washroom: {
+    en: "Separate washroom for female students",
+    hi: "महिला छात्रों के लिए अलग वॉशरूम",
+  },
   ro_water: { en: "RO / Purified drinking water", hi: "आरओ / शुद्ध पीने का पानी" },
   dining_area: { en: "Separate dining / lunch area", hi: "अलग डाइनिंग / लंच एरिया" },
   appliances: { en: "Microwave & Tea/Coffee machine", hi: "माइक्रोवेव और चाय/कॉफी मशीन" },
@@ -159,13 +173,22 @@ function serializeOpeningHours({
 function parseOpeningHours(s: string): { open24: boolean; openTime: string; closeTime: string } {
   const raw = (s || "").trim();
   if (!raw) return { open24: false, openTime: "", closeTime: "" };
-  if (/24\s*hours?|24\s*hrs?|24\/7/i.test(raw)) return { open24: true, openTime: "", closeTime: "" };
-  const m = raw.match(/(\d{1,2}(?::\d{2})?\s*(?:AM|PM|am|pm))\s*[-–to]+\s*(\d{1,2}(?::\d{2})?\s*(?:AM|PM|am|pm))/);
+  if (/24\s*hours?|24\s*hrs?|24\/7/i.test(raw))
+    return { open24: true, openTime: "", closeTime: "" };
+  const m = raw.match(
+    /(\d{1,2}(?::\d{2})?\s*(?:AM|PM|am|pm))\s*[-–to]+\s*(\d{1,2}(?::\d{2})?\s*(?:AM|PM|am|pm))/,
+  );
   if (m) return { open24: false, openTime: from12h(m[1]), closeTime: from12h(m[2]) };
   return { open24: false, openTime: "", closeTime: "" };
 }
 
-function serializeClosedOn({ openAllDays, days }: { openAllDays: boolean; days: string[] }): string | null {
+function serializeClosedOn({
+  openAllDays,
+  days,
+}: {
+  openAllDays: boolean;
+  days: string[];
+}): string | null {
   if (openAllDays) return "Open all days";
   if (!days.length) return null;
   const ordered = WEEK_DAYS.filter((d) => days.includes(d)).map((d) => DAY_LONG[d]);
@@ -210,7 +233,11 @@ function SettingsPage() {
   const { data: libs } = useLibraries();
 
   if (isLoading) {
-    return <div className="p-10 text-center text-muted-foreground animate-pulse">Loading settings...</div>;
+    return (
+      <div className="p-10 text-center text-muted-foreground animate-pulse">
+        Loading settings...
+      </div>
+    );
   }
   if (!orgId) {
     return (
@@ -226,7 +253,9 @@ function SettingsPage() {
       <PendingBranchesBanner orgId={orgId} />
 
       <GlassPanel className="p-5">
-        <h3 className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Organization</h3>
+        <h3 className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
+          Organization
+        </h3>
         {org.data && (
           <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
@@ -346,7 +375,8 @@ function BranchCard({ lib, onChanged, orgId }: { lib: any; onChanged: () => void
       <div className="mt-auto space-y-3">
         {hasPending && (
           <div className="rounded-lg border border-amber-400/30 bg-amber-400/5 px-3 py-2 text-[11px] text-amber-200">
-            Awaiting super-admin verification for <span className="font-mono">{pendingTransfer.data?.buyer_email}</span>
+            Awaiting super-admin verification for{" "}
+            <span className="font-mono">{pendingTransfer.data?.buyer_email}</span>
           </div>
         )}
         {!lib.show_public_availability && (
@@ -356,8 +386,22 @@ function BranchCard({ lib, onChanged, orgId }: { lib: any; onChanged: () => void
         )}
 
         {/* Clean Action Footer */}
-        {!session?.isStaff && session?.role === "org_admin" && <Button variant="outline" size="sm" className="w-full" onClick={() => setPaymentOpen(true)}>Payment details</Button>}
-        <BranchPaymentDialog libraryId={lib.id} branchName={lib.name} open={paymentOpen} onOpenChange={setPaymentOpen} />
+        {!session?.isStaff && session?.role === "org_admin" && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full"
+            onClick={() => setPaymentOpen(true)}
+          >
+            Payment details
+          </Button>
+        )}
+        <BranchPaymentDialog
+          libraryId={lib.id}
+          branchName={lib.name}
+          open={paymentOpen}
+          onOpenChange={setPaymentOpen}
+        />
         <div className="pt-3 border-t border-panel-border/50 flex items-center gap-2">
           <div className="flex-1">
             <LibraryFormDialogGuarded
@@ -578,7 +622,9 @@ function PhotoManagerView({ lib }: { lib: any }) {
             Gallery ({photos.data?.length ?? 0})
           </div>
           {(photos.data?.length ?? 0) > 1 && (
-            <div className="text-[10px] text-muted-foreground">First photo = cover on marketplace</div>
+            <div className="text-[10px] text-muted-foreground">
+              First photo = cover on marketplace
+            </div>
           )}
         </div>
         {photos.data && photos.data.length > 0 ? (
@@ -591,7 +637,11 @@ function PhotoManagerView({ lib }: { lib: any }) {
                   key={p.id}
                   className="group relative overflow-hidden rounded-lg border border-panel-border bg-panel"
                 >
-                  <img src={p.image_url} alt={p.section_name} className="aspect-[4/3] w-full object-cover" />
+                  <img
+                    src={p.image_url}
+                    alt={p.section_name}
+                    className="aspect-[4/3] w-full object-cover"
+                  />
                   {isCover && (
                     <div className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full border border-gold/40 bg-black/70 px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-gold">
                       <Star className="size-2.5 fill-gold" /> Cover
@@ -635,7 +685,8 @@ function PhotoManagerView({ lib }: { lib: any }) {
                         if (
                           !(await confirmAction({
                             title: "Delete this photo?",
-                            description: "It will be removed from your branch gallery and the marketplace listing.",
+                            description:
+                              "It will be removed from your branch gallery and the marketplace listing.",
                             confirmLabel: "Delete photo",
                             destructive: true,
                           }))
@@ -712,7 +763,12 @@ function LibraryFormDialogGuarded({
     <>
       <Dialog open={open} onOpenChange={requestClose}>
         <DialogTrigger asChild>{trigger}</DialogTrigger>
-        <LibraryFormDialog orgId={orgId} existingLib={existingLib} onDone={onDone} dirtyRef={dirtyRef} />
+        <LibraryFormDialog
+          orgId={orgId}
+          existingLib={existingLib}
+          onDone={onDone}
+          dirtyRef={dirtyRef}
+        />
       </Dialog>
       <AlertDialog open={confirmClose} onOpenChange={setConfirmClose}>
         <AlertDialogContent className="glass-strong border-panel-border">
@@ -881,14 +937,18 @@ function LibraryFormDialog({
   function validate(): Record<string, string> {
     const e: Record<string, string> = {};
     if (!name.trim()) e.name = "Branch name is required";
-    if (phone.trim() && !/^\d{10}$/.test(phone.replace(/\D/g, ""))) e.phone = "Enter a valid 10-digit phone number";
+    if (phone.trim() && !/^\d{10}$/.test(phone.replace(/\D/g, "")))
+      e.phone = "Enter a valid 10-digit phone number";
     if (googleMapsUrl.trim() && !/^https?:\/\/\S+$/i.test(googleMapsUrl.trim()))
       e.googleMapsUrl = "Link must start with http:// or https://";
-    const scheduleErrors = validateSchedule({
-      ...(hasMorning ? { morning: { start: morningStart, end: morningEnd } } : {}),
-      ...(hasEvening ? { evening: { start: eveningStart, end: eveningEnd } } : {}),
-      ...(hasNight ? { night: { start: nightStart, end: nightEnd } } : {}),
-    }, { open24, openTime, closeTime });
+    const scheduleErrors = validateSchedule(
+      {
+        ...(hasMorning ? { morning: { start: morningStart, end: morningEnd } } : {}),
+        ...(hasEvening ? { evening: { start: eveningStart, end: eveningEnd } } : {}),
+        ...(hasNight ? { night: { start: nightStart, end: nightEnd } } : {}),
+      },
+      { open24, openTime, closeTime },
+    );
     if (scheduleErrors.length) e.schedule = scheduleErrors.join(" ");
     return e;
   }
@@ -919,7 +979,8 @@ function LibraryFormDialog({
 
   const warnings: Record<string, string> = {};
   if (!open24 && openTime && closeTime && closeTime <= openTime)
-    warnings.hours = "Closing time is before opening time — save only if this branch runs overnight.";
+    warnings.hours =
+      "Closing time is before opening time — save only if this branch runs overnight.";
   if (hasMorning && morningStart && morningEnd && morningEnd <= morningStart)
     warnings.morning = "Morning shift ends before it starts.";
   if (hasEvening && eveningStart && eveningEnd && eveningEnd <= eveningStart)
@@ -1024,7 +1085,9 @@ function LibraryFormDialog({
           <DialogTitle className="pr-10 text-left">
             {existingLib ? "Edit Branch" : "New Branch Onboarding"}
           </DialogTitle>
-          <DialogDescription className="sr-only">Configure branch details, schedule, and amenities.</DialogDescription>
+          <DialogDescription className="sr-only">
+            Configure branch details, schedule, and amenities.
+          </DialogDescription>
         </DialogHeader>
 
         {!existingLib && (
@@ -1044,7 +1107,9 @@ function LibraryFormDialog({
                 type="button"
                 onClick={() => setActiveTab(t)}
                 className={`flex min-h-[44px] items-center gap-2 px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 ${
-                  active ? "border-cyan text-cyan" : "border-transparent text-muted-foreground hover:text-slate-300"
+                  active
+                    ? "border-cyan text-cyan"
+                    : "border-transparent text-muted-foreground hover:text-slate-300"
                 }`}
               >
                 {TAB_LABELS[t]}
@@ -1119,14 +1184,28 @@ function LibraryFormDialog({
             toast.error(error.message);
             return;
           }
-          await scheduleCache.invalidateQueries({ predicate: (q) => ["libraries", "seat-bookings", "student-shift-availability", "shifts-for-alloc", "shifts-for-edit", "dash-ops", "marketplace", "layout", "sections"].includes(String(q.queryKey[0])) });
+          await scheduleCache.invalidateQueries({
+            predicate: (q) =>
+              [
+                "libraries",
+                "seat-bookings",
+                "student-shift-availability",
+                "shifts-for-alloc",
+                "shifts-for-edit",
+                "dash-ops",
+                "marketplace",
+                "layout",
+                "sections",
+              ].includes(String(q.queryKey[0])),
+          });
           baselineRef.current = serialized;
           if (dirtyRef) dirtyRef.current = false;
-          toast.success(existingLib ? "Library updated successfully" : "Branch successfully created");
+          toast.success(
+            existingLib ? "Library updated successfully" : "Branch successfully created",
+          );
           onDone();
         }}
       >
-
         {activeTab === "basic" && (
           <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
             <div className="space-y-3">
@@ -1216,8 +1295,8 @@ function LibraryFormDialog({
                   </div>
                 </div>
                 <p className="text-[11px] text-muted-foreground">
-                  Stand at the branch entrance and tap the button. We'll auto-fill the address, area and city from
-                  Google Maps.
+                  Stand at the branch entrance and tap the button. We'll auto-fill the address, area
+                  and city from Google Maps.
                 </p>
               </div>
               <div className="space-y-2">
@@ -1238,7 +1317,9 @@ function LibraryFormDialog({
                   className={`bg-panel h-11 ${errors.googleMapsUrl ? "border-rose" : "border-panel-border"}`}
                   placeholder="https://maps.app.goo.gl/..."
                 />
-                {errors.googleMapsUrl && <p className="text-[11px] text-rose">{errors.googleMapsUrl}</p>}
+                {errors.googleMapsUrl && (
+                  <p className="text-[11px] text-rose">{errors.googleMapsUrl}</p>
+                )}
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-2">
@@ -1263,7 +1344,6 @@ function LibraryFormDialog({
             </div>
           </div>
         )}
-
 
         {activeTab === "schedule" && (
           <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
@@ -1300,7 +1380,6 @@ function LibraryFormDialog({
               )}
               {warnings.hours && <p className="text-[11px] text-amber-300">{warnings.hours}</p>}
             </div>
-
 
             {/* Closed On */}
             <div className="space-y-2 rounded-lg border border-panel-border bg-panel/40 p-4">
@@ -1341,12 +1420,18 @@ function LibraryFormDialog({
               )}
             </div>
 
-            {errors.schedule && <p role="alert" className="text-sm text-rose">{errors.schedule}</p>}
+            {errors.schedule && (
+              <p role="alert" className="text-sm text-rose">
+                {errors.schedule}
+              </p>
+            )}
             {/* Shifts */}
             <div className="space-y-4 rounded-lg border border-panel-border bg-panel/40 p-4">
               <div className="border-b border-panel-border/50 pb-2">
                 <Label className="text-sm font-semibold block">Shift timings</Label>
-                <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{TIMING_HELP}</p>
+                <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                  {TIMING_HELP}
+                </p>
               </div>
               <div className="space-y-3">
                 <label className="flex items-center gap-2 text-sm cursor-pointer">
@@ -1384,7 +1469,9 @@ function LibraryFormDialog({
                     </div>
                   </div>
                 )}
-                {warnings.morning && <p className="text-[11px] text-amber-300">{warnings.morning}</p>}
+                {warnings.morning && (
+                  <p className="text-[11px] text-amber-300">{warnings.morning}</p>
+                )}
               </div>
 
               <div className="space-y-3 pt-3 border-t border-panel-border/50">
@@ -1423,7 +1510,9 @@ function LibraryFormDialog({
                     </div>
                   </div>
                 )}
-                {warnings.evening && <p className="text-[11px] text-amber-300">{warnings.evening}</p>}
+                {warnings.evening && (
+                  <p className="text-[11px] text-amber-300">{warnings.evening}</p>
+                )}
               </div>
 
               <div className="space-y-3 pt-3 border-t border-panel-border/50">
@@ -1471,7 +1560,6 @@ function LibraryFormDialog({
                   {warnings.overlap}
                 </p>
               )}
-
             </div>
           </div>
         )}
@@ -1481,7 +1569,8 @@ function LibraryFormDialog({
             <div className="space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-panel-border/50 pb-2">
                 <h4 className="text-sm font-semibold">
-                  Targeted Exams <span className="text-muted-foreground font-normal">({selectedExams.size})</span>
+                  Targeted Exams{" "}
+                  <span className="text-muted-foreground font-normal">({selectedExams.size})</span>
                 </h4>
                 <div className="flex items-center gap-1">
                   <Button
@@ -1489,7 +1578,9 @@ function LibraryFormDialog({
                     variant="ghost"
                     size="sm"
                     className="h-8 text-xs"
-                    onClick={() => setSelectedExams(new Set((filteredExams ?? []).map((e: any) => e.id)))}
+                    onClick={() =>
+                      setSelectedExams(new Set((filteredExams ?? []).map((e: any) => e.id)))
+                    }
                   >
                     Select all
                   </Button>
@@ -1600,13 +1691,14 @@ function LibraryFormDialog({
                   </div>
                 ))}
                 {filteredAmenities.length === 0 && (
-                  <p className="text-xs text-muted-foreground">No amenities match “{amenityQuery}”.</p>
+                  <p className="text-xs text-muted-foreground">
+                    No amenities match “{amenityQuery}”.
+                  </p>
                 )}
               </div>
             </div>
           </div>
         )}
-
 
         {activeTab === "photos" && (
           <div className="animate-in fade-in slide-in-from-right-4">
@@ -1615,8 +1707,9 @@ function LibraryFormDialog({
                 <ImageIcon className="size-8 text-muted-foreground mx-auto mb-3 opacity-50" />
                 <h3 className="text-sm font-semibold text-slate-200 mb-2">Save branch first</h3>
                 <p className="text-xs text-muted-foreground">
-                  The branch must be saved to the database before you can upload photos. Click "Complete Onboarding"
-                  below to save it, then you can add photos anytime from the Settings page.
+                  The branch must be saved to the database before you can upload photos. Click
+                  "Complete Onboarding" below to save it, then you can add photos anytime from the
+                  Settings page.
                 </p>
               </div>
             ) : (
@@ -1655,7 +1748,9 @@ function LibraryFormDialog({
         </div>
 
         <div className="flex items-center gap-2">
-          {existingLib && !dirty && <span className="text-[11px] text-muted-foreground hidden sm:inline">No changes</span>}
+          {existingLib && !dirty && (
+            <span className="text-[11px] text-muted-foreground hidden sm:inline">No changes</span>
+          )}
           {!existingLib && !isLastTab && (
             <Button
               type="button"
@@ -1681,16 +1776,24 @@ function LibraryFormDialog({
           </Button>
         </div>
       </div>
-
     </DialogContent>
   );
 }
 
-function TransferOwnershipDialog({ lib, orgId, onDone }: { lib: any; orgId: string; onDone: () => void }) {
+function TransferOwnershipDialog({
+  lib,
+  orgId,
+  onDone,
+}: {
+  lib: any;
+  orgId: string;
+  onDone: () => void;
+}) {
   const [buyerEmail, setBuyerEmail] = useState("");
   const [confirmName, setConfirmName] = useState("");
   const [loading, setLoading] = useState(false);
-  const canSubmit = confirmName.trim() === lib.name && /^\S+@\S+\.\S+$/.test(buyerEmail) && !loading;
+  const canSubmit =
+    confirmName.trim() === lib.name && /^\S+@\S+\.\S+$/.test(buyerEmail) && !loading;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -1706,7 +1809,9 @@ function TransferOwnershipDialog({ lib, orgId, onDone }: { lib: any; orgId: stri
       toast.error(error.message);
       return;
     }
-    toast.success("Transfer request submitted. Our Super Admin team will contact you for manual verification.");
+    toast.success(
+      "Transfer request submitted. Our Super Admin team will contact you for manual verification.",
+    );
     onDone();
   }
 
@@ -1716,14 +1821,17 @@ function TransferOwnershipDialog({ lib, orgId, onDone }: { lib: any; orgId: stri
         <DialogTitle className="flex items-center gap-2">
           <ArrowRightLeft className="size-4 text-amber-300" /> Transfer ownership · {lib.name}
         </DialogTitle>
-        <DialogDescription className="sr-only">Request a manual ownership transfer of this branch.</DialogDescription>
+        <DialogDescription className="sr-only">
+          Request a manual ownership transfer of this branch.
+        </DialogDescription>
       </DialogHeader>
       <form onSubmit={submit} className="space-y-4">
         <div className="flex gap-3 rounded-lg border border-amber-400/40 bg-amber-400/10 p-3 text-xs text-amber-100">
           <AlertTriangle className="size-4 shrink-0 text-amber-300 mt-0.5" />
           <div>
-            Transferring a branch hands over all active students and seat allocations to the new owner. Your historical
-            revenue data will remain with you. This action requires manual verification by our Super Admin team.
+            Transferring a branch hands over all active students and seat allocations to the new
+            owner. Your historical revenue data will remain with you. This action requires manual
+            verification by our Super Admin team.
           </div>
         </div>
 
@@ -1807,16 +1915,22 @@ function DeleteBranchDialog({ lib, onDone }: { lib: any; onDone: () => void }) {
           <AlertTriangle className="size-5" /> Delete Library
         </DialogTitle>
         <DialogDescription>
-          This action is irreversible. It will delete all seats, layouts, and allocations associated with {lib.name}.
+          This action is irreversible. It will delete all seats, layouts, and allocations associated
+          with {lib.name}.
         </DialogDescription>
       </DialogHeader>
 
       {step === "warning" ? (
         <div className="space-y-4 mt-2">
           <div className="p-3 rounded-lg bg-rose/10 border border-rose/20 text-sm text-rose-200">
-            To proceed with the deletion of <strong>{lib.name}</strong>, we need to verify your identity.
+            To proceed with the deletion of <strong>{lib.name}</strong>, we need to verify your
+            identity.
           </div>
-          <Button onClick={handleRequestOtp} disabled={loading} className="w-full bg-rose text-white hover:bg-rose/90">
+          <Button
+            onClick={handleRequestOtp}
+            disabled={loading}
+            className="w-full bg-rose text-white hover:bg-rose/90"
+          >
             {loading ? (
               "Sending..."
             ) : (
@@ -1889,12 +2003,18 @@ function PendingBranchesBanner({ orgId }: { orgId: string }) {
           <div className="text-sm">
             <p className="font-bold text-gold">Branch under review by Super Admin</p>
             <p className="text-muted-foreground">
-              {pending.map((l) => l.name).join(", ")} — will not appear in the public marketplace until approved.
+              {pending.map((l) => l.name).join(", ")} — will not appear in the public marketplace
+              until approved.
             </p>
           </div>
           <button
             aria-label="Dismiss"
-            onClick={() => setDismissed((d) => ({ ...d, ...Object.fromEntries(pending.map((l) => [l.id, true])) }))}
+            onClick={() =>
+              setDismissed((d) => ({
+                ...d,
+                ...Object.fromEntries(pending.map((l) => [l.id, true])),
+              }))
+            }
             className="absolute right-2 top-2 rounded-md p-1 text-muted-foreground hover:bg-panel hover:text-white"
           >
             <XIcon className="size-4" />
@@ -1908,13 +2028,19 @@ function PendingBranchesBanner({ orgId }: { orgId: string }) {
             <p className="font-bold text-rose">Branch changes rejected</p>
             {rejected.map((l) => (
               <p key={l.id} className="text-muted-foreground">
-                <span className="text-foreground">{l.name}</span>: {l.rejection_reason ?? "Please review and resubmit."}
+                <span className="text-foreground">{l.name}</span>:{" "}
+                {l.rejection_reason ?? "Please review and resubmit."}
               </p>
             ))}
           </div>
           <button
             aria-label="Dismiss"
-            onClick={() => setDismissed((d) => ({ ...d, ...Object.fromEntries(rejected.map((l) => [l.id, true])) }))}
+            onClick={() =>
+              setDismissed((d) => ({
+                ...d,
+                ...Object.fromEntries(rejected.map((l) => [l.id, true])),
+              }))
+            }
             className="absolute right-2 top-2 rounded-md p-1 text-muted-foreground hover:bg-panel hover:text-white"
           >
             <XIcon className="size-4" />

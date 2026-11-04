@@ -15,7 +15,10 @@ function SuperAdminLayout() {
 
   useEffect(() => {
     if (isLoading) return;
-    if (!session?.userId) { navigate({ to: "/auth" }); return; }
+    if (!session?.userId) {
+      navigate({ to: "/auth" });
+      return;
+    }
     if (session.role !== "super_admin") {
       toast.error("Master Admin access only");
       navigate({ to: session.role === "student" ? "/student" : "/admin" });
@@ -27,7 +30,9 @@ function SuperAdminLayout() {
       <div className="relative min-h-screen">
         <AuroraBackground />
         <div className="relative z-10 flex min-h-screen items-center justify-center">
-          <div className="font-mono text-xs uppercase tracking-widest text-muted-foreground">Verifying master credentials…</div>
+          <div className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
+            Verifying master credentials…
+          </div>
         </div>
       </div>
     );

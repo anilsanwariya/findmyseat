@@ -76,7 +76,9 @@ export function parseBranchTimings(text: string | null | undefined): BranchTimin
 export function serializeBranchTimings(t: BranchTimings): string | null {
   const parts = SHIFT_PARTS.flatMap((p) => {
     const range = t[p];
-    return range?.start && range.end ? [`${PART_LABEL[p]}: ${to12h(range.start)} - ${to12h(range.end)}`] : [];
+    return range?.start && range.end
+      ? [`${PART_LABEL[p]}: ${to12h(range.start)} - ${to12h(range.end)}`]
+      : [];
   });
   return parts.length ? parts.join(", ") : null;
 }
@@ -147,10 +149,16 @@ export function timingWarnings(t: BranchTimings): string[] {
   return out;
 }
 
-export function validateSchedule(t: BranchTimings, hours: { open24: boolean; openTime: string; closeTime: string }) {
+export function validateSchedule(
+  t: BranchTimings,
+  hours: { open24: boolean; openTime: string; closeTime: string },
+) {
   const errors: string[] = [];
   const valid = (v: string) => /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(v);
-  if (!hours.open24 && (!valid(hours.openTime) || !valid(hours.closeTime) || hours.openTime === hours.closeTime))
+  if (
+    !hours.open24 &&
+    (!valid(hours.openTime) || !valid(hours.closeTime) || hours.openTime === hours.closeTime)
+  )
     errors.push("Set distinct opening and closing times, or choose Open 24 hours.");
   const opening = hours.open24 ? WHOLE_DAY : minuteRanges(hours.openTime, hours.closeTime);
   for (const part of SHIFT_PARTS) {
@@ -160,7 +168,11 @@ export function validateSchedule(t: BranchTimings, hours: { open24: boolean; ope
       errors.push(`${PART_LABEL[part]} needs valid, distinct start and end times.`);
       continue;
     }
-    if (!minuteRanges(range.start, range.end).every(([a, b]) => a === b || opening.some(([x, y]) => x <= a && y >= b)))
+    if (
+      !minuteRanges(range.start, range.end).every(
+        ([a, b]) => a === b || opening.some(([x, y]) => x <= a && y >= b),
+      )
+    )
       errors.push(`${PART_LABEL[part]} must fall within branch opening hours.`);
   }
   return [...errors, ...timingWarnings(t)];

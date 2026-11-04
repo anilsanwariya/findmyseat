@@ -11,8 +11,20 @@ import { GlassPanel, SectionHeader } from "@/components/glass";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { inr, fmtDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -45,11 +57,30 @@ import { useConfirm } from "@/components/ConfirmDialog";
 import { useSeatBookings } from "@/lib/seat-bookings";
 import { fetchLatestFullPayment } from "@/lib/payments";
 import { effectiveDue, localISO } from "@/lib/dashboard-metrics";
-import { feeStatus, friendlySeatError, openShifts, seatFreeFor, seatState, sellableShifts } from "@/lib/seat-status";
+import {
+  feeStatus,
+  friendlySeatError,
+  openShifts,
+  seatFreeFor,
+  seatState,
+  sellableShifts,
+} from "@/lib/seat-status";
 import { STATUS_META, worstStatus, type SeatStatus } from "@/lib/layout-types";
 
 export const Route = createFileRoute("/_authenticated/admin/allocations")({
-  head: () => ({ meta: [{ title: "Allocations · LibraryBandhu" }, { name: "description", content: "Manage student seat allocations and shift availability." }, { property: "og:title", content: "Allocations · LibraryBandhu" }, { property: "og:description", content: "Manage student seat allocations and shift availability." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }] }),
+  head: () => ({
+    meta: [
+      { title: "Allocations · LibraryBandhu" },
+      { name: "description", content: "Manage student seat allocations and shift availability." },
+      { property: "og:title", content: "Allocations · LibraryBandhu" },
+      {
+        property: "og:description",
+        content: "Manage student seat allocations and shift availability.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
   validateSearch: (search: Record<string, unknown>) => ({
     newStudentId: typeof search.newStudentId === "string" ? search.newStudentId : undefined,
     newStudentName: typeof search.newStudentName === "string" ? search.newStudentName : undefined,
@@ -62,20 +93,35 @@ const DIR_ICON = { north: ArrowUp, south: ArrowDown, east: ArrowRight, west: Arr
 // Enhanced Object Meta for Areas & standalone blocks
 const OBJ_META: Record<string, { icon: any; label: string; color: string }> = {
   aisle: { icon: null, label: "Aisle", color: "bg-transparent" },
-  entry_gate: { icon: DoorOpen, label: "Entry", color: "bg-slate-800/60 text-slate-300 border-slate-700" },
+  entry_gate: {
+    icon: DoorOpen,
+    label: "Entry",
+    color: "bg-slate-800/60 text-slate-300 border-slate-700",
+  },
   washroom: { icon: Waves, label: "W/C", color: "bg-magenta/10 text-magenta border-magenta/30" },
   water_cooler: { icon: Droplets, label: "H₂O", color: "bg-cyan/10 text-cyan border-cyan/30" },
   reception: { icon: null, label: "Rcpt", color: "bg-panel-strong text-muted-foreground" },
-  gallery: { icon: ImageIcon, label: "Gallery", color: "bg-purple-500/10 text-purple-300 border-purple-500/30" },
-  hallway: { icon: Navigation, label: "Hallway", color: "bg-stone-500/10 text-stone-300 border-stone-500/30" },
+  gallery: {
+    icon: ImageIcon,
+    label: "Gallery",
+    color: "bg-purple-500/10 text-purple-300 border-purple-500/30",
+  },
+  hallway: {
+    icon: Navigation,
+    label: "Hallway",
+    color: "bg-stone-500/10 text-stone-300 border-stone-500/30",
+  },
   discussion: {
     icon: MessageSquare,
     label: "Discussion Area",
     color: "bg-amber-500/10 text-amber-300 border-amber-500/30",
   },
-  dining: { icon: Utensils, label: "Dining Area", color: "bg-orange-500/10 text-orange-300 border-orange-500/30" },
+  dining: {
+    icon: Utensils,
+    label: "Dining Area",
+    color: "bg-orange-500/10 text-orange-300 border-orange-500/30",
+  },
 };
-
 
 const todayISO = () => new Date().toISOString().split("T")[0];
 
@@ -91,15 +137,26 @@ function isOverdue(a: { next_due_date?: string | null }): boolean {
   return due.getTime() < today.getTime();
 }
 
-function effectiveStatus(a: { status?: string | null; next_due_date?: string | null }, partialPaid = 0): string {
+function effectiveStatus(
+  a: { status?: string | null; next_due_date?: string | null },
+  partialPaid = 0,
+): string {
   const s = a?.status ?? "pending";
   if (s !== "paid" && partialPaid > 0) return "partial";
   if (isOverdue(a)) return "overdue";
   return s;
 }
 
-const seatLabel = (a: { reservation_type?: string | null; seat_id?: string | null; seats?: { seat_number?: string | null } | null }) =>
-  a.reservation_type === "unreserved" ? "Unreserved" : a.seat_id ? (a.seats?.seat_number ?? "Unassigned") : "Unassigned";
+const seatLabel = (a: {
+  reservation_type?: string | null;
+  seat_id?: string | null;
+  seats?: { seat_number?: string | null } | null;
+}) =>
+  a.reservation_type === "unreserved"
+    ? "Unreserved"
+    : a.seat_id
+      ? (a.seats?.seat_number ?? "Unassigned")
+      : "Unassigned";
 
 const statusClass = (st: string) =>
   st === "paid"
@@ -111,7 +168,13 @@ const statusClass = (st: string) =>
         : "bg-amber-500/10 text-amber-400";
 
 const statusText = (st: string) =>
-  st === "paid" ? "text-emerald" : st === "overdue" ? "text-rose" : st === "partial" ? "text-cyan" : "text-amber-400";
+  st === "paid"
+    ? "text-emerald"
+    : st === "overdue"
+      ? "text-rose"
+      : st === "partial"
+        ? "text-cyan"
+        : "text-amber-400";
 
 function AllocationsPage() {
   const confirmAction = useConfirm();
@@ -130,7 +193,12 @@ function AllocationsPage() {
   }, [newStudentId]);
 
   const clearChain = () => {
-    if (newStudentId) navigate({ to: "/admin/allocations", search: { newStudentId: undefined, newStudentName: undefined }, replace: true });
+    if (newStudentId)
+      navigate({
+        to: "/admin/allocations",
+        search: { newStudentId: undefined, newStudentName: undefined },
+        replace: true,
+      });
   };
 
   // States for interacting with the map and table
@@ -154,7 +222,11 @@ function AllocationsPage() {
     placeholderData: keepPreviousData,
     staleTime: 30_000,
     queryFn: async () => {
-      const { data } = await supabase.from("sections").select("*").eq("library_id", currentLibId!).order("created_at");
+      const { data } = await supabase
+        .from("sections")
+        .select("*")
+        .eq("library_id", currentLibId!)
+        .order("created_at");
       return data ?? [];
     },
   });
@@ -225,7 +297,6 @@ function AllocationsPage() {
     [partials.data],
   );
 
-
   // Filter the allocations for the data table based on search and status
   const filteredAllocations = useMemo(() => {
     if (!allocations.data) return [];
@@ -238,7 +309,9 @@ function AllocationsPage() {
       const isUnassigned = a.reservation_type === "reserved" && !a.seat_id;
       const matchesStatus =
         statusFilter === "all" ||
-        (statusFilter === "unassigned" ? isUnassigned : effectiveStatus(a, partialPaidFor(a)) === statusFilter);
+        (statusFilter === "unassigned"
+          ? isUnassigned
+          : effectiveStatus(a, partialPaidFor(a)) === statusFilter);
 
       const shiftName = a.shifts?.name ?? "__full_day__";
       const matchesShift = matchesShiftPackage(a.shifts?.name, shiftFilter);
@@ -267,7 +340,9 @@ function AllocationsPage() {
       const [seats, objs] = await Promise.all([
         supabase
           .from("seats")
-          .select("id, section_id, library_id, org_id, seat_number, row_position, column_position, facing_direction, is_active, created_at")
+          .select(
+            "id, section_id, library_id, org_id, seat_number, row_position, column_position, facing_direction, is_active, created_at",
+          )
           .eq("section_id", currentSectionId!),
         supabase.from("layout_objects").select("*").eq("section_id", currentSectionId!),
       ]);
@@ -288,7 +363,13 @@ function AllocationsPage() {
   // Shifts sold in this section (allowed by its settings), one per name.
   const sectionShifts = useMemo(() => {
     const seen = new Set<string>();
-    return selectableShifts(booked.data?.shifts ?? [], currentSectionId, currentSection, booked.data?.timingText, booked.data?.configured);
+    return selectableShifts(
+      booked.data?.shifts ?? [],
+      currentSectionId,
+      currentSection,
+      booked.data?.timingText,
+      booked.data?.configured,
+    );
   }, [booked.data, currentSectionId, currentSection]);
 
   const allocsBySeat = useMemo(() => {
@@ -300,7 +381,12 @@ function AllocationsPage() {
     return m;
   }, [allocations.data]);
   const seatBookings = useMemo(
-    () => (allocations.data ?? []).map((a: any) => ({ id: a.id, seat_id: a.seat_id, shift_id: a.shift_id })),
+    () =>
+      (allocations.data ?? []).map((a: any) => ({
+        id: a.id,
+        seat_id: a.seat_id,
+        shift_id: a.shift_id,
+      })),
     [allocations.data],
   );
 
@@ -312,34 +398,51 @@ function AllocationsPage() {
       const state =
         mapShift === "all"
           ? seatState(seat.id, seatBookings, sectionShifts, booked.shiftMap)
-          : seatFreeFor(seat.id, mapShift === "none" ? null : mapShift, seatBookings, booked.shiftMap)
+          : seatFreeFor(
+                seat.id,
+                mapShift === "none" ? null : mapShift,
+                seatBookings,
+                booked.shiftMap,
+              )
             ? "free"
             : "full";
       const pay: SeatStatus = list.length
-        ? worstStatus(list.map((a: any) => ({ status: feeStatus(a, partialPaidFor(a), today) })) as any)
+        ? worstStatus(
+            list.map((a: any) => ({ status: feeStatus(a, partialPaidFor(a), today) })) as any,
+          )
         : "vacant";
       const match = q
         ? list.some(
             (a: any) =>
-              a.students?.full_name?.toLowerCase().includes(q) || a.students?.mobile_number?.includes(q),
+              a.students?.full_name?.toLowerCase().includes(q) ||
+              a.students?.mobile_number?.includes(q),
           )
         : null;
-      const inGrid = seat.row_position < currentSection.grid_rows && seat.column_position < currentSection.grid_cols;
+      const inGrid =
+        seat.row_position < currentSection.grid_rows &&
+        seat.column_position < currentSection.grid_cols;
       return { ...seat, list, state, pay, match, inGrid };
     });
-  }, [layoutData.data, currentSection, allocsBySeat, seatBookings, sectionShifts, booked.shiftMap, mapShift, searchQuery, partialPaidFor, today]);
+  }, [
+    layoutData.data,
+    currentSection,
+    allocsBySeat,
+    seatBookings,
+    sectionShifts,
+    booked.shiftMap,
+    mapShift,
+    searchQuery,
+    partialPaidFor,
+    today,
+  ]);
   const outsideGrid = mapSeats.filter((s: any) => !s.inGrid).length;
-  const openSeat = (seat: any) => (seat.list.length ? setSelectedOccupiedSeat(seat) : setSelectedVacantSeat(seat));
+  const openSeat = (seat: any) =>
+    seat.list.length ? setSelectedOccupiedSeat(seat) : setSelectedVacantSeat(seat);
   const occupiedSeat = selectedOccupiedSeat
     ? {
         ...selectedOccupiedSeat,
         list: allocsBySeat.get(selectedOccupiedSeat.id) ?? [],
-        open: openShifts(
-          selectedOccupiedSeat.id,
-          seatBookings,
-          sectionShifts,
-          booked.shiftMap,
-        ),
+        open: openShifts(selectedOccupiedSeat.id, seatBookings, sectionShifts, booked.shiftMap),
         fullDayFree:
           !!currentSection?.allow_full_day &&
           seatFreeFor(selectedOccupiedSeat.id, null, seatBookings, booked.shiftMap),
@@ -348,7 +451,8 @@ function AllocationsPage() {
 
   // 🧠 Smart Layout Processor: Tile-matching for Walls/Windows & Merging for Areas
   const processedLayout = useMemo(() => {
-    if (!currentSection || !layoutData.data?.objs) return { areas: [], lines: [], objMap: new Map() };
+    if (!currentSection || !layoutData.data?.objs)
+      return { areas: [], lines: [], objMap: new Map() };
 
     const objs = layoutData.data.objs;
     const areas: any[] = [];
@@ -375,7 +479,12 @@ function AllocationsPage() {
         let width = 1;
         while (c + width < currentSection.grid_cols) {
           const nextKey = `${r}-${c + width}`;
-          if (visited.has(nextKey) || !objMap.has(nextKey) || objMap.get(nextKey).object_type !== type) break;
+          if (
+            visited.has(nextKey) ||
+            !objMap.has(nextKey) ||
+            objMap.get(nextKey).object_type !== type
+          )
+            break;
           width++;
         }
 
@@ -384,7 +493,11 @@ function AllocationsPage() {
         while (r + height < currentSection.grid_rows && canExpandDown) {
           for (let i = 0; i < width; i++) {
             const nextKey = `${r + height}-${c + i}`;
-            if (visited.has(nextKey) || !objMap.has(nextKey) || objMap.get(nextKey).object_type !== type) {
+            if (
+              visited.has(nextKey) ||
+              !objMap.has(nextKey) ||
+              objMap.get(nextKey).object_type !== type
+            ) {
               canExpandDown = false;
               break;
             }
@@ -486,25 +599,33 @@ function AllocationsPage() {
           <div className="mb-4 flex flex-col gap-3 px-2 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] text-muted-foreground">
               <span className="flex items-center gap-1.5">
-                <span className="size-2.5 rounded-sm border border-slate-500/50 bg-slate-500/20" /> Free
+                <span className="size-2.5 rounded-sm border border-slate-500/50 bg-slate-500/20" />{" "}
+                Free
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="size-2.5 rounded-sm border border-dashed border-foreground/60" /> Some shifts free
+                <span className="size-2.5 rounded-sm border border-dashed border-foreground/60" />{" "}
+                Some shifts free
               </span>
               {(["paid", "pending", "partial", "overdue"] as const).map((k) => (
                 <span key={k} className="flex items-center gap-1.5">
-                  <span className={cn("size-2.5 rounded-full", STATUS_META[k].dot)} /> {STATUS_META[k].label}
+                  <span className={cn("size-2.5 rounded-full", STATUS_META[k].dot)} />{" "}
+                  {STATUS_META[k].label}
                 </span>
               ))}
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <Select value={mapShift} onValueChange={setMapShift}>
-                <SelectTrigger className="h-8 w-40 bg-panel border-panel-border text-xs" aria-label="Show seats for shift">
+                <SelectTrigger
+                  className="h-8 w-40 bg-panel border-panel-border text-xs"
+                  aria-label="Show seats for shift"
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All shifts</SelectItem>
-                  {currentSection?.allow_full_day && <SelectItem value="none">Free for full day</SelectItem>}
+                  {currentSection?.allow_full_day && (
+                    <SelectItem value="none">Free for full day</SelectItem>
+                  )}
                   {sectionShifts.map((sh) => (
                     <SelectItem key={sh.id} value={sh.id}>
                       Free for {sh.name}
@@ -517,8 +638,8 @@ function AllocationsPage() {
 
           {outsideGrid > 0 && (
             <div className="mb-3 rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-xs text-amber-300">
-              {outsideGrid} seat{outsideGrid === 1 ? " is" : "s are"} outside this hall's grid and can't be shown. Open
-              the Layout Builder to expand the grid.
+              {outsideGrid} seat{outsideGrid === 1 ? " is" : "s are"} outside this hall's grid and
+              can't be shown. Open the Layout Builder to expand the grid.
             </div>
           )}
           {searchQuery.trim() && (
@@ -543,155 +664,176 @@ function AllocationsPage() {
                 Retry
               </Button>
             </div>
-          ) :           layoutData.isPending ? (
+          ) : layoutData.isPending ? (
             <Skeleton className="h-64 w-full bg-white/5" />
           ) : (
-          <ZoomPanViewport
-            contentWidth={currentSection.grid_cols * 44 + (currentSection.grid_cols - 1) * 8}
-            contentHeight={currentSection.grid_rows * 44 + (currentSection.grid_rows - 1) * 8}
-            fitKey={currentSectionId}
-          >
-            <div
-              className="grid gap-2"
-              style={{
-                gridTemplateColumns: `repeat(${currentSection.grid_cols}, 44px)`,
-                gridTemplateRows: `repeat(${currentSection.grid_rows}, 44px)`,
-              }}
+            <ZoomPanViewport
+              contentWidth={currentSection.grid_cols * 44 + (currentSection.grid_cols - 1) * 8}
+              contentHeight={currentSection.grid_rows * 44 + (currentSection.grid_rows - 1) * 8}
+              fitKey={currentSectionId}
             >
+              <div
+                className="grid gap-2"
+                style={{
+                  gridTemplateColumns: `repeat(${currentSection.grid_cols}, 44px)`,
+                  gridTemplateRows: `repeat(${currentSection.grid_rows}, 44px)`,
+                }}
+              >
+                {processedLayout.areas.map((obj: any) => {
+                  const meta = OBJ_META[obj.type] ?? OBJ_META.reception;
+                  const Icon = meta.icon;
+                  const isMultiCell = obj.width > 1 || obj.height > 1;
 
-              {processedLayout.areas.map((obj: any) => {
-                const meta = OBJ_META[obj.type] ?? OBJ_META.reception;
-                const Icon = meta.icon;
-                const isMultiCell = obj.width > 1 || obj.height > 1;
-
-                return (
-                  <div
-                    key={obj.id}
-                    className={cn(
-                      "flex flex-col items-center justify-center rounded-md border font-mono overflow-hidden transition-all pointer-events-none",
-                      meta.color,
-                      isMultiCell ? "text-xs" : "text-[8px]",
-                    )}
-                    style={{
-                      gridColumn: `${obj.startCol + 1} / span ${obj.width}`,
-                      gridRow: `${obj.startRow + 1} / span ${obj.height}`,
-                    }}
-                  >
-                    <div className="flex flex-col items-center justify-center opacity-80 gap-1 p-2 text-center">
-                      {Icon && <Icon className={cn(isMultiCell ? "size-5" : "size-3.5")} />}
-                      {meta.label && (
-                        <span
-                          className={cn("truncate", isMultiCell ? "font-bold tracking-widest uppercase" : "mt-0.5")}
-                        >
-                          {meta.label}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-
-              {processedLayout.lines.map((obj: any) => {
-                const r = obj.row_position;
-                const c = obj.column_position;
-
-                const isLine = (type: string | undefined) => type === "wall" || type === "window";
-
-                const top = isLine(processedLayout.objMap.get(`${r - 1}-${c}`)?.object_type);
-                const bottom = isLine(processedLayout.objMap.get(`${r + 1}-${c}`)?.object_type);
-                const left = isLine(processedLayout.objMap.get(`${r}-${c - 1}`)?.object_type);
-                const right = isLine(processedLayout.objMap.get(`${r}-${c + 1}`)?.object_type);
-
-                const isWindow = obj.object_type === "window";
-                const thickness = isWindow ? "8px" : "4px";
-                const color = isWindow
-                  ? "bg-sky-400/90 shadow-[0_0_8px_rgba(56,189,248,0.5)]"
-                  : "bg-slate-500 shadow-md";
-
-                const isolated = !top && !bottom && !left && !right;
-
-                return (
-                  <div
-                    key={obj.id}
-                    className="relative flex items-center justify-center pointer-events-none"
-                    style={{ gridColumn: c + 1, gridRow: r + 1 }}
-                  >
-                    <div
-                      className={cn("absolute", color)}
-                      style={{ width: thickness, height: thickness, zIndex: isWindow ? 5 : 4 }}
-                    />
-                    {top && (
-                      <div
-                        className={cn("absolute top-0 bottom-[50%] left-1/2 -translate-x-1/2", color)}
-                        style={{ width: thickness, zIndex: isWindow ? 5 : 4 }}
-                      />
-                    )}
-                    {bottom && (
-                      <div
-                        className={cn("absolute top-[50%] bottom-0 left-1/2 -translate-x-1/2", color)}
-                        style={{ width: thickness, zIndex: isWindow ? 5 : 4 }}
-                      />
-                    )}
-                    {(left || isolated) && (
-                      <div
-                        className={cn("absolute left-0 right-[50%] top-1/2 -translate-y-1/2", color)}
-                        style={{ height: thickness, zIndex: isWindow ? 5 : 4 }}
-                      />
-                    )}
-                    {(right || isolated) && (
-                      <div
-                        className={cn("absolute left-[50%] right-0 top-1/2 -translate-y-1/2", color)}
-                        style={{ height: thickness, zIndex: isWindow ? 5 : 4 }}
-                      />
-                    )}
-                  </div>
-                );
-              })}
-
-              {mapSeats
-                .filter((seat: any) => seat.inGrid)
-                .map((seat: any) => {
-                  const Icon = DIR_ICON[seat.facing_direction as keyof typeof DIR_ICON] || ArrowUp;
-                  const free = seat.state === "free";
-                  const who = seat.list
-                    .map((a: any) => `${a.shifts?.name ?? "Full day"}: ${a.students?.full_name ?? "Student"}`)
-                    .join(", ");
-                  const label = `Seat ${seat.seat_number}${
-                    free && !seat.list.length ? " · free" : who ? ` · ${who}` : ""
-                  }${seat.state === "partial" ? " · some shifts free" : ""}`;
                   return (
-                    <button
-                      key={seat.id}
-                      type="button"
-                      onClick={() => openSeat(seat)}
-                      title={label}
-                      aria-label={label}
-                      style={{ gridColumn: seat.column_position + 1, gridRow: seat.row_position + 1 }}
+                    <div
+                      key={obj.id}
                       className={cn(
-                        "group relative z-10 flex flex-col items-center justify-center rounded border text-[10px] font-mono transition-all hover:scale-110",
-                        free
-                          ? // Free seats are neutral grey so they never look like "Paid" (green).
-                            "border border-slate-500/40 bg-slate-500/10 text-slate-400 hover:border-slate-400/60 hover:bg-slate-500/20"
-                          : STATUS_META[seat.pay as SeatStatus].cell,
-                        seat.state === "partial" && "border-2 border-dashed",
-                        seat.match === true && "ring-2 ring-white ring-offset-1 ring-offset-transparent",
-                        seat.match === false && "opacity-30",
+                        "flex flex-col items-center justify-center rounded-md border font-mono overflow-hidden transition-all pointer-events-none",
+                        meta.color,
+                        isMultiCell ? "text-xs" : "text-[8px]",
                       )}
+                      style={{
+                        gridColumn: `${obj.startCol + 1} / span ${obj.width}`,
+                        gridRow: `${obj.startRow + 1} / span ${obj.height}`,
+                      }}
                     >
-                      <Icon className="mb-0.5 size-3 opacity-70" />
-                      <span className="truncate font-bold">{seat.seat_number}</span>
-                      {seat.list.length > 1 && (
-                        <span className="absolute -right-1 -top-1 rounded-full bg-panel-strong px-1 text-[8px] leading-3 text-foreground">
-                          {seat.list.length}
-                        </span>
-                      )}
-                    </button>
+                      <div className="flex flex-col items-center justify-center opacity-80 gap-1 p-2 text-center">
+                        {Icon && <Icon className={cn(isMultiCell ? "size-5" : "size-3.5")} />}
+                        {meta.label && (
+                          <span
+                            className={cn(
+                              "truncate",
+                              isMultiCell ? "font-bold tracking-widest uppercase" : "mt-0.5",
+                            )}
+                          >
+                            {meta.label}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   );
                 })}
-            </div>
-          </ZoomPanViewport>
-          )}
 
+                {processedLayout.lines.map((obj: any) => {
+                  const r = obj.row_position;
+                  const c = obj.column_position;
+
+                  const isLine = (type: string | undefined) => type === "wall" || type === "window";
+
+                  const top = isLine(processedLayout.objMap.get(`${r - 1}-${c}`)?.object_type);
+                  const bottom = isLine(processedLayout.objMap.get(`${r + 1}-${c}`)?.object_type);
+                  const left = isLine(processedLayout.objMap.get(`${r}-${c - 1}`)?.object_type);
+                  const right = isLine(processedLayout.objMap.get(`${r}-${c + 1}`)?.object_type);
+
+                  const isWindow = obj.object_type === "window";
+                  const thickness = isWindow ? "8px" : "4px";
+                  const color = isWindow
+                    ? "bg-sky-400/90 shadow-[0_0_8px_rgba(56,189,248,0.5)]"
+                    : "bg-slate-500 shadow-md";
+
+                  const isolated = !top && !bottom && !left && !right;
+
+                  return (
+                    <div
+                      key={obj.id}
+                      className="relative flex items-center justify-center pointer-events-none"
+                      style={{ gridColumn: c + 1, gridRow: r + 1 }}
+                    >
+                      <div
+                        className={cn("absolute", color)}
+                        style={{ width: thickness, height: thickness, zIndex: isWindow ? 5 : 4 }}
+                      />
+                      {top && (
+                        <div
+                          className={cn(
+                            "absolute top-0 bottom-[50%] left-1/2 -translate-x-1/2",
+                            color,
+                          )}
+                          style={{ width: thickness, zIndex: isWindow ? 5 : 4 }}
+                        />
+                      )}
+                      {bottom && (
+                        <div
+                          className={cn(
+                            "absolute top-[50%] bottom-0 left-1/2 -translate-x-1/2",
+                            color,
+                          )}
+                          style={{ width: thickness, zIndex: isWindow ? 5 : 4 }}
+                        />
+                      )}
+                      {(left || isolated) && (
+                        <div
+                          className={cn(
+                            "absolute left-0 right-[50%] top-1/2 -translate-y-1/2",
+                            color,
+                          )}
+                          style={{ height: thickness, zIndex: isWindow ? 5 : 4 }}
+                        />
+                      )}
+                      {(right || isolated) && (
+                        <div
+                          className={cn(
+                            "absolute left-[50%] right-0 top-1/2 -translate-y-1/2",
+                            color,
+                          )}
+                          style={{ height: thickness, zIndex: isWindow ? 5 : 4 }}
+                        />
+                      )}
+                    </div>
+                  );
+                })}
+
+                {mapSeats
+                  .filter((seat: any) => seat.inGrid)
+                  .map((seat: any) => {
+                    const Icon =
+                      DIR_ICON[seat.facing_direction as keyof typeof DIR_ICON] || ArrowUp;
+                    const free = seat.state === "free";
+                    const who = seat.list
+                      .map(
+                        (a: any) =>
+                          `${a.shifts?.name ?? "Full day"}: ${a.students?.full_name ?? "Student"}`,
+                      )
+                      .join(", ");
+                    const label = `Seat ${seat.seat_number}${
+                      free && !seat.list.length ? " · free" : who ? ` · ${who}` : ""
+                    }${seat.state === "partial" ? " · some shifts free" : ""}`;
+                    return (
+                      <button
+                        key={seat.id}
+                        type="button"
+                        onClick={() => openSeat(seat)}
+                        title={label}
+                        aria-label={label}
+                        style={{
+                          gridColumn: seat.column_position + 1,
+                          gridRow: seat.row_position + 1,
+                        }}
+                        className={cn(
+                          "group relative z-10 flex flex-col items-center justify-center rounded border text-[10px] font-mono transition-all hover:scale-110",
+                          free
+                            ? // Free seats are neutral grey so they never look like "Paid" (green).
+                              "border border-slate-500/40 bg-slate-500/10 text-slate-400 hover:border-slate-400/60 hover:bg-slate-500/20"
+                            : STATUS_META[seat.pay as SeatStatus].cell,
+                          seat.state === "partial" && "border-2 border-dashed",
+                          seat.match === true &&
+                            "ring-2 ring-white ring-offset-1 ring-offset-transparent",
+                          seat.match === false && "opacity-30",
+                        )}
+                      >
+                        <Icon className="mb-0.5 size-3 opacity-70" />
+                        <span className="truncate font-bold">{seat.seat_number}</span>
+                        {seat.list.length > 1 && (
+                          <span className="absolute -right-1 -top-1 rounded-full bg-panel-strong px-1 text-[8px] leading-3 text-foreground">
+                            {seat.list.length}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+              </div>
+            </ZoomPanViewport>
+          )}
         </GlassPanel>
       )}
 
@@ -756,7 +898,11 @@ function AllocationsPage() {
                     </button>
                     <span
                       className={`shrink-0 rounded px-2 py-1 text-[10px] ${statusClass(st)}`}
-                      title={paid > 0 ? `Part-paid ${inr(paid)} of ${inr(a.monthly_fee)} this cycle` : undefined}
+                      title={
+                        paid > 0
+                          ? `Part-paid ${inr(paid)} of ${inr(a.monthly_fee)} this cycle`
+                          : undefined
+                      }
                     >
                       {st.toUpperCase()}
                       {st === "partial" && isOverdue(a) ? " · OVERDUE" : ""}
@@ -765,26 +911,36 @@ function AllocationsPage() {
                   </div>
                   <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
                     <div className="min-w-0">
-                      <div className="text-[9px] uppercase tracking-widest text-muted-foreground">Seat</div>
-                      <div className="truncate font-mono text-cyan">
-                        {seatLabel(a)}
+                      <div className="text-[9px] uppercase tracking-widest text-muted-foreground">
+                        Seat
                       </div>
+                      <div className="truncate font-mono text-cyan">{seatLabel(a)}</div>
                     </div>
                     <div className="min-w-0">
-                      <div className="text-[9px] uppercase tracking-widest text-muted-foreground">Shift</div>
+                      <div className="text-[9px] uppercase tracking-widest text-muted-foreground">
+                        Shift
+                      </div>
                       <div className="truncate">{a.shifts?.name ?? "Full day"}</div>
                     </div>
                     <div className="min-w-0">
-                      <div className="text-[9px] uppercase tracking-widest text-muted-foreground">Branch</div>
+                      <div className="text-[9px] uppercase tracking-widest text-muted-foreground">
+                        Branch
+                      </div>
                       <div className="truncate text-muted-foreground">{a.libraries?.name}</div>
                     </div>
                     <div className="min-w-0">
-                      <div className="text-[9px] uppercase tracking-widest text-muted-foreground">Fee</div>
+                      <div className="text-[9px] uppercase tracking-widest text-muted-foreground">
+                        Fee
+                      </div>
                       <div className="font-mono">{inr(a.monthly_fee)}</div>
                     </div>
                     <div className="min-w-0">
-                      <div className="text-[9px] uppercase tracking-widest text-muted-foreground">Next due</div>
-                      <div className="font-mono">{a.next_due_date ? fmtDate(a.next_due_date) : "—"}</div>
+                      <div className="text-[9px] uppercase tracking-widest text-muted-foreground">
+                        Next due
+                      </div>
+                      <div className="font-mono">
+                        {a.next_due_date ? fmtDate(a.next_due_date) : "—"}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -832,13 +988,15 @@ function AllocationsPage() {
                         ({a.students?.mobile_number})
                       </span>
                     </td>
-                    <td className="py-3 px-2 font-mono text-cyan">
-                      {seatLabel(a)}
-                    </td>
+                    <td className="py-3 px-2 font-mono text-cyan">{seatLabel(a)}</td>
                     <td className="py-3 px-2 text-muted-foreground">{a.libraries?.name}</td>
-                    <td className="py-3 px-2 text-muted-foreground">{a.shifts?.name ?? "Full day"}</td>
+                    <td className="py-3 px-2 text-muted-foreground">
+                      {a.shifts?.name ?? "Full day"}
+                    </td>
                     <td className="py-3 px-2 font-mono">{inr(a.monthly_fee)}</td>
-                    <td className="py-3 px-2 font-mono">{a.next_due_date ? fmtDate(a.next_due_date) : "—"}</td>
+                    <td className="py-3 px-2 font-mono">
+                      {a.next_due_date ? fmtDate(a.next_due_date) : "—"}
+                    </td>
                     <td className="py-3 px-2">
                       {(() => {
                         const paid = partialPaidFor(a);
@@ -846,7 +1004,11 @@ function AllocationsPage() {
                         return (
                           <span
                             className={`rounded px-2 py-1 text-[10px] ${statusClass(st)}`}
-                            title={paid > 0 ? `Part-paid ${inr(paid)} of ${inr(a.monthly_fee)} this cycle` : undefined}
+                            title={
+                              paid > 0
+                                ? `Part-paid ${inr(paid)} of ${inr(a.monthly_fee)} this cycle`
+                                : undefined
+                            }
                           >
                             {st.toUpperCase()}
                             {st === "partial" && isOverdue(a) ? " · OVERDUE" : ""}
@@ -876,7 +1038,6 @@ function AllocationsPage() {
             </table>
           </div>
         )}
-
       </GlassPanel>
 
       {/* Manual New Allocation Dialog */}
@@ -923,7 +1084,10 @@ function AllocationsPage() {
       />
 
       {/* Vacant Seat Clicked -> Quick Assign Dialog */}
-      <Dialog open={!!selectedVacantSeat} onOpenChange={(open) => !open && setSelectedVacantSeat(null)}>
+      <Dialog
+        open={!!selectedVacantSeat}
+        onOpenChange={(open) => !open && setSelectedVacantSeat(null)}
+      >
         {selectedVacantSeat && (
           <NewAllocDialog
             initialLibraryId={currentLibId}
@@ -950,7 +1114,9 @@ function AllocationsPage() {
                     Some shifts free
                   </span>
                 ) : (
-                  <span className="rounded-md bg-rose/10 px-2 py-1 text-xs font-normal text-rose">Fully booked</span>
+                  <span className="rounded-md bg-rose/10 px-2 py-1 text-xs font-normal text-rose">
+                    Fully booked
+                  </span>
                 ))}
             </DialogTitle>
           </DialogHeader>
@@ -977,7 +1143,9 @@ function AllocationsPage() {
                         >
                           {a.students?.full_name}
                         </button>
-                        <div className="text-xs font-mono text-muted-foreground">{a.students?.mobile_number}</div>
+                        <div className="text-xs font-mono text-muted-foreground">
+                          {a.students?.mobile_number}
+                        </div>
                       </div>
                       <span className="shrink-0 rounded bg-panel-strong px-2 py-1 text-[10px] uppercase tracking-wider">
                         {a.shifts?.name ?? "Full day"}
@@ -985,15 +1153,23 @@ function AllocationsPage() {
                     </div>
                     <div className="grid grid-cols-2 gap-4 border-t border-panel-border/50 pt-3">
                       <div>
-                        <div className="text-[10px] uppercase text-muted-foreground">Monthly Fee</div>
+                        <div className="text-[10px] uppercase text-muted-foreground">
+                          Monthly Fee
+                        </div>
                         <div className="text-sm font-mono text-emerald">{inr(a.monthly_fee)}</div>
                       </div>
                       <div>
-                        <div className="text-[10px] uppercase text-muted-foreground">Next Due Date</div>
-                        <div className="text-sm font-mono">{a.next_due_date ? fmtDate(a.next_due_date) : "—"}</div>
+                        <div className="text-[10px] uppercase text-muted-foreground">
+                          Next Due Date
+                        </div>
+                        <div className="text-sm font-mono">
+                          {a.next_due_date ? fmtDate(a.next_due_date) : "—"}
+                        </div>
                       </div>
                       <div className="col-span-2">
-                        <div className="text-[10px] uppercase text-muted-foreground">Fee Status</div>
+                        <div className="text-[10px] uppercase text-muted-foreground">
+                          Fee Status
+                        </div>
                         <div className={`text-sm font-semibold ${statusText(st)}`}>
                           {st.toUpperCase()}
                           {st === "partial" && isOverdue(a) ? " · OVERDUE" : ""}
@@ -1054,9 +1230,10 @@ function AllocationsPage() {
                   <div className="text-xs text-muted-foreground">
                     Still free:{" "}
                     <span className="text-foreground">
-                      {[...(occupiedSeat.fullDayFree ? ["Full day"] : []), ...occupiedSeat.open.map((o: { name: string }) => o.name)].join(
-                        ", ",
-                      )}
+                      {[
+                        ...(occupiedSeat.fullDayFree ? ["Full day"] : []),
+                        ...occupiedSeat.open.map((o: { name: string }) => o.name),
+                      ].join(", ")}
                     </span>
                   </div>
                   <Button
@@ -1077,7 +1254,10 @@ function AllocationsPage() {
       </Dialog>
 
       {profileStudentId && (
-        <StudentProfileDialog studentId={profileStudentId} onClose={() => setProfileStudentId(null)} />
+        <StudentProfileDialog
+          studentId={profileStudentId}
+          onClose={() => setProfileStudentId(null)}
+        />
       )}
     </div>
   );
@@ -1152,9 +1332,10 @@ function NewAllocDialog({
     if (!students.data) return [];
     if (!studentSearch) return students.data;
     const q = studentSearch.toLowerCase();
-    return students.data.filter((s: any) => s.full_name?.toLowerCase().includes(q) || s.mobile_number?.includes(q));
+    return students.data.filter(
+      (s: any) => s.full_name?.toLowerCase().includes(q) || s.mobile_number?.includes(q),
+    );
   }, [students.data, studentSearch]);
-
 
   const sections = useQuery({
     queryKey: ["sections-for-alloc", libraryId],
@@ -1200,7 +1381,10 @@ function NewAllocDialog({
     queryKey: ["shifts-for-alloc", libraryId, sectionId],
     enabled: !!libraryId,
     queryFn: async () => {
-      let q = supabase.from("shifts").select("id, name, section_id, base_fee").eq("library_id", libraryId);
+      let q = supabase
+        .from("shifts")
+        .select("id, name, section_id, base_fee")
+        .eq("library_id", libraryId);
       if (sectionId) q = q.or(`section_id.eq.${sectionId},section_id.is.null`);
       const { data, error } = await q;
       if (error) throw error;
@@ -1211,8 +1395,10 @@ function NewAllocDialog({
   // Enforce new Type and Shift constraints based on checkboxes
   useEffect(() => {
     if (!currentSection) return;
-    if (!currentSection.allow_unreserved && reservationType === "unreserved") setReservationType("reserved");
-    if (!currentSection.allow_reserved && reservationType === "reserved") setReservationType("unreserved");
+    if (!currentSection.allow_unreserved && reservationType === "unreserved")
+      setReservationType("reserved");
+    if (!currentSection.allow_reserved && reservationType === "reserved")
+      setReservationType("unreserved");
 
     if (!currentSection.allow_full_day && (!shiftId || shiftId === "none")) setShiftId("");
   }, [currentSection?.id]);
@@ -1259,7 +1445,15 @@ function NewAllocDialog({
       )[0];
     if (!prior) return;
     const nextShift = prior.shift_id ?? "none";
-    const shiftAvailable = nextShift === "none" || selectableShifts(shifts.data ?? [], sectionId, currentSection, booked.data?.timingText, booked.data?.configured).some((sh: any) => sh.id === nextShift);
+    const shiftAvailable =
+      nextShift === "none" ||
+      selectableShifts(
+        shifts.data ?? [],
+        sectionId,
+        currentSection,
+        booked.data?.timingText,
+        booked.data?.configured,
+      ).some((sh: any) => sh.id === nextShift);
     skipFeeCalc.current = true;
     if (shiftAvailable) setShiftId(nextShift);
     if (prior.monthly_fee != null) setFee(Number(prior.monthly_fee));
@@ -1280,7 +1474,8 @@ function NewAllocDialog({
   // undefined = shift not chosen yet; null = full day.
   const targetShift: string | null | undefined = shiftId === "none" ? null : shiftId || undefined;
   const seatFree = (id: string, shift: string | null) => booked.isFree(id, shift, releasing);
-  const hasOpening = (id: string) => seatFree(id, null) || (shifts.data ?? []).some((sh: any) => seatFree(id, sh.id));
+  const hasOpening = (id: string) =>
+    seatFree(id, null) || (shifts.data ?? []).some((sh: any) => seatFree(id, sh.id));
   const seatOptions = (seats.data ?? []).filter(
     (s: any) =>
       s.id === seatId ||
@@ -1291,7 +1486,8 @@ function NewAllocDialog({
   // Keep seat + shift compatible: a seat picked from the map stays and the clashing
   // shift is cleared; otherwise the seat is cleared.
   useEffect(() => {
-    if (!booked.data || reservationType === "unreserved" || !seatId || targetShift === undefined) return;
+    if (!booked.data || reservationType === "unreserved" || !seatId || targetShift === undefined)
+      return;
     if (seatFree(seatId, targetShift)) return;
     if (seatId === initialSeatId) {
       setShiftId("");
@@ -1318,12 +1514,22 @@ function NewAllocDialog({
             toast.error("Reserved seats are not allowed in this section.");
             return;
           }
-          if (currentSection && !currentSection.allow_unreserved && reservationType === "unreserved") {
+          if (
+            currentSection &&
+            !currentSection.allow_unreserved &&
+            reservationType === "unreserved"
+          ) {
             toast.error("Unreserved allocations are not allowed in this section.");
             return;
           }
-          if (currentSection && !currentSection.allow_full_day && (!shiftId || shiftId === "none")) {
-            toast.error("Full-day allocations are not allowed in this section. Please select a shift.");
+          if (
+            currentSection &&
+            !currentSection.allow_full_day &&
+            (!shiftId || shiftId === "none")
+          ) {
+            toast.error(
+              "Full-day allocations are not allowed in this section. Please select a shift.",
+            );
             return;
           }
 
@@ -1332,7 +1538,17 @@ function NewAllocDialog({
             return;
           }
 
-          if (shiftId && shiftId !== "none" && !selectableShifts(shifts.data ?? [], sectionId, currentSection, booked.data?.timingText, booked.data?.configured).some((s) => s.id === shiftId)) {
+          if (
+            shiftId &&
+            shiftId !== "none" &&
+            !selectableShifts(
+              shifts.data ?? [],
+              sectionId,
+              currentSection,
+              booked.data?.timingText,
+              booked.data?.configured,
+            ).some((s) => s.id === shiftId)
+          ) {
             toast.error("Choose an enabled shift for this hall.");
             return;
           }
@@ -1342,7 +1558,9 @@ function NewAllocDialog({
           // removal) doesn't reset the student to "pending" and cause duplicate payments.
           const { data: prevAllocs } = await supabase
             .from("allocations")
-            .select("id, library_id, seat_id, reservation_type, next_due_date, start_date, status, is_active, created_at")
+            .select(
+              "id, library_id, seat_id, reservation_type, next_due_date, start_date, status, is_active, created_at",
+            )
             .eq("student_id", studentId)
             .order("is_active", { ascending: false })
             .order("created_at", { ascending: false })
@@ -1413,20 +1631,19 @@ function NewAllocDialog({
             return;
           }
 
-
           const { data: createdAlloc, error } = await supabase
             .from("allocations")
             .insert({
-            org_id: orgId!,
-            library_id: libraryId,
-            student_id: studentId,
-            seat_id: (reservationType === "unreserved" ? null : seatId) as string,
-            shift_id: shiftId === "none" || !shiftId ? null : shiftId,
-            monthly_fee: Number(fee || 0),
-            reservation_type: reservationType,
-            start_date: prev?.start_date ?? todayISO(),
-            next_due_date: carriedDue,
-            status: carriedStatus as any,
+              org_id: orgId!,
+              library_id: libraryId,
+              student_id: studentId,
+              seat_id: (reservationType === "unreserved" ? null : seatId) as string,
+              shift_id: shiftId === "none" || !shiftId ? null : shiftId,
+              monthly_fee: Number(fee || 0),
+              reservation_type: reservationType,
+              start_date: prev?.start_date ?? todayISO(),
+              next_due_date: carriedDue,
+              status: carriedStatus as any,
             })
             .select("id")
             .single();
@@ -1434,7 +1651,8 @@ function NewAllocDialog({
           if (error) {
             // Don't leave the student without their previous booking.
             const ids = (released ?? []).map((r: any) => r.id);
-            if (ids.length) await supabase.from("allocations").update({ is_active: true }).in("id", ids);
+            if (ids.length)
+              await supabase.from("allocations").update({ is_active: true }).in("id", ids);
             setLoading(false);
             toast.error(friendlySeatError(error));
             booked.refetch();
@@ -1523,7 +1741,9 @@ function NewAllocDialog({
                   const act = (s.allocations ?? []).find((a: any) => a.is_active);
                   const st = act ? effectiveStatus(act) : null;
                   const isNew =
-                    s.created_at && Date.now() - new Date(s.created_at).getTime() < 7 * 86400000 && !act;
+                    s.created_at &&
+                    Date.now() - new Date(s.created_at).getTime() < 7 * 86400000 &&
+                    !act;
                   return (
                     <div
                       key={s.id}
@@ -1568,7 +1788,9 @@ function NewAllocDialog({
                 })}
 
                 {filteredStudents.length === 0 && (
-                  <div className="p-4 text-xs text-muted-foreground text-center">No students found.</div>
+                  <div className="p-4 text-xs text-muted-foreground text-center">
+                    No students found.
+                  </div>
                 )}
               </div>
             )}
@@ -1608,10 +1830,16 @@ function NewAllocDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="reserved" disabled={!!currentSection && !currentSection.allow_reserved}>
+                <SelectItem
+                  value="reserved"
+                  disabled={!!currentSection && !currentSection.allow_reserved}
+                >
                   Reserved{!currentSection?.allow_reserved ? " (Not allowed)" : ""}
                 </SelectItem>
-                <SelectItem value="unreserved" disabled={!!currentSection && !currentSection.allow_unreserved}>
+                <SelectItem
+                  value="unreserved"
+                  disabled={!!currentSection && !currentSection.allow_unreserved}
+                >
                   Unreserved{!currentSection?.allow_unreserved ? " (Not allowed)" : ""}
                 </SelectItem>
               </SelectContent>
@@ -1619,7 +1847,9 @@ function NewAllocDialog({
           </div>
 
           <div className="space-y-2">
-            <Label>Seat {reservationType === "unreserved" ? "(Not Required)" : "(Free for this shift)"}</Label>
+            <Label>
+              Seat {reservationType === "unreserved" ? "(Not Required)" : "(Free for this shift)"}
+            </Label>
             <Select
               value={seatId}
               onValueChange={setSeatId}
@@ -1648,21 +1878,36 @@ function NewAllocDialog({
               </SelectTrigger>
               <SelectContent>
                 {(() => {
-                  const fullDayTaken = reservationType === "reserved" && !!seatId && !seatFree(seatId, null);
+                  const fullDayTaken =
+                    reservationType === "reserved" && !!seatId && !seatFree(seatId, null);
                   return (
                     <SelectItem
                       value="none"
-                      disabled={(!!currentSection && !currentSection.allow_full_day) || fullDayTaken}
+                      disabled={
+                        (!!currentSection && !currentSection.allow_full_day) || fullDayTaken
+                      }
                     >
                       Full day
-                      {!currentSection?.allow_full_day ? " (Not allowed)" : fullDayTaken ? " (Taken on this seat)" : ""}
+                      {!currentSection?.allow_full_day
+                        ? " (Not allowed)"
+                        : fullDayTaken
+                          ? " (Taken on this seat)"
+                          : ""}
                     </SelectItem>
                   );
                 })()}
-                {selectableShifts(shifts.data ?? [], sectionId, currentSection, booked.data?.timingText, booked.data?.configured).map((s: any) => {
+                {selectableShifts(
+                  shifts.data ?? [],
+                  sectionId,
+                  currentSection,
+                  booked.data?.timingText,
+                  booked.data?.configured,
+                ).map((s: any) => {
                   const cls = classifyShiftByName(s.name || "");
-                  const notAllowed = !!currentSection && !!cls && !(currentSection as any)[cls.allowKey];
-                  const taken = reservationType === "reserved" && !!seatId && !seatFree(seatId, s.id);
+                  const notAllowed =
+                    !!currentSection && !!cls && !(currentSection as any)[cls.allowKey];
+                  const taken =
+                    reservationType === "reserved" && !!seatId && !seatFree(seatId, s.id);
 
                   return (
                     <SelectItem key={s.id} value={s.id} disabled={notAllowed || taken}>
@@ -1687,8 +1932,8 @@ function NewAllocDialog({
         </div>
 
         <div className="rounded-lg border border-panel-border bg-panel p-3 text-xs text-muted-foreground leading-relaxed mt-2">
-          Note: This only assigns the seat. You must log the initial payment on the Payments page to activate their
-          access.
+          Note: This only assigns the seat. You must log the initial payment on the Payments page to
+          activate their access.
         </div>
 
         <Button

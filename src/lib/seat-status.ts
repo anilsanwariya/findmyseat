@@ -33,9 +33,13 @@ export interface SeatBooking {
 type ShiftLookup = Map<string, ShiftTimes>;
 
 const shiftOf = (id: string | null | undefined, shifts: ShiftLookup): ShiftTimes =>
-  id ? (shifts.get(id) ?? { id, name: "Unknown" }) : {
-    id: "full_day", name: "Full day", timings: shifts.values().next().value?.timings,
-  };
+  id
+    ? (shifts.get(id) ?? { id, name: "Unknown" })
+    : {
+        id: "full_day",
+        name: "Full day",
+        timings: shifts.values().next().value?.timings,
+      };
 
 /**
  * Would a booking for `targetShiftId` on this seat clash with an existing one?

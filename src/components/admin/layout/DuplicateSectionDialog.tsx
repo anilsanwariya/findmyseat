@@ -3,7 +3,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { duplicateSection } from "@/lib/layout-ops";
 
@@ -67,12 +73,17 @@ export function DuplicateSectionDialog({
           }}
         >
           <p className="text-sm text-muted-foreground">
-            Copies the grid size, shifts and fees{includeSeats ? ", seats and area cells" : ""}. Student allocations are
-            never copied.
+            Copies the grid size, shifts and fees{includeSeats ? ", seats and area cells" : ""}.
+            Student allocations are never copied.
           </p>
           <div className="space-y-2">
             <Label>New section name</Label>
-            <Input required value={name} onChange={(e) => setName(e.target.value)} className="bg-panel border-panel-border" />
+            <Input
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="bg-panel border-panel-border"
+            />
           </div>
           <div className="space-y-2">
             <Label>Create in branch</Label>
@@ -90,10 +101,18 @@ export function DuplicateSectionDialog({
             </Select>
           </div>
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={includeSeats} onChange={(e) => setIncludeSeats(e.target.checked)} /> Copy seats
-            and area cells
+            <input
+              type="checkbox"
+              checked={includeSeats}
+              onChange={(e) => setIncludeSeats(e.target.checked)}
+            />{" "}
+            Copy seats and area cells
           </label>
-          <Button disabled={loading} type="submit" className="w-full bg-white text-slate-900 hover:bg-white/90">
+          <Button
+            disabled={loading}
+            type="submit"
+            className="w-full bg-white text-slate-900 hover:bg-white/90"
+          >
             {loading ? "Duplicating…" : "Duplicate"}
           </Button>
         </form>

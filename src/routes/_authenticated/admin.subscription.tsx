@@ -6,7 +6,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { GlassPanel, SectionHeader } from "@/components/glass";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { toast } from "sonner";
 import { CheckCircle2, XCircle, Sparkles, ReceiptText, TagIcon, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -36,7 +43,8 @@ function SubscriptionPage() {
       <GlassPanel className="p-10 text-center">
         <h2 className="text-lg font-semibold">Restricted</h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          Subscription and billing are managed by the library owner. Please contact your organization owner for access.
+          Subscription and billing are managed by the library owner. Please contact your
+          organization owner for access.
         </p>
       </GlassPanel>
     );
@@ -54,7 +62,6 @@ function SubscriptionPageInner() {
   // Google Play only allows selling the plan through Play billing, so the app hides purchases.
   const inApp = useIsAndroidApp();
 
-
   const [cycle, setCycle] = useState<"monthly" | "annual">("monthly");
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<any | null>(null);
@@ -67,7 +74,13 @@ function SubscriptionPageInner() {
   const plans = useQuery({
     queryKey: ["public-plans"],
     queryFn: async () =>
-      (await supabase.from("subscription_plans").select("*").eq("is_active", true).order("monthly_price")).data ?? [],
+      (
+        await supabase
+          .from("subscription_plans")
+          .select("*")
+          .eq("is_active", true)
+          .order("monthly_price")
+      ).data ?? [],
   });
 
   const applyMut = useMutation({
@@ -98,7 +111,11 @@ function SubscriptionPageInner() {
       if (!loaded) throw new Error("Failed to load Razorpay SDK. Check your network.");
 
       // 3. Open Razorpay Checkout and verify the signed result on the server.
-      const payment = await new Promise<{ razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }>((resolve, reject) => {
+      const payment = await new Promise<{
+        razorpay_order_id: string;
+        razorpay_payment_id: string;
+        razorpay_signature: string;
+      }>((resolve, reject) => {
         const options: any = {
           key: r.key_id,
           order_id: r.order_id,
@@ -106,7 +123,11 @@ function SubscriptionPageInner() {
           currency: r.currency,
           name: "LibraryBandhu",
           description: `${cycle === "monthly" ? "One month" : "One year"} of owner access`,
-          handler: (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
+          handler: (response: {
+            razorpay_order_id: string;
+            razorpay_payment_id: string;
+            razorpay_signature: string;
+          }) => {
             toast.success("Payment received. Verifying access…");
             resolve(response);
           },
@@ -138,25 +159,30 @@ function SubscriptionPageInner() {
     onError: (e: any) => toast.error(e?.message ?? "Subscription failed"),
   });
 
-
   const sub = billing.data?.subscription;
   const currentPlan = billing.data?.plan;
-  const accessActive = sub?.status === "active" && (!sub.current_period_end || new Date(sub.current_period_end) > new Date());
-  const statusTone =
-    accessActive
-      ? "text-emerald bg-emerald/15"
-      : sub?.status === "past_due" || sub?.status === "halted"
-        ? "text-rose bg-rose/15"
-        : "text-cyan bg-cyan/15";
+  const accessActive =
+    sub?.status === "active" &&
+    (!sub.current_period_end || new Date(sub.current_period_end) > new Date());
+  const statusTone = accessActive
+    ? "text-emerald bg-emerald/15"
+    : sub?.status === "past_due" || sub?.status === "halted"
+      ? "text-rose bg-rose/15"
+      : "text-cyan bg-cyan/15";
 
   // Global (per-plan) discount — active if any plan has a valid discount for the current cycle
   const activeOffers = (plans.data ?? []).filter((p: any) => {
-    const pct = cycle === "monthly" ? Number(p.discount_monthly_pct) || 0 : Number(p.discount_annual_pct) || 0;
+    const pct =
+      cycle === "monthly"
+        ? Number(p.discount_monthly_pct) || 0
+        : Number(p.discount_annual_pct) || 0;
     return pct > 0 && p.discount_valid_until && new Date(p.discount_valid_until) > new Date();
   });
   const offerActive = activeOffers.length > 0;
   const soonestExpiry = offerActive
-    ? activeOffers.map((p: any) => new Date(p.discount_valid_until).getTime()).sort((a, b) => a - b)[0]
+    ? activeOffers
+        .map((p: any) => new Date(p.discount_valid_until).getTime())
+        .sort((a, b) => a - b)[0]
     : null;
 
   return (
@@ -175,13 +201,19 @@ function SubscriptionPageInner() {
                 <Sparkles className="size-5 text-slate-950" />
               </div>
               <div>
-                <div className="text-sm font-extrabold tracking-tight text-gold">🎉 Limited-time offer live!</div>
+                <div className="text-sm font-extrabold tracking-tight text-gold">
+                  🎉 Limited-time offer live!
+                </div>
                 <div className="text-xs text-muted-foreground">
-                  Discounted {cycle} pricing on {activeOffers.length} plan{activeOffers.length === 1 ? "" : "s"}
+                  Discounted {cycle} pricing on {activeOffers.length} plan
+                  {activeOffers.length === 1 ? "" : "s"}
                   {soonestExpiry && (
                     <>
                       {" "}
-                      · ends <span className="text-foreground">{fmtDate(new Date(soonestExpiry).toISOString())}</span>
+                      · ends{" "}
+                      <span className="text-foreground">
+                        {fmtDate(new Date(soonestExpiry).toISOString())}
+                      </span>
                     </>
                   )}
                 </div>
@@ -195,12 +227,19 @@ function SubscriptionPageInner() {
       <GlassPanel className="p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Current plan</div>
+            <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+              Current plan
+            </div>
             <div className="mt-2 flex items-center gap-3">
-              <h2 className="text-2xl font-extrabold tracking-tight">{currentPlan?.name ?? "No active plan"}</h2>
+              <h2 className="text-2xl font-extrabold tracking-tight">
+                {currentPlan?.name ?? "No active plan"}
+              </h2>
               {sub && (
                 <span
-                  className={cn("rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest", statusTone)}
+                  className={cn(
+                    "rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest",
+                    statusTone,
+                  )}
                 >
                   {accessActive ? "active" : "expired"}
                 </span>
@@ -212,7 +251,8 @@ function SubscriptionPageInner() {
                 {sub.current_period_end && (
                   <>
                     {" "}
-                    · Valid until <span className="text-foreground">{fmtDate(sub.current_period_end)}</span>
+                    · Valid until{" "}
+                    <span className="text-foreground">{fmtDate(sub.current_period_end)}</span>
                   </>
                 )}
               </div>
@@ -279,14 +319,20 @@ function SubscriptionPageInner() {
 
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {(plans.data ?? []).map((p: any) => {
-              const basePrice = cycle === "monthly" ? Number(p.monthly_price) : Number(p.annual_price);
+              const basePrice =
+                cycle === "monthly" ? Number(p.monthly_price) : Number(p.annual_price);
               // Per-plan global discount
               const planPct =
-                cycle === "monthly" ? Number(p.discount_monthly_pct) || 0 : Number(p.discount_annual_pct) || 0;
+                cycle === "monthly"
+                  ? Number(p.discount_monthly_pct) || 0
+                  : Number(p.discount_annual_pct) || 0;
               const planOfferActive =
-                planPct > 0 && p.discount_valid_until && new Date(p.discount_valid_until) > new Date();
+                planPct > 0 &&
+                p.discount_valid_until &&
+                new Date(p.discount_valid_until) > new Date();
               const customPct = planOfferActive ? planPct : 0;
-              const afterCustom = customPct > 0 ? Math.max(0, basePrice * (1 - customPct / 100)) : basePrice;
+              const afterCustom =
+                customPct > 0 ? Math.max(0, basePrice * (1 - customPct / 100)) : basePrice;
               // Then coupon on top
               const couponOff = appliedCoupon
                 ? appliedCoupon.discount_type === "flat"
@@ -310,7 +356,9 @@ function SubscriptionPageInner() {
                   className={cn(
                     "relative flex flex-col p-6 transition-all duration-300",
                     isCurrent && "ring-2 ring-emerald/60 bg-emerald/5",
-                    hasDiscount && !isCurrent && "border-gold/40 shadow-[0_0_36px_-10px_rgba(212,175,55,0.55)]",
+                    hasDiscount &&
+                      !isCurrent &&
+                      "border-gold/40 shadow-[0_0_36px_-10px_rgba(212,175,55,0.55)]",
                   )}
                 >
                   {cycle === "annual" && annualSavingsPct > 0 && (
@@ -322,7 +370,9 @@ function SubscriptionPageInner() {
                     <Sparkles className="size-4 text-violet" />
                     <h4 className="font-bold">{p.name}</h4>
                   </div>
-                  {p.description && <p className="mt-1 text-xs text-muted-foreground">{p.description}</p>}
+                  {p.description && (
+                    <p className="mt-1 text-xs text-muted-foreground">{p.description}</p>
+                  )}
                   <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-panel-border bg-panel/60 px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-widest text-cyan">
                     {p.max_branches == null
                       ? "Unlimited branches"
@@ -370,7 +420,11 @@ function SubscriptionPageInner() {
                     disabled={subscribe.isPending || finalPrice <= 0}
                     onClick={() => subscribe.mutate(p.id)}
                   >
-                    {subscribe.isPending ? "Connecting..." : isCurrent ? "Renew access" : "Pay securely"}
+                    {subscribe.isPending
+                      ? "Connecting..."
+                      : isCurrent
+                        ? "Renew access"
+                        : "Pay securely"}
                   </Button>
 
                   {!isCurrent && (
@@ -382,7 +436,9 @@ function SubscriptionPageInner() {
               );
             })}
             {plans.isLoading && (
-              <GlassPanel className="p-10 text-center text-muted-foreground col-span-full">Loading plans…</GlassPanel>
+              <GlassPanel className="p-10 text-center text-muted-foreground col-span-full">
+                Loading plans…
+              </GlassPanel>
             )}
           </div>
         </div>
@@ -406,9 +462,15 @@ function SubscriptionPageInner() {
           <TableBody>
             {(billing.data?.invoices ?? []).map((inv: any) => (
               <TableRow key={inv.id} className="border-panel-border">
-                <TableCell className="text-muted-foreground">{fmtDate(inv.paid_at ?? inv.created_at)}</TableCell>
-                <TableCell className="font-mono text-xs">{inv.razorpay_invoice_id ?? "—"}</TableCell>
-                <TableCell className="font-mono">₹{Number(inv.amount).toLocaleString("en-IN")}</TableCell>
+                <TableCell className="text-muted-foreground">
+                  {fmtDate(inv.paid_at ?? inv.created_at)}
+                </TableCell>
+                <TableCell className="font-mono text-xs">
+                  {inv.razorpay_invoice_id ?? "—"}
+                </TableCell>
+                <TableCell className="font-mono">
+                  ₹{Number(inv.amount).toLocaleString("en-IN")}
+                </TableCell>
                 <TableCell>
                   <span
                     className={cn(

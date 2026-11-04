@@ -36,7 +36,11 @@ export const Route = createFileRoute("/_authenticated/admin/staff")({
 });
 
 const PERM_LIST: { key: string; label: string; hint: string }[] = [
-  { key: "manage_students", label: "Manage students", hint: "View, create, and edit students in assigned branches" },
+  {
+    key: "manage_students",
+    label: "Manage students",
+    hint: "View, create, and edit students in assigned branches",
+  },
   { key: "manage_allocations", label: "Manage allocations", hint: "Assign seats and shifts" },
   { key: "collect_payments", label: "Collect payments", hint: "Log payments and receipts" },
   { key: "manage_expenses", label: "Manage expenses", hint: "Add expense entries" },
@@ -135,7 +139,10 @@ function StaffPage() {
             </thead>
             <tbody>
               {(staff.data ?? []).map((s: any) => (
-                <tr key={s.id} className="border-b border-panel-border/50 hover:bg-white/[0.02] whitespace-nowrap">
+                <tr
+                  key={s.id}
+                  className="border-b border-panel-border/50 hover:bg-white/[0.02] whitespace-nowrap"
+                >
                   <td className="py-3 px-2 font-medium">{s.full_name}</td>
                   <td className="py-3 px-2 font-mono text-xs">{s.employee_id}</td>
                   <td className="py-3 px-2 text-muted-foreground">{s.email}</td>
@@ -145,7 +152,10 @@ function StaffPage() {
                         <span className="text-xs text-muted-foreground italic">— none —</span>
                       )}
                       {s.branches.map((b: any) => (
-                        <span key={b.library_id} className="rounded bg-panel px-2 py-0.5 text-[10px]">
+                        <span
+                          key={b.library_id}
+                          className="rounded bg-panel px-2 py-0.5 text-[10px]"
+                        >
                           {b.name}
                         </span>
                       ))}
@@ -153,9 +163,13 @@ function StaffPage() {
                   </td>
                   <td className="py-3 px-2">
                     {s.is_active ? (
-                      <span className="rounded bg-emerald/10 px-2 py-0.5 text-[10px] text-emerald">Active</span>
+                      <span className="rounded bg-emerald/10 px-2 py-0.5 text-[10px] text-emerald">
+                        Active
+                      </span>
                     ) : (
-                      <span className="rounded bg-rose/10 px-2 py-0.5 text-[10px] text-rose">Suspended</span>
+                      <span className="rounded bg-rose/10 px-2 py-0.5 text-[10px] text-rose">
+                        Suspended
+                      </span>
                     )}
                   </td>
                   <td className="py-3 px-2 text-muted-foreground">{fmtDate(s.created_at)}</td>
@@ -181,7 +195,11 @@ function StaffPage() {
                           }
                         }}
                       >
-                        {s.is_active ? <UserX className="size-3" /> : <UserCheck className="size-3" />}
+                        {s.is_active ? (
+                          <UserX className="size-3" />
+                        ) : (
+                          <UserCheck className="size-3" />
+                        )}
                       </Button>
                       <Button
                         size="sm"
@@ -191,7 +209,8 @@ function StaffPage() {
                           if (
                             !(await confirmAction({
                               title: `Delete ${s.full_name}?`,
-                              description: "This permanently removes the staff account and its access. This cannot be undone.",
+                              description:
+                                "This permanently removes the staff account and its access. This cannot be undone.",
                               confirmLabel: "Delete staff",
                               destructive: true,
                             }))
@@ -250,7 +269,9 @@ function StaffFormDialog({ existing, onDone }: { existing?: any; onDone: () => v
   const [empId, setEmpId] = useState(existing?.employee_id ?? "");
   const [email, setEmail] = useState(existing?.email ?? "");
   const [password, setPassword] = useState("");
-  const [libraryIds, setLibraryIds] = useState<string[]>((existing?.branches ?? []).map((b: any) => b.library_id));
+  const [libraryIds, setLibraryIds] = useState<string[]>(
+    (existing?.branches ?? []).map((b: any) => b.library_id),
+  );
   const [perms, setPerms] = useState<Record<string, boolean>>({
     ...DEFAULT_PERMS,
     ...(existing?.permissions ?? {}),
@@ -267,7 +288,9 @@ function StaffFormDialog({ existing, onDone }: { existing?: any; onDone: () => v
     <DialogContent className="glass-strong border-panel-border w-[95vw] max-w-xl max-h-[90vh] overflow-y-auto p-4 md:p-6">
       <DialogHeader>
         <DialogTitle>{isEdit ? "Edit staff" : "Onboard staff"}</DialogTitle>
-        <DialogDescription className="sr-only">Configure staff permissions and branch access.</DialogDescription>
+        <DialogDescription className="sr-only">
+          Configure staff permissions and branch access.
+        </DialogDescription>
       </DialogHeader>
       <form
         className="space-y-4"
@@ -400,7 +423,11 @@ function StaffFormDialog({ existing, onDone }: { existing?: any; onDone: () => v
           </div>
         </div>
 
-        <Button disabled={loading} type="submit" className="w-full bg-white text-slate-900 hover:bg-white/90">
+        <Button
+          disabled={loading}
+          type="submit"
+          className="w-full bg-white text-slate-900 hover:bg-white/90"
+        >
           {loading ? "Saving…" : isEdit ? "Save changes" : "Onboard staff"}
         </Button>
       </form>
@@ -417,7 +444,9 @@ function ResetPasswordDialog({ staff, onDone }: { staff: any; onDone: () => void
     <DialogContent className="glass-strong border-panel-border w-[95vw] max-w-sm p-4 md:p-6">
       <DialogHeader>
         <DialogTitle>Reset password</DialogTitle>
-        <DialogDescription>Set a new password for {staff.full_name}, or send them a recovery email.</DialogDescription>
+        <DialogDescription>
+          Set a new password for {staff.full_name}, or send them a recovery email.
+        </DialogDescription>
       </DialogHeader>
       <div className="space-y-4">
         <div className="space-y-2">

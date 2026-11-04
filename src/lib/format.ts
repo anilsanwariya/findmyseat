@@ -5,10 +5,19 @@ export const inr = (v: number | string | null | undefined) => {
 };
 
 export const fmtDate = (v?: string | null) =>
-  v ? new Date(v).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
+  v
+    ? new Date(v).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+    : "—";
 
 export const fmtDateTime = (v?: string | null) =>
-  v ? new Date(v).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "—";
+  v
+    ? new Date(v).toLocaleString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "—";
 
 export const addMonths = (date: Date, months: number) => {
   const d = new Date(date);
@@ -46,4 +55,3 @@ export const anchorDayOf = (iso?: string | null) => {
   const d = Number(String(iso).split("T")[0].split("-")[2]);
   return Number.isFinite(d) && d >= 1 ? d : null;
 };
-

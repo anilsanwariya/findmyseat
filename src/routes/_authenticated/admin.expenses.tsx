@@ -10,8 +10,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DateInput } from "@/components/ui/date-input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { ViewToggle, useDataView } from "@/components/admin/ViewToggle";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { toast } from "sonner";
@@ -49,7 +61,9 @@ export const Route = createFileRoute("/_authenticated/admin/expenses")({
 function Stat({ label, value, tone }: { label: string; value: string; tone?: "good" | "bad" }) {
   return (
     <div className="rounded-xl border border-panel-border bg-panel px-3 py-2 min-w-0">
-      <div className="text-[10px] uppercase tracking-widest text-muted-foreground truncate">{label}</div>
+      <div className="text-[10px] uppercase tracking-widest text-muted-foreground truncate">
+        {label}
+      </div>
       <div
         className={`text-sm font-semibold tabular-nums ${
           tone === "good" ? "text-emerald" : tone === "bad" ? "text-rose" : "text-foreground"
@@ -71,7 +85,11 @@ function ExpensesPage() {
   const search = Route.useSearch();
 
   const setSearch = (patch: Record<string, string | undefined>) =>
-    navigate({ to: "/admin/expenses", search: (prev: any) => ({ ...prev, ...patch }), replace: true });
+    navigate({
+      to: "/admin/expenses",
+      search: (prev: any) => ({ ...prev, ...patch }),
+      replace: true,
+    });
 
   const monthFilter = search.month ?? monthKeyOffset(0);
   const branchFilter = search.branch ?? "all";
@@ -122,7 +140,9 @@ function ExpensesPage() {
     queryFn: async () => {
       let q = supabase
         .from("expenditures")
-        .select("id, amount, category, description, spent_on, receipt_url, library_id, libraries(name)")
+        .select(
+          "id, amount, category, description, spent_on, receipt_url, library_id, libraries(name)",
+        )
         .eq("org_id", orgId!)
         .order("spent_on", { ascending: false })
         .limit(500);
@@ -251,13 +271,23 @@ function ExpensesPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <SectionHeader title="Expenses" hint="Track operational spend across branches." />
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" className="h-10 border-panel-border" onClick={() => setRecurOpen(true)}>
+          <Button
+            variant="outline"
+            className="h-10 border-panel-border"
+            onClick={() => setRecurOpen(true)}
+          >
             <Repeat className="size-4 mr-1.5" /> Recurring
             {dueCount > 0 && (
-              <span className="ml-1.5 rounded-full bg-amber-500/20 px-1.5 text-[10px] text-amber-300">{dueCount}</span>
+              <span className="ml-1.5 rounded-full bg-amber-500/20 px-1.5 text-[10px] text-amber-300">
+                {dueCount}
+              </span>
             )}
           </Button>
-          <Button variant="outline" className="h-10 border-panel-border" onClick={() => setCatOpen(true)}>
+          <Button
+            variant="outline"
+            className="h-10 border-panel-border"
+            onClick={() => setCatOpen(true)}
+          >
             <Tags className="size-4 mr-1.5" /> Categories
           </Button>
           <Button
@@ -268,7 +298,10 @@ function ExpensesPage() {
                 toast.error("Nothing to export for these filters.");
                 return;
               }
-              downloadExpenseWorkbook(rows as any, monthFilter === "all" ? "all-time" : monthFilter);
+              downloadExpenseWorkbook(
+                rows as any,
+                monthFilter === "all" ? "all-time" : monthFilter,
+              );
             }}
           >
             <Download className="size-4 mr-1.5" /> Export
@@ -281,7 +314,11 @@ function ExpensesPage() {
           <span className="text-sm text-amber-300">
             {dueCount} recurring expense{dueCount > 1 ? "s" : ""} waiting to be posted.
           </span>
-          <Button size="sm" className="h-9 bg-white text-slate-900 hover:bg-white/90" onClick={postAllDue}>
+          <Button
+            size="sm"
+            className="h-9 bg-white text-slate-900 hover:bg-white/90"
+            onClick={postAllDue}
+          >
             Post all due
           </Button>
         </GlassPanel>
@@ -291,7 +328,9 @@ function ExpensesPage() {
       <GlassPanel className="p-3">
         <div className="flex flex-wrap items-end gap-3">
           <div className="space-y-1 w-full sm:w-40">
-            <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Month</Label>
+            <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">
+              Month
+            </Label>
             <Select value={monthFilter} onValueChange={(v) => setSearch({ month: v })}>
               <SelectTrigger className="bg-panel border-panel-border text-xs h-10">
                 <SelectValue />
@@ -307,8 +346,13 @@ function ExpensesPage() {
             </Select>
           </div>
           <div className="space-y-1 w-full sm:w-44">
-            <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Branch</Label>
-            <Select value={branchFilter} onValueChange={(v) => setSearch({ branch: v === "all" ? undefined : v })}>
+            <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">
+              Branch
+            </Label>
+            <Select
+              value={branchFilter}
+              onValueChange={(v) => setSearch({ branch: v === "all" ? undefined : v })}
+            >
               <SelectTrigger className="bg-panel border-panel-border text-xs h-10">
                 <SelectValue />
               </SelectTrigger>
@@ -323,8 +367,13 @@ function ExpensesPage() {
             </Select>
           </div>
           <div className="space-y-1 w-full sm:w-44">
-            <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Category</Label>
-            <Select value={categoryFilter} onValueChange={(v) => setSearch({ category: v === "all" ? undefined : v })}>
+            <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">
+              Category
+            </Label>
+            <Select
+              value={categoryFilter}
+              onValueChange={(v) => setSearch({ category: v === "all" ? undefined : v })}
+            >
               <SelectTrigger className="bg-panel border-panel-border text-xs h-10">
                 <SelectValue />
               </SelectTrigger>
@@ -338,11 +387,15 @@ function ExpensesPage() {
               </SelectContent>
             </Select>
           </div>
-          {(branchFilter !== "all" || categoryFilter !== "all" || monthFilter !== monthKeyOffset(0)) && (
+          {(branchFilter !== "all" ||
+            categoryFilter !== "all" ||
+            monthFilter !== monthKeyOffset(0)) && (
             <Button
               variant="ghost"
               className="h-10"
-              onClick={() => setSearch({ month: monthKeyOffset(0), branch: undefined, category: undefined })}
+              onClick={() =>
+                setSearch({ month: monthKeyOffset(0), branch: undefined, category: undefined })
+              }
             >
               <X className="size-4 mr-1" /> Reset
             </Button>
@@ -355,7 +408,11 @@ function ExpensesPage() {
 
       {/* Summary + profit */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-        <Stat label={monthFilter === "all" ? "Total spend" : `Spend · ${monthLabel(monthFilter)}`} value={inr(total)} tone="bad" />
+        <Stat
+          label={monthFilter === "all" ? "Total spend" : `Spend · ${monthLabel(monthFilter)}`}
+          value={inr(total)}
+          tone="bad"
+        />
         <Stat label="Collected" value={inr(earned)} tone="good" />
         <Stat label="Profit" value={inr(profit)} tone={profit >= 0 ? "good" : "bad"} />
         <Stat label="Entries" value={String(rows.length)} />
@@ -363,7 +420,9 @@ function ExpensesPage() {
 
       {byCategory.length > 0 && (
         <GlassPanel className="p-3">
-          <div className="text-[10px] uppercase tracking-widest text-muted-foreground">By category</div>
+          <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+            By category
+          </div>
           <div className="mt-2 flex flex-wrap gap-2">
             {byCategory.map(([c, v]) => (
               <button
@@ -387,7 +446,9 @@ function ExpensesPage() {
 
       <div className="grid gap-6 lg:grid-cols-[380px_1fr]">
         <GlassPanel className="p-5">
-          <h3 className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Log expense</h3>
+          <h3 className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
+            Log expense
+          </h3>
           <form
             className="mt-4 space-y-4"
             onSubmit={(e) => {
@@ -465,7 +526,9 @@ function ExpensesPage() {
                 onChange={(e) => setReceiptFile(e.target.files?.[0] ?? null)}
                 className="bg-panel border-panel-border w-full file:text-xs"
               />
-              {receiptFile && <p className="text-[11px] text-muted-foreground truncate">{receiptFile.name}</p>}
+              {receiptFile && (
+                <p className="text-[11px] text-muted-foreground truncate">{receiptFile.name}</p>
+              )}
             </div>
             <Button
               type="submit"
@@ -499,7 +562,9 @@ function ExpensesPage() {
                     >
                       <td className="py-3 px-2 font-mono">{fmtDate(e.spent_on)}</td>
                       <td className="py-3 px-2">{e.category}</td>
-                      <td className="py-3 px-2 text-muted-foreground">{e.libraries?.name ?? "—"}</td>
+                      <td className="py-3 px-2 text-muted-foreground">
+                        {e.libraries?.name ?? "—"}
+                      </td>
                       <td className="py-3 px-2 font-mono">{inr(e.amount)}</td>
                       <td className="py-3 px-2 text-muted-foreground">{e.description ?? "—"}</td>
                       <td className="py-3 px-2">
@@ -559,7 +624,9 @@ function ExpensesPage() {
                       <div className="text-[11px] text-muted-foreground">
                         {fmtDate(e.spent_on)} · {e.libraries?.name ?? "All branches"}
                       </div>
-                      {e.description && <div className="mt-1 text-xs text-muted-foreground">{e.description}</div>}
+                      {e.description && (
+                        <div className="mt-1 text-xs text-muted-foreground">{e.description}</div>
+                      )}
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
                       {e.receipt_url && (
@@ -596,7 +663,9 @@ function ExpensesPage() {
                 </div>
               ))}
               {rows.length === 0 && (
-                <p className="py-8 text-center text-sm text-muted-foreground">No expenses for these filters.</p>
+                <p className="py-8 text-center text-sm text-muted-foreground">
+                  No expenses for these filters.
+                </p>
               )}
             </div>
           )}
@@ -747,7 +816,10 @@ function EditExpenseDialog({
           </div>
           <div className="space-y-2">
             <Label>Branch (optional)</Label>
-            <Select value={form.library_id} onValueChange={(v) => setForm({ ...form, library_id: v })}>
+            <Select
+              value={form.library_id}
+              onValueChange={(v) => setForm({ ...form, library_id: v })}
+            >
               <SelectTrigger className="bg-panel border-panel-border">
                 <SelectValue placeholder="All" />
               </SelectTrigger>
@@ -770,7 +842,8 @@ function EditExpenseDialog({
           </div>
           <div className="space-y-2">
             <Label className="flex items-center gap-1.5">
-              <Paperclip className="size-3.5" /> {row.receipt_url ? "Replace receipt" : "Attach receipt"}
+              <Paperclip className="size-3.5" />{" "}
+              {row.receipt_url ? "Replace receipt" : "Attach receipt"}
             </Label>
             <Input
               type="file"
@@ -783,7 +856,11 @@ function EditExpenseDialog({
             <Button type="button" variant="ghost" className="flex-1" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" disabled={saving} className="flex-1 bg-white text-slate-900 hover:bg-white/90">
+            <Button
+              type="submit"
+              disabled={saving}
+              className="flex-1 bg-white text-slate-900 hover:bg-white/90"
+            >
               {saving ? "Saving…" : "Save changes"}
             </Button>
           </div>

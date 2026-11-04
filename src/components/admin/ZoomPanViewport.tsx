@@ -64,14 +64,24 @@ export function ZoomPanViewport({
       e.preventDefault();
       const rect = el.getBoundingClientRect();
       const dy = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 100 : 1);
-      applyZoom(stateRef.current.zoom * Math.exp(-dy * 0.0018), e.clientX - rect.left, e.clientY - rect.top);
+      applyZoom(
+        stateRef.current.zoom * Math.exp(-dy * 0.0018),
+        e.clientX - rect.left,
+        e.clientY - rect.top,
+      );
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
   }, [applyZoom]);
 
   const pointers = useRef(new Map<number, { x: number; y: number }>());
-  const dragRef = useRef<{ x: number; y: number; panX: number; panY: number; moved: boolean } | null>(null);
+  const dragRef = useRef<{
+    x: number;
+    y: number;
+    panX: number;
+    panY: number;
+    moved: boolean;
+  } | null>(null);
   const pinchRef = useRef<{ dist: number } | null>(null);
   const suppressClick = useRef(false);
 
@@ -135,7 +145,11 @@ export function ZoomPanViewport({
 
   const zoomAtCenter = (factor: number) => {
     const el = viewportRef.current;
-    applyZoom(stateRef.current.zoom * factor, (el?.clientWidth ?? 0) / 2, (el?.clientHeight ?? 0) / 2);
+    applyZoom(
+      stateRef.current.zoom * factor,
+      (el?.clientWidth ?? 0) / 2,
+      (el?.clientHeight ?? 0) / 2,
+    );
   };
 
   return (
@@ -154,7 +168,9 @@ export function ZoomPanViewport({
           >
             <ZoomOut className="size-4" />
           </Button>
-          <span className="w-10 text-center font-mono text-[10px] text-muted-foreground">{Math.round(zoom * 100)}%</span>
+          <span className="w-10 text-center font-mono text-[10px] text-muted-foreground">
+            {Math.round(zoom * 100)}%
+          </span>
           <Button
             size="icon"
             variant="outline"

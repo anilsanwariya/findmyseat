@@ -92,7 +92,10 @@ function ForgotPinPage() {
                     />
                   </div>
                 </div>
-                <Button disabled={start.isPending} className="w-full bg-white text-slate-900 hover:bg-white/90">
+                <Button
+                  disabled={start.isPending}
+                  className="w-full bg-white text-slate-900 hover:bg-white/90"
+                >
                   {start.isPending ? "Sending…" : "Send verification code"}
                 </Button>
               </form>
@@ -107,7 +110,8 @@ function ForgotPinPage() {
                 {devCode && (
                   <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-300">
                     <span className="font-semibold">Dev preview code:</span>{" "}
-                    <span className="font-mono">{devCode}</span> — hook up Lovable Emails to send this by mail.
+                    <span className="font-mono">{devCode}</span> — hook up Lovable Emails to send
+                    this by mail.
                   </div>
                 )}
                 <div className="space-y-2">
@@ -150,7 +154,10 @@ function ForgotPinPage() {
                     className="bg-panel border-panel-border font-mono tracking-widest"
                   />
                 </div>
-                <Button disabled={verify.isPending} className="w-full bg-white text-slate-900 hover:bg-white/90">
+                <Button
+                  disabled={verify.isPending}
+                  className="w-full bg-white text-slate-900 hover:bg-white/90"
+                >
                   {verify.isPending ? "Verifying…" : "Reset PIN"}
                 </Button>
                 <button

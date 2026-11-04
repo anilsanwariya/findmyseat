@@ -26,9 +26,18 @@ function SuperAdminDashboard() {
     queryKey: ["super-admin", "metrics"],
     queryFn: async () => {
       const [orgs, libs, students] = await Promise.all([
-        supabase.from("organizations").select("id", { count: "exact", head: true }).neq("subscription_status", "suspended"),
-        supabase.from("libraries").select("id", { count: "exact", head: true }).eq("is_active", true),
-        supabase.from("students").select("id", { count: "exact", head: true }).eq("is_active", true),
+        supabase
+          .from("organizations")
+          .select("id", { count: "exact", head: true })
+          .neq("subscription_status", "suspended"),
+        supabase
+          .from("libraries")
+          .select("id", { count: "exact", head: true })
+          .eq("is_active", true),
+        supabase
+          .from("students")
+          .select("id", { count: "exact", head: true })
+          .eq("is_active", true),
       ]);
       return { orgs: orgs.count ?? 0, libs: libs.count ?? 0, students: students.count ?? 0 };
     },
@@ -45,7 +54,9 @@ function SuperAdminDashboard() {
           .limit(200),
         supabase
           .from("owner_subscriptions")
-          .select("id, org_id, status, billing_cycle, current_period_end, created_at, subscription_plans(name)")
+          .select(
+            "id, org_id, status, billing_cycle, current_period_end, created_at, subscription_plans(name)",
+          )
           .order("created_at", { ascending: false }),
         supabase.from("organizations").select("id, company_name"),
       ]);
@@ -62,7 +73,11 @@ function SuperAdminDashboard() {
         .filter((i) => new Date(i.paid_at ?? i.created_at) >= startMonth)
         .reduce((s, i) => s + Number(i.amount), 0);
       const subs = (subRes.data ?? []) as any[];
-      const active = subs.filter((s) => s.status === "active" && (!s.current_period_end || new Date(s.current_period_end) > new Date()));
+      const active = subs.filter(
+        (s) =>
+          s.status === "active" &&
+          (!s.current_period_end || new Date(s.current_period_end) > new Date()),
+      );
       return { invoices, orgMap, total, month, subs, activeCount: active.length };
     },
   });
@@ -91,7 +106,13 @@ function SuperAdminDashboard() {
         </h3>
         {billing.isLoading ? (
           <div className="py-8 text-center text-xs text-muted-foreground">Loading…</div>
-        ) : (b?.subs.filter((s: any) => s.status === "active" && (!s.current_period_end || new Date(s.current_period_end) > new Date())) ?? []).length === 0 ? (
+        ) : (
+            b?.subs.filter(
+              (s: any) =>
+                s.status === "active" &&
+                (!s.current_period_end || new Date(s.current_period_end) > new Date()),
+            ) ?? []
+          ).length === 0 ? (
           <div className="rounded-lg border border-dashed border-panel-border bg-panel/40 py-8 text-center text-xs text-muted-foreground">
             No active subscriptions yet.
           </div>
@@ -109,12 +130,18 @@ function SuperAdminDashboard() {
               </thead>
               <tbody>
                 {b!.subs
-                  .filter((s: any) => s.status === "active" && (!s.current_period_end || new Date(s.current_period_end) > new Date()))
+                  .filter(
+                    (s: any) =>
+                      s.status === "active" &&
+                      (!s.current_period_end || new Date(s.current_period_end) > new Date()),
+                  )
                   .map((s: any) => (
                     <tr key={s.id} className="border-b border-panel-border/50">
                       <td className="py-3 pr-3 font-medium">{b!.orgMap.get(s.org_id) ?? "—"}</td>
                       <td className="py-3 pr-3">{s.subscription_plans?.name ?? "—"}</td>
-                      <td className="py-3 pr-3 text-xs capitalize text-muted-foreground">{s.billing_cycle}</td>
+                      <td className="py-3 pr-3 text-xs capitalize text-muted-foreground">
+                        {s.billing_cycle}
+                      </td>
                       <td className="py-3 pr-3">
                         <span className="rounded-full bg-emerald/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest text-emerald">
                           {s.status}
@@ -156,14 +183,20 @@ function SuperAdminDashboard() {
               <tbody>
                 {b!.invoices.map((i) => (
                   <tr key={i.id} className="border-b border-panel-border/50">
-                    <td className="py-3 pr-3 text-xs text-muted-foreground">{fmtDate(i.paid_at ?? i.created_at)}</td>
+                    <td className="py-3 pr-3 text-xs text-muted-foreground">
+                      {fmtDate(i.paid_at ?? i.created_at)}
+                    </td>
                     <td className="py-3 pr-3 font-medium">{b!.orgMap.get(i.org_id) ?? "—"}</td>
-                    <td className="py-3 pr-3 font-mono text-[11px] text-cyan">{i.razorpay_payment_id ?? "—"}</td>
+                    <td className="py-3 pr-3 font-mono text-[11px] text-cyan">
+                      {i.razorpay_payment_id ?? "—"}
+                    </td>
                     <td className="py-3 pr-3">
                       <span
                         className={cn(
                           "rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest",
-                          i.status === "paid" ? "bg-emerald/15 text-emerald" : "bg-amber-400/15 text-amber-300",
+                          i.status === "paid"
+                            ? "bg-emerald/15 text-emerald"
+                            : "bg-amber-400/15 text-amber-300",
                         )}
                       >
                         {i.status}

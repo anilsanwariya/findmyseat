@@ -23,7 +23,9 @@ function AdminLayout() {
       <div className="relative min-h-screen">
         <AuroraBackground />
         <div className="relative z-10 flex min-h-screen items-center justify-center">
-          <div className="font-mono text-xs uppercase tracking-widest text-muted-foreground">Loading…</div>
+          <div className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
+            Loading…
+          </div>
         </div>
       </div>
     );
@@ -35,4 +37,3 @@ function AdminLayout() {
     </AdminShell>
   );
 }
-

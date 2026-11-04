@@ -14,7 +14,13 @@ import {
 import { useSeatBookings } from "@/lib/seat-bookings";
 import { feeStatus, friendlySeatError } from "@/lib/seat-status";
 import { effectiveDue, localISO, shiftsOverlap } from "@/lib/dashboard-metrics";
-import { type BuilderMode, type LayoutCell, type OccupantInfo, type SeatStatus, cellKey as key } from "@/lib/layout-types";
+import {
+  type BuilderMode,
+  type LayoutCell,
+  type OccupantInfo,
+  type SeatStatus,
+  cellKey as key,
+} from "@/lib/layout-types";
 import { LayoutCanvas, OBJ_META } from "@/components/admin/layout/LayoutCanvas";
 import { RenumberDialog } from "@/components/admin/layout/RenumberDialog";
 import { DuplicateSectionDialog } from "@/components/admin/layout/DuplicateSectionDialog";
@@ -29,8 +35,20 @@ import { GlassPanel, SectionHeader } from "@/components/glass";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -74,9 +92,23 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-
 export const Route = createFileRoute("/_authenticated/admin/layout-builder")({
-  head: () => ({ meta: [{ title: "Layout Builder · LibraryBandhu" }, { name: "description", content: "Manage library halls, seat layouts and shift availability." }, { property: "og:title", content: "Layout Builder · LibraryBandhu" }, { property: "og:description", content: "Manage library halls, seat layouts and shift availability." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }] }),
+  head: () => ({
+    meta: [
+      { title: "Layout Builder · LibraryBandhu" },
+      {
+        name: "description",
+        content: "Manage library halls, seat layouts and shift availability.",
+      },
+      { property: "og:title", content: "Layout Builder · LibraryBandhu" },
+      {
+        property: "og:description",
+        content: "Manage library halls, seat layouts and shift availability.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
   component: LayoutBuilderPage,
 });
 
@@ -136,13 +168,16 @@ function LayoutBuilderPage() {
   const qc = useQueryClient();
   const currentLibId = libraryId ?? libs?.[0]?.id;
 
-
   const sectionsQ = useQuery({
     queryKey: ["sections", currentLibId],
     enabled: !!currentLibId,
     staleTime: 30_000,
     queryFn: async () => {
-      const { data } = await supabase.from("sections").select("*").eq("library_id", currentLibId!).order("created_at");
+      const { data } = await supabase
+        .from("sections")
+        .select("*")
+        .eq("library_id", currentLibId!)
+        .order("created_at");
       return data ?? [];
     },
   });
@@ -160,7 +195,9 @@ function LayoutBuilderPage() {
       const [seats, objs] = await Promise.all([
         supabase
           .from("seats")
-          .select("id, section_id, library_id, org_id, seat_number, row_position, column_position, facing_direction, is_active, created_at")
+          .select(
+            "id, section_id, library_id, org_id, seat_number, row_position, column_position, facing_direction, is_active, created_at",
+          )
           .eq("section_id", currentSectionId!),
         supabase.from("layout_objects").select("*").eq("section_id", currentSectionId!),
       ]);
@@ -171,7 +208,11 @@ function LayoutBuilderPage() {
   });
 
   const seatIdsKey = useMemo(
-    () => (seatsQ.data?.seats ?? []).map((s: any) => s.id).sort().join(","),
+    () =>
+      (seatsQ.data?.seats ?? [])
+        .map((s: any) => s.id)
+        .sort()
+        .join(","),
     [seatsQ.data?.seats],
   );
 
@@ -207,7 +248,8 @@ function LayoutBuilderPage() {
         const dueBy = new Map((allocs ?? []).map((a: any) => [a.id, a.next_due_date]));
         for (const p of pays ?? []) {
           const due = p.allocation_id ? dueBy.get(p.allocation_id) : null;
-          if (p.allocation_id && p.covers_until && due && p.covers_until > due) partial.add(p.allocation_id);
+          if (p.allocation_id && p.covers_until && due && p.covers_until > due)
+            partial.add(p.allocation_id);
         }
       }
 
@@ -219,7 +261,11 @@ function LayoutBuilderPage() {
         // Same fee status as the Allocations floor plan (src/lib/seat-status.ts).
         // Never-paid students have no stored due date; their first fee is due on joining.
         const due = effectiveDue(a);
-        const status: SeatStatus = feeStatus({ ...a, next_due_date: due }, partial.has(a.id) ? 1 : 0, todayISO);
+        const status: SeatStatus = feeStatus(
+          { ...a, next_due_date: due },
+          partial.has(a.id) ? 1 : 0,
+          todayISO,
+        );
         occupancy[a.seat_id] = [...(occupancy[a.seat_id] ?? []), name];
         occInfo[a.seat_id] = [
           ...(occInfo[a.seat_id] ?? []),
@@ -239,24 +285,40 @@ function LayoutBuilderPage() {
     },
   });
 
-
-  const dupNumbers = useMemo(() => duplicateSeatNumbers(seatsQ.data?.seats ?? []), [seatsQ.data?.seats]);
+  const dupNumbers = useMemo(
+    () => duplicateSeatNumbers(seatsQ.data?.seats ?? []),
+    [seatsQ.data?.seats],
+  );
 
   const booked = useSeatBookings(currentLibId);
   useEffect(() => setOccShift("all"), [currentSectionId]);
   const occShiftOptions = useMemo(() => {
     const seen = new Set<string>();
-    return selectableShifts(booked.data?.shifts ?? [], currentSectionId, currentSection, booked.data?.timingText, booked.data?.configured);
+    return selectableShifts(
+      booked.data?.shifts ?? [],
+      currentSectionId,
+      currentSection,
+      booked.data?.timingText,
+      booked.data?.configured,
+    );
   }, [booked.data, currentSectionId, currentSection]);
 
   const grid = useMemo(() => {
     if (!currentSection) return null;
-    const filterShift = occShift === "all" ? undefined : occShift === "none" ? { name: "Full day", timings: booked.data?.shifts[0]?.timings } : booked.shiftMap.get(occShift);
+    const filterShift =
+      occShift === "all"
+        ? undefined
+        : occShift === "none"
+          ? { name: "Full day", timings: booked.data?.shifts[0]?.timings }
+          : booked.shiftMap.get(occShift);
     const visible = (list: OccupantInfo[]) =>
       filterShift === undefined
         ? list
         : list.filter((o) =>
-            shiftsOverlap(o.shiftId ? (booked.shiftMap.get(o.shiftId) ?? null) : null, filterShift ?? null),
+            shiftsOverlap(
+              o.shiftId ? (booked.shiftMap.get(o.shiftId) ?? null) : null,
+              filterShift ?? null,
+            ),
           );
     const rows = currentSection.grid_rows;
     const cols = currentSection.grid_cols;
@@ -277,7 +339,11 @@ function LayoutBuilderPage() {
     }
     for (const o of seatsQ.data?.objs ?? []) {
       if (!g[o.row_position]?.[o.column_position]) continue;
-      g[o.row_position][o.column_position] = { kind: "object", id: o.id, object_type: o.object_type };
+      g[o.row_position][o.column_position] = {
+        kind: "object",
+        id: o.id,
+        object_type: o.object_type,
+      };
     }
     return g;
     // occQ.data must be a dependency: occupancy loads after the seats, and without it
@@ -289,7 +355,8 @@ function LayoutBuilderPage() {
     if (!currentSection) return { count: 0, rows: 0, cols: 0 };
     const items = [...(seatsQ.data?.seats ?? []), ...(seatsQ.data?.objs ?? [])];
     const out = items.filter(
-      (x: any) => x.row_position >= currentSection.grid_rows || x.column_position >= currentSection.grid_cols,
+      (x: any) =>
+        x.row_position >= currentSection.grid_rows || x.column_position >= currentSection.grid_cols,
     );
     return {
       count: out.length,
@@ -379,22 +446,24 @@ function LayoutBuilderPage() {
       const count = axis === "row" ? currentSection.grid_cols : currentSection.grid_rows;
       setSelectedCells((prev) => {
         const next = new Set(prev);
-        const keys = Array.from({ length: count }, (_, i) => (axis === "row" ? key(index, i) : key(i, index)));
+        const keys = Array.from({ length: count }, (_, i) =>
+          axis === "row" ? key(index, i) : key(i, index),
+        );
         const allIn = keys.every((k) => next.has(k));
-        for (const k of keys) (allIn ? next.delete(k) : next.add(k));
+        for (const k of keys) {
+          if (allIn) next.delete(k);
+          else next.add(k);
+        }
         return next;
       });
     },
     [mode, currentSection],
   );
 
-  const pushAction = useCallback(
-    (action: LayoutAction) => {
-      setRedoStack([]);
-      setHistory((prev) => [...prev, action].slice(-40));
-    },
-    [],
-  );
+  const pushAction = useCallback((action: LayoutAction) => {
+    setRedoStack([]);
+    setHistory((prev) => [...prev, action].slice(-40));
+  }, []);
 
   // Reset the journal per section. Drafts saved by earlier versions of this page are
   // discarded: replaying an old journal could unseat students seated since.
@@ -464,11 +533,17 @@ function LayoutBuilderPage() {
   // ---- Block copy / paste / move -------------------------------------------------
 
   const selectedSeatRows = useMemo(
-    () => (seatsQ.data?.seats ?? []).filter((s: any) => selectedCells.has(key(s.row_position, s.column_position))),
+    () =>
+      (seatsQ.data?.seats ?? []).filter((s: any) =>
+        selectedCells.has(key(s.row_position, s.column_position)),
+      ),
     [seatsQ.data?.seats, selectedCells],
   );
   const selectedObjRows = useMemo(
-    () => (seatsQ.data?.objs ?? []).filter((o: any) => selectedCells.has(key(o.row_position, o.column_position))),
+    () =>
+      (seatsQ.data?.objs ?? []).filter((o: any) =>
+        selectedCells.has(key(o.row_position, o.column_position)),
+      ),
     [seatsQ.data?.objs, selectedCells],
   );
 
@@ -488,7 +563,8 @@ function LayoutBuilderPage() {
   };
 
   async function handlePaste(row: number, col: number) {
-    if (!clipboard || !currentSection || !currentSectionId || !currentLibId || !orgId || busy) return;
+    if (!clipboard || !currentSection || !currentSectionId || !currentLibId || !orgId || busy)
+      return;
     setBusy(true);
     toast.loading("Pasting…", { id: "layout-paste" });
     try {
@@ -545,10 +621,14 @@ function LayoutBuilderPage() {
       });
       pushAction(action);
       // Keep the same items selected at their new coordinates.
-      setSelectedCells(new Set(Array.from(selectedCells).map((k) => {
-        const [r, c] = k.split(":").map(Number);
-        return key(r + dr, c + dc);
-      })));
+      setSelectedCells(
+        new Set(
+          Array.from(selectedCells).map((k) => {
+            const [r, c] = k.split(":").map(Number);
+            return key(r + dr, c + dc);
+          }),
+        ),
+      );
       invalidateAll();
       toast.success("Moved", { id: "layout-move" });
     } catch (e: any) {
@@ -557,9 +637,6 @@ function LayoutBuilderPage() {
       setBusy(false);
     }
   }
-
-
-
 
   /** Ask before deleting, listing students read fresh from the database (not the map cache). */
   const confirmDelete = async (req: { seatIds: string[]; objIds: string[]; label: string }) => {
@@ -573,8 +650,12 @@ function LayoutBuilderPage() {
 
   const requestBulkDelete = () => {
     if (!selectedCells.size) return;
-    const seats = (seatsQ.data?.seats ?? []).filter((s: any) => selectedCells.has(key(s.row_position, s.column_position)));
-    const objs = (seatsQ.data?.objs ?? []).filter((o: any) => selectedCells.has(key(o.row_position, o.column_position)));
+    const seats = (seatsQ.data?.seats ?? []).filter((s: any) =>
+      selectedCells.has(key(s.row_position, s.column_position)),
+    );
+    const objs = (seatsQ.data?.objs ?? []).filter((o: any) =>
+      selectedCells.has(key(o.row_position, o.column_position)),
+    );
     if (!seats.length && !objs.length) {
       toast.info("Nothing to delete in the selected area.");
       return;
@@ -597,12 +678,19 @@ function LayoutBuilderPage() {
     toast.loading("Removing…", { id: "layout-delete" });
     try {
       // Remember who sat here so Undo can put them back.
-      const detached = (await studentsOnSeats(seatIds)).map((o) => ({ id: o.id, seat_id: o.seat_id }));
+      const detached = (await studentsOnSeats(seatIds)).map((o) => ({
+        id: o.id,
+        seat_id: o.seat_id,
+      }));
       if (seatIds.length) {
-        const { data, error } = await (supabase as any).rpc("delete_seats_cascade", { p_seat_ids: seatIds });
+        const { data, error } = await (supabase as any).rpc("delete_seats_cascade", {
+          p_seat_ids: seatIds,
+        });
         if (error) throw error;
         if (data && Number(data) > 0) {
-          toast.success(`${data} student allocation(s) were unseated`, { id: "layout-delete-alloc" });
+          toast.success(`${data} student allocation(s) were unseated`, {
+            id: "layout-delete-alloc",
+          });
         }
       }
       if (objIds.length) {
@@ -653,7 +741,6 @@ function LayoutBuilderPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["sections", currentLibId] }),
     onError: (e: any) => toast.error(e?.message ?? "Could not resize grid"),
   });
-
 
   // Single atomic DB call — the old per-seat loop broke the unique(row,col) constraint
   // halfway through and corrupted layouts.
@@ -716,7 +803,6 @@ function LayoutBuilderPage() {
     );
   };
 
-
   const handleRemoveTop = () => {
     if (!grid || !currentSection || !currentSectionId) return;
     if (currentSection.grid_rows <= 1) return toast.error("Grid must keep at least one row.");
@@ -774,7 +860,6 @@ function LayoutBuilderPage() {
       () => recordShift("Removed left column", 0, -1),
     );
   };
-
 
   const handleAddBottom = () => {
     if (!currentSection) return;
@@ -850,7 +935,11 @@ function LayoutBuilderPage() {
   }, []);
 
   const selectedCellList = useMemo(
-    () => Array.from(selectedCells).map((k) => ({ r: Number(k.split(":")[0]), c: Number(k.split(":")[1]) })),
+    () =>
+      Array.from(selectedCells).map((k) => ({
+        r: Number(k.split(":")[0]),
+        c: Number(k.split(":")[1]),
+      })),
     [selectedCells],
   );
 
@@ -862,7 +951,10 @@ function LayoutBuilderPage() {
       */}
       <div className="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-4">
         <div className="flex-1 w-full">
-          <SectionHeader title="Layout Builder" hint="Build your floor plan, setup seats, and define custom areas." />
+          <SectionHeader
+            title="Layout Builder"
+            hint="Build your floor plan, setup seats, and define custom areas."
+          />
         </div>
 
         <div className="w-full xl:w-auto shrink-0 flex flex-col sm:flex-row gap-3">
@@ -962,7 +1054,10 @@ function LayoutBuilderPage() {
       ) : !currentSectionId ? (
         <GlassPanel className="p-10 text-center">
           <p className="text-sm text-muted-foreground">No sections yet.</p>
-          <Button onClick={() => setAddSectionOpen(true)} className="mt-4 bg-white text-slate-900 hover:bg-white/90">
+          <Button
+            onClick={() => setAddSectionOpen(true)}
+            className="mt-4 bg-white text-slate-900 hover:bg-white/90"
+          >
             <Plus className="mr-1 size-4" /> New section
           </Button>
         </GlassPanel>
@@ -975,7 +1070,8 @@ function LayoutBuilderPage() {
                 <div className="min-w-0">
                   <div className="truncate text-sm font-bold">{currentSection?.name}</div>
                   <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                    {currentSection?.grid_rows} × {currentSection?.grid_cols} · {seatsQ.data?.seats.length ?? 0} seats ·{" "}
+                    {currentSection?.grid_rows} × {currentSection?.grid_cols} ·{" "}
+                    {seatsQ.data?.seats.length ?? 0} seats ·{" "}
                     {Object.keys(occQ.data?.occInfo ?? {}).length} occupied
                   </div>
                 </div>
@@ -988,7 +1084,9 @@ function LayoutBuilderPage() {
                       onClick={() => setMode("edit")}
                       className={cn(
                         "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors",
-                        mode === "edit" ? "bg-white text-slate-900" : "bg-panel text-muted-foreground hover:text-foreground",
+                        mode === "edit"
+                          ? "bg-white text-slate-900"
+                          : "bg-panel text-muted-foreground hover:text-foreground",
                       )}
                     >
                       <Pencil className="size-3.5" /> Edit
@@ -1015,12 +1113,17 @@ function LayoutBuilderPage() {
 
                   {mode === "occupancy" && (
                     <Select value={occShift} onValueChange={setOccShift}>
-                      <SelectTrigger className="h-8 w-40 bg-panel border-panel-border text-xs" aria-label="Show shift">
+                      <SelectTrigger
+                        className="h-8 w-40 bg-panel border-panel-border text-xs"
+                        aria-label="Show shift"
+                      >
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All shifts</SelectItem>
-                        {currentSection?.allow_full_day && <SelectItem value="none">Full day</SelectItem>}
+                        {currentSection?.allow_full_day && (
+                          <SelectItem value="none">Full day</SelectItem>
+                        )}
                         {occShiftOptions.map((sh) => (
                           <SelectItem key={sh.id} value={sh.id}>
                             {sh.name}
@@ -1041,11 +1144,13 @@ function LayoutBuilderPage() {
                         }}
                         className={cn(
                           "h-11 flex-1 bg-panel shrink-0 sm:h-9 sm:flex-none",
-                          multiSelectMode && "bg-cyan text-cyan-950 hover:bg-cyan/90 border-cyan/50",
+                          multiSelectMode &&
+                            "bg-cyan text-cyan-950 hover:bg-cyan/90 border-cyan/50",
                         )}
                         size="sm"
                       >
-                        <MousePointer2 className="size-4 mr-2" /> {multiSelectMode ? "Cancel" : "Select"}
+                        <MousePointer2 className="size-4 mr-2" />{" "}
+                        {multiSelectMode ? "Cancel" : "Select"}
                       </Button>
                       {/* Undo / redo / duplicate: buttons on wide screens, one menu on phones. */}
                       <div className="hidden sm:flex sm:gap-2">
@@ -1081,11 +1186,19 @@ function LayoutBuilderPage() {
                       </div>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="outline" size="sm" className="h-11 w-11 bg-panel shrink-0 sm:hidden" title="More">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-11 w-11 bg-panel shrink-0 sm:hidden"
+                            title="More"
+                          >
                             <MoreVertical className="size-4" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="glass-strong border-panel-border">
+                        <DropdownMenuContent
+                          align="end"
+                          className="glass-strong border-panel-border"
+                        >
                           <DropdownMenuItem
                             disabled={!history.length || undoing || isShifting}
                             onClick={() => handleUndo(1)}
@@ -1093,7 +1206,10 @@ function LayoutBuilderPage() {
                             <Undo2 className="mr-2 size-4" /> Undo
                             {history.length ? ` · ${history[history.length - 1].label}` : ""}
                           </DropdownMenuItem>
-                          <DropdownMenuItem disabled={!redoStack.length || undoing || isShifting} onClick={handleRedo}>
+                          <DropdownMenuItem
+                            disabled={!redoStack.length || undoing || isShifting}
+                            onClick={handleRedo}
+                          >
                             <Redo2 className="mr-2 size-4" /> Redo
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => setDupSectionOpen(true)}>
@@ -1103,7 +1219,6 @@ function LayoutBuilderPage() {
                       </DropdownMenu>
                     </>
                   )}
-
                 </div>
               </div>
 
@@ -1114,7 +1229,11 @@ function LayoutBuilderPage() {
                   <span className="hidden normal-case tracking-normal lg:inline">
                     · Ctrl+Z undo · Ctrl+Y redo · arrows move · Del delete · Esc cancel
                   </span>
-                  {history.length > 0 && <span className="normal-case tracking-normal">· last: {history[history.length - 1].label}</span>}
+                  {history.length > 0 && (
+                    <span className="normal-case tracking-normal">
+                      · last: {history[history.length - 1].label}
+                    </span>
+                  )}
                 </div>
               )}
             </div>
@@ -1123,8 +1242,8 @@ function LayoutBuilderPage() {
               <div className="mx-2 mb-3 flex items-start gap-2 rounded-lg border border-rose/30 bg-rose/10 p-3 text-[11px] text-rose">
                 <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
                 <span>
-                  Duplicate seat numbers in this section: <b>{Array.from(dupNumbers).join(", ")}</b>. Select those seats and
-                  use Renumber to fix them.
+                  Duplicate seat numbers in this section: <b>{Array.from(dupNumbers).join(", ")}</b>
+                  . Select those seats and use Renumber to fix them.
                 </span>
               </div>
             )}
@@ -1132,14 +1251,16 @@ function LayoutBuilderPage() {
             {outsideGrid.count > 0 && (
               <div className="mx-2 mb-3 flex flex-col gap-2 rounded-lg border border-amber-400/30 bg-amber-400/10 p-3 text-[11px] text-amber-200 sm:flex-row sm:items-center sm:justify-between">
                 <span>
-                  {outsideGrid.count} seat(s) or area cell(s) sit outside this grid, so they're hidden here but can still
-                  be allocated.
+                  {outsideGrid.count} seat(s) or area cell(s) sit outside this grid, so they're
+                  hidden here but can still be allocated.
                 </span>
                 <Button
                   size="sm"
                   className="bg-amber-500 text-amber-950 hover:bg-amber-400"
                   disabled={updateDimensions.isPending}
-                  onClick={() => updateDimensions.mutate({ rows: outsideGrid.rows, cols: outsideGrid.cols })}
+                  onClick={() =>
+                    updateDimensions.mutate({ rows: outsideGrid.rows, cols: outsideGrid.cols })
+                  }
                 >
                   Expand grid to {outsideGrid.rows}×{outsideGrid.cols}
                 </Button>
@@ -1149,8 +1270,9 @@ function LayoutBuilderPage() {
             {pasteMode && (
               <div className="mx-2 mb-3 flex items-center justify-between gap-3 rounded-lg border border-cyan/30 bg-cyan/10 px-3 py-2 text-[11px] text-cyan">
                 <span>
-                  Paste mode · tap the cell where the top-left of the copied block should land ({clipboard?.seats.length ?? 0}{" "}
-                  seat(s), {clipboard?.objs.length ?? 0} area cell(s)).
+                  Paste mode · tap the cell where the top-left of the copied block should land (
+                  {clipboard?.seats.length ?? 0} seat(s), {clipboard?.objs.length ?? 0} area
+                  cell(s)).
                 </span>
                 <Button size="sm" variant="ghost" onClick={() => setPasteMode(false)}>
                   Cancel
@@ -1175,7 +1297,10 @@ function LayoutBuilderPage() {
                     { label: "Right", add: handleAddRight, remove: handleRemoveRight },
                   ] as const
                 ).map((g) => (
-                  <div key={g.label} className="flex items-center overflow-hidden rounded-full border border-panel-border bg-panel">
+                  <div
+                    key={g.label}
+                    className="flex items-center overflow-hidden rounded-full border border-panel-border bg-panel"
+                  >
                     <button
                       type="button"
                       disabled={isShifting}
@@ -1185,7 +1310,9 @@ function LayoutBuilderPage() {
                     >
                       <Plus className="size-3.5" />
                     </button>
-                    <span className="px-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">{g.label}</span>
+                    <span className="px-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                      {g.label}
+                    </span>
                     <button
                       type="button"
                       disabled={isShifting}
@@ -1220,9 +1347,13 @@ function LayoutBuilderPage() {
             {mode === "edit" && multiSelectMode && selectedCells.size > 0 && (
               <div className="sticky bottom-0 z-20 -mx-4 -mb-4 mt-4 rounded-b-xl border-t border-cyan/30 bg-background/85 px-4 py-3 backdrop-blur-xl">
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <span className="text-sm font-medium text-cyan">{selectedCells.size} cells selected</span>
+                  <span className="text-sm font-medium text-cyan">
+                    {selectedCells.size} cells selected
+                  </span>
                   <div className="flex items-center gap-1">
-                    <span className="mr-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Move</span>
+                    <span className="mr-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                      Move
+                    </span>
                     {(
                       [
                         { icon: ArrowUp, dr: -1, dc: 0 },
@@ -1245,10 +1376,18 @@ function LayoutBuilderPage() {
                   </div>
                 </div>
                 <div className="mt-2 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-                  <Button size="sm" className="h-11 bg-emerald text-emerald-950 hover:bg-emerald/90 sm:h-9" onClick={() => setBulkSeatOpen(true)}>
+                  <Button
+                    size="sm"
+                    className="h-11 bg-emerald text-emerald-950 hover:bg-emerald/90 sm:h-9"
+                    onClick={() => setBulkSeatOpen(true)}
+                  >
                     <Grid3X3 className="size-3.5 mr-1.5" /> Generate
                   </Button>
-                  <Button size="sm" className="h-11 bg-cyan text-cyan-950 hover:bg-cyan/90 sm:h-9" onClick={() => setBulkAreaOpen(true)}>
+                  <Button
+                    size="sm"
+                    className="h-11 bg-cyan text-cyan-950 hover:bg-cyan/90 sm:h-9"
+                    onClick={() => setBulkAreaOpen(true)}
+                  >
                     <Square className="size-3.5 mr-1.5" /> Area
                   </Button>
                   <Button
@@ -1300,7 +1439,12 @@ function LayoutBuilderPage() {
                   >
                     <Trash2 className="size-3.5 mr-1.5" /> Delete
                   </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setSelectedCells(new Set())} className="h-11 text-muted-foreground sm:h-9">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setSelectedCells(new Set())}
+                    className="h-11 text-muted-foreground sm:h-9"
+                  >
                     Clear
                   </Button>
                 </div>
@@ -1315,7 +1459,10 @@ function LayoutBuilderPage() {
               if (!selectedSeatObj) return;
               const prev: any = { id: selectedSeatObj.id };
               for (const k of Object.keys(updates)) prev[k] = (selectedSeatObj as any)[k];
-              const { error } = await supabase.from("seats").update(updates).eq("id", selectedSeatObj.id);
+              const { error } = await supabase
+                .from("seats")
+                .update(updates)
+                .eq("id", selectedSeatObj.id);
               if (error) {
                 toast.error(friendlySeatError(error, (updates as any).seat_number));
                 return;
@@ -1354,14 +1501,19 @@ function LayoutBuilderPage() {
                     <div className="font-medium">
                       {pendingDelete.occupants.length} student(s) are currently assigned here:
                     </div>
-                    <div className="mt-1 text-xs leading-relaxed">{pendingDelete.occupants.join(", ")}</div>
+                    <div className="mt-1 text-xs leading-relaxed">
+                      {pendingDelete.occupants.join(", ")}
+                    </div>
                     <div className="mt-2 text-xs text-rose/80">
-                      They will be unseated but keep their subscription, dues and payment history. Undo puts
-                      them back on the restored seats; otherwise re-assign them from Allocations.
+                      They will be unseated but keep their subscription, dues and payment history.
+                      Undo puts them back on the restored seats; otherwise re-assign them from
+                      Allocations.
                     </div>
                   </div>
                 ) : (
-                  <p className="text-muted-foreground">This removes the item from the floor plan permanently.</p>
+                  <p className="text-muted-foreground">
+                    This removes the item from the floor plan permanently.
+                  </p>
                 )}
               </div>
             </AlertDialogDescription>
@@ -1473,9 +1625,6 @@ function LayoutBuilderPage() {
   );
 }
 
-
-
-
 // --- PURE LAYOUT INSPECTOR (NO ALLOCATIONS) ---
 function InspectorPanel({
   selected,
@@ -1491,14 +1640,17 @@ function InspectorPanel({
   if (!selected) {
     return (
       <GlassPanel className="p-5 flex flex-col h-full">
-        <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Inspector</div>
+        <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+          Inspector
+        </div>
         <p className="mt-4 text-sm text-muted-foreground">
           Click a seat to view its details or change its facing direction.
         </p>
 
         <div className="mt-8 space-y-3 text-xs text-muted-foreground border-t border-panel-border/50 pt-6">
           <div className="flex items-center gap-2">
-            <span className="inline-block size-3 rounded border border-emerald/50 bg-emerald/10" /> Seat
+            <span className="inline-block size-3 rounded border border-emerald/50 bg-emerald/10" />{" "}
+            Seat
           </div>
         </div>
       </GlassPanel>
@@ -1510,7 +1662,8 @@ function InspectorPanel({
       <div className="font-mono text-[10px] uppercase tracking-widest text-cyan">Selected seat</div>
       <div className="mt-1 text-2xl font-extrabold">{selected.seat_number}</div>
       <div className="mt-1 text-xs text-muted-foreground mb-6">
-        Row {selected.row_position + 1} · Col {selected.column_position + 1} · Facing {selected.facing_direction}
+        Row {selected.row_position + 1} · Col {selected.column_position + 1} · Facing{" "}
+        {selected.facing_direction}
       </div>
 
       <div className="space-y-3">
@@ -1563,8 +1716,18 @@ const SHIFT_META: { key: string; label: string; allow: string; fee: string }[] =
   { key: "morning", label: "Morning", allow: "allow_morning", fee: "morning_fee" },
   { key: "evening", label: "Evening", allow: "allow_evening", fee: "evening_fee" },
   { key: "hrs24", label: "24 Hrs", allow: "allow_24_hrs", fee: "fee_24_hrs" },
-  { key: "morning_night", label: "Morning + Night", allow: "allow_morning_night", fee: "fee_morning_night" },
-  { key: "evening_night", label: "Evening + Night", allow: "allow_evening_night", fee: "fee_evening_night" },
+  {
+    key: "morning_night",
+    label: "Morning + Night",
+    allow: "allow_morning_night",
+    fee: "fee_morning_night",
+  },
+  {
+    key: "evening_night",
+    label: "Evening + Night",
+    allow: "allow_evening_night",
+    fee: "fee_evening_night",
+  },
   { key: "night", label: "Night", allow: "allow_night", fee: "fee_night" },
 ];
 
@@ -1612,7 +1775,9 @@ function SectionShiftAndFeeFields({
     <>
       <div className="space-y-4 pt-2">
         <div>
-          <Label className="text-xs text-muted-foreground uppercase tracking-widest mb-2 block">Available Shifts</Label>
+          <Label className="text-xs text-muted-foreground uppercase tracking-widest mb-2 block">
+            Available Shifts
+          </Label>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-sm">
             {SHIFT_META.map((s) => (
               <label key={s.key} className="flex items-center gap-2">
@@ -1624,14 +1789,24 @@ function SectionShiftAndFeeFields({
         </div>
 
         <div>
-          <Label className="text-xs text-muted-foreground uppercase tracking-widest mb-2 block">Available Types</Label>
+          <Label className="text-xs text-muted-foreground uppercase tracking-widest mb-2 block">
+            Available Types
+          </Label>
           <div className="grid grid-cols-2 gap-2 text-sm">
             <label className="flex items-center gap-2">
-              <input type="checkbox" checked={allowReserved} onChange={(e) => setAllowReserved(e.target.checked)} />
+              <input
+                type="checkbox"
+                checked={allowReserved}
+                onChange={(e) => setAllowReserved(e.target.checked)}
+              />
               Reserved
             </label>
             <label className="flex items-center gap-2">
-              <input type="checkbox" checked={allowUnreserved} onChange={(e) => setAllowUnreserved(e.target.checked)} />
+              <input
+                type="checkbox"
+                checked={allowUnreserved}
+                onChange={(e) => setAllowUnreserved(e.target.checked)}
+              />
               Unreserved
             </label>
           </div>
@@ -1639,7 +1814,9 @@ function SectionShiftAndFeeFields({
       </div>
 
       <div className="rounded-md border border-panel-border bg-panel p-3 space-y-3">
-        <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Default fees (₹ / month)</div>
+        <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+          Default fees (₹ / month)
+        </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           {SHIFT_META.filter((s) => allows[s.key]).map((s) => (
@@ -1676,8 +1853,8 @@ function SectionShiftAndFeeFields({
         </div>
 
         <p className="text-[10px] text-muted-foreground leading-relaxed mt-2">
-          These fees auto-fill when allocating a seat. The extra reservation charge is automatically added to the base
-          shift fee if the student chooses a Reserved seat.
+          These fees auto-fill when allocating a seat. The extra reservation charge is automatically
+          added to the base shift fee if the student chooses a Reserved seat.
         </p>
       </div>
     </>
@@ -1691,7 +1868,8 @@ function validateSectionForm(
   allowUnreserved: boolean,
 ): string | null {
   if (!SHIFT_META.some((s) => allows[s.key])) return "Select at least one shift.";
-  if (!allowReserved && !allowUnreserved) return "Select at least one seat type (Reserved or Unreserved).";
+  if (!allowReserved && !allowUnreserved)
+    return "Select at least one seat type (Reserved or Unreserved).";
   for (const s of SHIFT_META) {
     if (allows[s.key]) {
       const v = fees[s.key];
@@ -1742,7 +1920,10 @@ async function syncSectionShifts(
   allows: Record<ShiftKey, boolean>,
   fees: Record<ShiftKey, string>,
 ) {
-  const { data: existing } = await supabase.from("shifts").select("id, name, base_fee").eq("section_id", sectionId);
+  const { data: existing } = await supabase
+    .from("shifts")
+    .select("id, name, base_fee")
+    .eq("section_id", sectionId);
   const byKey = new Map<ShiftKey, { id: string; base_fee: number | null }>();
   for (const r of existing ?? []) {
     const k = shiftNameToKey(r.name);
@@ -1755,7 +1936,10 @@ async function syncSectionShifts(
     const match = byKey.get(s.key);
     if (match) {
       if (Number(match.base_fee ?? 0) !== fee) {
-        const { error } = await supabase.from("shifts").update({ base_fee: fee, name: s.label }).eq("id", match.id);
+        const { error } = await supabase
+          .from("shifts")
+          .update({ base_fee: fee, name: s.label })
+          .eq("id", match.id);
         if (error) throw error;
       }
     } else {
@@ -1796,7 +1980,11 @@ function AddSectionDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="w-full sm:w-auto border-panel-border bg-panel">
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full sm:w-auto border-panel-border bg-panel"
+        >
           <Plus className="mr-1 size-4" /> Section
         </Button>
       </DialogTrigger>
@@ -2011,7 +2199,11 @@ function EditSectionDialog({
             setReservationFee={setReservationFee}
           />
 
-          <Button disabled={saving} type="submit" className="w-full bg-white text-slate-900 hover:bg-white/90">
+          <Button
+            disabled={saving}
+            type="submit"
+            className="w-full bg-white text-slate-900 hover:bg-white/90"
+          >
             {saving ? "Saving…" : "Save section"}
           </Button>
         </form>
@@ -2191,7 +2383,10 @@ function BulkAreaDialog({ open, onOpenChange, cells, section, orgId, onDone }: a
               row_position: pos.r,
               column_position: pos.c,
             }));
-            const { data, error } = await supabase.from("layout_objects").insert(insertions).select("id");
+            const { data, error } = await supabase
+              .from("layout_objects")
+              .insert(insertions)
+              .select("id");
             setLoading(false);
             if (error) {
               toast.error(friendlySeatError(error));
@@ -2223,7 +2418,11 @@ function BulkAreaDialog({ open, onOpenChange, cells, section, orgId, onDone }: a
               </SelectContent>
             </Select>
           </div>
-          <Button disabled={loading} type="submit" className="w-full bg-cyan text-cyan-950 hover:bg-cyan/90">
+          <Button
+            disabled={loading}
+            type="submit"
+            className="w-full bg-cyan text-cyan-950 hover:bg-cyan/90"
+          >
             {loading ? "Filling..." : "Fill Area"}
           </Button>
         </form>
@@ -2254,8 +2453,12 @@ function BulkSeatDialog({
   // Filter to only true empty cells, then apply the chosen numbering traversal
   const emptyCells = useMemo(() => {
     const free = cells.filter((c: any) => {
-      const hasSeat = existingSeats.some((s: any) => s.row_position === c.r && s.column_position === c.c);
-      const hasObj = existingObjs.some((o: any) => o.row_position === c.r && o.column_position === c.c);
+      const hasSeat = existingSeats.some(
+        (s: any) => s.row_position === c.r && s.column_position === c.c,
+      );
+      const hasObj = existingObjs.some(
+        (o: any) => o.row_position === c.r && o.column_position === c.c,
+      );
       return !hasSeat && !hasObj;
     });
     return orderCells(free as any, order, descending);
@@ -2356,14 +2559,22 @@ function BulkSeatDialog({
                 </SelectContent>
               </Select>
               <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={descending} onChange={(e) => setDescending(e.target.checked)} /> Reverse
-                (descending) order
+                <input
+                  type="checkbox"
+                  checked={descending}
+                  onChange={(e) => setDescending(e.target.checked)}
+                />{" "}
+                Reverse (descending) order
               </label>
               <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
                 First seat: {emptyCells[0] ? `R${emptyCells[0].r + 1}C${emptyCells[0].c + 1}` : "—"}
               </p>
             </div>
-            <Button disabled={loading} type="submit" className="w-full bg-emerald text-emerald-950 hover:bg-emerald/90">
+            <Button
+              disabled={loading}
+              type="submit"
+              className="w-full bg-emerald text-emerald-950 hover:bg-emerald/90"
+            >
               {loading ? "Generating…" : "Generate Seats"}
             </Button>
           </form>
@@ -2381,7 +2592,9 @@ function BulkEditSeatsDialog({ open, onOpenChange, cells, existingSeats, onDone 
   // Find actual seats inside the selection
   const selectedSeatIds = useMemo(() => {
     return existingSeats
-      .filter((s: any) => cells.some((c: any) => c.r === s.row_position && c.c === s.column_position))
+      .filter((s: any) =>
+        cells.some((c: any) => c.r === s.row_position && c.c === s.column_position),
+      )
       .map((s: any) => s.id);
   }, [cells, existingSeats]);
 
@@ -2392,7 +2605,9 @@ function BulkEditSeatsDialog({ open, onOpenChange, cells, existingSeats, onDone 
           <DialogTitle>Edit {selectedSeatIds.length} Selected Seats</DialogTitle>
         </DialogHeader>
         {selectedSeatIds.length === 0 ? (
-          <div className="py-6 text-center text-sm text-muted-foreground">No seats found in your selection.</div>
+          <div className="py-6 text-center text-sm text-muted-foreground">
+            No seats found in your selection.
+          </div>
         ) : (
           <form
             onSubmit={async (e) => {
@@ -2410,7 +2625,10 @@ function BulkEditSeatsDialog({ open, onOpenChange, cells, existingSeats, onDone 
                 });
 
               if (Object.keys(updates).length > 0) {
-                const { error } = await supabase.from("seats").update(updates).in("id", selectedSeatIds);
+                const { error } = await supabase
+                  .from("seats")
+                  .update(updates)
+                  .in("id", selectedSeatIds);
                 if (error) {
                   toast.error(friendlySeatError(error));
                   setLoading(false);

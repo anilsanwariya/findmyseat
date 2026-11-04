@@ -39,7 +39,11 @@ export function useMasterExams() {
   return useQuery({
     queryKey: ["master_exams"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("master_exams").select("id, name, category").eq("is_active", true).order("name");
+      const { data, error } = await supabase
+        .from("master_exams")
+        .select("id, name, category")
+        .eq("is_active", true)
+        .order("name");
       if (error) throw error;
       return data;
     },

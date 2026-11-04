@@ -30,7 +30,13 @@ export function useDataView(storageKey: string, fallback: DataView = "table") {
   return [view, update] as const;
 }
 
-export function ViewToggle({ value, onChange }: { value: DataView; onChange: (v: DataView) => void }) {
+export function ViewToggle({
+  value,
+  onChange,
+}: {
+  value: DataView;
+  onChange: (v: DataView) => void;
+}) {
   const btn = (v: DataView, Icon: typeof Table2, label: string) => (
     <button
       type="button"
@@ -39,7 +45,9 @@ export function ViewToggle({ value, onChange }: { value: DataView; onChange: (v:
       title={label}
       className={cn(
         "flex h-8 items-center gap-1.5 rounded px-2.5 font-mono text-[10px] uppercase tracking-widest transition-colors",
-        value === v ? "bg-panel-strong text-foreground" : "text-muted-foreground hover:text-foreground",
+        value === v
+          ? "bg-panel-strong text-foreground"
+          : "text-muted-foreground hover:text-foreground",
       )}
     >
       <Icon className="size-3.5" />

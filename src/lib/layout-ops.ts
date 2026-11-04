@@ -61,8 +61,6 @@ async function runBatched(tasks: (() => PromiseLike<{ error: any }>)[], size = 2
   }
 }
 
-
-
 /**
  * Moves seats + objects by (dr, dc) in two phases so the unique(row,col) index
  * can never trip halfway through and corrupt the layout.
@@ -78,16 +76,28 @@ export async function moveBlock(opts: {
 }): Promise<LayoutAction> {
   const { seats, objs, dr, dc, rows, cols, occupied } = opts;
   const moving = [
-    ...seats.map((s) => ({ table: "seats" as const, id: s.id, r: s.row_position, c: s.column_position })),
-    ...objs.map((o) => ({ table: "layout_objects" as const, id: o.id, r: o.row_position, c: o.column_position })),
+    ...seats.map((s) => ({
+      table: "seats" as const,
+      id: s.id,
+      r: s.row_position,
+      c: s.column_position,
+    })),
+    ...objs.map((o) => ({
+      table: "layout_objects" as const,
+      id: o.id,
+      r: o.row_position,
+      c: o.column_position,
+    })),
   ];
   if (!moving.length) throw new Error("Nothing to move in the selection");
 
   for (const m of moving) {
     const nr = m.r + dr;
     const nc = m.c + dc;
-    if (nr < 0 || nc < 0 || nr >= rows || nc >= cols) throw new Error("Move would push items outside the grid");
-    if (occupied.has(`${nr}:${nc}`)) throw new Error("Target cells are not empty — clear them first");
+    if (nr < 0 || nc < 0 || nr >= rows || nc >= cols)
+      throw new Error("Move would push items outside the grid");
+    if (occupied.has(`${nr}:${nc}`))
+      throw new Error("Target cells are not empty — clear them first");
   }
 
   // Phase 1: park everything in negative space (never collides with real cells).
@@ -111,12 +121,16 @@ export async function moveBlock(opts: {
     ),
   );
 
-
   return {
     type: "update_seats",
     at: Date.now(),
     label: `Moved ${moving.length} item(s)`,
-    prev: moving.map((m) => ({ id: m.id, row_position: m.r, column_position: m.c, __table: m.table })),
+    prev: moving.map((m) => ({
+      id: m.id,
+      row_position: m.r,
+      column_position: m.c,
+      __table: m.table,
+    })),
   };
 }
 
@@ -149,16 +163,28 @@ export async function renumberSeats(opts: {
   // Two-phase again: temporary numbers avoid clashing with numbers still in use.
   const stamp = Date.now() % 10000;
   await runBatched(
-    finals.map((f, i) => () => supabase.from("seats").update({ seat_number: `~tmp${stamp}-${i}` }).eq("id", f.id)),
+    finals.map(
+      (f, i) => () =>
+        supabase
+          .from("seats")
+          .update({ seat_number: `~tmp${stamp}-${i}` })
+          .eq("id", f.id),
+    ),
   );
-  await runBatched(finals.map((f) => () => supabase.from("seats").update({ seat_number: f.seat_number }).eq("id", f.id)));
-
+  await runBatched(
+    finals.map(
+      (f) => () => supabase.from("seats").update({ seat_number: f.seat_number }).eq("id", f.id),
+    ),
+  );
 
   return {
     type: "update_seats",
     at: Date.now(),
     label: `Renumbered ${finals.length} seat(s)`,
-    prev: ordered.map((o) => ({ id: (o as any).seat.id, seat_number: (o as any).seat.seat_number })),
+    prev: ordered.map((o) => ({
+      id: (o as any).seat.id,
+      seat_number: (o as any).seat.seat_number,
+    })),
   };
 }
 
@@ -185,8 +211,10 @@ export async function pasteBlock(opts: {
   ];
   if (!targets.length) throw new Error("Clipboard is empty");
   for (const t of targets) {
-    if (t.r < 0 || t.c < 0 || t.r >= rows || t.c >= cols) throw new Error("Paste would land outside the grid");
-    if (occupied.has(`${t.r}:${t.c}`)) throw new Error("Paste target overlaps existing seats or areas");
+    if (t.r < 0 || t.c < 0 || t.r >= rows || t.c >= cols)
+      throw new Error("Paste would land outside the grid");
+    if (occupied.has(`${t.r}:${t.c}`))
+      throw new Error("Paste target overlaps existing seats or areas");
   }
 
   const used = new Set(allSeats.map((s) => s.seat_number));

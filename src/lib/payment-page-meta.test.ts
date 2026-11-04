@@ -8,12 +8,22 @@ describe("branch payment preview", () => {
     expect(meta).toContainEqual({ property: "og:image", content: image });
     expect(meta).toContainEqual({ name: "twitter:image", content: image });
     expect(meta).toContainEqual({ name: "twitter:card", content: "summary_large_image" });
-    expect(meta).toContainEqual({ property: "og:title", content: "Dev Library · Fee payment | LibraryBandhu" });
+    expect(meta).toContainEqual({
+      property: "og:title",
+      content: "Dev Library · Fee payment | LibraryBandhu",
+    });
   });
   it("does not substitute a platform image for missing or unsafe branch covers", () => {
-    for (const image of [null, "/cover.jpg", "javascript:alert(1)", "http://example.com/cover.jpg"]) {
+    for (const image of [
+      null,
+      "/cover.jpg",
+      "javascript:alert(1)",
+      "http://example.com/cover.jpg",
+    ]) {
       const meta = paymentPageMeta({ branch_name: "No cover library", cover_photo_url: image });
-      expect(meta.some((tag) => tag.property === "og:image" || tag.name === "twitter:image")).toBe(false);
+      expect(meta.some((tag) => tag.property === "og:image" || tag.name === "twitter:image")).toBe(
+        false,
+      );
       expect(meta).toContainEqual({ name: "twitter:card", content: "summary" });
     }
   });

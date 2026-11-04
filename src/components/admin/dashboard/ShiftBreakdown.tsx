@@ -56,61 +56,67 @@ export function ShiftBreakdown({
                 <Users className="size-3.5 text-cyan" /> Students &amp; seats by shift
               </span>
               <span className="text-xs font-normal text-muted-foreground">
-                {seatedStudents} student{seatedStudents === 1 ? "" : "s"} with seats · {inr(totalRevenue)}{" "}
-                / month
+                {seatedStudents} student{seatedStudents === 1 ? "" : "s"} with seats ·{" "}
+                {inr(totalRevenue)} / month
               </span>
             </span>
             <ChevronDown className="shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180 motion-reduce:transition-none" />
           </Button>
         </CollapsibleTrigger>
         <CollapsibleContent className="pt-4">
-
-      {merged.length === 0 ? (
-        <p className="py-8 text-center text-sm text-muted-foreground">
-          No active seat allocations yet.
-        </p>
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
-          {merged.map((r) => {
-            const pct =
-              r.occ && r.occ.capacity > 0 ? Math.round((r.occ.taken / r.occ.capacity) * 100) : 0;
-            const free = r.occ ? Math.max(0, r.occ.capacity - r.occ.taken) : null;
-            return (
-              <div key={r.name} className="rounded-xl border border-panel-border bg-panel/40 p-3">
-                <div className="flex items-baseline justify-between gap-3">
-                  <span className="truncate text-sm font-medium">{r.name}</span>
-                  <span className="shrink-0 font-mono text-sm font-semibold text-cyan">
-                    {inr(r.revenue)}
-                  </span>
-                </div>
-                {r.occ && (
-                  <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-panel">
-                    <div
-                      className={
-                        pct >= 90 ? "h-full rounded-full bg-emerald" : "h-full rounded-full bg-cyan"
-                      }
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                )}
-                <div className="mt-2 flex flex-wrap justify-between gap-x-3 text-[11px] text-muted-foreground">
-                  <span>
-                    {r.students} student{r.students === 1 ? "" : "s"}
-                  </span>
-                  {r.occ && (
-                    <span>
-                      {r.occ.taken}/{r.occ.capacity} seats taken ·{" "}
-                      <span className={free ? "font-semibold text-foreground" : ""}>
-                        {free} free
+          {merged.length === 0 ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">
+              No active seat allocations yet.
+            </p>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {merged.map((r) => {
+                const pct =
+                  r.occ && r.occ.capacity > 0
+                    ? Math.round((r.occ.taken / r.occ.capacity) * 100)
+                    : 0;
+                const free = r.occ ? Math.max(0, r.occ.capacity - r.occ.taken) : null;
+                return (
+                  <div
+                    key={r.name}
+                    className="rounded-xl border border-panel-border bg-panel/40 p-3"
+                  >
+                    <div className="flex items-baseline justify-between gap-3">
+                      <span className="truncate text-sm font-medium">{r.name}</span>
+                      <span className="shrink-0 font-mono text-sm font-semibold text-cyan">
+                        {inr(r.revenue)}
                       </span>
-                    </span>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+                    </div>
+                    {r.occ && (
+                      <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-panel">
+                        <div
+                          className={
+                            pct >= 90
+                              ? "h-full rounded-full bg-emerald"
+                              : "h-full rounded-full bg-cyan"
+                          }
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    )}
+                    <div className="mt-2 flex flex-wrap justify-between gap-x-3 text-[11px] text-muted-foreground">
+                      <span>
+                        {r.students} student{r.students === 1 ? "" : "s"}
+                      </span>
+                      {r.occ && (
+                        <span>
+                          {r.occ.taken}/{r.occ.capacity} seats taken ·{" "}
+                          <span className={free ? "font-semibold text-foreground" : ""}>
+                            {free} free
+                          </span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </CollapsibleContent>
       </Collapsible>
     </GlassPanel>

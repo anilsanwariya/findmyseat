@@ -3,7 +3,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { orderCells, type LayoutAction, type SeatOrder } from "@/lib/layout-history";
 import { renumberSeats, type SeatRow } from "@/lib/layout-ops";
@@ -39,7 +45,12 @@ export function RenumberDialog({
       order,
       descending,
     );
-    return ordered.slice(0, 4).map((o, i) => `${(o as any).seat.seat_number} → ${prefix}${String(start + i).padStart(pad, "0")}`);
+    return ordered
+      .slice(0, 4)
+      .map(
+        (o, i) =>
+          `${(o as any).seat.seat_number} → ${prefix}${String(start + i).padStart(pad, "0")}`,
+      );
   }, [selectedSeats, order, descending, prefix, start, pad]);
 
   return (
@@ -49,7 +60,9 @@ export function RenumberDialog({
           <DialogTitle>Renumber {selectedSeats.length} seat(s)</DialogTitle>
         </DialogHeader>
         {selectedSeats.length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted-foreground">No seats in your selection.</p>
+          <p className="py-6 text-center text-sm text-muted-foreground">
+            No seats in your selection.
+          </p>
         ) : (
           <form
             className="space-y-4"
@@ -79,7 +92,11 @@ export function RenumberDialog({
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-2">
                 <Label>Prefix</Label>
-                <Input value={prefix} onChange={(e) => setPrefix(e.target.value)} className="bg-panel border-panel-border" />
+                <Input
+                  value={prefix}
+                  onChange={(e) => setPrefix(e.target.value)}
+                  className="bg-panel border-panel-border"
+                />
               </div>
               <div className="space-y-2">
                 <Label>Start #</Label>
@@ -117,15 +134,23 @@ export function RenumberDialog({
                 </SelectContent>
               </Select>
               <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={descending} onChange={(e) => setDescending(e.target.checked)} /> Reverse
-                order
+                <input
+                  type="checkbox"
+                  checked={descending}
+                  onChange={(e) => setDescending(e.target.checked)}
+                />{" "}
+                Reverse order
               </label>
             </div>
             <div className="rounded-lg border border-panel-border bg-panel p-3 font-mono text-[11px] text-muted-foreground">
               {preview.join(" · ")}
               {selectedSeats.length > 4 && " …"}
             </div>
-            <Button disabled={loading} type="submit" className="w-full bg-white text-slate-900 hover:bg-white/90">
+            <Button
+              disabled={loading}
+              type="submit"
+              className="w-full bg-white text-slate-900 hover:bg-white/90"
+            >
               {loading ? "Renumbering…" : "Apply numbering"}
             </Button>
           </form>

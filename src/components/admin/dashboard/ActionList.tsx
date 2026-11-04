@@ -92,7 +92,19 @@ function Rows({
     <>
       <div className="mt-2 divide-y divide-panel-border/60">
         {visible.map((r) => {
-          const wa = reminder ? whatsappLink(r.mobile, appendPaymentDetails(reminder(r), paymentDetails.data?.get(r.libraryId), typeof window === "undefined" ? "https://librarybandhu.com" : window.location.origin, r.amount)) : null;
+          const wa = reminder
+            ? whatsappLink(
+                r.mobile,
+                appendPaymentDetails(
+                  reminder(r),
+                  paymentDetails.data?.get(r.libraryId),
+                  typeof window === "undefined"
+                    ? "https://librarybandhu.com"
+                    : window.location.origin,
+                  r.amount,
+                ),
+              )
+            : null;
           return (
             <div key={r.allocationId} className="flex items-center justify-between gap-2 py-2">
               <button

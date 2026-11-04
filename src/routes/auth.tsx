@@ -105,7 +105,11 @@ function SuperAdminAuthPage() {
                     className="bg-panel border-panel-border"
                   />
                 </div>
-                <Button disabled={loading} type="submit" className="w-full bg-white text-slate-900 hover:bg-white/90">
+                <Button
+                  disabled={loading}
+                  type="submit"
+                  className="w-full bg-white text-slate-900 hover:bg-white/90"
+                >
                   {loading ? "…" : "Sign in"}
                 </Button>
               </form>

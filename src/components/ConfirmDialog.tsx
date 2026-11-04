@@ -58,11 +58,18 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
       <AlertDialog open={!!opts} onOpenChange={(open) => !open && settle(false)}>
         <AlertDialogContent className="glass-strong border-panel-border w-[92vw] max-w-md">
           <AlertDialogHeader>
-            <AlertDialogTitle className={cn(opts?.destructive && "text-rose")}>{opts?.title}</AlertDialogTitle>
-            {opts?.description && <AlertDialogDescription>{opts.description}</AlertDialogDescription>}
+            <AlertDialogTitle className={cn(opts?.destructive && "text-rose")}>
+              {opts?.title}
+            </AlertDialogTitle>
+            {opts?.description && (
+              <AlertDialogDescription>{opts.description}</AlertDialogDescription>
+            )}
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="border-panel-border bg-panel" onClick={() => settle(false)}>
+            <AlertDialogCancel
+              className="border-panel-border bg-panel"
+              onClick={() => settle(false)}
+            >
               {opts?.cancelLabel ?? "Cancel"}
             </AlertDialogCancel>
             <AlertDialogAction

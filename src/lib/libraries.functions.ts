@@ -5,7 +5,10 @@ import { createHash } from "crypto";
 import { generateOtp } from "@/lib/otp";
 import { callOptionalRpc } from "@/lib/optional-rpc";
 
-async function assertOrgAdminForLibrary(ctx: { supabase: any; userId: string }, library_id: string) {
+async function assertOrgAdminForLibrary(
+  ctx: { supabase: any; userId: string },
+  library_id: string,
+) {
   const { data: adminRow } = await ctx.supabase
     .from("user_roles")
     .select("org_id")
@@ -42,7 +45,12 @@ export const uploadLibraryPhoto = createServerFn({ method: "POST" })
     const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
     if (bytes.byteLength > 5 * 1024 * 1024) throw new Error("Image too large (max 5MB)");
 
-    const ext = data.content_type === "image/png" ? "png" : data.content_type === "image/webp" ? "webp" : "jpg";
+    const ext =
+      data.content_type === "image/png"
+        ? "png"
+        : data.content_type === "image/webp"
+          ? "webp"
+          : "jpg";
     const path = `${data.library_id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -74,13 +82,21 @@ export const uploadLibraryPhoto = createServerFn({ method: "POST" })
       .select("id, image_url, section_name, display_order")
       .single();
     if (insErr) {
-      await supabaseAdmin.storage.from("library-photos").remove([path]).catch(() => {});
+      await supabaseAdmin.storage
+        .from("library-photos")
+        .remove([path])
+        .catch(() => {});
       throw new Error(insErr.message);
     }
     // New photos require super-admin re-approval before appearing in the marketplace.
     await supabaseAdmin
       .from("libraries")
-      .update({ approval_status: "pending", rejection_reason: null, reviewed_at: null, reviewed_by: null })
+      .update({
+        approval_status: "pending",
+        rejection_reason: null,
+        reviewed_at: null,
+        reviewed_by: null,
+      })
       .eq("id", data.library_id);
     return row;
   });
@@ -100,7 +116,10 @@ export const reorderLibraryPhotos = createServerFn({ method: "POST" })
       .select("id")
       .eq("library_id", data.library_id);
     const existingIds = new Set((existing ?? []).map((r: any) => r.id));
-    if (data.photo_ids.length !== existingIds.size || !data.photo_ids.every((id) => existingIds.has(id))) {
+    if (
+      data.photo_ids.length !== existingIds.size ||
+      !data.photo_ids.every((id) => existingIds.has(id))
+    ) {
       throw new Error("Photo list mismatch");
     }
     for (let i = 0; i < data.photo_ids.length; i++) {
@@ -133,7 +152,10 @@ export const deleteLibraryPhoto = createServerFn({ method: "POST" })
     const idx = photo.image_url.indexOf(marker);
     if (idx !== -1) {
       const path = photo.image_url.slice(idx + marker.length);
-      await supabaseAdmin.storage.from("library-photos").remove([path]).catch(() => {});
+      await supabaseAdmin.storage
+        .from("library-photos")
+        .remove([path])
+        .catch(() => {});
     }
     const { error } = await supabaseAdmin.from("library_photos").delete().eq("id", photo.id);
     if (error) throw new Error(error.message);
@@ -152,7 +174,9 @@ export const requestLibraryDeleteOtp = createServerFn({ method: "POST" })
     await assertOrgAdminForLibrary(context, data.library_id);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    const { data: userData, error: userErr } = await supabaseAdmin.auth.admin.getUserById(context.userId);
+    const { data: userData, error: userErr } = await supabaseAdmin.auth.admin.getUserById(
+      context.userId,
+    );
     if (userErr) throw new Error(userErr.message);
     const email = userData?.user?.email;
     if (!email) throw new Error("No email on file for your account");
@@ -211,7 +235,10 @@ export const deleteLibrary = createServerFn({ method: "POST" })
     // Collect photo paths now, but only delete the files once the database
     // rows are gone — otherwise a failed cleanup would leave a library whose
     // photos have already been destroyed.
-    const { data: photos } = await supabaseAdmin.from("library_photos").select("image_url").eq("library_id", libId);
+    const { data: photos } = await supabaseAdmin
+      .from("library_photos")
+      .select("image_url")
+      .eq("library_id", libId);
     const marker = "/library-photos/";
     const photoPaths = (photos ?? [])
       .map((p: any) => {
@@ -228,7 +255,10 @@ export const deleteLibrary = createServerFn({ method: "POST" })
     });
     if (atomic.missing) {
       // layout_objects references sections — delete before sections.
-      const { data: secs } = await supabaseAdmin.from("sections").select("id").eq("library_id", libId);
+      const { data: secs } = await supabaseAdmin
+        .from("sections")
+        .select("id")
+        .eq("library_id", libId);
       const secIds = (secs ?? []).map((s: any) => s.id);
       if (secIds.length)
         await supabaseAdmin.from("layout_objects").delete().in("section_id", secIds);

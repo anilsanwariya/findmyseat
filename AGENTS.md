@@ -41,5 +41,6 @@ How to work:
 - Enforce access in the database (RLS/triggers); UI checks only hide buttons.
 - Never put secrets in client code or `VITE_*` variables.
 - Follow `docs/DESIGN.md`: existing tokens and components, mobile first (375px), loading/empty/error states.
-- Before finishing: `npm run typecheck`, `npm test`, `npm run build` must pass.
+- Before finishing: `npm run lint`, `npm run typecheck`, `npm test`, `npm run build` must pass; run `npm run format` on changed files.
+- Avoid new `any` types; use the generated Supabase types.
 - Don't change unrelated files; don't edit generated files (`src/routeTree.gen.ts`, `src/integrations/supabase/types.ts`).

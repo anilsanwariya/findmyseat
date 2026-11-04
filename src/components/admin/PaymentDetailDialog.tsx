@@ -6,8 +6,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DateInput } from "@/components/ui/date-input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { inr, fmtDate } from "@/lib/format";
@@ -119,7 +131,10 @@ export function PaymentDetailDialog({
         const patch: any = form.is_partial
           ? { status: isOverdue ? "overdue" : "pending" }
           : { next_due_date: form.covers_until, status: isOverdue ? "overdue" : "paid" };
-        const { error: aErr } = await supabase.from("allocations").update(patch).eq("id", p.allocation_id);
+        const { error: aErr } = await supabase
+          .from("allocations")
+          .update(patch)
+          .eq("id", p.allocation_id);
         if (aErr) throw aErr;
       }
 
@@ -140,7 +155,9 @@ export function PaymentDetailDialog({
       <DialogContent className="glass-strong border-panel-border w-[95vw] max-w-lg max-h-[90vh] overflow-y-auto p-4 md:p-6">
         <DialogHeader>
           <DialogTitle>{editing ? "Edit payment" : "Payment details"}</DialogTitle>
-          <DialogDescription className="sr-only">Full details of the recorded payment.</DialogDescription>
+          <DialogDescription className="sr-only">
+            Full details of the recorded payment.
+          </DialogDescription>
         </DialogHeader>
         {!p ? (
           <div className="py-6 text-center text-sm text-muted-foreground">Loading…</div>
@@ -154,7 +171,9 @@ export function PaymentDetailDialog({
           >
             <div className="rounded-lg border border-panel-border bg-black/20 p-3 text-sm">
               <div className="font-semibold">{p.students?.full_name}</div>
-              <div className="text-xs font-mono text-muted-foreground">{p.students?.mobile_number}</div>
+              <div className="text-xs font-mono text-muted-foreground">
+                {p.students?.mobile_number}
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -170,7 +189,6 @@ export function PaymentDetailDialog({
               <div className="space-y-2">
                 <Label>Payment Date</Label>
                 <DateInput
-                  
                   value={form.payment_date}
                   onChange={(e) => setForm({ ...form, payment_date: e.target.value })}
                   className="bg-panel border-panel-border font-mono w-full"
@@ -179,7 +197,6 @@ export function PaymentDetailDialog({
               <div className="space-y-2">
                 <Label>Covers Until / Due Date</Label>
                 <DateInput
-                  
                   value={form.covers_until}
                   onChange={(e) => setForm({ ...form, covers_until: e.target.value })}
                   className="bg-panel border-panel-border font-mono w-full text-emerald font-semibold"
@@ -222,7 +239,10 @@ export function PaymentDetailDialog({
 
             <div className="flex items-center justify-between rounded-lg border border-panel-border bg-panel/60 p-3">
               <div className="text-sm">Mark as partial payment</div>
-              <Switch checked={form.is_partial} onCheckedChange={(v) => setForm({ ...form, is_partial: v })} />
+              <Switch
+                checked={form.is_partial}
+                onCheckedChange={(v) => setForm({ ...form, is_partial: v })}
+              />
             </div>
 
             {p.allocation_id && (
@@ -245,30 +265,51 @@ export function PaymentDetailDialog({
             )}
 
             <div className="flex gap-2">
-              <Button type="button" variant="ghost" className="flex-1" onClick={() => setEditing(false)}>
+              <Button
+                type="button"
+                variant="ghost"
+                className="flex-1"
+                onClick={() => setEditing(false)}
+              >
                 Cancel
               </Button>
-              <Button type="submit" disabled={saving} className="flex-1 bg-white text-slate-900 hover:bg-white/90">
+              <Button
+                type="submit"
+                disabled={saving}
+                className="flex-1 bg-white text-slate-900 hover:bg-white/90"
+              >
                 {saving ? "Saving…" : "Save changes"}
               </Button>
             </div>
           </form>
         ) : (
           <div className="space-y-3 text-sm">
-            <Row label="Student" value={`${p.students?.full_name} (${p.students?.mobile_number})`} />
+            <Row
+              label="Student"
+              value={`${p.students?.full_name} (${p.students?.mobile_number})`}
+            />
             <Row label="Branch" value={p.libraries?.name ?? "—"} />
             <Row label="Seat" value={p.allocations?.seats?.seat_number ?? "—"} />
             <Row label="Amount" value={inr(p.amount_paid)} mono />
             <Row label="Method" value={p.method?.toUpperCase()} />
             <Row label="Txn reference" value={p.transaction_reference ?? "—"} mono />
             <Row label="Payment date" value={fmtDate(p.payment_date) ?? "—"} mono />
-            <Row label="Logged at" value={p.logged_at ? new Date(p.logged_at).toLocaleString() : "—"} mono />
+            <Row
+              label="Logged at"
+              value={p.logged_at ? new Date(p.logged_at).toLocaleString() : "—"}
+              mono
+            />
             <Row label="Covers until" value={fmtDate(p.covers_until) ?? "—"} mono />
-            <Row label="Payment status" value={p.is_partial ? "Partially paid (due date unchanged)" : "Full payment"} />
+            <Row
+              label="Payment status"
+              value={p.is_partial ? "Partially paid (due date unchanged)" : "Full payment"}
+            />
             <Row label="Note" value={p.reference_note ?? "—"} />
             {p.receipt_url && (
               <div className="space-y-1">
-                <div className="text-xs uppercase tracking-widest text-muted-foreground">Receipt</div>
+                <div className="text-xs uppercase tracking-widest text-muted-foreground">
+                  Receipt
+                </div>
                 {receiptSignedUrl ? (
                   <a href={receiptSignedUrl} target="_blank" rel="noopener noreferrer">
                     <img
@@ -282,7 +323,11 @@ export function PaymentDetailDialog({
                 )}
               </div>
             )}
-            <Button type="button" className="w-full bg-white text-slate-900 hover:bg-white/90" onClick={startEdit}>
+            <Button
+              type="button"
+              className="w-full bg-white text-slate-900 hover:bg-white/90"
+              onClick={startEdit}
+            >
               <Pencil className="mr-1 size-4" /> Edit payment
             </Button>
           </div>

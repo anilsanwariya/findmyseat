@@ -35,7 +35,11 @@ import {
 export const Route = createFileRoute("/_authenticated/admin/tutorial")({
   head: () => ({ meta: [{ title: "Tutorial · LibraryBandhu" }] }),
   component: TutorialPage,
-  errorComponent: ({ error }) => <div className="p-6 text-rose">{error instanceof Error ? error.message : "Could not load tutorial."}</div>,
+  errorComponent: ({ error }) => (
+    <div className="p-6 text-rose">
+      {error instanceof Error ? error.message : "Could not load tutorial."}
+    </div>
+  ),
   notFoundComponent: () => <div className="p-6">Not found</div>,
 });
 
@@ -64,7 +68,8 @@ const CHAPTERS: Chapter[] = [
     title: "Dashboard — your daily control room",
     icon: LayoutDashboard,
     to: "/admin",
-    summary: "One screen that answers: how much money is coming in, who hasn't paid, and how each branch is doing.",
+    summary:
+      "One screen that answers: how much money is coming in, who hasn't paid, and how each branch is doing.",
     steps: [
       "Use the branch and month filters at the top to scope every number on the page.",
       "Read the KPI cards: collected this month, expected revenue (collected + still due), outstanding dues, active students and seat occupancy.",
@@ -72,14 +77,17 @@ const CHAPTERS: Chapter[] = [
       "Work the Needs attention list top to bottom — it lists every overdue student. Click a name to open the full profile and log the payment right there.",
       "Use Branch comparison to spot the branch that is lagging on occupancy or collection.",
     ],
-    tips: ["Expected revenue = money already collected this month + fees still due this month, so it is your realistic monthly target."],
+    tips: [
+      "Expected revenue = money already collected this month + fees still due this month, so it is your realistic monthly target.",
+    ],
   },
   {
     id: "branches",
     title: "Branches — set up your library",
     icon: Building2,
     to: "/admin/settings",
-    summary: "Each physical location is one branch. Everything else (seats, students, payments) hangs off a branch.",
+    summary:
+      "Each physical location is one branch. Everything else (seats, students, payments) hangs off a branch.",
     steps: [
       "Click New branch and fill the Basic tab: branch name, address, city, contact number and description.",
       "Pin the exact location on the map so students can find you on the marketplace and get directions.",
@@ -98,7 +106,8 @@ const CHAPTERS: Chapter[] = [
     title: "Layout Builder — draw your seating plan",
     icon: Grid3x3,
     to: "/admin/layout-builder",
-    summary: "A visual grid of your hall. Seats you create here are the seats you allocate to students.",
+    summary:
+      "A visual grid of your hall. Seats you create here are the seats you allocate to students.",
     steps: [
       "Pick the branch at the top, then create a section (for example 'Ground Floor', 'Cabin Row').",
       "Use Generate seats to create many seats at once: choose the starting number, direction (left-to-right or right-to-left) and ascending or descending order.",
@@ -118,7 +127,8 @@ const CHAPTERS: Chapter[] = [
     title: "Students — your member register",
     icon: Users,
     to: "/admin/students",
-    summary: "Every person studying at your library, with documents, fees and full payment history.",
+    summary:
+      "Every person studying at your library, with documents, fees and full payment history.",
     steps: [
       "Click Add student and enter name, mobile number and date of birth. Mobile + DOB is what the student uses to log in.",
       "Optionally attach ID proof and a photo, and record address and guardian details.",
@@ -153,7 +163,8 @@ const CHAPTERS: Chapter[] = [
     title: "Payments — collect and track fees",
     icon: IndianRupee,
     to: "/admin/payments",
-    summary: "Log every rupee collected, handle part-payments and discounts, and see where you stand.",
+    summary:
+      "Log every rupee collected, handle part-payments and discounts, and see where you stand.",
     steps: [
       "Click Log payment, pick the student, and enter the amount and method (cash, UPI, card, bank transfer) with an optional transaction reference.",
       "Check the coverage dates. The start date defaults to the allocation start or the current due date, so you can begin a subscription now and collect later.",
@@ -173,7 +184,8 @@ const CHAPTERS: Chapter[] = [
     title: "Expenses — know your real profit",
     icon: ReceiptText,
     to: "/admin/expenses",
-    summary: "Record rent, electricity, salaries, internet and maintenance so the dashboard shows profit, not just income.",
+    summary:
+      "Record rent, electricity, salaries, internet and maintenance so the dashboard shows profit, not just income.",
     steps: [
       "Click Add expense, choose the branch and category, enter the amount and date, and add a short note.",
       "Log recurring bills as soon as they are paid so the monthly trend stays accurate.",
@@ -354,7 +366,9 @@ function TutorialPage() {
             </span>
             <div>
               <h2 className="text-base font-semibold">Quick start — your first 30 minutes</h2>
-              <p className="text-xs text-muted-foreground">Do these six things in order and your library is live.</p>
+              <p className="text-xs text-muted-foreground">
+                Do these six things in order and your library is live.
+              </p>
             </div>
           </div>
           <ol className="mt-4 space-y-3">
@@ -451,9 +465,13 @@ function TutorialPage() {
       <GlassPanel className="flex flex-col gap-2 p-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2 text-sm">
           <CheckCircle2 className="size-4 text-emerald" />
-          <span className="text-muted-foreground">Still stuck? Raise a ticket and our team will help you out.</span>
+          <span className="text-muted-foreground">
+            Still stuck? Raise a ticket and our team will help you out.
+          </span>
         </div>
-        <Badge variant="outline" className="w-fit">Owner guide · updated regularly</Badge>
+        <Badge variant="outline" className="w-fit">
+          Owner guide · updated regularly
+        </Badge>
       </GlassPanel>
     </div>
   );

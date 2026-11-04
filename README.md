@@ -31,9 +31,10 @@ npm run typecheck
 npm test
 npm run build
 npm run test:e2e          # browser tests (Playwright); see e2e/README.md
-npm run lint              # not clean yet; see docs/MEMORY.md
+npm run lint              # errors fail CI; warnings: formatting and `any` types
+npm run format            # auto-format with Prettier
 ```
-Typecheck, unit tests and build (`.github/workflows/ci.yml`) and the public browser tests
+Lint, typecheck, unit tests and build (`.github/workflows/ci.yml`) and the public browser tests
 (`.github/workflows/e2e.yml`) run automatically on every pull request.
 
 ## How changes reach production

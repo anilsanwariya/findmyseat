@@ -4,8 +4,8 @@ import type { Database } from "@/integrations/supabase/types";
 type RazorpayMethod = "GET" | "POST" | "PATCH" | "DELETE";
 
 export async function razorpayRequest(path: string, method: RazorpayMethod, body?: unknown) {
-  const keyId = process.env['RAZORPAY_KEY_ID'];
-  const keySecret = process.env['RAZORPAY_KEY_SECRET'];
+  const keyId = process.env["RAZORPAY_KEY_ID"];
+  const keySecret = process.env["RAZORPAY_KEY_SECRET"];
   if (!keyId || !keySecret) throw new Error("Razorpay is not configured.");
 
   const response = await fetch(`https://api.razorpay.com/v1${path}`, {
@@ -17,14 +17,19 @@ export async function razorpayRequest(path: string, method: RazorpayMethod, body
     body: body ? JSON.stringify(body) : undefined,
   });
   const json = await response.json();
-  if (!response.ok) throw new Error(json?.error?.description ?? `Razorpay error: ${response.status}`);
+  if (!response.ok)
+    throw new Error(json?.error?.description ?? `Razorpay error: ${response.status}`);
   return json;
 }
 
 function adminClient() {
-  return createClient<Database>(process.env['SUPABASE_URL']!, process.env['SUPABASE_SERVICE_ROLE_KEY']!, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+  return createClient<Database>(
+    process.env["SUPABASE_URL"]!,
+    process.env["SUPABASE_SERVICE_ROLE_KEY"]!,
+    {
+      auth: { persistSession: false, autoRefreshToken: false },
+    },
+  );
 }
 
 export async function activatePaidOrder(input: {
@@ -38,7 +43,8 @@ export async function activatePaidOrder(input: {
   ]);
 
   if (payment.order_id !== input.orderId) throw new Error("Payment does not belong to this order.");
-  if (payment.status !== "captured" || order.status !== "paid") throw new Error("Payment has not been captured yet.");
+  if (payment.status !== "captured" || order.status !== "paid")
+    throw new Error("Payment has not been captured yet.");
   if (
     Number(payment.amount) !== Number(order.amount) ||
     Number(order.amount_paid) !== Number(order.amount) ||
@@ -52,7 +58,9 @@ export async function activatePaidOrder(input: {
   }
 
   const supabaseAdmin = adminClient();
-  const paidAt = payment.created_at ? new Date(Number(payment.created_at) * 1000).toISOString() : new Date().toISOString();
+  const paidAt = payment.created_at
+    ? new Date(Number(payment.created_at) * 1000).toISOString()
+    : new Date().toISOString();
   const { data, error } = await supabaseAdmin.rpc("activate_one_time_subscription", {
     _subscription_id: input.localId,
     _razorpay_order_id: input.orderId,

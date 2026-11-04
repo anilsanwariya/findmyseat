@@ -6,7 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { createStudent, updateStudent } from "@/lib/students.functions";
@@ -205,8 +211,8 @@ export function StudentFormDialog({
 
         {!isEdit && (
           <div className="rounded-lg border border-panel-border bg-panel p-3 text-xs text-muted-foreground leading-relaxed">
-            Login credentials: mobile + DOB. Student sets their own 6-digit PIN on first login and manages it from their
-            app. Owners cannot reset a student's PIN once registered.
+            Login credentials: mobile + DOB. Student sets their own 6-digit PIN on first login and
+            manages it from their app. Owners cannot reset a student's PIN once registered.
           </div>
         )}
 

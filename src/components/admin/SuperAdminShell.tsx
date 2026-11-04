@@ -1,6 +1,17 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
-import { LayoutDashboard, Building2, CreditCard, LogOut, ShieldCheck, Menu, X, CheckSquare, Tags, ArrowRightLeft } from "lucide-react";
+import {
+  LayoutDashboard,
+  Building2,
+  CreditCard,
+  LogOut,
+  ShieldCheck,
+  Menu,
+  X,
+  CheckSquare,
+  Tags,
+  ArrowRightLeft,
+} from "lucide-react";
 import { AuroraBackground } from "@/components/glass";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -16,7 +27,6 @@ const NAV: NavItem[] = [
   { to: "/super-admin/categories", label: "Categories", icon: Tags },
   { to: "/super-admin/subscriptions", label: "Subscriptions", icon: CreditCard },
 ];
-
 
 export function SuperAdminShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -36,7 +46,9 @@ export function SuperAdminShell({ children }: { children: ReactNode }) {
     return (
       <>
         {NAV.map((n) => {
-          const active = n.exact ? pathname === n.to : pathname === n.to || pathname.startsWith(n.to + "/");
+          const active = n.exact
+            ? pathname === n.to
+            : pathname === n.to || pathname.startsWith(n.to + "/");
           return (
             <Link
               key={n.to}
@@ -71,7 +83,9 @@ export function SuperAdminShell({ children }: { children: ReactNode }) {
               </div>
               <div className="min-w-0">
                 <p className="text-sm font-black tracking-tight">LibraryBandhu</p>
-                <p className="font-mono text-[9px] uppercase tracking-[0.25em] text-gold">Master Control</p>
+                <p className="font-mono text-[9px] uppercase tracking-[0.25em] text-gold">
+                  Master Control
+                </p>
               </div>
             </Link>
             <div className="mt-8 inline-flex items-center gap-2 rounded-full border border-gold/30 bg-gold/10 px-2.5 py-1 font-mono text-[10px] uppercase tracking-widest text-gold">
@@ -93,10 +107,17 @@ export function SuperAdminShell({ children }: { children: ReactNode }) {
 
         {mobileOpen && (
           <div className="fixed inset-0 z-40 lg:hidden">
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
+            <div
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => setMobileOpen(false)}
+            />
             <aside className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col border-r border-panel-border bg-background/95 backdrop-blur-xl">
               <div className="flex items-center justify-between p-5">
-                <Link to="/super-admin" onClick={() => setMobileOpen(false)} className="flex items-center gap-2">
+                <Link
+                  to="/super-admin"
+                  onClick={() => setMobileOpen(false)}
+                  className="flex items-center gap-2"
+                >
                   <div className="grid size-8 place-items-center rounded-lg bg-gradient-to-br from-gold to-magenta">
                     <ShieldCheck className="size-4 text-slate-950" />
                   </div>

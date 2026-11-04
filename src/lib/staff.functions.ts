@@ -2,15 +2,17 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
-const PermissionsSchema = z.object({
-  manage_students: z.boolean().optional(),
-  manage_allocations: z.boolean().optional(),
-  collect_payments: z.boolean().optional(),
-  manage_expenses: z.boolean().optional(),
-  manage_notices: z.boolean().optional(),
-  manage_leads: z.boolean().optional(),
-  manage_tickets: z.boolean().optional(),
-}).passthrough();
+const PermissionsSchema = z
+  .object({
+    manage_students: z.boolean().optional(),
+    manage_allocations: z.boolean().optional(),
+    collect_payments: z.boolean().optional(),
+    manage_expenses: z.boolean().optional(),
+    manage_notices: z.boolean().optional(),
+    manage_leads: z.boolean().optional(),
+    manage_tickets: z.boolean().optional(),
+  })
+  .passthrough();
 
 async function assertOwner(ctx: { supabase: any; userId: string }) {
   const sb: any = ctx.supabase;
@@ -48,7 +50,10 @@ export const listStaff = createServerFn({ method: "GET" })
       .in("staff_id", ids);
     const byStaff: Record<string, { library_id: string; name: string }[]> = {};
     (assigns ?? []).forEach((a: any) => {
-      (byStaff[a.staff_id] ??= []).push({ library_id: a.library_id, name: a.libraries?.name ?? "—" });
+      (byStaff[a.staff_id] ??= []).push({
+        library_id: a.library_id,
+        name: a.libraries?.name ?? "—",
+      });
     });
     return staff.map((s: any) => ({ ...s, branches: byStaff[s.id] ?? [] }));
   });
@@ -69,14 +74,24 @@ export const createStaff = createServerFn({ method: "POST" })
     const sb: any = context.supabase;
     const orgId = await assertOwner(context);
 
-    const { data: libs } = await sb.from("libraries").select("id, org_id").in("id", data.library_ids);
-    if (!libs || libs.length !== data.library_ids.length || libs.some((l: any) => l.org_id !== orgId)) {
+    const { data: libs } = await sb
+      .from("libraries")
+      .select("id, org_id")
+      .in("id", data.library_ids);
+    if (
+      !libs ||
+      libs.length !== data.library_ids.length ||
+      libs.some((l: any) => l.org_id !== orgId)
+    ) {
       throw new Error("One or more branches do not belong to your organization");
     }
 
     const { data: existing } = await sb
-      .from("staff_profiles").select("id")
-      .eq("org_id", orgId).eq("employee_id", data.employee_id).maybeSingle();
+      .from("staff_profiles")
+      .select("id")
+      .eq("org_id", orgId)
+      .eq("employee_id", data.employee_id)
+      .maybeSingle();
     if (existing) throw new Error("Employee ID already in use in your organization");
 
     const mod = await import("@/integrations/supabase/client.server");
@@ -86,7 +101,12 @@ export const createStaff = createServerFn({ method: "POST" })
       email: data.email,
       password: data.password,
       email_confirm: true,
-      user_metadata: { role: "staff", full_name: data.full_name, employee_id: data.employee_id, org_id: orgId },
+      user_metadata: {
+        role: "staff",
+        full_name: data.full_name,
+        employee_id: data.employee_id,
+        org_id: orgId,
+      },
     });
     if (cErr) throw new Error(cErr.message);
     const userId = created.user!.id;
@@ -139,7 +159,10 @@ export const updateStaff = createServerFn({ method: "POST" })
     const sb: any = context.supabase;
     const orgId = await assertOwner(context);
     const { data: staff } = await sb
-      .from("staff_profiles").select("id, org_id").eq("id", data.staff_id).maybeSingle();
+      .from("staff_profiles")
+      .select("id, org_id")
+      .eq("id", data.staff_id)
+      .maybeSingle();
     if (!staff || staff.org_id !== orgId) throw new Error("Staff not in your organization");
 
     const patch: any = {};
@@ -153,8 +176,15 @@ export const updateStaff = createServerFn({ method: "POST" })
     }
 
     if (data.library_ids) {
-      const { data: libs } = await sb.from("libraries").select("id, org_id").in("id", data.library_ids);
-      if (!libs || libs.length !== data.library_ids.length || libs.some((l: any) => l.org_id !== orgId)) {
+      const { data: libs } = await sb
+        .from("libraries")
+        .select("id, org_id")
+        .in("id", data.library_ids);
+      if (
+        !libs ||
+        libs.length !== data.library_ids.length ||
+        libs.some((l: any) => l.org_id !== orgId)
+      ) {
         throw new Error("One or more branches do not belong to your organization");
       }
       await sb.from("staff_branch_assignments").delete().eq("staff_id", data.staff_id);
@@ -169,27 +199,46 @@ export const updateStaff = createServerFn({ method: "POST" })
 
 export const setStaffActive = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ staff_id: z.string().uuid(), is_active: z.boolean() }).parse(d))
+  .inputValidator((d: unknown) =>
+    z.object({ staff_id: z.string().uuid(), is_active: z.boolean() }).parse(d),
+  )
   .handler(async ({ data, context }) => {
     const sb: any = context.supabase;
     const orgId = await assertOwner(context);
     const { data: staff } = await sb
-      .from("staff_profiles").select("id, org_id, user_id").eq("id", data.staff_id).maybeSingle();
+      .from("staff_profiles")
+      .select("id, org_id, user_id")
+      .eq("id", data.staff_id)
+      .maybeSingle();
     if (!staff || staff.org_id !== orgId) throw new Error("Staff not in your organization");
 
-    const { error } = await sb.from("staff_profiles").update({ is_active: data.is_active }).eq("id", data.staff_id);
+    const { error } = await sb
+      .from("staff_profiles")
+      .update({ is_active: data.is_active })
+      .eq("id", data.staff_id);
     if (error) throw new Error(error.message);
 
     const mod = await import("@/integrations/supabase/client.server");
     const admin: any = mod.supabaseAdmin;
     if (!data.is_active) {
-      await admin.from("user_roles")
-        .delete().eq("user_id", staff.user_id).eq("role", "org_admin").eq("org_id", orgId);
+      await admin
+        .from("user_roles")
+        .delete()
+        .eq("user_id", staff.user_id)
+        .eq("role", "org_admin")
+        .eq("org_id", orgId);
     } else {
-      const { data: existing } = await admin.from("user_roles")
-        .select("user_id").eq("user_id", staff.user_id).eq("role", "org_admin").eq("org_id", orgId).maybeSingle();
+      const { data: existing } = await admin
+        .from("user_roles")
+        .select("user_id")
+        .eq("user_id", staff.user_id)
+        .eq("role", "org_admin")
+        .eq("org_id", orgId)
+        .maybeSingle();
       if (!existing) {
-        await admin.from("user_roles").insert({ user_id: staff.user_id, role: "org_admin", org_id: orgId });
+        await admin
+          .from("user_roles")
+          .insert({ user_id: staff.user_id, role: "org_admin", org_id: orgId });
       }
     }
     return { ok: true };
@@ -202,33 +251,49 @@ export const deleteStaff = createServerFn({ method: "POST" })
     const sb: any = context.supabase;
     const orgId = await assertOwner(context);
     const { data: staff } = await sb
-      .from("staff_profiles").select("id, org_id, user_id").eq("id", data.staff_id).maybeSingle();
+      .from("staff_profiles")
+      .select("id, org_id, user_id")
+      .eq("id", data.staff_id)
+      .maybeSingle();
     if (!staff || staff.org_id !== orgId) throw new Error("Staff not in your organization");
 
     const mod = await import("@/integrations/supabase/client.server");
     const admin: any = mod.supabaseAdmin;
     await admin.from("staff_branch_assignments").delete().eq("staff_id", data.staff_id);
     await admin.from("staff_profiles").delete().eq("id", data.staff_id);
-    await admin.from("user_roles")
-      .delete().eq("user_id", staff.user_id).eq("role", "org_admin").eq("org_id", orgId);
+    await admin
+      .from("user_roles")
+      .delete()
+      .eq("user_id", staff.user_id)
+      .eq("role", "org_admin")
+      .eq("org_id", orgId);
     await admin.auth.admin.deleteUser(staff.user_id).catch(() => {});
     return { ok: true };
   });
 
 export const resetStaffPassword = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ staff_id: z.string().uuid(), new_password: z.string().min(8).max(200).optional() }).parse(d))
+  .inputValidator((d: unknown) =>
+    z
+      .object({ staff_id: z.string().uuid(), new_password: z.string().min(8).max(200).optional() })
+      .parse(d),
+  )
   .handler(async ({ data, context }) => {
     const sb: any = context.supabase;
     const orgId = await assertOwner(context);
     const { data: staff } = await sb
-      .from("staff_profiles").select("id, org_id, user_id, email").eq("id", data.staff_id).maybeSingle();
+      .from("staff_profiles")
+      .select("id, org_id, user_id, email")
+      .eq("id", data.staff_id)
+      .maybeSingle();
     if (!staff || staff.org_id !== orgId) throw new Error("Staff not in your organization");
 
     const mod = await import("@/integrations/supabase/client.server");
     const admin: any = mod.supabaseAdmin;
     if (data.new_password) {
-      const { error } = await admin.auth.admin.updateUserById(staff.user_id, { password: data.new_password });
+      const { error } = await admin.auth.admin.updateUserById(staff.user_id, {
+        password: data.new_password,
+      });
       if (error) throw new Error(error.message);
       return { ok: true, mode: "password_set" as const };
     }
