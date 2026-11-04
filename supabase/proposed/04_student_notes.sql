@@ -1,3 +1,6 @@
+-- SUPERSEDED by 08_private_student_notes.sql, which creates this table and also
+-- moves existing notes into it. Apply 08 instead of this file.
+--
 -- PROPOSED — not applied. Review, then run it as a migration via Lovable.
 --
 -- Dated follow-up notes on a student ("5 Sep – promised to pay Friday").

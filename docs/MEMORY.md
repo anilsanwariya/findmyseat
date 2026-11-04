@@ -20,6 +20,8 @@ _Last updated: 2026-11-04_
 - PWA manifest, offline page, assetlinks; plan purchases hidden in the Android app.
 
 ## In progress / next
+- Apply `supabase/proposed/08_private_student_notes.sql` in Lovable (moves internal notes out of
+  the student-readable record; removes student self-update).
 - Play Console: store listing, data safety, content rating, app access (demo login), testers.
 - Open items in `roadmap.md` that need checking with real owner data.
 - Owner-flow E2E test needs a dedicated test owner account + GitHub secrets (`e2e/README.md`).
