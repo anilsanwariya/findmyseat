@@ -14,6 +14,7 @@ where students find a library. Live at **https://librarybandhu.com** and on Andr
 | [docs/SECURITY.md](docs/SECURITY.md) | Roles and security rules |
 | [docs/TEST_PLAN.md](docs/TEST_PLAN.md) | Automated and manual checks |
 | [docs/MEMORY.md](docs/MEMORY.md) | Current state of the project |
+| [docs/OPERATIONS.md](docs/OPERATIONS.md) | Monitoring, backups, restore, outages |
 | [roadmap.md](roadmap.md) | Task list |
 | [AGENTS.md](AGENTS.md) | Rules for AI tools working on this repo |
 

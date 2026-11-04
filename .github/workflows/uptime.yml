@@ -1,0 +1,81 @@
+name: Uptime
+
+# Checks the live site every 15 minutes. If it is down, opens a GitHub issue
+# labelled "uptime" (GitHub emails you about new issues); when the site is back,
+# it comments and closes that issue. Runs can start a few minutes late.
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: uptime
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  SITE: https://librarybandhu.com
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check the site
+        id: probe
+        run: |
+          # Each URL gets 3 tries, 20 seconds apart, so a single blip doesn't raise an alarm.
+          check() {
+            local name="$1" url="$2" expect="$3"
+            for attempt in 1 2 3; do
+              body=$(curl -sS -L --max-time 20 -w '\n%{http_code}' "$url" 2>&1) || true
+              code=$(printf '%s' "$body" | tail -n1)
+              if [ "$code" = "200" ] && grep -q "$expect" <<<"$body"; then
+                echo "OK   $name ($url)"
+                return 0
+              fi
+              sleep 20
+            done
+            [ "$code" = "000" ] && result="did not respond" || result="returned HTTP $code"
+            echo "FAIL $name ($url) — $result"
+            echo "- **$name** — \`$url\` $result" >> failures.md
+            return 1
+          }
+          status=0
+          check "Homepage" "$SITE/" "LibraryBandhu" || status=1
+          check "App + database" "$SITE/api/public/health" '"status":"ok"' || status=1
+          check "Android app link" "$SITE/.well-known/assetlinks.json" "com.librarybandhu.app" || status=1
+          echo "down=$([ $status = 0 ] && echo false || echo true)" >> "$GITHUB_OUTPUT"
+          touch failures.md
+
+      - name: Open or update the outage issue
+        if: steps.probe.outputs.down == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh label create uptime --color B60205 --description "Site monitoring" 2>/dev/null || true
+          body=$(printf 'The uptime check failed at %s UTC.\n\n%s\n\nRun: %s/%s/actions/runs/%s' \
+            "$(date -u '+%Y-%m-%d %H:%M')" "$(cat failures.md)" \
+            "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID")
+          open=$(gh issue list --label uptime --state open --json number --jq '.[0].number')
+          if [ -n "$open" ]; then
+            gh issue comment "$open" --body "$body"
+          else
+            gh issue create --label uptime --title "librarybandhu.com is down" --body "$body"
+          fi
+          exit 1
+
+      - name: Close the outage issue when back up
+        if: steps.probe.outputs.down == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          open=$(gh issue list --label uptime --state open --json number --jq '.[0].number' 2>/dev/null || true)
+          if [ -n "$open" ]; then
+            gh issue close "$open" --comment "Back up at $(date -u '+%Y-%m-%d %H:%M') UTC. All checks pass."
+          fi

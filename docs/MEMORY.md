@@ -23,8 +23,9 @@ _Last updated: 2026-11-04_
 - Play Console: store listing, data safety, content rating, app access (demo login), testers.
 - Open items in `roadmap.md` that need checking with real owner data.
 - Owner-flow E2E test needs a dedicated test owner account + GitHub secrets (`e2e/README.md`).
-- Planned engineering work: uptime monitoring and confirmed database backups; replace `any`
-  types file by file.
+- Uptime: `/api/public/health` + GitHub uptime check every 15 min (opens an `uptime` issue).
+  Owner to add an external monitor and confirm Lovable Cloud backups (`docs/OPERATIONS.md`).
+- Planned engineering work: replace `any` types file by file.
 
 ## Known issues
 - Lovable commits are titled "Changes", so history is hard to read.

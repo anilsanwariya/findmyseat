@@ -46,6 +46,7 @@ import { Route as AuthenticatedSuperAdminCategoriesRouteImport } from './routes/
 import { Route as AuthenticatedSuperAdminOrganizationsRouteImport } from './routes/_authenticated/super-admin.organizations'
 import { Route as AuthenticatedSuperAdminSubscriptionsRouteImport } from './routes/_authenticated/super-admin.subscriptions'
 import { Route as AuthenticatedSuperAdminTransfersRouteImport } from './routes/_authenticated/super-admin.transfers'
+import { Route as ApiPublicHealthRouteImport } from './routes/api/public/health'
 import { Route as ApiPublicRazorpayWebhookRouteImport } from './routes/api/public/razorpay-webhook'
 import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
 import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
@@ -253,6 +254,11 @@ const AuthenticatedSuperAdminTransfersRoute =
     path: '/transfers',
     getParentRoute: () => AuthenticatedSuperAdminRoute,
   } as any)
+const ApiPublicHealthRoute = ApiPublicHealthRouteImport.update({
+  id: '/api/public/health',
+  path: '/api/public/health',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicRazorpayWebhookRoute =
   ApiPublicRazorpayWebhookRouteImport.update({
     id: '/api/public/razorpay-webhook',
@@ -311,6 +317,7 @@ export interface FileRoutesByFullPath {
   '/super-admin/organizations': typeof AuthenticatedSuperAdminOrganizationsRoute
   '/super-admin/subscriptions': typeof AuthenticatedSuperAdminSubscriptionsRoute
   '/super-admin/transfers': typeof AuthenticatedSuperAdminTransfersRoute
+  '/api/public/health': typeof ApiPublicHealthRoute
   '/api/public/razorpay-webhook': typeof ApiPublicRazorpayWebhookRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
   '/super-admin/': typeof AuthenticatedSuperAdminIndexRoute
@@ -351,6 +358,7 @@ export interface FileRoutesByTo {
   '/super-admin/organizations': typeof AuthenticatedSuperAdminOrganizationsRoute
   '/super-admin/subscriptions': typeof AuthenticatedSuperAdminSubscriptionsRoute
   '/super-admin/transfers': typeof AuthenticatedSuperAdminTransfersRoute
+  '/api/public/health': typeof ApiPublicHealthRoute
   '/api/public/razorpay-webhook': typeof ApiPublicRazorpayWebhookRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
   '/super-admin': typeof AuthenticatedSuperAdminIndexRoute
@@ -395,6 +403,7 @@ export interface FileRoutesById {
   '/_authenticated/super-admin/organizations': typeof AuthenticatedSuperAdminOrganizationsRoute
   '/_authenticated/super-admin/subscriptions': typeof AuthenticatedSuperAdminSubscriptionsRoute
   '/_authenticated/super-admin/transfers': typeof AuthenticatedSuperAdminTransfersRoute
+  '/api/public/health': typeof ApiPublicHealthRoute
   '/api/public/razorpay-webhook': typeof ApiPublicRazorpayWebhookRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
   '/_authenticated/super-admin/': typeof AuthenticatedSuperAdminIndexRoute
@@ -439,6 +448,7 @@ export interface FileRouteTypes {
     | '/super-admin/organizations'
     | '/super-admin/subscriptions'
     | '/super-admin/transfers'
+    | '/api/public/health'
     | '/api/public/razorpay-webhook'
     | '/admin/'
     | '/super-admin/'
@@ -479,6 +489,7 @@ export interface FileRouteTypes {
     | '/super-admin/organizations'
     | '/super-admin/subscriptions'
     | '/super-admin/transfers'
+    | '/api/public/health'
     | '/api/public/razorpay-webhook'
     | '/admin'
     | '/super-admin'
@@ -522,6 +533,7 @@ export interface FileRouteTypes {
     | '/_authenticated/super-admin/organizations'
     | '/_authenticated/super-admin/subscriptions'
     | '/_authenticated/super-admin/transfers'
+    | '/api/public/health'
     | '/api/public/razorpay-webhook'
     | '/_authenticated/admin/'
     | '/_authenticated/super-admin/'
@@ -545,6 +557,7 @@ export interface RootRouteChildren {
   TermsRoute: typeof TermsRoute
   DotwellKnownAssetlinksDotjsonRoute: typeof DotwellKnownAssetlinksDotjsonRoute
   PayLibraryIdRoute: typeof PayLibraryIdRoute
+  ApiPublicHealthRoute: typeof ApiPublicHealthRoute
   ApiPublicRazorpayWebhookRoute: typeof ApiPublicRazorpayWebhookRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
   LovableEmailAuthWebhookRoute: typeof LovableEmailAuthWebhookRoute
@@ -812,6 +825,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSuperAdminTransfersRouteImport
       parentRoute: typeof AuthenticatedSuperAdminRoute
     }
+    '/api/public/health': {
+      id: '/api/public/health'
+      path: '/api/public/health'
+      fullPath: '/api/public/health'
+      preLoaderRoute: typeof ApiPublicHealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/razorpay-webhook': {
       id: '/api/public/razorpay-webhook'
       path: '/api/public/razorpay-webhook'
@@ -939,6 +959,7 @@ const rootRouteChildren: RootRouteChildren = {
   TermsRoute: TermsRoute,
   DotwellKnownAssetlinksDotjsonRoute: DotwellKnownAssetlinksDotjsonRoute,
   PayLibraryIdRoute: PayLibraryIdRoute,
+  ApiPublicHealthRoute: ApiPublicHealthRoute,
   ApiPublicRazorpayWebhookRoute: ApiPublicRazorpayWebhookRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
   LovableEmailAuthWebhookRoute: LovableEmailAuthWebhookRoute,

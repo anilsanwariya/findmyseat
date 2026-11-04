@@ -76,3 +76,4 @@ docs/                     this documentation
 | Android | Play Console internal testing → production |
 
 There is one Supabase database shared by preview and production. Treat every database change as a production change.
+Monitoring, backups and recovery: see `docs/OPERATIONS.md`.
