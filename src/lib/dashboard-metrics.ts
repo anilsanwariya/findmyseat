@@ -128,8 +128,7 @@ export function overdueBalance(
 ) {
   const due = effectiveDue(a);
   const fee = Number(a.monthly_fee);
-  if (!due || due >= asOf || !Number.isFinite(fee) || fee <= 0)
-    return { months: 0, amount: 0 };
+  if (!due || due >= asOf || !Number.isFinite(fee) || fee <= 0) return { months: 0, amount: 0 };
   const [dueYear, dueMonth] = due.split("-").map(Number);
   const [year, month] = asOf.split("-").map(Number);
   // All earlier months have a charge; the current month counts only after its
@@ -209,7 +208,9 @@ export function withBranchTimings<T extends { library_id?: string | null }>(
 export function shiftsOverlap(x: ShiftHours | null | undefined, y: ShiftHours | null | undefined) {
   const left = x ?? { name: "Full day", timings: y?.timings };
   const right = y ?? { name: "Full day", timings: x?.timings };
-  return shiftRanges(left).some(([a1, b1]) => shiftRanges(right).some(([a2, b2]) => a1 < b2 && a2 < b1));
+  return shiftRanges(left).some(([a1, b1]) =>
+    shiftRanges(right).some(([a2, b2]) => a1 < b2 && a2 < b1),
+  );
 }
 
 export interface ShiftOccupancy {

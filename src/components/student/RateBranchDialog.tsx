@@ -1,7 +1,13 @@
 import { useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
@@ -77,7 +83,8 @@ export function RateBranchDialog({
 
   const save = useMutation({
     mutationFn: async () => {
-      const overall_rating = Math.round((Object.values(scores).reduce((a, b) => a + b, 0) / 5) * 100) / 100;
+      const overall_rating =
+        Math.round((Object.values(scores).reduce((a, b) => a + b, 0) / 5) * 100) / 100;
       const payload = {
         library_id: libraryId,
         student_id: studentId,
@@ -107,12 +114,17 @@ export function RateBranchDialog({
           <DialogTitle className="flex items-center gap-2">
             <Star className="size-4 text-gold fill-gold" /> Rate {libraryName || "your branch"}
           </DialogTitle>
-          <DialogDescription>Your honest feedback helps others discover great study spaces.</DialogDescription>
+          <DialogDescription>
+            Your honest feedback helps others discover great study spaces.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           {PARAMS.map((p) => (
-            <div key={p.key} className="flex items-center justify-between gap-3 rounded-lg border border-panel-border bg-panel p-3">
+            <div
+              key={p.key}
+              className="flex items-center justify-between gap-3 rounded-lg border border-panel-border bg-panel p-3"
+            >
               <span className="text-sm font-medium">{p.label}</span>
               <StarRating
                 value={scores[p.key]}
@@ -164,7 +176,9 @@ export function RateBranchDialog({
             {save.isPending ? "Saving..." : existing.data ? "Update Rating" : "Submit Rating"}
           </Button>
           {filled < 5 && (
-            <p className="text-center text-xs text-muted-foreground">Rate all 5 parameters to submit.</p>
+            <p className="text-center text-xs text-muted-foreground">
+              Rate all 5 parameters to submit.
+            </p>
           )}
         </div>
       </DialogContent>

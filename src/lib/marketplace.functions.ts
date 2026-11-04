@@ -33,12 +33,21 @@ export const marketplaceSearch = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     // Only include libraries whose owner org is active/trial/grace (not suspended, not delisted).
-    const { data: orgs } = await supabaseAdmin.from("organizations").select("id, subscription_status");
-    const orgIds = (orgs ?? []).filter((o: any) => o.subscription_status !== "suspended").map((o: any) => o.id);
+    const { data: orgs } = await supabaseAdmin
+      .from("organizations")
+      .select("id, subscription_status");
+    const orgIds = (orgs ?? [])
+      .filter((o: any) => o.subscription_status !== "suspended")
+      .map((o: any) => o.id);
     const states = await Promise.all(
-      orgIds.map(async (id: string) => ({ id, state: (await supabaseAdmin.rpc("org_subscription_state", { _org_id: id })).data as string })),
+      orgIds.map(async (id: string) => ({
+        id,
+        state: (await supabaseAdmin.rpc("org_subscription_state", { _org_id: id })).data as string,
+      })),
     );
-    const activeOrgIds = new Set(states.filter((s) => s.state !== "expired_delisted").map((s) => s.id));
+    const activeOrgIds = new Set(
+      states.filter((s) => s.state !== "expired_delisted").map((s) => s.id),
+    );
 
     let q = supabaseAdmin
       .from("libraries")
@@ -50,30 +59,44 @@ export const marketplaceSearch = createServerFn({ method: "POST" })
       .eq("approval_status", "approved");
 
     if (data.zone) q = q.ilike("zone_area", `%${data.zone}%`);
-    if (data.query) q = q.or(`name.ilike.%${data.query}%,city.ilike.%${data.query}%,zone_area.ilike.%${data.query}%`);
+    if (data.query)
+      q = q.or(
+        `name.ilike.%${data.query}%,city.ilike.%${data.query}%,zone_area.ilike.%${data.query}%`,
+      );
     if (data.exam_id) q = q.contains("targeted_exam_ids", [data.exam_id]);
     const { data: libs } = await q.order("name");
     const libraries = (libs ?? []).filter((l: any) => activeOrgIds.has(l.org_id));
     if (!libraries.length) return { libraries: [] as any[] };
 
     const libIds = libraries.map((l: any) => l.id);
-    const [seatsRes, allocsRes, examsRes, photosRes, ratingsRes, shiftsRes, sectionsRes] = await Promise.all([
-      supabaseAdmin.from("seats").select("id, library_id, section_id").in("library_id", libIds).eq("is_active", true),
-      supabaseAdmin
-        .from("allocations")
-        .select("library_id, seat_id, student_id, shift_id")
-        .eq("is_active", true)
-        .in("library_id", libIds),
-      supabaseAdmin.from("master_exams").select("id, name"),
-      supabaseAdmin
-        .from("library_photos")
-        .select("library_id, image_url, display_order")
-        .in("library_id", libIds)
-        .order("display_order", { ascending: true }),
-      supabaseAdmin.from("library_ratings").select("library_id, overall_rating").in("library_id", libIds),
-      supabaseAdmin.from("shifts").select("id, name, library_id, section_id, start_time, end_time").in("library_id", libIds),
-      supabaseAdmin.from("sections").select("*").in("library_id", libIds),
-    ]);
+    const [seatsRes, allocsRes, examsRes, photosRes, ratingsRes, shiftsRes, sectionsRes] =
+      await Promise.all([
+        supabaseAdmin
+          .from("seats")
+          .select("id, library_id, section_id")
+          .in("library_id", libIds)
+          .eq("is_active", true),
+        supabaseAdmin
+          .from("allocations")
+          .select("library_id, seat_id, student_id, shift_id")
+          .eq("is_active", true)
+          .in("library_id", libIds),
+        supabaseAdmin.from("master_exams").select("id, name"),
+        supabaseAdmin
+          .from("library_photos")
+          .select("library_id, image_url, display_order")
+          .in("library_id", libIds)
+          .order("display_order", { ascending: true }),
+        supabaseAdmin
+          .from("library_ratings")
+          .select("library_id, overall_rating")
+          .in("library_id", libIds),
+        supabaseAdmin
+          .from("shifts")
+          .select("id, name, library_id, section_id, start_time, end_time")
+          .in("library_id", libIds),
+        supabaseAdmin.from("sections").select("*").in("library_id", libIds),
+      ]);
 
     const seats = seatsRes.data ?? [];
     const allocs = allocsRes.data ?? [];
@@ -87,7 +110,10 @@ export const marketplaceSearch = createServerFn({ method: "POST" })
     const studentIds = Array.from(new Set(allocs.map((a: any) => a.student_id)));
     let studentExam = new Map<string, string | null>();
     if (studentIds.length) {
-      const { data: st } = await supabaseAdmin.from("students").select("id, target_exam_id").in("id", studentIds);
+      const { data: st } = await supabaseAdmin
+        .from("students")
+        .select("id, target_exam_id")
+        .in("id", studentIds);
       studentExam = new Map((st ?? []).map((s: any) => [s.id, s.target_exam_id]));
     }
 
@@ -99,34 +125,49 @@ export const marketplaceSearch = createServerFn({ method: "POST" })
       ratingsByLib.set(r.library_id, cur);
     }
 
-
-
-
-
     const hasNear = typeof data.near_lat === "number" && typeof data.near_lng === "number";
-    const nearOrigin = hasNear ? { lat: data.near_lat as number, lng: data.near_lng as number } : null;
+    const nearOrigin = hasNear
+      ? { lat: data.near_lat as number, lng: data.near_lng as number }
+      : null;
     const radius = data.radius_km ?? null;
 
     const mapped = libraries.map((l: any) => {
       const libSeats = seats.filter((s: any) => s.library_id === l.id);
       const libAllocs = allocs.filter((a: any) => a.library_id === l.id);
       const total = libSeats.length;
-      const occupied = new Set(libAllocs.filter((a: any) => a.seat_id).map((a: any) => a.seat_id)).size;
-      const branchShifts = withBranchTimings((shiftsRes.data ?? []).filter((s) => s.library_id === l.id), () => parseBranchTimings(l.shifts));
+      const occupied = new Set(libAllocs.filter((a: any) => a.seat_id).map((a: any) => a.seat_id))
+        .size;
+      const branchShifts = withBranchTimings(
+        (shiftsRes.data ?? []).filter((s) => s.library_id === l.id),
+        () => parseBranchTimings(l.shifts),
+      );
       const shiftMap = new Map(branchShifts.map((s) => [s.id, s]));
       const branchSections = (sectionsRes.data ?? []).filter((sec) => sec.library_id === l.id);
       const availableKeys = new Set<string>();
-      const targetsBySection = new Map<string, (typeof branchShifts[number] | null)[]>();
+      const targetsBySection = new Map<string, ((typeof branchShifts)[number] | null)[]>();
       for (const section of branchSections) {
-        const choices = selectableShifts(branchShifts, section.id, section, l.shifts, l.shift_schedule_configured);
+        const choices = selectableShifts(
+          branchShifts,
+          section.id,
+          section,
+          l.shifts,
+          l.shift_schedule_configured,
+        );
         const targets = [...(section.allow_full_day ? [null] : []), ...choices];
         targetsBySection.set(section.id, targets);
         for (const target of targets) availableKeys.add(shiftKey(target?.name));
       }
       const vacant = libSeats.filter((seat: any) => {
-        const targets = (targetsBySection.get(seat.section_id) ?? []).filter((s) => !data.shift || data.shift === "all" || shiftKey(s?.name) === data.shift);
+        const targets = (targetsBySection.get(seat.section_id) ?? []).filter(
+          (s) => !data.shift || data.shift === "all" || shiftKey(s?.name) === data.shift,
+        );
         const bookings = libAllocs.filter((a: any) => a.seat_id === seat.id);
-        return targets.some((target) => !bookings.some((a: any) => shiftsOverlap(a.shift_id ? shiftMap.get(a.shift_id) : null, target)));
+        return targets.some(
+          (target) =>
+            !bookings.some((a: any) =>
+              shiftsOverlap(a.shift_id ? shiftMap.get(a.shift_id) : null, target),
+            ),
+        );
       }).length;
       const examCounts = new Map<string, number>();
       for (const a of libAllocs) {
@@ -151,7 +192,8 @@ export const marketplaceSearch = createServerFn({ method: "POST" })
         distance_km = haversineKm(nearOrigin, { lat: l.latitude, lng: l.longitude });
       }
       const ragg = ratingsByLib.get(l.id);
-      const avg_rating = ragg && ragg.count > 0 ? Math.round((ragg.sum / ragg.count) * 10) / 10 : null;
+      const avg_rating =
+        ragg && ragg.count > 0 ? Math.round((ragg.sum / ragg.count) * 10) / 10 : null;
       const rating_count = ragg?.count ?? 0;
 
       return {
@@ -170,7 +212,9 @@ export const marketplaceSearch = createServerFn({ method: "POST" })
         description: l.description,
         show_public_availability: l.show_public_availability,
         vacant_count: l.show_public_availability ? vacant : null,
-        targeted_exam_names: (l.targeted_exam_ids ?? []).map((id: string) => examMap.get(id)).filter(Boolean),
+        targeted_exam_names: (l.targeted_exam_ids ?? [])
+          .map((id: string) => examMap.get(id))
+          .filter(Boolean),
         social_proof: socialProof,
         latitude: l.latitude ?? null,
         longitude: l.longitude ?? null,
@@ -180,10 +224,12 @@ export const marketplaceSearch = createServerFn({ method: "POST" })
       };
     });
 
-
-    let final = mapped.filter((l) => !data.shift || data.shift === "all" || l.available_shifts.includes(data.shift));
+    let final = mapped.filter(
+      (l) => !data.shift || data.shift === "all" || l.available_shifts.includes(data.shift),
+    );
     if (nearOrigin) {
-      if (radius) final = final.filter((l) => l.distance_km !== null && (l.distance_km as number) <= radius);
+      if (radius)
+        final = final.filter((l) => l.distance_km !== null && (l.distance_km as number) <= radius);
       final = final.slice().sort((a, b) => {
         const da = a.distance_km ?? Number.POSITIVE_INFINITY;
         const db = b.distance_km ?? Number.POSITIVE_INFINITY;
@@ -211,7 +257,9 @@ export const listPublicZones = createServerFn({ method: "GET" }).handler(async (
     .eq("is_active", true)
     .eq("approval_status", "approved")
     .not("zone_area", "is", null);
-  const zones = Array.from(new Set((data ?? []).map((r: any) => (r.zone_area ?? "").trim()).filter(Boolean))).sort();
+  const zones = Array.from(
+    new Set((data ?? []).map((r: any) => (r.zone_area ?? "").trim()).filter(Boolean)),
+  ).sort();
   return zones as string[];
 });
 
@@ -223,10 +271,11 @@ export const listPublicCities = createServerFn({ method: "GET" }).handler(async 
     .eq("is_active", true)
     .eq("approval_status", "approved")
     .not("city", "is", null);
-  const cities = Array.from(new Set((data ?? []).map((r: any) => (r.city ?? "").trim()).filter(Boolean))).sort();
+  const cities = Array.from(
+    new Set((data ?? []).map((r: any) => (r.city ?? "").trim()).filter(Boolean)),
+  ).sort();
   return cities as string[];
 });
-
 
 export const submitSeatRequest = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
@@ -237,7 +286,18 @@ export const submitSeatRequest = createServerFn({ method: "POST" })
         mobile_number: z.string().regex(/^[0-9]{10}$/),
         target_exam_id: z.string().uuid().optional().nullable(),
         message: z.string().trim().max(1000).optional().nullable(),
-        preferred_shift: z.enum(["full_day", "morning", "evening", "night", "morning_night", "evening_night", "24_hrs"]).optional().nullable(),
+        preferred_shift: z
+          .enum([
+            "full_day",
+            "morning",
+            "evening",
+            "night",
+            "morning_night",
+            "evening_night",
+            "24_hrs",
+          ])
+          .optional()
+          .nullable(),
       })
       .parse(d),
   )
@@ -297,7 +357,9 @@ export const getPublicRatingSummary = createServerFn({ method: "POST" })
       .eq("approval_status", "approved")
       .maybeSingle();
     if (!lib) return null;
-    const { data: rows } = await supabaseAdmin.rpc("get_library_rating_summary", { _library_id: data.library_id });
+    const { data: rows } = await supabaseAdmin.rpc("get_library_rating_summary", {
+      _library_id: data.library_id,
+    });
     const s = Array.isArray(rows) ? rows[0] : rows;
     return (s ?? null) as any;
   });

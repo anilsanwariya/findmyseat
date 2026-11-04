@@ -35,7 +35,11 @@ export async function buildStudentExportRows(opts: {
   if (error) throw error;
   const list = (students ?? []).filter((s: any) => {
     const rows = opts.isActive ? s.allocations?.filter((a: any) => a.is_active) : s.allocations;
-    return !opts.shiftFilter || opts.shiftFilter === "all" || (rows ?? []).some((a: any) => matchesShift(a.shifts?.name, opts.shiftFilter ?? "all"));
+    return (
+      !opts.shiftFilter ||
+      opts.shiftFilter === "all" ||
+      (rows ?? []).some((a: any) => matchesShift(a.shifts?.name, opts.shiftFilter ?? "all"))
+    );
   });
   if (!list.length) return [];
 
@@ -60,7 +64,9 @@ export async function buildStudentExportRows(opts: {
   }
 
   return list.map((s: any) => {
-    const allocs = ((s.allocations ?? []) as any[]).filter((a) => !opts.shiftFilter || matchesShift(a.shifts?.name, opts.shiftFilter));
+    const allocs = ((s.allocations ?? []) as any[]).filter(
+      (a) => !opts.shiftFilter || matchesShift(a.shifts?.name, opts.shiftFilter),
+    );
     const alloc =
       allocs.find((a) => a.is_active) ??
       [...allocs].sort((a, b) => (a.created_at < b.created_at ? 1 : -1))[0] ??

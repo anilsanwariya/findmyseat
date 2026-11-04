@@ -137,7 +137,10 @@ export const createStudent = createServerFn({ method: "POST" })
     return { ok: true, student_id: student.id, reused: false };
   });
 
-const ArchiveAllocationSchema = z.object({ allocation_id: z.string().uuid(), archived: z.boolean() });
+const ArchiveAllocationSchema = z.object({
+  allocation_id: z.string().uuid(),
+  archived: z.boolean(),
+});
 export const archiveMyAllocation = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => ArchiveAllocationSchema.parse(d))
@@ -227,7 +230,8 @@ export const updateStudent = createServerFn({ method: "POST" })
       })
       .eq("id", s.id);
     if (error) {
-      if (error.code === "23505") throw new Error("That mobile number is already registered in your organization.");
+      if (error.code === "23505")
+        throw new Error("That mobile number is already registered in your organization.");
       throw new Error(error.message);
     }
     return { ok: true };
@@ -283,7 +287,9 @@ export const resetStudentPin = createServerFn({ method: "POST" })
     if (!s || s.org_id !== orgId) throw new Error("Student not in your organization");
     if (!s.user_id) throw new Error("Student has no auth user");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error: uErr } = await supabaseAdmin.auth.admin.updateUserById(s.user_id, { password: s.dob + PIN_SUFFIX }); // Suffix appended here
+    const { error: uErr } = await supabaseAdmin.auth.admin.updateUserById(s.user_id, {
+      password: s.dob + PIN_SUFFIX,
+    }); // Suffix appended here
     if (uErr) throw new Error(uErr.message);
     await supabaseAdmin.from("students").update({ requires_pin_change: true }).eq("id", s.id);
     return { ok: true };
@@ -308,7 +314,10 @@ export const changeMyPin = createServerFn({ method: "POST" })
       password: data.new_pin + PIN_SUFFIX,
     }); // Suffix appended here
     if (error) throw new Error(error.message);
-    await supabaseAdmin.from("students").update({ requires_pin_change: false }).eq("id", student.id);
+    await supabaseAdmin
+      .from("students")
+      .update({ requires_pin_change: false })
+      .eq("id", student.id);
     return { ok: true };
   });
 
@@ -348,7 +357,10 @@ export const setStudentEmailByAdmin = createServerFn({ method: "POST" })
       .maybeSingle();
     if (!s || s.org_id !== orgId) throw new Error("Not your student");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin.from("students").update({ email: data.email.toLowerCase() }).eq("id", s.id);
+    const { error } = await supabaseAdmin
+      .from("students")
+      .update({ email: data.email.toLowerCase() })
+      .eq("id", s.id);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
@@ -416,7 +428,8 @@ export const verifyPinReset = createServerFn({ method: "POST" })
       .limit(1)
       .maybeSingle();
     if (!otp) throw new Error("No reset in progress");
-    if (new Date(otp.expires_at).getTime() < Date.now()) throw new Error("Code expired — request a new one");
+    if (new Date(otp.expires_at).getTime() < Date.now())
+      throw new Error("Code expired — request a new one");
     if (otp.attempts >= 5) throw new Error("Too many attempts");
     // Consume one attempt atomically before comparing, so parallel guesses
     // cannot get around the limit.
@@ -445,8 +458,14 @@ export const verifyPinReset = createServerFn({ method: "POST" })
       email_confirm: true,
     });
     if (uErr) throw new Error(uErr.message);
-    await supabaseAdmin.from("students").update({ requires_pin_change: false }).eq("id", student.id);
-    await supabaseAdmin.from("pin_reset_otps").update({ consumed_at: new Date().toISOString() }).eq("id", otp.id);
+    await supabaseAdmin
+      .from("students")
+      .update({ requires_pin_change: false })
+      .eq("id", student.id);
+    await supabaseAdmin
+      .from("pin_reset_otps")
+      .update({ consumed_at: new Date().toISOString() })
+      .eq("id", otp.id);
     return { ok: true };
   });
 
@@ -590,13 +609,10 @@ export const verifyEmailOtp = createServerFn({ method: "POST" })
       throw new Error(sErr.message);
     }
 
-
-
     // NOTE: Do NOT update auth.users.email — student login uses the
     // synthetic `<mobile>@students.librarybandhu.local` address. Changing
     // it breaks PIN sign-in. The verified email lives only on the
     // students profile row (used for OTP / notifications).
-
 
     // 3) Consume the OTP.
     await supabaseAdmin.from("email_verification_otps").delete().eq("id", otp.id);

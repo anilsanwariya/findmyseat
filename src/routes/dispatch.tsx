@@ -13,8 +13,14 @@ function Dispatch() {
 
   useEffect(() => {
     if (isLoading) return;
-    if (!data?.userId) { navigate({ to: "/auth" }); return; }
-    if (!data.role) { navigate({ to: "/onboarding" }); return; }
+    if (!data?.userId) {
+      navigate({ to: "/auth" });
+      return;
+    }
+    if (!data.role) {
+      navigate({ to: "/onboarding" });
+      return;
+    }
     if (data.role === "super_admin") {
       navigate({ to: "/super-admin" });
     } else if (data.role === "org_admin") {
@@ -28,7 +34,9 @@ function Dispatch() {
     <div className="relative min-h-screen">
       <AuroraBackground />
       <div className="relative z-10 flex min-h-screen items-center justify-center">
-        <div className="font-mono text-xs uppercase tracking-widest text-muted-foreground">Routing…</div>
+        <div className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
+          Routing…
+        </div>
       </div>
     </div>
   );

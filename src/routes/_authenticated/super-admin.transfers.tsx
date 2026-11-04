@@ -4,9 +4,24 @@ import { supabase } from "@/integrations/supabase/client";
 import { GlassPanel, SectionHeader } from "@/components/glass";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { ArrowRightLeft, CheckCircle2, XCircle, Eye, Mail, Phone, User, Building2 } from "lucide-react";
+import {
+  ArrowRightLeft,
+  CheckCircle2,
+  XCircle,
+  Eye,
+  Mail,
+  Phone,
+  User,
+  Building2,
+} from "lucide-react";
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { useConfirm } from "@/components/ConfirmDialog";
 
 export const Route = createFileRoute("/_authenticated/super-admin/transfers")({
@@ -17,7 +32,10 @@ export const Route = createFileRoute("/_authenticated/super-admin/transfers")({
 function TransfersPage() {
   return (
     <div className="space-y-6">
-      <SectionHeader title="Branch transfers" hint="Ownership hand-over requests awaiting verification" />
+      <SectionHeader
+        title="Branch transfers"
+        hint="Ownership hand-over requests awaiting verification"
+      />
       <PendingTransfers />
     </div>
   );
@@ -44,9 +62,14 @@ function PendingTransfers() {
       const libIds = Array.from(new Set(list.map((r: any) => r.library_id).filter(Boolean)));
       const orgIds = Array.from(new Set(list.map((r: any) => r.org_id).filter(Boolean)));
       const [libsRes, orgsRes] = await Promise.all([
-        libIds.length ? sb.from("libraries").select("id, name").in("id", libIds) : Promise.resolve({ data: [] as any[] }),
+        libIds.length
+          ? sb.from("libraries").select("id, name").in("id", libIds)
+          : Promise.resolve({ data: [] as any[] }),
         orgIds.length
-          ? sb.from("organizations").select("id, company_name, owner_name, contact_phone, contact_email").in("id", orgIds)
+          ? sb
+              .from("organizations")
+              .select("id, company_name, owner_name, contact_phone, contact_email")
+              .in("id", orgIds)
           : Promise.resolve({ data: [] as any[] }),
       ]);
       const libMap = new Map((libsRes.data ?? []).map((l: any) => [l.id, l]));
@@ -70,7 +93,9 @@ function PendingTransfers() {
       return;
     setBusy(row.id);
     try {
-      const { data: newOrgId, error: findErr } = await sb.rpc("find_org_by_email", { _email: row.buyer_email });
+      const { data: newOrgId, error: findErr } = await sb.rpc("find_org_by_email", {
+        _email: row.buyer_email,
+      });
       if (findErr) throw findErr;
       if (!newOrgId) {
         toast.error("Buyer has not created an account yet.");
@@ -83,7 +108,11 @@ function PendingTransfers() {
       if (rpcErr) throw rpcErr;
       const { error: upErr } = await sb
         .from("branch_transfer_requests")
-        .update({ status: "completed", completed_at: new Date().toISOString(), new_org_id: newOrgId })
+        .update({
+          status: "completed",
+          completed_at: new Date().toISOString(),
+          new_org_id: newOrgId,
+        })
         .eq("id", row.id);
       if (upErr) throw upErr;
       toast.success("Transfer completed");
@@ -115,7 +144,9 @@ function PendingTransfers() {
           <h3 className="flex items-center gap-2 text-base font-semibold">
             <ArrowRightLeft className="size-4 text-amber-300" /> Pending branch transfers
           </h3>
-          <p className="text-xs text-muted-foreground">Verify both parties offline before completing.</p>
+          <p className="text-xs text-muted-foreground">
+            Verify both parties offline before completing.
+          </p>
         </div>
         <span className="rounded-full border border-amber-400/40 bg-amber-400/10 px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-widest text-amber-300">
           {data?.length ?? 0} pending
@@ -145,7 +176,10 @@ function PendingTransfers() {
                 <tr key={row.id} className="border-b border-panel-border/50">
                   <td className="py-3 pr-3">{row.organizations?.company_name ?? "—"}</td>
                   <td className="py-3 pr-3 font-medium">
-                    <button onClick={() => setDetails(row)} className="text-left text-cyan hover:underline">
+                    <button
+                      onClick={() => setDetails(row)}
+                      className="text-left text-cyan hover:underline"
+                    >
                       {row.libraries?.name ?? "—"}
                     </button>
                   </td>
@@ -155,7 +189,12 @@ function PendingTransfers() {
                   </td>
                   <td className="py-3 pr-3">
                     <div className="flex justify-end gap-2">
-                      <Button size="sm" variant="outline" onClick={() => setDetails(row)} className="h-7">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setDetails(row)}
+                        className="h-7"
+                      >
                         <Eye className="mr-1 size-3" /> Details
                       </Button>
                       <Button
@@ -192,7 +231,9 @@ function PendingTransfers() {
               <Building2 className="size-4 text-amber-300" />
               {details?.libraries?.name ?? "Branch"}
             </DialogTitle>
-            <DialogDescription>Contact both parties to verify the transfer before completing.</DialogDescription>
+            <DialogDescription>
+              Contact both parties to verify the transfer before completing.
+            </DialogDescription>
           </DialogHeader>
 
           {details && (
@@ -213,7 +254,10 @@ function PendingTransfers() {
                   <div className="flex items-center gap-2">
                     <Mail className="size-3.5 text-muted-foreground" />
                     {details.organizations?.contact_email ? (
-                      <a href={`mailto:${details.organizations.contact_email}`} className="text-cyan hover:underline">
+                      <a
+                        href={`mailto:${details.organizations.contact_email}`}
+                        className="text-cyan hover:underline"
+                      >
                         {details.organizations.contact_email}
                       </a>
                     ) : (
@@ -223,7 +267,10 @@ function PendingTransfers() {
                   <div className="flex items-center gap-2">
                     <Phone className="size-3.5 text-muted-foreground" />
                     {details.organizations?.contact_phone ? (
-                      <a href={`tel:${details.organizations.contact_phone}`} className="text-cyan hover:underline">
+                      <a
+                        href={`tel:${details.organizations.contact_phone}`}
+                        className="text-cyan hover:underline"
+                      >
                         {details.organizations.contact_phone}
                       </a>
                     ) : (
@@ -234,14 +281,18 @@ function PendingTransfers() {
               </section>
 
               <section className="rounded-lg border border-emerald/30 bg-emerald/5 p-4">
-                <div className="mb-3 font-mono text-[10px] uppercase tracking-widest text-emerald">New Owner (Buyer)</div>
+                <div className="mb-3 font-mono text-[10px] uppercase tracking-widest text-emerald">
+                  New Owner (Buyer)
+                </div>
                 <div className="flex items-center gap-2 text-sm">
                   <Mail className="size-3.5 text-muted-foreground" />
                   <a href={`mailto:${details.buyer_email}`} className="text-cyan hover:underline">
                     {details.buyer_email}
                   </a>
                 </div>
-                {details.notes && <p className="mt-3 text-xs text-muted-foreground">Note: {details.notes}</p>}
+                {details.notes && (
+                  <p className="mt-3 text-xs text-muted-foreground">Note: {details.notes}</p>
+                )}
               </section>
 
               <p className="text-[11px] text-muted-foreground">

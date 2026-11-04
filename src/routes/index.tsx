@@ -9,8 +9,20 @@ import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -75,7 +87,10 @@ export const Route = createFileRoute("/")({
 
 export const AMENITIES_DICT: Record<string, { en: string; hi: string }> = {
   ac: { en: "Fully air-conditioned halls", hi: "पूरी तरह से वातानुकूलित हॉल" },
-  wifi: { en: "High-speed Wi-Fi & individual charging", hi: "हाई-स्पीड वाई-फाई और व्यक्तिगत चार्जिंग" },
+  wifi: {
+    en: "High-speed Wi-Fi & individual charging",
+    hi: "हाई-स्पीड वाई-फाई और व्यक्तिगत चार्जिंग",
+  },
   power_backup: { en: "100% Power backup (AC & Wi-Fi)", hi: "100% पावर बैकअप (एसी और वाई-फाई)" },
   cctv: { en: "24/7 CCTV security", hi: "24/7 सीसीटीवी सुरक्षा" },
   lockers: { en: "Secure personal lockers", hi: "सुरक्षित व्यक्तिगत लॉकर" },
@@ -84,7 +99,10 @@ export const AMENITIES_DICT: Record<string, { en: string; hi: string }> = {
   desk_lights: { en: "Individual desk lighting", hi: "व्यक्तिगत डेस्क लाइट" },
   female_seating: { en: "Dedicated female seating zone", hi: "समर्पित महिला बैठने का क्षेत्र" },
   hygienic_washrooms: { en: "Hygienic washrooms", hi: "स्वच्छ वॉशरूम" },
-  female_washroom: { en: "Separate washroom for female students", hi: "महिला छात्रों के लिए अलग वॉशरूम" },
+  female_washroom: {
+    en: "Separate washroom for female students",
+    hi: "महिला छात्रों के लिए अलग वॉशरूम",
+  },
   ro_water: { en: "RO / Purified drinking water", hi: "आरओ / शुद्ध पीने का पानी" },
   dining_area: { en: "Separate dining / lunch area", hi: "अलग डाइनिंग / लंच एरिया" },
   appliances: { en: "Microwave & Tea/Coffee machine", hi: "माइक्रोवेव और चाय/कॉफी मशीन" },
@@ -110,7 +128,9 @@ function Marketplace() {
       .catch(() => {
         // A missing or unavailable session must not block public discovery.
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [navigate]);
 
   const [shiftFilter, setShiftFilter] = useState("all");
@@ -135,8 +155,16 @@ function Marketplace() {
     staleTime: 10 * 60_000,
   });
 
-  const exams = useQuery({ queryKey: ["public-exams"], queryFn: () => examsFn(), staleTime: 10 * 60_000 });
-  const zones = useQuery({ queryKey: ["public-zones"], queryFn: () => zonesFn(), staleTime: 10 * 60_000 });
+  const exams = useQuery({
+    queryKey: ["public-exams"],
+    queryFn: () => examsFn(),
+    staleTime: 10 * 60_000,
+  });
+  const zones = useQuery({
+    queryKey: ["public-zones"],
+    queryFn: () => zonesFn(),
+    staleTime: 10 * 60_000,
+  });
 
   const results = useQuery({
     queryKey: [
@@ -220,20 +248,37 @@ function Marketplace() {
           </nav>
         </header>
 
-        <section aria-labelledby="owner-registration-heading" className="w-full border-y border-gold/20 bg-gold/5">
+        <section
+          aria-labelledby="owner-registration-heading"
+          className="w-full border-y border-gold/20 bg-gold/5"
+        >
           <div className="mx-auto flex w-full max-w-5xl flex-col items-start justify-between gap-4 px-4 py-5 sm:flex-row sm:items-center sm:px-6">
             <div className="flex items-center gap-3">
               <Building2 aria-hidden="true" className="size-6 shrink-0 text-gold" />
-              <h2 id="owner-registration-heading" className="text-lg font-semibold">Own a library or study space?</h2>
+              <h2 id="owner-registration-heading" className="text-lg font-semibold">
+                Own a library or study space?
+              </h2>
             </div>
             <div className="flex w-full flex-col items-start gap-2 sm:w-auto sm:items-end">
-              <Button asChild className="h-auto min-h-11 w-full whitespace-normal bg-gold py-3 text-primary-foreground hover:bg-gold/90 sm:w-auto">
-                <Link to="/owners">Click here to register your library <ArrowRight aria-hidden="true" /></Link>
+              <Button
+                asChild
+                className="h-auto min-h-11 w-full whitespace-normal bg-gold py-3 text-primary-foreground hover:bg-gold/90 sm:w-auto"
+              >
+                <Link to="/owners">
+                  Click here to register your library <ArrowRight aria-hidden="true" />
+                </Link>
               </Button>
               <div className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
                 <span>Already registered?</span>
-                <Button asChild variant="link" size="sm" className="h-auto px-1 py-1 text-foreground">
-                  <Link to="/owner-login">Owner sign in <ArrowRight aria-hidden="true" /></Link>
+                <Button
+                  asChild
+                  variant="link"
+                  size="sm"
+                  className="h-auto px-1 py-1 text-foreground"
+                >
+                  <Link to="/owner-login">
+                    Owner sign in <ArrowRight aria-hidden="true" />
+                  </Link>
                 </Button>
               </div>
             </div>
@@ -246,11 +291,14 @@ function Marketplace() {
           </div>
           <h1 className="mt-5 text-4xl font-extrabold tracking-tight sm:text-6xl">
             Find the{" "}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan to-violet">perfect space</span>{" "}
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan to-violet">
+              perfect space
+            </span>{" "}
             for your prep
           </h1>
           <p className="mx-auto mt-4 max-w-xl text-sm text-muted-foreground sm:text-base">
-            Search by city, zone, or target exam. Request a seat in one tap — the library owner will reach out.
+            Search by city, zone, or target exam. Request a seat in one tap — the library owner will
+            reach out.
           </p>
 
           <GlassPanel className="mx-auto mt-8 flex flex-col xl:flex-row gap-3 p-3 items-stretch lg:items-center">
@@ -380,8 +428,8 @@ function Marketplace() {
               </div>
               <h3 className="text-lg font-bold text-slate-200">No libraries found</h3>
               <p className="mt-2 text-sm text-muted-foreground mb-6">
-                We couldn't find any spaces matching your current filters. Try adjusting your search criteria or
-                location radius.
+                We couldn't find any spaces matching your current filters. Try adjusting your search
+                criteria or location radius.
               </p>
               <Button
                 onClick={clearFilters}
@@ -418,7 +466,10 @@ function Marketplace() {
               <Link to="/terms" className="transition-colors hover:text-cyan">
                 Terms of Service
               </Link>
-              <a href="mailto:flashgyanedtech@gmail.com" className="transition-colors hover:text-cyan">
+              <a
+                href="mailto:flashgyanedtech@gmail.com"
+                className="transition-colors hover:text-cyan"
+              >
                 Contact Support
               </a>
             </nav>
@@ -434,7 +485,11 @@ function Marketplace() {
           setDetailsLib(null);
         }}
       />
-      <RequestSeatDialog lib={requestLib} onClose={() => setRequestLib(null)} exams={exams.data ?? []} />
+      <RequestSeatDialog
+        lib={requestLib}
+        onClose={() => setRequestLib(null)}
+        exams={exams.data ?? []}
+      />
     </div>
   );
 }
@@ -506,10 +561,13 @@ function LibraryCard({
       <div className="flex flex-1 flex-col p-4 sm:p-5 relative">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 cursor-pointer" onClick={onViewDetails}>
-            <h3 className="truncate text-lg font-bold group-hover:text-cyan transition-colors">{lib.name}</h3>
+            <h3 className="truncate text-lg font-bold group-hover:text-cyan transition-colors">
+              {lib.name}
+            </h3>
             {(lib.zone_area || lib.city) && (
               <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-                <MapPin className="size-3 text-cyan/70" /> {[lib.zone_area, lib.city].filter(Boolean).join(" · ")}
+                <MapPin className="size-3 text-cyan/70" />{" "}
+                {[lib.zone_area, lib.city].filter(Boolean).join(" · ")}
               </p>
             )}
           </div>
@@ -519,7 +577,9 @@ function LibraryCard({
             {typeof lib.distance_km === "number" && (
               <span className="inline-flex items-center gap-1 rounded-full border border-cyan/30 bg-cyan/10 px-2 py-0.5 font-mono text-[10px] text-cyan">
                 <LocateFixed className="size-2.5" />
-                {lib.distance_km < 1 ? `${Math.round(lib.distance_km * 1000)} m` : `${lib.distance_km.toFixed(1)} km`}
+                {lib.distance_km < 1
+                  ? `${Math.round(lib.distance_km * 1000)} m`
+                  : `${lib.distance_km.toFixed(1)} km`}
               </span>
             )}
           </div>
@@ -536,7 +596,9 @@ function LibraryCard({
         )}
 
         {lib.description && (
-          <p className="mt-3 line-clamp-2 text-xs text-slate-300/80 leading-relaxed">{lib.description}</p>
+          <p className="mt-3 line-clamp-2 text-xs text-slate-300/80 leading-relaxed">
+            {lib.description}
+          </p>
         )}
 
         <div className="mt-4 flex flex-wrap gap-1.5 cursor-pointer" onClick={onViewDetails}>
@@ -648,7 +710,9 @@ function LibraryDetailsDialog({
       <Dialog open={!!lib} onOpenChange={(o) => !o && onClose()}>
         <DialogContent className="glass-strong border-panel-border max-w-2xl w-[95vw] max-h-[90vh] overflow-y-auto p-0 gap-0">
           <DialogTitle className="sr-only">Library Details: {lib.name}</DialogTitle>
-          <DialogDescription className="sr-only">Details, schedule, and amenities for {lib.name}</DialogDescription>
+          <DialogDescription className="sr-only">
+            Details, schedule, and amenities for {lib.name}
+          </DialogDescription>
 
           {/* Swipeable Photo Gallery with Arrows & Dots */}
           <div className="w-full h-56 sm:h-72 relative bg-gradient-to-br from-violet/20 via-cyan/10 to-magenta/20 flex-shrink-0 group">
@@ -661,7 +725,12 @@ function LibraryDetailsDialog({
                 >
                   {slides.map((p) => (
                     <div key={p.id} className="relative h-full w-full flex-shrink-0 snap-center">
-                      <img src={p.image_url} alt={p.section_name} className="size-full object-contain" loading="lazy" />
+                      <img
+                        src={p.image_url}
+                        alt={p.section_name}
+                        className="size-full object-contain"
+                        loading="lazy"
+                      />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent pointer-events-none" />
                       <div className="absolute left-4 bottom-5 inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-black/40 px-3 py-1.5 text-xs font-medium text-white backdrop-blur z-10">
                         {p.section_name}
@@ -697,7 +766,9 @@ function LibraryDetailsDialog({
                           key={i}
                           className={cn(
                             "rounded-full transition-all duration-300",
-                            activeSlideIndex === i ? "bg-white w-4 h-1.5" : "bg-white/40 w-1.5 h-1.5",
+                            activeSlideIndex === i
+                              ? "bg-white w-4 h-1.5"
+                              : "bg-white/40 w-1.5 h-1.5",
                           )}
                         />
                       ))}
@@ -715,7 +786,9 @@ function LibraryDetailsDialog({
           <div className="p-5 sm:p-8 space-y-7">
             {/* Header Info */}
             <div>
-              <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">{lib.name}</h2>
+              <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
+                {lib.name}
+              </h2>
               <p className="mt-2.5 flex items-start gap-2 text-sm text-slate-300">
                 <MapPin className="size-4 shrink-0 mt-0.5 text-cyan" />
                 <span className="leading-relaxed">
@@ -761,7 +834,9 @@ function LibraryDetailsDialog({
                 <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-cyan mb-2">
                   <Clock className="size-4" /> Opening Hours
                 </div>
-                <div className="font-medium text-sm text-white">{lib.opening_hours || "Contact for timings"}</div>
+                <div className="font-medium text-sm text-white">
+                  {lib.opening_hours || "Contact for timings"}
+                </div>
                 {lib.shifts && (
                   <div className="text-xs text-muted-foreground mt-1.5 border-t border-panel-border/50 pt-1.5">
                     Shifts: {lib.shifts}
@@ -772,14 +847,18 @@ function LibraryDetailsDialog({
                 <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-rose mb-2">
                   <CalendarX className="size-4 text-rose" /> Closed On
                 </div>
-                <div className="font-medium text-sm text-white">{lib.closed_on || "Open 7 days a week"}</div>
+                <div className="font-medium text-sm text-white">
+                  {lib.closed_on || "Open 7 days a week"}
+                </div>
               </div>
             </div>
 
             {/* Amenities Section */}
             <div className="border-t border-panel-border/50 pt-6">
               <div className="flex items-center justify-between mb-5">
-                <h3 className="text-base font-bold tracking-tight text-white">Facilities & Amenities</h3>
+                <h3 className="text-base font-bold tracking-tight text-white">
+                  Facilities & Amenities
+                </h3>
                 <Button
                   type="button"
                   variant="outline"
@@ -793,7 +872,9 @@ function LibraryDetailsDialog({
               </div>
 
               {activeAmenities.length === 0 ? (
-                <p className="text-sm text-muted-foreground italic">Amenities not listed by owner.</p>
+                <p className="text-sm text-muted-foreground italic">
+                  Amenities not listed by owner.
+                </p>
               ) : (
                 <ul className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {activeAmenities.map((key) => (
@@ -815,7 +896,8 @@ function LibraryDetailsDialog({
                 Request a Seat Now <ArrowRight className="ml-2 size-5" />
               </Button>
               <p className="text-center text-[10px] text-muted-foreground mt-3">
-                No payment required to request. The library manager will contact you to confirm availability.
+                No payment required to request. The library manager will contact you to confirm
+                availability.
               </p>
             </div>
           </div>
@@ -859,9 +941,12 @@ function RatingBreakdownDialog({
         </DialogHeader>
         <div className="rounded-xl border border-gold/30 bg-gradient-to-br from-gold/10 to-transparent p-5 flex items-center justify-between shadow-lg">
           <div>
-            <div className="text-5xl font-extrabold text-gold">{Number(s?.avg_overall ?? 0).toFixed(1)}</div>
+            <div className="text-5xl font-extrabold text-gold">
+              {Number(s?.avg_overall ?? 0).toFixed(1)}
+            </div>
             <div className="text-xs text-muted-foreground mt-1 font-medium">
-              Based on {s?.total_reviews ?? 0} {(s?.total_reviews ?? 0) === 1 ? "review" : "reviews"}
+              Based on {s?.total_reviews ?? 0}{" "}
+              {(s?.total_reviews ?? 0) === 1 ? "review" : "reviews"}
             </div>
           </div>
           <Star className="size-14 fill-gold text-gold drop-shadow-[0_0_15px_rgba(251,191,36,0.5)]" />
@@ -876,7 +961,15 @@ function RatingBreakdownDialog({
   );
 }
 
-function RequestSeatDialog({ lib, onClose, exams }: { lib: any | null; onClose: () => void; exams: any[] }) {
+function RequestSeatDialog({
+  lib,
+  onClose,
+  exams,
+}: {
+  lib: any | null;
+  onClose: () => void;
+  exams: any[];
+}) {
   const submit = useServerFn(submitSeatRequest);
   const [name, setName] = useState("");
   const [mobile, setMobile] = useState("");
@@ -913,8 +1006,9 @@ function RequestSeatDialog({ lib, onClose, exams }: { lib: any | null; onClose: 
         <DialogHeader>
           <DialogTitle>Request a seat</DialogTitle>
           <DialogDescription>
-            Submit your details and the manager of <span className="font-semibold text-white">{lib?.name}</span> will
-            contact you to confirm.
+            Submit your details and the manager of{" "}
+            <span className="font-semibold text-white">{lib?.name}</span> will contact you to
+            confirm.
           </DialogDescription>
         </DialogHeader>
         <form
@@ -971,8 +1065,19 @@ function RequestSeatDialog({ lib, onClose, exams }: { lib: any | null; onClose: 
           <div className="space-y-2">
             <Label>Preferred shift</Label>
             <Select value={preferredShift} onValueChange={setPreferredShift}>
-              <SelectTrigger aria-label="Preferred shift" className="bg-panel border-panel-border"><SelectValue /></SelectTrigger>
-              <SelectContent><SelectItem value="unspecified">Not specified</SelectItem>{SHIFT_OPTIONS.filter((o) => (lib?.available_shifts ?? []).includes(o.value)).map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+              <SelectTrigger aria-label="Preferred shift" className="bg-panel border-panel-border">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="unspecified">Not specified</SelectItem>
+                {SHIFT_OPTIONS.filter((o) => (lib?.available_shifts ?? []).includes(o.value)).map(
+                  (o) => (
+                    <SelectItem key={o.value} value={o.value}>
+                      {o.label}
+                    </SelectItem>
+                  ),
+                )}
+              </SelectContent>
             </Select>
           </div>
           <div className="space-y-2">

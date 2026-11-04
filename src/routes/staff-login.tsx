@@ -71,7 +71,9 @@ function StaffLoginPage() {
                 </div>
                 <div>
                   <h1 className="text-xl font-bold">Staff sign in</h1>
-                  <p className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">Employees only</p>
+                  <p className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
+                    Employees only
+                  </p>
                 </div>
               </div>
               <p className="mt-4 text-sm text-muted-foreground">
@@ -80,22 +82,43 @@ function StaffLoginPage() {
               <form onSubmit={signIn} className="mt-6 space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="email">Work email</Label>
-                  <Input id="email" type="email" required autoComplete="email" value={email}
-                    onChange={(e) => setEmail(e.target.value)} className="bg-panel border-panel-border" />
+                  <Input
+                    id="email"
+                    type="email"
+                    required
+                    autoComplete="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="bg-panel border-panel-border"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="pw">Password</Label>
-                  <Input id="pw" type="password" required minLength={6} autoComplete="current-password"
-                    value={password} onChange={(e) => setPassword(e.target.value)} className="bg-panel border-panel-border" />
+                  <Input
+                    id="pw"
+                    type="password"
+                    required
+                    minLength={6}
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="bg-panel border-panel-border"
+                  />
                 </div>
-                <Button disabled={loading} type="submit" className="w-full bg-white text-slate-900 hover:bg-white/90">
+                <Button
+                  disabled={loading}
+                  type="submit"
+                  className="w-full bg-white text-slate-900 hover:bg-white/90"
+                >
                   {loading ? "…" : "Sign in"}
                 </Button>
               </form>
             </GlassPanel>
             <p className="mt-4 text-center text-xs text-muted-foreground">
               Are you the library owner?{" "}
-              <Link to="/owner-login" className="text-cyan hover:underline">Owner sign in →</Link>
+              <Link to="/owner-login" className="text-cyan hover:underline">
+                Owner sign in →
+              </Link>
             </p>
           </div>
         </div>

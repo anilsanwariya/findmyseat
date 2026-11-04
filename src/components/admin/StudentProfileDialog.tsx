@@ -336,7 +336,17 @@ export function StudentProfileDialog({
       .filter(Boolean)
       .join(" ");
   };
-  const waReminder = whatsappLink(s?.mobile_number, top && top.owed > 0 ? appendPaymentDetails(reminderText(), paymentDetails.data?.get(primary?.library_id ?? s?.library_id), typeof window === "undefined" ? "https://librarybandhu.com" : window.location.origin, top.owed) : reminderText());
+  const waReminder = whatsappLink(
+    s?.mobile_number,
+    top && top.owed > 0
+      ? appendPaymentDetails(
+          reminderText(),
+          paymentDetails.data?.get(primary?.library_id ?? s?.library_id),
+          typeof window === "undefined" ? "https://librarybandhu.com" : window.location.origin,
+          top.owed,
+        )
+      : reminderText(),
+  );
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ["student-profile", studentId] });

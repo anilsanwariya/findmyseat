@@ -21,26 +21,37 @@ export function matchesShift(name: string | null | undefined, filter: string) {
   return filter === "all" || shiftKey(name) === filter;
 }
 
-export function branchShiftEnabled(name: string | null | undefined, text?: string | null, configured = false) {
+export function branchShiftEnabled(
+  name: string | null | undefined,
+  text?: string | null,
+  configured = false,
+) {
   const timings = parseBranchTimings(text);
   if (!configured && !Object.keys(timings).length) return true; // untouched legacy branch
   const parts = partsOfShiftName(name);
   return !parts || parts.every((part) => !!timings[part]);
 }
 
-export function selectableShifts<T extends { id: string; name: string; section_id?: string | null }>(
-  shifts: T[], sectionId: string | null | undefined, section: Record<string, unknown> | null | undefined,
-  timingText?: string | null, configured = false,
+export function selectableShifts<
+  T extends { id: string; name: string; section_id?: string | null },
+>(
+  shifts: T[],
+  sectionId: string | null | undefined,
+  section: Record<string, unknown> | null | undefined,
+  timingText?: string | null,
+  configured = false,
 ) {
   const seen = new Set<string>();
-  return [...shifts].sort((a, b) => Number(!!b.section_id) - Number(!!a.section_id) || a.id.localeCompare(b.id)).filter((s) => {
-    if (s.section_id && s.section_id !== sectionId) return false;
-    const cls = classifyShiftByName(s.name);
-    if (section && cls && !section[cls.allowKey]) return false;
-    if (!branchShiftEnabled(s.name, timingText, configured)) return false;
-    const key = shiftKey(s.name);
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+  return [...shifts]
+    .sort((a, b) => Number(!!b.section_id) - Number(!!a.section_id) || a.id.localeCompare(b.id))
+    .filter((s) => {
+      if (s.section_id && s.section_id !== sectionId) return false;
+      const cls = classifyShiftByName(s.name);
+      if (section && cls && !section[cls.allowKey]) return false;
+      if (!branchShiftEnabled(s.name, timingText, configured)) return false;
+      const key = shiftKey(s.name);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
 }

@@ -10,8 +10,20 @@ import { GlassPanel, SectionHeader } from "@/components/glass";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { fmtDate } from "@/lib/format";
@@ -22,9 +34,23 @@ import { StudentFormDialog } from "@/components/admin/StudentFormDialog";
 import { buildStudentExportRows, downloadStudentWorkbook } from "@/lib/export-students";
 import { ViewToggle, useDataView } from "@/components/admin/ViewToggle";
 
-
 export const Route = createFileRoute("/_authenticated/admin/students")({
-  head: () => ({ meta: [{ title: "Students · LibraryBandhu" }, { name: "description", content: "Manage library students and filter their shift allocations." }, { property: "og:title", content: "Students · LibraryBandhu" }, { property: "og:description", content: "Manage library students and filter their shift allocations." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }] }),
+  head: () => ({
+    meta: [
+      { title: "Students · LibraryBandhu" },
+      {
+        name: "description",
+        content: "Manage library students and filter their shift allocations.",
+      },
+      { property: "og:title", content: "Students · LibraryBandhu" },
+      {
+        property: "og:description",
+        content: "Manage library students and filter their shift allocations.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
   component: StudentsPage,
 });
 
@@ -59,7 +85,9 @@ function StudentsPage() {
         return;
       }
       const label =
-        libraryFilter === "all" ? "all-branches" : (libs ?? []).find((l) => l.id === libraryFilter)?.name ?? "branch";
+        libraryFilter === "all"
+          ? "all-branches"
+          : ((libs ?? []).find((l) => l.id === libraryFilter)?.name ?? "branch");
       downloadStudentWorkbook(rows, `${label.toLowerCase().replace(/\s+/g, "-")}-${tab}`);
       toast.success(`Exported ${rows.length} students`);
     } catch (e: any) {
@@ -68,7 +96,6 @@ function StudentsPage() {
       setExporting(false);
     }
   };
-
 
   const students = useQuery({
     queryKey: ["students", orgId, tab, q, libraryFilter],
@@ -93,7 +120,10 @@ function StudentsPage() {
 
   const visibleStudents = (students.data ?? []).filter((s: any) => {
     const rows = tab === "active" ? s.allocations?.filter((a: any) => a.is_active) : s.allocations;
-    return shiftFilter === "all" || (rows ?? []).some((a: any) => matchesShift(a.shifts?.name, shiftFilter));
+    return (
+      shiftFilter === "all" ||
+      (rows ?? []).some((a: any) => matchesShift(a.shifts?.name, shiftFilter))
+    );
   });
   const invalidate = () => qc.invalidateQueries({ queryKey: ["students"] });
 
@@ -106,7 +136,10 @@ function StudentsPage() {
       */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div className="flex-1 w-full">
-          <SectionHeader title="Student Directory" hint="Onboard, edit, and manage student profiles." />
+          <SectionHeader
+            title="Student Directory"
+            hint="Onboard, edit, and manage student profiles."
+          />
         </div>
         <div className="w-full sm:w-auto shrink-0 mt-2 sm:mt-0 flex flex-col sm:flex-row gap-2">
           <Button
@@ -118,7 +151,6 @@ function StudentsPage() {
             <Download className="mr-1 size-4" /> {exporting ? "Exporting…" : "Export Excel"}
           </Button>
           <Dialog open={open} onOpenChange={setOpen}>
-
             <DialogTrigger asChild>
               <Button className="w-full sm:w-auto bg-white text-slate-900 hover:bg-white/90">
                 <Plus className="mr-1 size-4" /> New student
@@ -137,7 +169,11 @@ function StudentsPage() {
 
       <GlassPanel className="p-4 overflow-hidden flex flex-col min-w-0">
         <div className="mb-4 flex flex-col lg:flex-row gap-4 lg:items-center justify-between">
-          <Tabs value={tab} onValueChange={(v) => setTab(v as any)} className="w-full sm:w-auto overflow-x-auto">
+          <Tabs
+            value={tab}
+            onValueChange={(v) => setTab(v as any)}
+            className="w-full sm:w-auto overflow-x-auto"
+          >
             <TabsList className="bg-panel border border-panel-border inline-flex w-full sm:w-auto whitespace-nowrap">
               <TabsTrigger value="active" className="flex-1 sm:flex-none">
                 Active
@@ -215,11 +251,15 @@ function StudentsPage() {
                   </div>
                   <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
                     <div className="min-w-0">
-                      <div className="text-[9px] uppercase tracking-widest text-muted-foreground">Branch</div>
+                      <div className="text-[9px] uppercase tracking-widest text-muted-foreground">
+                        Branch
+                      </div>
                       <div className="truncate">{s.libraries?.name ?? "—"}</div>
                     </div>
                     <div className="min-w-0">
-                      <div className="text-[9px] uppercase tracking-widest text-muted-foreground">Onboarded</div>
+                      <div className="text-[9px] uppercase tracking-widest text-muted-foreground">
+                        Onboarded
+                      </div>
                       <div className="font-mono">{fmtDate(s.created_at)}</div>
                     </div>
                   </div>
@@ -262,11 +302,15 @@ function StudentsPage() {
                         </button>
                       </td>
                       <td className="py-3 px-2 font-mono">{s.mobile_number}</td>
-                      <td className="py-3 px-2 text-muted-foreground">{s.libraries?.name ?? "—"}</td>
+                      <td className="py-3 px-2 text-muted-foreground">
+                        {s.libraries?.name ?? "—"}
+                      </td>
                       {tab === "active" && (
                         <td className="py-3 px-2">
                           {hasActiveSeat ? (
-                            <span className="rounded bg-emerald/10 px-2 py-0.5 text-[10px] text-emerald">Assigned</span>
+                            <span className="rounded bg-emerald/10 px-2 py-0.5 text-[10px] text-emerald">
+                              Assigned
+                            </span>
                           ) : (
                             <span className="rounded bg-panel px-2 py-0.5 text-[10px] text-muted-foreground">
                               Unassigned
@@ -280,7 +324,10 @@ function StudentsPage() {
                 })}
                 {visibleStudents.length === 0 && (
                   <tr>
-                    <td colSpan={tab === "active" ? 5 : 4} className="py-8 text-center text-sm text-muted-foreground">
+                    <td
+                      colSpan={tab === "active" ? 5 : 4}
+                      className="py-8 text-center text-sm text-muted-foreground"
+                    >
                       {tab === "inactive" ? "No inactive students." : "No students found."}
                     </td>
                   </tr>
@@ -289,7 +336,6 @@ function StudentsPage() {
             </table>
           </div>
         )}
-
       </GlassPanel>
 
       <Dialog open={!!chain} onOpenChange={(o) => !o && setChain(null)}>
@@ -301,7 +347,11 @@ function StudentsPage() {
             {chain?.name} is onboarded. Assign a seat now and log the first payment in one go?
           </p>
           <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <Button variant="outline" className="bg-panel border-panel-border" onClick={() => setChain(null)}>
+            <Button
+              variant="outline"
+              className="bg-panel border-panel-border"
+              onClick={() => setChain(null)}
+            >
               Not now
             </Button>
             <Button
@@ -325,4 +375,3 @@ function StudentsPage() {
     </div>
   );
 }
-

@@ -1,7 +1,13 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,12 +37,18 @@ export function CategoryManagerDialog({
   const add = async () => {
     const clean = name.trim();
     if (!clean) return;
-    if ([...DEFAULT_CATEGORIES, ...custom.map((c) => c.name)].some((c) => c.toLowerCase() === clean.toLowerCase())) {
+    if (
+      [...DEFAULT_CATEGORIES, ...custom.map((c) => c.name)].some(
+        (c) => c.toLowerCase() === clean.toLowerCase(),
+      )
+    ) {
       toast.error("That category already exists.");
       return;
     }
     setBusy(true);
-    const { error } = await supabase.from("expense_categories").insert({ org_id: orgId, name: clean });
+    const { error } = await supabase
+      .from("expense_categories")
+      .insert({ org_id: orgId, name: clean });
     setBusy(false);
     if (error) {
       toast.error(error.message);
@@ -71,7 +83,9 @@ export function CategoryManagerDialog({
       <DialogContent className="glass-strong border-panel-border w-[95vw] max-w-md p-4 md:p-6">
         <DialogHeader>
           <DialogTitle>Expense categories</DialogTitle>
-          <DialogDescription>Add your own categories alongside the built-in ones.</DialogDescription>
+          <DialogDescription>
+            Add your own categories alongside the built-in ones.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-2">
@@ -89,14 +103,20 @@ export function CategoryManagerDialog({
               placeholder="e.g. Water bill"
               className="bg-panel border-panel-border h-11"
             />
-            <Button onClick={add} disabled={busy} className="h-11 bg-white text-slate-900 hover:bg-white/90">
+            <Button
+              onClick={add}
+              disabled={busy}
+              className="h-11 bg-white text-slate-900 hover:bg-white/90"
+            >
               <Plus className="size-4" />
             </Button>
           </div>
         </div>
 
         <div className="space-y-2">
-          <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Your categories</div>
+          <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+            Your categories
+          </div>
           {custom.length === 0 && <p className="text-sm text-muted-foreground">None yet.</p>}
           <div className="space-y-1 max-h-56 overflow-y-auto custom-scrollbar">
             {custom.map((c) => (

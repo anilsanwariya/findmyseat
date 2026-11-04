@@ -24,7 +24,10 @@ export function SeatOccupancyDialog({
         ) : (
           <div className="space-y-3">
             {occupants.map((o) => (
-              <div key={o.allocationId} className="rounded-lg border border-panel-border bg-panel p-3">
+              <div
+                key={o.allocationId}
+                className="rounded-lg border border-panel-border bg-panel p-3"
+              >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="truncate text-sm font-semibold">{o.name}</div>
@@ -39,7 +42,10 @@ export function SeatOccupancyDialog({
                 </div>
                 <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
                   <div>
-                    Fee <span className="font-medium text-foreground">₹{Number(o.fee ?? 0).toLocaleString("en-IN")}</span>
+                    Fee{" "}
+                    <span className="font-medium text-foreground">
+                      ₹{Number(o.fee ?? 0).toLocaleString("en-IN")}
+                    </span>
                   </div>
                   <div>
                     Due <span className="font-medium text-foreground">{o.dueDate ?? "—"}</span>

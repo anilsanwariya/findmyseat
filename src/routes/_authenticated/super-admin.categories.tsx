@@ -7,7 +7,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { toast } from "sonner";
 import { Pencil, Trash2, Plus } from "lucide-react";
 import { useConfirm } from "@/components/ConfirmDialog";
@@ -22,7 +29,10 @@ type MasterCategory = { id: string; name: string; is_active: boolean };
 function CategoriesPage() {
   return (
     <div className="space-y-8">
-      <SectionHeader title="Preparation Categories" hint="Global category list surfaced to owners and students" />
+      <SectionHeader
+        title="Preparation Categories"
+        hint="Global category list surfaced to owners and students"
+      />
       <CategoryManager />
     </div>
   );
@@ -144,7 +154,11 @@ function CategoryManager() {
                 <TableCell className="text-right">
                   {editing?.id === c.id ? (
                     <div className="flex justify-end gap-2">
-                      <Button size="sm" onClick={() => update.mutate(editing)} disabled={update.isPending}>
+                      <Button
+                        size="sm"
+                        onClick={() => update.mutate(editing)}
+                        disabled={update.isPending}
+                      >
                         Save
                       </Button>
                       <Button size="sm" variant="ghost" onClick={() => setEditing(null)}>
@@ -183,7 +197,9 @@ function CategoryManager() {
 
       <GlassPanel className="h-fit p-5">
         <h3 className="text-sm font-bold">Add new category</h3>
-        <p className="mt-1 text-xs text-muted-foreground">Appears in owner and student marketplace dropdowns.</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Appears in owner and student marketplace dropdowns.
+        </p>
         <div className="mt-4 space-y-3">
           <div>
             <Label className="text-xs">Category Name</Label>
@@ -194,7 +210,11 @@ function CategoryManager() {
               className="mt-1"
             />
           </div>
-          <Button onClick={() => create.mutate()} disabled={create.isPending || !name.trim()} className="w-full">
+          <Button
+            onClick={() => create.mutate()}
+            disabled={create.isPending || !name.trim()}
+            className="w-full"
+          >
             <Plus className="mr-1.5 size-3.5" /> Add category
           </Button>
         </div>

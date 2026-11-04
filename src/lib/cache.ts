@@ -29,6 +29,13 @@ export const invalidateBillingCaches = (qc: QueryClient) => {
 
 /** Expenses feed the dashboard expense/profit figures too. */
 export const invalidateExpenseCaches = (qc: QueryClient) => {
-  for (const key of ["expenses", "expense-income", "expense-categories", "recurring-expenses", "dash-money", "dash-ops"])
+  for (const key of [
+    "expenses",
+    "expense-income",
+    "expense-categories",
+    "recurring-expenses",
+    "dash-money",
+    "dash-ops",
+  ])
     qc.invalidateQueries({ queryKey: [key] });
 };

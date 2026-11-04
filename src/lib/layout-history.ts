@@ -26,7 +26,12 @@ export type LayoutAction =
 
 const draftKey = (sectionId: string) => `lb-draft:${sectionId}`;
 
-export type LayoutDraft = { sectionId: string; sessionId: string; savedAt: number; actions: LayoutAction[] };
+export type LayoutDraft = {
+  sectionId: string;
+  sessionId: string;
+  savedAt: number;
+  actions: LayoutAction[];
+};
 
 export function saveDraft(sectionId: string, sessionId: string, actions: LayoutAction[]) {
   try {
@@ -66,7 +71,15 @@ export type RedoAction =
   | { type: "insert_objects"; label: string; rows: any[] }
   | { type: "delete_ids"; label: string; seatIds: string[]; objIds: string[] }
   | { type: "update_rows"; label: string; prev: any[] }
-  | { type: "resize"; label: string; sectionId: string; rows: number; cols: number; dr: number; dc: number };
+  | {
+      type: "resize";
+      label: string;
+      sectionId: string;
+      rows: number;
+      cols: number;
+      dr: number;
+      dc: number;
+    };
 
 /** Current server state the undo needs so it can build the matching redo step. */
 export type LayoutSnapshot = { seats: any[]; objs: any[] };
@@ -107,7 +120,11 @@ export async function studentsOnSeats(seatIds: string[]): Promise<SeatedStudent[
 async function assertNoStudents(seatIds: string[], what: string) {
   const occ = await studentsOnSeats(seatIds);
   if (!occ.length) return;
-  const names = occ.slice(0, 5).map((o: SeatedStudent) => o.name).join(", ") + (occ.length > 5 ? ` +${occ.length - 5} more` : "");
+  const names =
+    occ
+      .slice(0, 5)
+      .map((o: SeatedStudent) => o.name)
+      .join(", ") + (occ.length > 5 ? ` +${occ.length - 5} more` : "");
   throw new Error(
     `Can't ${what}: ${occ.length} student(s) now sit on these seats (${names}). Move them in Allocations first.`,
   );
@@ -131,7 +148,6 @@ async function updateRows(prev: any[]) {
     );
   }
 
-
   await runBatched(
     prev.map((p) => () => {
       const { id, __table, ...fields } = p;
@@ -139,7 +155,6 @@ async function updateRows(prev: any[]) {
     }),
   );
 }
-
 
 /** Reverses one recorded action against the server. Returns a human message. */
 export async function undoAction(action: LayoutAction): Promise<string> {
@@ -172,7 +187,9 @@ export async function undoWithRedo(
           facing_direction: s.facing_direction,
         }));
       await assertNoStudents(action.seatIds, "undo");
-      const { error } = await (supabase as any).rpc("delete_seats_cascade", { p_seat_ids: action.seatIds });
+      const { error } = await (supabase as any).rpc("delete_seats_cascade", {
+        p_seat_ids: action.seatIds,
+      });
       if (error) throw error;
       return {
         message: `Removed ${action.seatIds.length} seat(s)`,
@@ -294,7 +311,9 @@ export async function applyRedo(redo: RedoAction): Promise<string> {
     case "delete_ids": {
       if (redo.seatIds.length) {
         await assertNoStudents(redo.seatIds, "redo");
-        const { error } = await (supabase as any).rpc("delete_seats_cascade", { p_seat_ids: redo.seatIds });
+        const { error } = await (supabase as any).rpc("delete_seats_cascade", {
+          p_seat_ids: redo.seatIds,
+        });
         if (error) throw error;
       }
       if (redo.objIds.length) {
@@ -331,7 +350,11 @@ export async function applyRedo(redo: RedoAction): Promise<string> {
 /** Seat numbering order for bulk generation. */
 export type SeatOrder = "rows_ltr" | "rows_rtl" | "cols_ttb" | "cols_btt";
 
-export function orderCells<T extends { r: number; c: number }>(cells: T[], order: SeatOrder, descending: boolean): T[] {
+export function orderCells<T extends { r: number; c: number }>(
+  cells: T[],
+  order: SeatOrder,
+  descending: boolean,
+): T[] {
   const sorted = [...cells];
   switch (order) {
     case "rows_ltr":

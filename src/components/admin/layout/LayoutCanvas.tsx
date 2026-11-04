@@ -21,7 +21,13 @@ import {
   Maximize2,
   AlertTriangle,
 } from "lucide-react";
-import { type BuilderMode, type LayoutCell, STATUS_META, cellKey, worstStatus } from "@/lib/layout-types";
+import {
+  type BuilderMode,
+  type LayoutCell,
+  STATUS_META,
+  cellKey,
+  worstStatus,
+} from "@/lib/layout-types";
 
 export const DIR_ICON = { north: ArrowUp, south: ArrowDown, east: ArrowRight, west: ArrowLeft };
 
@@ -32,11 +38,31 @@ export const OBJ_META: Record<string, { icon: any; label: string; color: string 
   water_cooler: { icon: Droplets, label: "H₂O", color: "bg-cyan/10 text-cyan border-cyan/30" },
   reception: { icon: null, label: "Rcpt", color: "bg-panel-strong text-muted-foreground" },
   wall: { icon: Square, label: "Wall", color: "bg-slate-700/80 text-slate-300 border-slate-600" },
-  window: { icon: AppWindow, label: "Window", color: "bg-sky-500/20 text-sky-300 border-sky-500/30" },
-  gallery: { icon: ImageIcon, label: "Gallery", color: "bg-purple-500/20 text-purple-300 border-purple-500/30" },
-  hallway: { icon: Navigation, label: "Hallway", color: "bg-stone-500/20 text-stone-300 border-stone-500/30" },
-  discussion: { icon: MessageSquare, label: "Discussion", color: "bg-amber-500/20 text-amber-300 border-amber-500/30" },
-  dining: { icon: Utensils, label: "Dining", color: "bg-orange-500/20 text-orange-300 border-orange-500/30" },
+  window: {
+    icon: AppWindow,
+    label: "Window",
+    color: "bg-sky-500/20 text-sky-300 border-sky-500/30",
+  },
+  gallery: {
+    icon: ImageIcon,
+    label: "Gallery",
+    color: "bg-purple-500/20 text-purple-300 border-purple-500/30",
+  },
+  hallway: {
+    icon: Navigation,
+    label: "Hallway",
+    color: "bg-stone-500/20 text-stone-300 border-stone-500/30",
+  },
+  discussion: {
+    icon: MessageSquare,
+    label: "Discussion",
+    color: "bg-amber-500/20 text-amber-300 border-amber-500/30",
+  },
+  dining: {
+    icon: Utensils,
+    label: "Dining",
+    color: "bg-orange-500/20 text-orange-300 border-orange-500/30",
+  },
 };
 
 const CELL = 44; // px, comfortable tap target
@@ -121,7 +147,13 @@ export function LayoutCanvas({
 
   // Pointer panning + two-finger pinch. A drag suppresses the click on the cell underneath.
   const pointers = useRef(new Map<number, { x: number; y: number }>());
-  const dragRef = useRef<{ x: number; y: number; panX: number; panY: number; moved: boolean } | null>(null);
+  const dragRef = useRef<{
+    x: number;
+    y: number;
+    panX: number;
+    panY: number;
+    moved: boolean;
+  } | null>(null);
   const pinchRef = useRef<{ dist: number; cx: number; cy: number } | null>(null);
   const suppressClick = useRef(false);
 
@@ -191,7 +223,9 @@ export function LayoutCanvas({
   const dupSeatIds = useMemo(() => {
     const ids = new Set<string>();
     if (!dupNumbers.size) return ids;
-    for (const row of grid) for (const cell of row) if (cell.kind === "seat" && dupNumbers.has(cell.seat_number)) ids.add(cell.id);
+    for (const row of grid)
+      for (const cell of row)
+        if (cell.kind === "seat" && dupNumbers.has(cell.seat_number)) ids.add(cell.id);
     return ids;
   }, [grid, dupNumbers]);
 
@@ -201,7 +235,11 @@ export function LayoutCanvas({
     <div className="relative">
       <div className="mb-2 flex items-center justify-between gap-2 px-1">
         <div className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-          {mode === "occupancy" ? "Occupancy map · read only" : pasteMode ? "Tap a cell to paste" : "Pinch / scroll to zoom · drag to pan"}
+          {mode === "occupancy"
+            ? "Occupancy map · read only"
+            : pasteMode
+              ? "Tap a cell to paste"
+              : "Pinch / scroll to zoom · drag to pan"}
         </div>
         <div className="flex items-center gap-1">
           <Button
@@ -216,7 +254,9 @@ export function LayoutCanvas({
           >
             <ZoomOut className="size-4" />
           </Button>
-          <span className="w-10 text-center font-mono text-[10px] text-muted-foreground">{Math.round(zoom * 100)}%</span>
+          <span className="w-10 text-center font-mono text-[10px] text-muted-foreground">
+            {Math.round(zoom * 100)}%
+          </span>
           <Button
             size="icon"
             variant="outline"
@@ -261,8 +301,14 @@ export function LayoutCanvas({
 
       <div className="flex">
         {/* Row headers — pinned horizontally, panned vertically with the grid. */}
-        <div className="relative w-[26px] overflow-hidden" style={{ height: Math.min(contentH * zoom + 8, 640) }}>
-          <div className="absolute left-0 top-0 flex flex-col" style={{ transform, transformOrigin: "0 0" }}>
+        <div
+          className="relative w-[26px] overflow-hidden"
+          style={{ height: Math.min(contentH * zoom + 8, 640) }}
+        >
+          <div
+            className="absolute left-0 top-0 flex flex-col"
+            style={{ transform, transformOrigin: "0 0" }}
+          >
             {Array.from({ length: rows }, (_, r) => (
               <button
                 key={r}
@@ -291,10 +337,17 @@ export function LayoutCanvas({
           )}
           style={{ height: Math.min(contentH * zoom + 8, 640), minHeight: 260 }}
         >
-          <div className="absolute left-0 top-0" style={{ transform, transformOrigin: "0 0", width: contentW, height: contentH }}>
+          <div
+            className="absolute left-0 top-0"
+            style={{ transform, transformOrigin: "0 0", width: contentW, height: contentH }}
+          >
             {grid.map((row, r) =>
               row.map((cell, c) => (
-                <div key={`${r}-${c}`} className="absolute" style={{ left: c * (CELL + GAP), top: r * (CELL + GAP) }}>
+                <div
+                  key={`${r}-${c}`}
+                  className="absolute"
+                  style={{ left: c * (CELL + GAP), top: r * (CELL + GAP) }}
+                >
                   <CellView
                     row={r}
                     col={c}
@@ -315,7 +368,8 @@ export function LayoutCanvas({
         <div className="mt-3 flex flex-wrap items-center gap-3 px-1 text-[11px] text-muted-foreground">
           {(["paid", "partial", "overdue", "pending", "vacant"] as const).map((s) => (
             <span key={s} className="flex items-center gap-1.5">
-              <span className={cn("size-2 rounded-full", STATUS_META[s].dot)} /> {STATUS_META[s].label}
+              <span className={cn("size-2 rounded-full", STATUS_META[s].dot)} />{" "}
+              {STATUS_META[s].label}
             </span>
           ))}
         </div>
@@ -358,7 +412,8 @@ const CellView = memo(function CellView({
           "group relative flex flex-col items-center justify-center rounded border text-[9px] font-mono transition-all",
           isSelected && "border-cyan bg-cyan/25 shadow-[0_0_8px_rgba(34,211,238,0.5)]",
           !isSelected && occupancyView && STATUS_META[status].cell,
-          !isSelected && !occupancyView &&
+          !isSelected &&
+            !occupancyView &&
             "border-emerald/50 bg-emerald/10 text-emerald hover:border-emerald hover:bg-emerald/20",
           isDup && "ring-2 ring-rose/70",
         )}
@@ -366,7 +421,9 @@ const CellView = memo(function CellView({
         {!occupancyView && <Icon className="mb-0.5 size-2.5 opacity-70" />}
         <span className="max-w-full truncate px-0.5 font-bold">{cell.seat_number}</span>
         {occupancyView && occupied && (
-          <span className="max-w-full truncate px-0.5 text-[7px] opacity-80">{cell.occInfo[0]?.name.split(" ")[0]}</span>
+          <span className="max-w-full truncate px-0.5 text-[7px] opacity-80">
+            {cell.occInfo[0]?.name.split(" ")[0]}
+          </span>
         )}
         {!occupancyView && occupied && (
           <span className="absolute -right-1 -top-1 flex size-3.5 items-center justify-center rounded-full bg-magenta text-[7px] text-white">

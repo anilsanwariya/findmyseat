@@ -43,12 +43,24 @@ const OWNER_PERMS: StaffPermissions = {
 
 export async function fetchSession(): Promise<SessionInfo> {
   const empty: SessionInfo = {
-    userId: null, email: null, role: null, orgId: null, studentId: null,
-    requiresPinChange: false, isStaff: false, staffId: null, employeeId: null,
-    staffName: null, staffPermissions: null, staffLibraryIds: null, staffIsActive: true,
+    userId: null,
+    email: null,
+    role: null,
+    orgId: null,
+    studentId: null,
+    requiresPinChange: false,
+    isStaff: false,
+    staffId: null,
+    employeeId: null,
+    staffName: null,
+    staffPermissions: null,
+    staffLibraryIds: null,
+    staffIsActive: true,
   };
 
-  const { data: { session } } = await supabase.auth.getSession();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
   if (!session?.user) return empty;
   const userId = session.user.id;
 
@@ -64,7 +76,10 @@ export async function fetchSession(): Promise<SessionInfo> {
     const su = roles.find((r) => r.role === "super_admin");
     const oa = roles.find((r) => r.role === "org_admin");
     if (su) role = "super_admin";
-    else if (oa) { role = "org_admin"; orgId = oa.org_id; }
+    else if (oa) {
+      role = "org_admin";
+      orgId = oa.org_id;
+    }
   }
 
   let studentId: string | null = null;
@@ -142,7 +157,10 @@ export function useSession() {
 }
 
 /** Convenience: returns true if the user is the primary owner or has the permission. */
-export function hasPerm(session: SessionInfo | undefined | null, perm: keyof StaffPermissions): boolean {
+export function hasPerm(
+  session: SessionInfo | undefined | null,
+  perm: keyof StaffPermissions,
+): boolean {
   if (!session) return false;
   if (session.role === "super_admin") return true;
   if (session.role === "org_admin" && !session.isStaff) return true;
@@ -166,14 +184,13 @@ export type LoginCategory = "super_admin" | "owner" | "staff" | "student";
  * Returns null if no session or the user has no recognized role.
  */
 export async function classifyCurrentUser(): Promise<LoginCategory | null> {
-  const { data: { session } } = await supabase.auth.getSession();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
   if (!session?.user) return null;
   const userId = session.user.id;
 
-  const { data: roles } = await supabase
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", userId);
+  const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", userId);
 
   if (roles?.some((r) => r.role === "super_admin")) return "super_admin";
 

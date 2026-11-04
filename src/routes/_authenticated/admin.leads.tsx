@@ -11,7 +11,16 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/admin/leads")({
-  head: () => ({ meta: [{ title: "Leads · LibraryBandhu" }, { name: "description", content: "Manage study space enquiries and preferred shifts." }, { property: "og:title", content: "Leads · LibraryBandhu" }, { property: "og:description", content: "Manage study space enquiries and preferred shifts." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }] }),
+  head: () => ({
+    meta: [
+      { title: "Leads · LibraryBandhu" },
+      { name: "description", content: "Manage study space enquiries and preferred shifts." },
+      { property: "og:title", content: "Leads · LibraryBandhu" },
+      { property: "og:description", content: "Manage study space enquiries and preferred shifts." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
   component: LeadsPage,
 });
 
@@ -31,16 +40,25 @@ function LeadsPage() {
   const leads = useQuery({
     queryKey: ["leads", orgId],
     enabled: !!orgId,
-    queryFn: async () => (await supabase.from("seat_requests")
-      .select("id, student_name, mobile_number, message, preferred_shift, status, created_at, libraries(name), master_exams(name)")
-      .eq("org_id", orgId!)
-      .order("created_at", { ascending: false })).data ?? [],
+    queryFn: async () =>
+      (
+        await supabase
+          .from("seat_requests")
+          .select(
+            "id, student_name, mobile_number, message, preferred_shift, status, created_at, libraries(name), master_exams(name)",
+          )
+          .eq("org_id", orgId!)
+          .order("created_at", { ascending: false })
+      ).data ?? [],
   });
 
   async function move(id: string, status: "pending" | "contacted" | "converted" | "lost") {
     const { error } = await supabase.from("seat_requests").update({ status }).eq("id", id);
     if (error) toast.error(error.message);
-    else { toast.success("Updated"); qc.invalidateQueries({ queryKey: ["leads"] }); }
+    else {
+      toast.success("Updated");
+      qc.invalidateQueries({ queryKey: ["leads"] });
+    }
   }
 
   return (
@@ -49,32 +67,57 @@ function LeadsPage() {
       <ShiftFilter value={shiftFilter} onChange={setShiftFilter} unspecified />
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {COLUMNS.map((col) => {
-          const items = (leads.data ?? []).filter((l: any) => l.status === col.key && (shiftFilter === "all" || (l.preferred_shift ?? "unspecified") === shiftFilter));
+          const items = (leads.data ?? []).filter(
+            (l: any) =>
+              l.status === col.key &&
+              (shiftFilter === "all" || (l.preferred_shift ?? "unspecified") === shiftFilter),
+          );
           return (
             <GlassPanel key={col.key} className="flex min-h-[300px] flex-col p-4">
               <div className="mb-3 flex items-center justify-between border-b border-panel-border pb-2">
-                <div className={cn("font-mono text-[10px] uppercase tracking-widest", col.tone)}>{col.label}</div>
-                <span className="rounded bg-panel px-2 py-0.5 font-mono text-[10px]">{items.length}</span>
+                <div className={cn("font-mono text-[10px] uppercase tracking-widest", col.tone)}>
+                  {col.label}
+                </div>
+                <span className="rounded bg-panel px-2 py-0.5 font-mono text-[10px]">
+                  {items.length}
+                </span>
               </div>
               <div className="flex-1 space-y-2 overflow-y-auto">
                 {items.map((l: any) => (
                   <div key={l.id} className="rounded-lg border border-panel-border bg-panel p-3">
                     <div className="text-sm font-medium">{l.student_name}</div>
-                    <div className="mt-0.5 font-mono text-[10px] text-muted-foreground">{l.mobile_number}</div>
-                    <div className="mt-1 text-xs text-muted-foreground">{l.libraries?.name} · {l.master_exams?.name ?? "—"}</div>
-                    <div className="mt-1 text-xs text-cyan">{SHIFT_OPTIONS.find((o) => o.value === l.preferred_shift)?.label ?? "Shift not specified"}</div>
-                    {l.message && <p className="mt-2 text-xs text-muted-foreground line-clamp-2">{l.message}</p>}
+                    <div className="mt-0.5 font-mono text-[10px] text-muted-foreground">
+                      {l.mobile_number}
+                    </div>
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      {l.libraries?.name} · {l.master_exams?.name ?? "—"}
+                    </div>
+                    <div className="mt-1 text-xs text-cyan">
+                      {SHIFT_OPTIONS.find((o) => o.value === l.preferred_shift)?.label ??
+                        "Shift not specified"}
+                    </div>
+                    {l.message && (
+                      <p className="mt-2 text-xs text-muted-foreground line-clamp-2">{l.message}</p>
+                    )}
                     <div className="mt-3 flex flex-wrap gap-1.5 text-[10px]">
                       {COLUMNS.filter((c) => c.key !== col.key).map((c) => (
-                        <button key={c.key} onClick={() => move(l.id, c.key)} className="rounded bg-panel-strong px-1.5 py-0.5 hover:bg-panel-strong/70">
+                        <button
+                          key={c.key}
+                          onClick={() => move(l.id, c.key)}
+                          className="rounded bg-panel-strong px-1.5 py-0.5 hover:bg-panel-strong/70"
+                        >
                           → {c.label}
                         </button>
                       ))}
                     </div>
-                    <div className="mt-2 font-mono text-[9px] text-muted-foreground">{fmtDateTime(l.created_at)}</div>
+                    <div className="mt-2 font-mono text-[9px] text-muted-foreground">
+                      {fmtDateTime(l.created_at)}
+                    </div>
                   </div>
                 ))}
-                {items.length === 0 && <p className="pt-8 text-center text-xs text-muted-foreground">Nothing here.</p>}
+                {items.length === 0 && (
+                  <p className="pt-8 text-center text-xs text-muted-foreground">Nothing here.</p>
+                )}
               </div>
             </GlassPanel>
           );

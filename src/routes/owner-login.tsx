@@ -19,7 +19,8 @@ export const Route = createFileRoute("/owner-login")({
       { title: "Library Owner Sign in — LibraryBandhu" },
       {
         name: "description",
-        content: "Sign in or register your organisation on LibraryBandhu — the all-in-one library management SaaS.",
+        content:
+          "Sign in or register your organisation on LibraryBandhu — the all-in-one library management SaaS.",
       },
     ],
   }),
@@ -76,7 +77,9 @@ function OwnerLoginPage() {
             </div>
             <GlassPanel className="p-6">
               <h1 className="text-xl font-bold">Business Account</h1>
-              <p className="mt-1 text-sm text-muted-foreground">Sign in or register your organisation.</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Sign in or register your organisation.
+              </p>
               <Tabs defaultValue="signin" className="mt-6">
                 <TabsList className="grid w-full grid-cols-2 bg-panel">
                   <TabsTrigger value="signin">Sign in</TabsTrigger>
@@ -154,7 +157,11 @@ function SignInForm({
           className="bg-panel border-panel-border"
         />
       </div>
-      <Button disabled={loading} type="submit" className="w-full bg-white text-slate-900 hover:bg-white/90">
+      <Button
+        disabled={loading}
+        type="submit"
+        className="w-full bg-white text-slate-900 hover:bg-white/90"
+      >
         {loading ? "…" : "Sign in"}
       </Button>
     </form>
@@ -188,7 +195,9 @@ function SignUpWithOtp({ onSignedUp }: { onSignedUp: () => void }) {
       const res = await sendOtp({ data: { email: email.trim() } });
       setDevCode(res.dev_code ?? null);
       setStep("otp");
-      toast.success(res.sent ? "Verification code sent to your email" : "Code generated (email pending)");
+      toast.success(
+        res.sent ? "Verification code sent to your email" : "Code generated (email pending)",
+      );
     } catch (err: any) {
       toast.error(err?.message ?? "Failed to send code");
     } finally {
@@ -273,7 +282,11 @@ function SignUpWithOtp({ onSignedUp }: { onSignedUp: () => void }) {
             <p className="text-xs text-rose">Passwords do not match</p>
           ) : null}
         </div>
-        <Button disabled={loading} type="submit" className="w-full bg-white text-slate-900 hover:bg-white/90">
+        <Button
+          disabled={loading}
+          type="submit"
+          className="w-full bg-white text-slate-900 hover:bg-white/90"
+        >
           {loading ? "Sending code…" : "Send verification code"}
         </Button>
       </form>
@@ -283,11 +296,13 @@ function SignUpWithOtp({ onSignedUp }: { onSignedUp: () => void }) {
   return (
     <form onSubmit={confirm} className="mt-4 space-y-4">
       <p className="text-sm text-muted-foreground">
-        We emailed a 6-digit code to <span className="font-mono text-foreground">{email}</span>. It expires in 10 minutes.
+        We emailed a 6-digit code to <span className="font-mono text-foreground">{email}</span>. It
+        expires in 10 minutes.
       </p>
       {devCode ? (
         <div className="rounded-lg border border-panel-border bg-panel p-3 text-xs text-muted-foreground">
-          Email delivery pending — use this code: <span className="font-mono text-foreground">{devCode}</span>
+          Email delivery pending — use this code:{" "}
+          <span className="font-mono text-foreground">{devCode}</span>
         </div>
       ) : null}
       <div className="space-y-2">
@@ -303,14 +318,27 @@ function SignUpWithOtp({ onSignedUp }: { onSignedUp: () => void }) {
           className="bg-panel border-panel-border font-mono tracking-[0.4em] text-center text-lg"
         />
       </div>
-      <Button disabled={loading || otp.length !== 6} type="submit" className="w-full bg-white text-slate-900 hover:bg-white/90">
+      <Button
+        disabled={loading || otp.length !== 6}
+        type="submit"
+        className="w-full bg-white text-slate-900 hover:bg-white/90"
+      >
         {loading ? "Verifying…" : "Verify & create account"}
       </Button>
       <div className="flex items-center justify-between text-xs">
-        <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => setStep("details")}>
+        <button
+          type="button"
+          className="text-muted-foreground hover:text-foreground"
+          onClick={() => setStep("details")}
+        >
           ← Change details
         </button>
-        <button type="button" className="text-cyan hover:underline disabled:opacity-50" disabled={loading} onClick={resend}>
+        <button
+          type="button"
+          className="text-cyan hover:underline disabled:opacity-50"
+          disabled={loading}
+          onClick={resend}
+        >
           Resend code
         </button>
       </div>

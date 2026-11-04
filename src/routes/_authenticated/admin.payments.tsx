@@ -11,7 +11,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DateInput } from "@/components/ui/date-input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -62,14 +68,28 @@ function SummaryChip({
           : "text-foreground";
   return (
     <div className="rounded-xl border border-panel-border bg-panel px-3 py-2 min-w-0">
-      <div className="text-[10px] uppercase tracking-widest text-muted-foreground truncate">{label}</div>
+      <div className="text-[10px] uppercase tracking-widest text-muted-foreground truncate">
+        {label}
+      </div>
       <div className={`text-sm font-semibold tabular-nums ${toneClass}`}>{value}</div>
     </div>
   );
 }
 
 export const Route = createFileRoute("/_authenticated/admin/payments")({
-  head: () => ({ meta: [{ title: "Payments · LibraryBandhu" }, { name: "description", content: "Review library fee collections by branch, date and shift." }, { property: "og:title", content: "Payments · LibraryBandhu" }, { property: "og:description", content: "Review library fee collections by branch, date and shift." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }] }),
+  head: () => ({
+    meta: [
+      { title: "Payments · LibraryBandhu" },
+      { name: "description", content: "Review library fee collections by branch, date and shift." },
+      { property: "og:title", content: "Payments · LibraryBandhu" },
+      {
+        property: "og:description",
+        content: "Review library fee collections by branch, date and shift.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
   validateSearch: (search: Record<string, unknown>) => ({
     newAllocId: typeof search.newAllocId === "string" ? search.newAllocId : undefined,
     shift: typeof search.shift === "string" ? search.shift : undefined,
@@ -108,14 +128,20 @@ const METHOD_LABEL: Record<string, string> = {
 
 const RANGE_PRESETS: { key: string; label: string; range: () => { from: string; to: string } }[] = [
   { key: "today", label: "Today", range: () => ({ from: todayISO(), to: todayISO() }) },
-  { key: "30d", label: "Last 30d", range: () => ({ from: addDaysISO(todayISO(), -30), to: todayISO() }) },
+  {
+    key: "30d",
+    label: "Last 30d",
+    range: () => ({ from: addDaysISO(todayISO(), -30), to: todayISO() }),
+  },
   { key: "month", label: "This month", range: () => monthRange(0) },
   { key: "prevMonth", label: "Last month", range: () => monthRange(-1) },
 ];
 
-
 // Match the allocation tab's colour coding for fee status.
-function allocEffectiveStatus(a: { status?: string | null; next_due_date?: string | null }): string {
+function allocEffectiveStatus(a: {
+  status?: string | null;
+  next_due_date?: string | null;
+}): string {
   const s = a?.status ?? "pending";
   if (a?.next_due_date) {
     const due = new Date(a.next_due_date);
@@ -140,9 +166,10 @@ const allocStatusClass = (st: string) =>
 // less than the allocation's standard monthly fee.
 const isDiscounted = (p: any) => {
   const fee = Number(p?.allocations?.monthly_fee ?? 0);
-  return !p?.is_partial && p?.method !== "offline_legacy" && fee > 0 && Number(p?.amount_paid ?? 0) < fee;
+  return (
+    !p?.is_partial && p?.method !== "offline_legacy" && fee > 0 && Number(p?.amount_paid ?? 0) < fee
+  );
 };
-
 
 function PaymentsPage() {
   const { data: session } = useSession();
@@ -154,21 +181,35 @@ function PaymentsPage() {
   const { data: libs } = useLibraries();
 
   const setSearch = (patch: Record<string, string | undefined>) =>
-    navigate({ to: "/admin/payments", search: (prev: any) => ({ ...prev, ...patch }), replace: true });
+    navigate({
+      to: "/admin/payments",
+      search: (prev: any) => ({ ...prev, ...patch }),
+      replace: true,
+    });
 
   const fromDate = search.from ?? addDaysISO(todayISO(), -30);
   const toDate = search.to ?? todayISO();
   const methodFilter = METHODS.includes(search.method as any) ? search.method! : "all";
   const branchFilter = search.branch ?? "all";
   const shiftFilter = search.shift ?? "all";
-  const typeFilter = ["full", "partial", "discounted"].includes(search.type ?? "") ? search.type! : "all";
+  const typeFilter = ["full", "partial", "discounted"].includes(search.type ?? "")
+    ? search.type!
+    : "all";
   const filtersActive =
-    shiftFilter !== "all" || methodFilter !== "all" || branchFilter !== "all" || typeFilter !== "all" || !!search.from || !!search.to;
-  const activeFilterCount = [methodFilter, branchFilter, typeFilter, shiftFilter].filter((v) => v !== "all").length;
-  const activeRange = RANGE_PRESETS.find((r) => {
-    const { from, to } = r.range();
-    return from === fromDate && to === toDate;
-  })?.key ?? "custom";
+    shiftFilter !== "all" ||
+    methodFilter !== "all" ||
+    branchFilter !== "all" ||
+    typeFilter !== "all" ||
+    !!search.from ||
+    !!search.to;
+  const activeFilterCount = [methodFilter, branchFilter, typeFilter, shiftFilter].filter(
+    (v) => v !== "all",
+  ).length;
+  const activeRange =
+    RANGE_PRESETS.find((r) => {
+      const { from, to } = r.range();
+      return from === fromDate && to === toDate;
+    })?.key ?? "custom";
 
   const isMobile = useIsMobile();
   const [summaryOpen, setSummaryOpen] = useState(false);
@@ -178,17 +219,31 @@ function PaymentsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [detailId, setDetailId] = useState<string | null>(null);
   const [view, setView] = useDataView("admin-payments");
-  const [historyStudent, setHistoryStudent] = useState<{ id: string; library_id: string | null; name: string } | null>(
-    null,
-  );
+  const [historyStudent, setHistoryStudent] = useState<{
+    id: string;
+    library_id: string | null;
+    name: string;
+  } | null>(null);
   const qc = useQueryClient();
 
   const filterFields = (
     <>
-      <div className="space-y-1 w-full sm:w-44"><Label className="text-[10px] uppercase text-muted-foreground">Shift</Label><ShiftFilter value={shiftFilter} onChange={(v) => setSearch({ shift: v === "all" ? undefined : v })} unspecified /></div>
+      <div className="space-y-1 w-full sm:w-44">
+        <Label className="text-[10px] uppercase text-muted-foreground">Shift</Label>
+        <ShiftFilter
+          value={shiftFilter}
+          onChange={(v) => setSearch({ shift: v === "all" ? undefined : v })}
+          unspecified
+        />
+      </div>
       <div className="space-y-1 w-full sm:w-36">
-        <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Method</Label>
-        <Select value={methodFilter} onValueChange={(v) => setSearch({ method: v === "all" ? undefined : v })}>
+        <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">
+          Method
+        </Label>
+        <Select
+          value={methodFilter}
+          onValueChange={(v) => setSearch({ method: v === "all" ? undefined : v })}
+        >
           <SelectTrigger className="bg-panel border-panel-border text-xs">
             <SelectValue />
           </SelectTrigger>
@@ -203,8 +258,13 @@ function PaymentsPage() {
         </Select>
       </div>
       <div className="space-y-1 w-full sm:w-40">
-        <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Branch</Label>
-        <Select value={branchFilter} onValueChange={(v) => setSearch({ branch: v === "all" ? undefined : v })}>
+        <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">
+          Branch
+        </Label>
+        <Select
+          value={branchFilter}
+          onValueChange={(v) => setSearch({ branch: v === "all" ? undefined : v })}
+        >
           <SelectTrigger className="bg-panel border-panel-border text-xs">
             <SelectValue />
           </SelectTrigger>
@@ -220,7 +280,10 @@ function PaymentsPage() {
       </div>
       <div className="space-y-1 w-full sm:w-36">
         <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Type</Label>
-        <Select value={typeFilter} onValueChange={(v) => setSearch({ type: v === "all" ? undefined : v })}>
+        <Select
+          value={typeFilter}
+          onValueChange={(v) => setSearch({ type: v === "all" ? undefined : v })}
+        >
           <SelectTrigger className="bg-panel border-panel-border text-xs">
             <SelectValue />
           </SelectTrigger>
@@ -279,7 +342,13 @@ function PaymentsPage() {
           p.transaction_reference?.toLowerCase().includes(q);
         if (!hit) return false;
       }
-      if (shiftFilter === "unspecified" ? !!p.allocation_id : shiftFilter !== "all" && (!p.allocations || !matchesShift(p.allocations.shifts?.name, shiftFilter))) return false;
+      if (
+        shiftFilter === "unspecified"
+          ? !!p.allocation_id
+          : shiftFilter !== "all" &&
+            (!p.allocations || !matchesShift(p.allocations.shifts?.name, shiftFilter))
+      )
+        return false;
       if (methodFilter !== "all" && p.method !== methodFilter) return false;
       if (typeFilter === "partial" && !p.is_partial) return false;
       if (typeFilter === "discounted" && !isDiscounted(p)) return false;
@@ -306,12 +375,14 @@ function PaymentsPage() {
     return { total, count: filteredPayments.length, byMethod, partial, discounted };
   }, [filteredPayments]);
 
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div className="flex-1 w-full">
-          <SectionHeader title="Payments" hint="Log payments with proof, and drill into full history." />
+          <SectionHeader
+            title="Payments"
+            hint="Log payments with proof, and drill into full history."
+          />
         </div>
         <div className="w-full sm:w-auto shrink-0 mt-2 sm:mt-0">
           <Dialog
@@ -351,11 +422,15 @@ function PaymentsPage() {
                   <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
                     Collected · {summary.count}
                   </div>
-                  <div className="text-base font-semibold tabular-nums text-emerald">{inr(summary.total)}</div>
+                  <div className="text-base font-semibold tabular-nums text-emerald">
+                    {inr(summary.total)}
+                  </div>
                 </div>
                 <span className="flex shrink-0 items-center gap-1 text-[10px] uppercase tracking-widest text-muted-foreground">
                   Details
-                  <ChevronDown className={`size-3.5 transition-transform ${summaryOpen ? "rotate-180" : ""}`} />
+                  <ChevronDown
+                    className={`size-3.5 transition-transform ${summaryOpen ? "rotate-180" : ""}`}
+                  />
                 </span>
               </button>
             </CollapsibleTrigger>
@@ -368,16 +443,26 @@ function PaymentsPage() {
                     value={inr(summary.byMethod[m].amount)}
                   />
                 ))}
-                {summary.partial > 0 && <SummaryChip label="Partial" value={String(summary.partial)} tone="cyan" />}
+                {summary.partial > 0 && (
+                  <SummaryChip label="Partial" value={String(summary.partial)} tone="cyan" />
+                )}
                 {summary.discounted > 0 && (
-                  <SummaryChip label="Discounted" value={String(summary.discounted)} tone="violet" />
+                  <SummaryChip
+                    label="Discounted"
+                    value={String(summary.discounted)}
+                    tone="violet"
+                  />
                 )}
               </div>
             </CollapsibleContent>
           </Collapsible>
         ) : (
           <div className="mb-4 flex flex-wrap items-stretch gap-2">
-            <SummaryChip label={`Collected · ${summary.count}`} value={inr(summary.total)} tone="emerald" />
+            <SummaryChip
+              label={`Collected · ${summary.count}`}
+              value={inr(summary.total)}
+              tone="emerald"
+            />
             {METHODS.filter((m) => summary.byMethod[m]).map((m) => (
               <SummaryChip
                 key={m}
@@ -385,7 +470,9 @@ function PaymentsPage() {
                 value={inr(summary.byMethod[m].amount)}
               />
             ))}
-            {summary.partial > 0 && <SummaryChip label="Partial" value={String(summary.partial)} tone="cyan" />}
+            {summary.partial > 0 && (
+              <SummaryChip label="Partial" value={String(summary.partial)} tone="cyan" />
+            )}
             {summary.discounted > 0 && (
               <SummaryChip label="Discounted" value={String(summary.discounted)} tone="violet" />
             )}
@@ -426,7 +513,9 @@ function PaymentsPage() {
             {(customOpen || activeRange === "custom") && (
               <div className="mb-3 grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">From</Label>
+                  <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                    From
+                  </Label>
                   <DateInput
                     value={fromDate}
                     onChange={(e) => setSearch({ from: e.target.value || undefined })}
@@ -434,7 +523,9 @@ function PaymentsPage() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">To</Label>
+                  <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                    To
+                  </Label>
                   <DateInput
                     value={toDate}
                     onChange={(e) => setSearch({ to: e.target.value || undefined })}
@@ -466,7 +557,11 @@ function PaymentsPage() {
               </div>
               <Sheet open={filterSheet} onOpenChange={setFilterSheet}>
                 <SheetTrigger asChild>
-                  <Button variant="outline" size="icon" className="relative shrink-0 border-panel-border bg-panel">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="relative shrink-0 border-panel-border bg-panel"
+                  >
                     <SlidersHorizontal className="size-4" />
                     {activeFilterCount > 0 && (
                       <span className="absolute -right-1 -top-1 grid size-4 place-items-center rounded-full bg-violet text-[9px] font-bold text-white">
@@ -488,7 +583,7 @@ function PaymentsPage() {
                         onClick={() =>
                           setSearch({
                             shift: undefined,
-                             method: undefined,
+                            method: undefined,
                             branch: undefined,
                             type: undefined,
                             from: undefined,
@@ -535,7 +630,9 @@ function PaymentsPage() {
               <div className="flex flex-col sm:flex-row items-stretch sm:items-end justify-start sm:justify-end gap-3 w-full xl:w-auto">
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3 w-full sm:w-auto">
                   <div className="space-y-1 w-full sm:w-36 shrink-0">
-                    <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">From</Label>
+                    <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                      From
+                    </Label>
                     <DateInput
                       value={fromDate}
                       onChange={(e) => setSearch({ from: e.target.value || undefined })}
@@ -543,7 +640,9 @@ function PaymentsPage() {
                     />
                   </div>
                   <div className="space-y-1 w-full sm:w-36 shrink-0">
-                    <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">To</Label>
+                    <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                      To
+                    </Label>
                     <DateInput
                       value={toDate}
                       onChange={(e) => setSearch({ to: e.target.value || undefined })}
@@ -565,7 +664,11 @@ function PaymentsPage() {
                     key={r.key}
                     variant="ghost"
                     size="sm"
-                    className={activeRange === r.key ? "bg-panel-strong text-foreground" : "text-muted-foreground"}
+                    className={
+                      activeRange === r.key
+                        ? "bg-panel-strong text-foreground"
+                        : "text-muted-foreground"
+                    }
                     onClick={() => setSearch(r.range())}
                   >
                     {r.key === "today" && <CalendarIcon className="size-3 mr-1" />}
@@ -584,7 +687,7 @@ function PaymentsPage() {
                     onClick={() =>
                       setSearch({
                         shift: undefined,
-                             method: undefined,
+                        method: undefined,
                         branch: undefined,
                         type: undefined,
                         from: undefined,
@@ -599,9 +702,6 @@ function PaymentsPage() {
             </div>
           </>
         )}
-
-
-
 
         {view === "cards" ? (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -636,32 +736,45 @@ function PaymentsPage() {
                         Discounted
                       </span>
                     )}
-
                   </div>
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
                   <div className="min-w-0">
-                    <div className="text-[9px] uppercase tracking-widest text-muted-foreground">Date</div>
+                    <div className="text-[9px] uppercase tracking-widest text-muted-foreground">
+                      Date
+                    </div>
                     <div className="font-mono">{fmtDate(p.payment_date)}</div>
                   </div>
                   <div className="min-w-0">
-                    <div className="text-[9px] uppercase tracking-widest text-muted-foreground">Covers until</div>
+                    <div className="text-[9px] uppercase tracking-widest text-muted-foreground">
+                      Covers until
+                    </div>
                     <div className="font-mono text-emerald">{fmtDate(p.covers_until)}</div>
                   </div>
                   <div className="min-w-0">
-                    <div className="text-[9px] uppercase tracking-widest text-muted-foreground">Branch</div>
+                    <div className="text-[9px] uppercase tracking-widest text-muted-foreground">
+                      Branch
+                    </div>
                     <div className="truncate text-muted-foreground">{p.libraries?.name ?? "—"}</div>
                   </div>
                   <div className="min-w-0">
-                    <div className="text-[9px] uppercase tracking-widest text-muted-foreground">Method</div>
+                    <div className="text-[9px] uppercase tracking-widest text-muted-foreground">
+                      Method
+                    </div>
                     <div className="uppercase">{p.method}</div>
                   </div>
                   <div className="min-w-0">
-                    <div className="text-[9px] uppercase tracking-widest text-muted-foreground">Txn ref</div>
-                    <div className="truncate font-mono text-muted-foreground">{p.transaction_reference ?? "—"}</div>
+                    <div className="text-[9px] uppercase tracking-widest text-muted-foreground">
+                      Txn ref
+                    </div>
+                    <div className="truncate font-mono text-muted-foreground">
+                      {p.transaction_reference ?? "—"}
+                    </div>
                   </div>
                   <div className="min-w-0">
-                    <div className="text-[9px] uppercase tracking-widest text-muted-foreground">Collected by</div>
+                    <div className="text-[9px] uppercase tracking-widest text-muted-foreground">
+                      Collected by
+                    </div>
                     <div className="truncate">
                       {p.collected_by_staff_id ? (p.collector?.full_name ?? "Staff") : "Owner"}
                     </div>
@@ -749,7 +862,6 @@ function PaymentsPage() {
                           Discounted
                         </span>
                       )}
-
                     </td>
                     <td className="py-3 px-2">
                       <span className="rounded bg-panel px-2 py-1 text-[10px] uppercase tracking-wider">
@@ -767,7 +879,9 @@ function PaymentsPage() {
                           {p.collector?.employee_id ? ` · ${p.collector.employee_id}` : ""}
                         </span>
                       ) : (
-                        <span className="rounded bg-amber/10 px-2 py-0.5 text-[10px] text-amber">Owner</span>
+                        <span className="rounded bg-amber/10 px-2 py-0.5 text-[10px] text-amber">
+                          Owner
+                        </span>
                       )}
                     </td>
                     <td className="py-3 px-2">
@@ -805,12 +919,14 @@ function PaymentsPage() {
             </table>
           </div>
         )}
-
       </GlassPanel>
 
       {detailId && <PaymentDetailDialog paymentId={detailId} onClose={() => setDetailId(null)} />}
       {historyStudent && (
-        <StudentPaymentHistoryDialog student={historyStudent} onClose={() => setHistoryStudent(null)} />
+        <StudentPaymentHistoryDialog
+          student={historyStudent}
+          onClose={() => setHistoryStudent(null)}
+        />
       )}
     </div>
   );

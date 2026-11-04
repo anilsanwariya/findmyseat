@@ -1,12 +1,24 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { Trash2, Repeat } from "lucide-react";
 import { useConfirm } from "@/components/ConfirmDialog";
@@ -21,7 +33,9 @@ export function useRecurringExpenses(orgId?: string | null) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("recurring_expenses")
-        .select("id, amount, category, description, day_of_month, is_active, last_posted_on, library_id, created_at, libraries(name)")
+        .select(
+          "id, amount, category, description, day_of_month, is_active, last_posted_on, library_id, created_at, libraries(name)",
+        )
         .eq("org_id", orgId!)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -111,7 +125,10 @@ export function RecurringExpensesDialog({
   };
 
   const toggle = async (row: any, value: boolean) => {
-    const { error } = await supabase.from("recurring_expenses").update({ is_active: value }).eq("id", row.id);
+    const { error } = await supabase
+      .from("recurring_expenses")
+      .update({ is_active: value })
+      .eq("id", row.id);
     if (error) {
       toast.error(error.message);
       return;
@@ -156,7 +173,8 @@ export function RecurringExpensesDialog({
             <Repeat className="size-4" /> Recurring expenses
           </DialogTitle>
           <DialogDescription>
-            Set monthly bills once — rent, salaries, internet — then post them with one tap each month.
+            Set monthly bills once — rent, salaries, internet — then post them with one tap each
+            month.
           </DialogDescription>
         </DialogHeader>
 
@@ -173,7 +191,9 @@ export function RecurringExpensesDialog({
               <Input
                 type="number"
                 value={form.amount}
-                onChange={(e) => setForm({ ...form, amount: e.target.value === "" ? "" : Number(e.target.value) })}
+                onChange={(e) =>
+                  setForm({ ...form, amount: e.target.value === "" ? "" : Number(e.target.value) })
+                }
                 className="bg-panel border-panel-border font-mono h-11"
               />
             </div>
@@ -184,7 +204,12 @@ export function RecurringExpensesDialog({
                 min={1}
                 max={31}
                 value={form.day_of_month}
-                onChange={(e) => setForm({ ...form, day_of_month: Math.min(31, Math.max(1, Number(e.target.value) || 1)) })}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    day_of_month: Math.min(31, Math.max(1, Number(e.target.value) || 1)),
+                  })
+                }
                 className="bg-panel border-panel-border font-mono h-11"
               />
             </div>
@@ -192,7 +217,10 @@ export function RecurringExpensesDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label>Category</Label>
-              <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
+              <Select
+                value={form.category}
+                onValueChange={(v) => setForm({ ...form, category: v })}
+              >
                 <SelectTrigger className="bg-panel border-panel-border h-11">
                   <SelectValue />
                 </SelectTrigger>
@@ -207,7 +235,10 @@ export function RecurringExpensesDialog({
             </div>
             <div className="space-y-2">
               <Label>Branch (optional)</Label>
-              <Select value={form.library_id} onValueChange={(v) => setForm({ ...form, library_id: v })}>
+              <Select
+                value={form.library_id}
+                onValueChange={(v) => setForm({ ...form, library_id: v })}
+              >
                 <SelectTrigger className="bg-panel border-panel-border h-11">
                   <SelectValue placeholder="All" />
                 </SelectTrigger>
@@ -229,17 +260,26 @@ export function RecurringExpensesDialog({
               className="bg-panel border-panel-border h-11"
             />
           </div>
-          <Button type="submit" disabled={busy} className="w-full bg-white text-slate-900 hover:bg-white/90">
+          <Button
+            type="submit"
+            disabled={busy}
+            className="w-full bg-white text-slate-900 hover:bg-white/90"
+          >
             Add recurring expense
           </Button>
         </form>
 
         <div className="space-y-2">
-          {(list.data ?? []).length === 0 && <p className="text-sm text-muted-foreground">No recurring expenses yet.</p>}
+          {(list.data ?? []).length === 0 && (
+            <p className="text-sm text-muted-foreground">No recurring expenses yet.</p>
+          )}
           {(list.data ?? []).map((r: any) => {
             const dues = dueOccurrences(r);
             return (
-              <div key={r.id} className="rounded-xl border border-panel-border bg-panel p-3 space-y-2">
+              <div
+                key={r.id}
+                className="rounded-xl border border-panel-border bg-panel p-3 space-y-2"
+              >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <div className="text-sm font-semibold">
@@ -251,7 +291,11 @@ export function RecurringExpensesDialog({
                     </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
-                    <Switch checked={r.is_active} onCheckedChange={(v) => toggle(r, v)} aria-label="Active" />
+                    <Switch
+                      checked={r.is_active}
+                      onCheckedChange={(v) => toggle(r, v)}
+                      aria-label="Active"
+                    />
                     <Button
                       size="sm"
                       variant="ghost"
@@ -269,7 +313,11 @@ export function RecurringExpensesDialog({
                       {dues.length} due ({fmtDate(dues[0])}
                       {dues.length > 1 ? ` … ${fmtDate(dues[dues.length - 1])}` : ""})
                     </span>
-                    <Button size="sm" className="h-8 bg-white text-slate-900 hover:bg-white/90" onClick={() => post(r)}>
+                    <Button
+                      size="sm"
+                      className="h-8 bg-white text-slate-900 hover:bg-white/90"
+                      onClick={() => post(r)}
+                    >
                       Post
                     </Button>
                   </div>

@@ -19,7 +19,6 @@ import {
   UserCog,
   Star,
   GraduationCap,
-
 } from "lucide-react";
 
 import { AuroraBackground, GlassPanel } from "@/components/glass";
@@ -45,7 +44,12 @@ type NavItem = {
 const NAV: NavItem[] = [
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { to: "/admin/settings", label: "Branches", icon: Building2, ownerOnly: true },
-  { to: "/admin/layout-builder", label: "Layout Builder", icon: Grid3x3, perm: "manage_allocations" },
+  {
+    to: "/admin/layout-builder",
+    label: "Layout Builder",
+    icon: Grid3x3,
+    perm: "manage_allocations",
+  },
   { to: "/admin/students", label: "Students", icon: Users, perm: "manage_students" },
   { to: "/admin/allocations", label: "Allocations", icon: Ticket, perm: "manage_allocations" },
   { to: "/admin/payments", label: "Payments", icon: IndianRupee, perm: "collect_payments" },
@@ -57,8 +61,6 @@ const NAV: NavItem[] = [
   { to: "/admin/staff", label: "Team", icon: UserCog, ownerOnly: true },
   { to: "/admin/tutorial", label: "Tutorial", icon: GraduationCap },
 ];
-
-
 
 export function AdminShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -89,7 +91,9 @@ export function AdminShell({ children }: { children: ReactNode }) {
     return (
       <>
         {visibleNav.map((n) => {
-          const active = n.exact ? pathname === n.to : pathname === n.to || pathname.startsWith(n.to + "/");
+          const active = n.exact
+            ? pathname === n.to
+            : pathname === n.to || pathname.startsWith(n.to + "/");
           return (
             <Link
               key={n.to}
@@ -158,10 +162,17 @@ export function AdminShell({ children }: { children: ReactNode }) {
         {/* Mobile drawer */}
         {mobileOpen && (
           <div className="fixed inset-0 z-40 lg:hidden">
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
+            <div
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => setMobileOpen(false)}
+            />
             <aside className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col border-r border-panel-border bg-background/95 backdrop-blur-xl">
               <div className="flex items-center justify-between p-5">
-                <Link to="/admin" onClick={() => setMobileOpen(false)} className="flex items-center gap-2">
+                <Link
+                  to="/admin"
+                  onClick={() => setMobileOpen(false)}
+                  className="flex items-center gap-2"
+                >
                   <Logo size={32} />
                   <span className="text-lg font-medium tracking-tight">LibraryBandhu</span>
                 </Link>
@@ -179,7 +190,6 @@ export function AdminShell({ children }: { children: ReactNode }) {
                     <SubscriptionCard onClick={() => setMobileOpen(false)} />
                   </div>
                 )}
-
               </nav>
               <button
                 onClick={signOut}
@@ -218,7 +228,15 @@ export function AdminShell({ children }: { children: ReactNode }) {
   );
 }
 
-export function EmptyState({ title, hint, action }: { title: string; hint?: string; action?: ReactNode }) {
+export function EmptyState({
+  title,
+  hint,
+  action,
+}: {
+  title: string;
+  hint?: string;
+  action?: ReactNode;
+}) {
   return (
     <GlassPanel className="p-10 text-center">
       <h3 className="text-base font-semibold">{title}</h3>
@@ -258,7 +276,9 @@ function SubscriptionCard({ onClick }: { onClick?: () => void }) {
           <Crown className="size-4" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-mono uppercase tracking-widest text-amber-200/80">Owner access</p>
+          <p className="text-[10px] font-mono uppercase tracking-widest text-amber-200/80">
+            Owner access
+          </p>
           <p className="truncate text-sm font-semibold text-amber-50">
             {plan?.name ?? (sub ? "Active plan" : "No plan")}
           </p>
@@ -273,7 +293,12 @@ function SubscriptionCard({ onClick }: { onClick?: () => void }) {
               : "bg-panel text-muted-foreground ring-1 ring-panel-border",
           )}
         >
-          <span className={cn("size-1.5 rounded-full", isActive ? "bg-emerald-300" : "bg-muted-foreground")} />
+          <span
+            className={cn(
+              "size-1.5 rounded-full",
+              isActive ? "bg-emerald-300" : "bg-muted-foreground",
+            )}
+          />
           {status === "expired_delisted"
             ? "Read only"
             : status === "expired_grace"
@@ -318,18 +343,21 @@ function TrialBanner() {
     const daysLeft = Math.max(0, Math.ceil((end - now) / 86_400_000));
     tone = "border-violet/40 bg-violet/10 text-violet-100";
     title = `Free trial · ${daysLeft} day${daysLeft === 1 ? "" : "s"} left`;
-    body = "Full access to every feature. Subscribe before your trial ends to keep managing your library.";
+    body =
+      "Full access to every feature. Subscribe before your trial ends to keep managing your library.";
   } else if (data.state === "expired_grace") {
     const graceEnd = refEnd ? refEnd + 3 * 86_400_000 : now;
     const daysLeft = Math.max(0, Math.ceil((graceEnd - now) / 86_400_000));
     tone = "border-amber-400/50 bg-amber-500/10 text-amber-100";
     title = `Subscription expired · ${daysLeft} day${daysLeft === 1 ? "" : "s"} of grace left`;
-    body = "You can still make changes during this grace period. Renew before it ends to avoid read-only access.";
+    body =
+      "You can still make changes during this grace period. Renew before it ends to avoid read-only access.";
     cta = "Renew subscription";
   } else if (data.state === "expired_delisted") {
     tone = "border-rose/50 bg-rose/10 text-rose-100";
     title = "Library delisted";
-    body = "Your grace period is over. The library is hidden from the marketplace and all changes are blocked. Renew to restore access.";
+    body =
+      "Your grace period is over. The library is hidden from the marketplace and all changes are blocked. Renew to restore access.";
     cta = "Renew subscription";
   } else if (data.state === "suspended") {
     tone = "border-rose/50 bg-rose/10 text-rose-100";
@@ -351,7 +379,10 @@ function TrialBanner() {
   return (
     <Link
       to="/admin/subscription"
-      className={cn("mb-6 flex flex-col gap-1 rounded-xl border px-4 py-3 text-sm backdrop-blur-md transition-opacity hover:opacity-90 sm:flex-row sm:items-center sm:justify-between", tone)}
+      className={cn(
+        "mb-6 flex flex-col gap-1 rounded-xl border px-4 py-3 text-sm backdrop-blur-md transition-opacity hover:opacity-90 sm:flex-row sm:items-center sm:justify-between",
+        tone,
+      )}
     >
       <div className="min-w-0">
         <p className="font-semibold">{title}</p>

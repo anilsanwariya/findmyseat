@@ -27,7 +27,10 @@ export const monthKeyOffset = (offset: number) => {
 
 export const monthLabel = (key: string) => {
   const [y, m] = key.split("-").map(Number);
-  return new Date(y, (m ?? 1) - 1, 1).toLocaleDateString(undefined, { month: "short", year: "numeric" });
+  return new Date(y, (m ?? 1) - 1, 1).toLocaleDateString(undefined, {
+    month: "short",
+    year: "numeric",
+  });
 };
 
 /** First/last day of a "YYYY-MM" month as local ISO dates. */
@@ -49,7 +52,12 @@ export const occurrenceISO = (year: number, month0: number, day: number) => {
  * can't flood the ledger.
  */
 export function dueOccurrences(
-  r: { day_of_month: number; last_posted_on?: string | null; is_active?: boolean; created_at?: string },
+  r: {
+    day_of_month: number;
+    last_posted_on?: string | null;
+    is_active?: boolean;
+    created_at?: string;
+  },
   today = localISO(),
 ): string[] {
   if (r.is_active === false) return [];
@@ -70,7 +78,9 @@ export function dueOccurrences(
 export async function uploadExpenseReceipt(orgId: string, file: File) {
   const ext = file.name.split(".").pop() ?? "jpg";
   const path = `${orgId}/${crypto.randomUUID()}.${ext}`;
-  const { error } = await supabase.storage.from("expense-receipts").upload(path, file, { upsert: false });
+  const { error } = await supabase.storage
+    .from("expense-receipts")
+    .upload(path, file, { upsert: false });
   if (error) throw error;
   return path;
 }
@@ -85,7 +95,13 @@ export async function expenseReceiptSignedUrl(path: string) {
 }
 
 export function downloadExpenseWorkbook(
-  rows: { spent_on: string; category: string; amount: number; description?: string | null; libraries?: { name?: string } | null }[],
+  rows: {
+    spent_on: string;
+    category: string;
+    amount: number;
+    description?: string | null;
+    libraries?: { name?: string } | null;
+  }[],
   fileLabel: string,
 ) {
   const sheetRows = rows.map((e) => ({
@@ -95,8 +111,14 @@ export function downloadExpenseWorkbook(
     Amount: Number(e.amount),
     Description: e.description ?? "",
   }));
-  const ws = XLSX.utils.json_to_sheet(sheetRows.length ? sheetRows : [{ Date: "", Category: "", Branch: "", Amount: "", Description: "" }]);
-  (ws as any)["!cols"] = Object.keys(sheetRows[0] ?? { Date: "", Category: "", Branch: "", Amount: "", Description: "" }).map((k) => ({
+  const ws = XLSX.utils.json_to_sheet(
+    sheetRows.length
+      ? sheetRows
+      : [{ Date: "", Category: "", Branch: "", Amount: "", Description: "" }],
+  );
+  (ws as any)["!cols"] = Object.keys(
+    sheetRows[0] ?? { Date: "", Category: "", Branch: "", Amount: "", Description: "" },
+  ).map((k) => ({
     wch: Math.max(k.length + 2, ...sheetRows.map((r: any) => String(r[k] ?? "").length + 2), 10),
   }));
   const wb = XLSX.utils.book_new();

@@ -4,7 +4,13 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useLibraries } from "@/lib/data";
 import { GlassPanel, SectionHeader, Kpi } from "@/components/glass";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { fmtDate } from "@/lib/format";
 import { Star, MessageSquare } from "lucide-react";
 import { StarRating, StarBar } from "@/components/RatingStars";
@@ -12,7 +18,11 @@ import { StarRating, StarBar } from "@/components/RatingStars";
 export const Route = createFileRoute("/_authenticated/admin/reviews")({
   head: () => ({ meta: [{ title: "Reviews · LibraryBandhu" }] }),
   component: ReviewsPage,
-  errorComponent: ({ error }) => <div className="p-6 text-rose">{error instanceof Error ? error.message : "Could not load reviews."}</div>,
+  errorComponent: ({ error }) => (
+    <div className="p-6 text-rose">
+      {error instanceof Error ? error.message : "Could not load reviews."}
+    </div>
+  ),
   notFoundComponent: () => <div className="p-6">Not found</div>,
 });
 
@@ -43,7 +53,9 @@ function ReviewsPage() {
   const total = list.length;
   const avg =
     total > 0
-      ? Math.round((list.reduce((a: number, r: any) => a + Number(r.overall_rating || 0), 0) / total) * 10) / 10
+      ? Math.round(
+          (list.reduce((a: number, r: any) => a + Number(r.overall_rating || 0), 0) / total) * 10,
+        ) / 10
       : 0;
 
   return (
@@ -80,7 +92,7 @@ function ReviewsPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {list.map((r: any) => {
-          const name = r.is_anonymous ? "Anonymous Student" : r.students?.full_name ?? "Student";
+          const name = r.is_anonymous ? "Anonymous Student" : (r.students?.full_name ?? "Student");
           return (
             <GlassPanel key={r.id} className="p-5 space-y-3">
               <div className="flex items-start justify-between gap-3">

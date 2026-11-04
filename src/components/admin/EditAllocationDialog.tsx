@@ -6,7 +6,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { classifyShiftByName } from "@/lib/shift-utils";
@@ -92,7 +98,9 @@ export function EditAllocationDialog({
     !!alloc && id === alloc.seat_id && shift === (alloc.shift_id ?? null);
   const seatFree = (id: string, shift: string | null) =>
     unchanged(id, shift) || booked.isFree(id, shift, ignoreSelf);
-  const seatOptions = (seats.data ?? []).filter((s: any) => s.id === seatId || seatFree(s.id, targetShift));
+  const seatOptions = (seats.data ?? []).filter(
+    (s: any) => s.id === seatId || seatFree(s.id, targetShift),
+  );
 
   // If the chosen shift clashes on the chosen seat, clear the seat so the owner picks again.
   useEffect(() => {
@@ -108,7 +116,10 @@ export function EditAllocationDialog({
     queryKey: ["shifts-for-edit", alloc?.library_id, sectionId],
     enabled: !!alloc?.library_id,
     queryFn: async () => {
-      let q = supabase.from("shifts").select("id, name, section_id, base_fee").eq("library_id", alloc.library_id);
+      let q = supabase
+        .from("shifts")
+        .select("id, name, section_id, base_fee")
+        .eq("library_id", alloc.library_id);
       if (sectionId) q = q.or(`section_id.eq.${sectionId},section_id.is.null`);
       const { data, error } = await q;
       if (error) throw error;
@@ -119,8 +130,10 @@ export function EditAllocationDialog({
   // Enforce new Type and Shift constraints based on checkboxes
   useEffect(() => {
     if (!currentSection) return;
-    if (!currentSection.allow_unreserved && reservationType === "unreserved") setReservationType("reserved");
-    if (!currentSection.allow_reserved && reservationType === "reserved") setReservationType("unreserved");
+    if (!currentSection.allow_unreserved && reservationType === "unreserved")
+      setReservationType("reserved");
+    if (!currentSection.allow_reserved && reservationType === "reserved")
+      setReservationType("unreserved");
 
     if (!currentSection.allow_full_day && (!shiftId || shiftId === "none")) setShiftId("");
   }, [currentSection?.id]);
@@ -129,7 +142,6 @@ export function EditAllocationDialog({
   useEffect(() => {
     if (!currentSection) return;
     if (!feeTouched.current) return; // keep the student's current fee prefilled
-
 
     let calculatedFee = 0;
 
@@ -166,7 +178,9 @@ export function EditAllocationDialog({
           <div className="mt-1 text-xs text-muted-foreground flex items-center gap-2">
             <span>Current Seat:</span>
             <span className="font-mono text-cyan">
-              {alloc.reservation_type === "unreserved" ? "Unreserved" : (alloc.seats?.seat_number ?? "—")}
+              {alloc.reservation_type === "unreserved"
+                ? "Unreserved"
+                : (alloc.seats?.seat_number ?? "—")}
             </span>
           </div>
         </div>
@@ -177,16 +191,30 @@ export function EditAllocationDialog({
             e.preventDefault();
 
             // Final validation checks before submission
-            if (currentSection && !currentSection.allow_reserved && reservationType === "reserved") {
+            if (
+              currentSection &&
+              !currentSection.allow_reserved &&
+              reservationType === "reserved"
+            ) {
               toast.error("Reserved seats are not allowed in this section.");
               return;
             }
-            if (currentSection && !currentSection.allow_unreserved && reservationType === "unreserved") {
+            if (
+              currentSection &&
+              !currentSection.allow_unreserved &&
+              reservationType === "unreserved"
+            ) {
               toast.error("Unreserved allocations are not allowed in this section.");
               return;
             }
-            if (currentSection && !currentSection.allow_full_day && (!shiftId || shiftId === "none")) {
-              toast.error("Full-day allocations are not allowed in this section. Please select a shift.");
+            if (
+              currentSection &&
+              !currentSection.allow_full_day &&
+              (!shiftId || shiftId === "none")
+            ) {
+              toast.error(
+                "Full-day allocations are not allowed in this section. Please select a shift.",
+              );
               return;
             }
 
@@ -195,7 +223,17 @@ export function EditAllocationDialog({
               return;
             }
 
-            if (shiftId && shiftId !== "none" && !selectableShifts(shifts.data ?? [], sectionId, currentSection, booked.data?.timingText, booked.data?.configured).some((s) => s.id === shiftId)) {
+            if (
+              shiftId &&
+              shiftId !== "none" &&
+              !selectableShifts(
+                shifts.data ?? [],
+                sectionId,
+                currentSection,
+                booked.data?.timingText,
+                booked.data?.configured,
+              ).some((s) => s.id === shiftId)
+            ) {
               toast.error("Choose an enabled shift for this hall.");
               return;
             }
@@ -259,10 +297,16 @@ export function EditAllocationDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="reserved" disabled={!!currentSection && !currentSection.allow_reserved}>
+                  <SelectItem
+                    value="reserved"
+                    disabled={!!currentSection && !currentSection.allow_reserved}
+                  >
                     Reserved{!currentSection?.allow_reserved ? " (Not allowed)" : ""}
                   </SelectItem>
-                  <SelectItem value="unreserved" disabled={!!currentSection && !currentSection.allow_unreserved}>
+                  <SelectItem
+                    value="unreserved"
+                    disabled={!!currentSection && !currentSection.allow_unreserved}
+                  >
                     Unreserved{!currentSection?.allow_unreserved ? " (Not allowed)" : ""}
                   </SelectItem>
                 </SelectContent>
@@ -272,9 +316,17 @@ export function EditAllocationDialog({
 
           <div className="space-y-2">
             <Label>New Seat {reservationType === "unreserved" ? "(Not Required)" : ""}</Label>
-            <Select value={seatId} onValueChange={setSeatId} disabled={reservationType === "unreserved"}>
+            <Select
+              value={seatId}
+              onValueChange={setSeatId}
+              disabled={reservationType === "unreserved"}
+            >
               <SelectTrigger className="bg-panel border-panel-border">
-                <SelectValue placeholder={reservationType === "unreserved" ? "—" : "Choose a seat free for this shift"} />
+                <SelectValue
+                  placeholder={
+                    reservationType === "unreserved" ? "—" : "Choose a seat free for this shift"
+                  }
+                />
               </SelectTrigger>
               <SelectContent>
                 {seatOptions.map((s: any) => (
@@ -306,7 +358,9 @@ export function EditAllocationDialog({
                     return (
                       <SelectItem
                         value="none"
-                        disabled={(!!currentSection && !currentSection.allow_full_day) || fullDayTaken}
+                        disabled={
+                          (!!currentSection && !currentSection.allow_full_day) || fullDayTaken
+                        }
                       >
                         Full day
                         {!currentSection?.allow_full_day
@@ -317,14 +371,23 @@ export function EditAllocationDialog({
                       </SelectItem>
                     );
                   })()}
-                  {selectableShifts(shifts.data ?? [], sectionId, currentSection, booked.data?.timingText, booked.data?.configured).map((s: any) => {
+                  {selectableShifts(
+                    shifts.data ?? [],
+                    sectionId,
+                    currentSection,
+                    booked.data?.timingText,
+                    booked.data?.configured,
+                  ).map((s: any) => {
                     const cls = classifyShiftByName(s.name || "");
-                    const notAllowed = !!currentSection && !!cls && !(currentSection as any)[cls.allowKey];
-                    const taken = reservationType === "reserved" && !!seatId && !seatFree(seatId, s.id);
+                    const notAllowed =
+                      !!currentSection && !!cls && !(currentSection as any)[cls.allowKey];
+                    const taken =
+                      reservationType === "reserved" && !!seatId && !seatFree(seatId, s.id);
 
                     return (
                       <SelectItem key={s.id} value={s.id} disabled={notAllowed || taken}>
-                        {s.name} {notAllowed ? "(Not allowed)" : taken ? "(Taken on this seat)" : ""}
+                        {s.name}{" "}
+                        {notAllowed ? "(Not allowed)" : taken ? "(Taken on this seat)" : ""}
                       </SelectItem>
                     );
                   })}

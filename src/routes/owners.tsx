@@ -2,7 +2,15 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { AuroraBackground, GlassPanel } from "@/components/glass";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
-import { Grid3x3, Sparkles, Megaphone, ReceiptText, ArrowRight, Building2, CheckCircle2 } from "lucide-react";
+import {
+  Grid3x3,
+  Sparkles,
+  Megaphone,
+  ReceiptText,
+  ArrowRight,
+  Building2,
+  CheckCircle2,
+} from "lucide-react";
 
 export const Route = createFileRoute("/owners")({
   head: () => ({
@@ -90,8 +98,9 @@ function OwnersLandingPage() {
             <span className="text-gradient-violet-cyan">Automate Your Library.</span>
           </h1>
           <p className="mx-auto mt-5 max-w-2xl text-base text-muted-foreground sm:text-lg">
-            LibraryBandhu is the all-in-one management platform for library and study-space owners. Manage branches,
-            seats, students, allocations, and payments — while a built-in marketplace sends new students your way.
+            LibraryBandhu is the all-in-one management platform for library and study-space owners.
+            Manage branches, seats, students, allocations, and payments — while a built-in
+            marketplace sends new students your way.
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link to="/owner-login">
@@ -124,11 +133,16 @@ function OwnersLandingPage() {
             <h2 className="text-2xl font-extrabold tracking-tight sm:text-3xl">
               Everything you need. Nothing you don't.
             </h2>
-            <p className="mt-2 text-sm text-muted-foreground">Purpose-built for library owners who want to grow.</p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Purpose-built for library owners who want to grow.
+            </p>
           </div>
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {FEATURES.map((f) => (
-              <GlassPanel key={f.title} className="group p-6 transition-transform hover:-translate-y-1">
+              <GlassPanel
+                key={f.title}
+                className="group p-6 transition-transform hover:-translate-y-1"
+              >
                 <div
                   className={`mb-4 inline-grid size-11 place-items-center rounded-xl bg-gradient-to-br ${f.tone} ring-1 ring-panel-border`}
                 >
@@ -146,10 +160,12 @@ function OwnersLandingPage() {
           <GlassPanel strong className="relative overflow-hidden p-10 text-center sm:p-14">
             <div className="pointer-events-none absolute -top-32 left-1/2 h-64 w-[600px] -translate-x-1/2 rounded-full bg-gradient-to-br from-violet/40 via-magenta/30 to-gold/40 blur-3xl opacity-60" />
             <div className="relative">
-              <h2 className="text-3xl font-black tracking-tight sm:text-4xl">Ready to digitalize your space?</h2>
+              <h2 className="text-3xl font-black tracking-tight sm:text-4xl">
+                Ready to digitalize your space?
+              </h2>
               <p className="mx-auto mt-3 max-w-xl text-sm text-muted-foreground sm:text-base">
-                Join hundreds of library owners already using LibraryBandhu to run their business — and get free student
-                leads from day one.
+                Join hundreds of library owners already using LibraryBandhu to run their business —
+                and get free student leads from day one.
               </p>
               <Link to="/owner-login" className="mt-6 inline-block">
                 <Button size="lg" className="h-12 px-8 bg-white text-slate-900 hover:bg-white/90">

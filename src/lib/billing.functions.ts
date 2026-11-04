@@ -36,18 +36,30 @@ export const getOwnerBilling = createServerFn({ method: "GET" })
     // Ignore abandoned checkout attempts ("created"/"abandoned") so an unpaid
     // attempt never appears as the org's current subscription.
     const rows = subs ?? [];
-    const sub = rows
-      .filter((s: any) => !["created", "abandoned"].includes(String(s.status)))
-      .sort((a: any, b: any) => {
-        const aActive = a.status === "active" && (!a.current_period_end || new Date(a.current_period_end) > new Date());
-        const bActive = b.status === "active" && (!b.current_period_end || new Date(b.current_period_end) > new Date());
-        if (aActive !== bActive) return aActive ? -1 : 1;
-        return new Date(b.current_period_end ?? b.created_at).getTime() - new Date(a.current_period_end ?? a.created_at).getTime();
-      })[0] ?? null;
+    const sub =
+      rows
+        .filter((s: any) => !["created", "abandoned"].includes(String(s.status)))
+        .sort((a: any, b: any) => {
+          const aActive =
+            a.status === "active" &&
+            (!a.current_period_end || new Date(a.current_period_end) > new Date());
+          const bActive =
+            b.status === "active" &&
+            (!b.current_period_end || new Date(b.current_period_end) > new Date());
+          if (aActive !== bActive) return aActive ? -1 : 1;
+          return (
+            new Date(b.current_period_end ?? b.created_at).getTime() -
+            new Date(a.current_period_end ?? a.created_at).getTime()
+          );
+        })[0] ?? null;
 
     let plan = null;
     if (sub?.plan_id) {
-      const { data: p } = await supabase.from("subscription_plans").select("*").eq("id", sub.plan_id).maybeSingle();
+      const { data: p } = await supabase
+        .from("subscription_plans")
+        .select("*")
+        .eq("id", sub.plan_id)
+        .maybeSingle();
       plan = p;
     }
     return { subscription: sub, invoices: invoices ?? [], plan, org: null };
@@ -76,7 +88,11 @@ export const getOrgSubscriptionState = createServerFn({ method: "GET" })
       orgId = staff?.org_id ?? null;
     }
     if (!orgId)
-      return { state: null as string | null, trial_ends_at: null as string | null, ref_end: null as string | null };
+      return {
+        state: null as string | null,
+        trial_ends_at: null as string | null,
+        ref_end: null as string | null,
+      };
 
     const [{ data: org }, { data: sub }, { data: stateRes }] = await Promise.all([
       supabase.from("organizations").select("trial_ends_at").eq("id", orgId).maybeSingle(),
@@ -116,10 +132,15 @@ export const validateCoupon = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const code = data.code.toUpperCase();
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: c } = await supabaseAdmin.from("discount_coupons").select("*").ilike("code", escapeLike(code)).maybeSingle();
+    const { data: c } = await supabaseAdmin
+      .from("discount_coupons")
+      .select("*")
+      .ilike("code", escapeLike(code))
+      .maybeSingle();
     if (!c || !c.is_active) throw new Error("Invalid or inactive coupon");
     if (c.valid_until && new Date(c.valid_until) < new Date()) throw new Error("Coupon expired");
-    if (c.max_uses != null && (c.current_uses ?? 0) >= c.max_uses) throw new Error("Coupon usage limit reached");
+    if (c.max_uses != null && (c.current_uses ?? 0) >= c.max_uses)
+      throw new Error("Coupon usage limit reached");
     return {
       id: c.id,
       code: c.code,
@@ -158,7 +179,12 @@ export const createOwnerSubscription = createServerFn({ method: "POST" })
     if (!orgId) throw new Error("Not an organization admin");
 
     const [{ data: plan }, { data: org }] = await Promise.all([
-      supabase.from("subscription_plans").select("*").eq("id", data.plan_id).eq("is_active", true).maybeSingle(),
+      supabase
+        .from("subscription_plans")
+        .select("*")
+        .eq("id", data.plan_id)
+        .eq("is_active", true)
+        .maybeSingle(),
       supabase
         .from("organizations")
         .select("company_name, contact_email, contact_phone, owner_name")
@@ -169,13 +195,17 @@ export const createOwnerSubscription = createServerFn({ method: "POST" })
     if (!org) throw new Error("Organization missing");
 
     const basePrice =
-      Number(data.billing_cycle === "monthly" ? plan.monthly_price : plan.annual_price) || Number(plan.price) || 0;
+      Number(data.billing_cycle === "monthly" ? plan.monthly_price : plan.annual_price) ||
+      Number(plan.price) ||
+      0;
     if (basePrice <= 0) throw new Error("Plan price is not set");
 
     // Apply plan-level global discount if valid
     const customPct =
       Number(
-        data.billing_cycle === "monthly" ? (plan as any).discount_monthly_pct : (plan as any).discount_annual_pct,
+        data.billing_cycle === "monthly"
+          ? (plan as any).discount_monthly_pct
+          : (plan as any).discount_annual_pct,
       ) || 0;
     const validUntil = (plan as any).discount_valid_until;
     const customActive = customPct > 0 && validUntil && new Date(validUntil) > new Date();
@@ -184,13 +214,21 @@ export const createOwnerSubscription = createServerFn({ method: "POST" })
     // Coupon calculation
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    await supabaseAdmin.from("owner_subscriptions").update({ status: "abandoned" }).eq("org_id", orgId).eq("status", "created");
+    await supabaseAdmin
+      .from("owner_subscriptions")
+      .update({ status: "abandoned" })
+      .eq("org_id", orgId)
+      .eq("status", "created");
 
     let couponId: string | null = null;
     let discounted = baseAmount;
     if (data.coupon_code) {
       const code = data.coupon_code.toUpperCase();
-      const { data: c } = await supabaseAdmin.from("discount_coupons").select("*").ilike("code", escapeLike(code)).maybeSingle();
+      const { data: c } = await supabaseAdmin
+        .from("discount_coupons")
+        .select("*")
+        .ilike("code", escapeLike(code))
+        .maybeSingle();
       if (
         c &&
         c.is_active &&
@@ -255,7 +293,10 @@ export const createOwnerSubscription = createServerFn({ method: "POST" })
         },
       });
     } catch (cause) {
-      await supabaseAdmin.from("owner_subscriptions").update({ status: "abandoned" }).eq("id", row.id);
+      await supabaseAdmin
+        .from("owner_subscriptions")
+        .update({ status: "abandoned" })
+        .eq("id", row.id);
       throw cause;
     }
 
@@ -277,28 +318,40 @@ export const createOwnerSubscription = createServerFn({ method: "POST" })
 // -------- Verify one-time checkout and activate access ----------
 export const verifyOwnerPayment = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({
-    local_id: z.string().uuid(),
-    razorpay_order_id: z.string().min(1),
-    razorpay_payment_id: z.string().min(1),
-    razorpay_signature: z.string().min(1),
-  }).parse(d))
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        local_id: z.string().uuid(),
+        razorpay_order_id: z.string().min(1),
+        razorpay_payment_id: z.string().min(1),
+        razorpay_signature: z.string().min(1),
+      })
+      .parse(d),
+  )
   .handler(async ({ data, context }) => {
     const { data: roleRow } = await context.supabase
-      .from("user_roles").select("org_id").eq("user_id", context.userId).eq("role", "org_admin").maybeSingle();
+      .from("user_roles")
+      .select("org_id")
+      .eq("user_id", context.userId)
+      .eq("role", "org_admin")
+      .maybeSingle();
     if (!roleRow?.org_id) throw new Error("Not an organization admin");
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: attempt } = await supabaseAdmin
       .from("owner_subscriptions")
       .select("id, org_id, razorpay_order_id")
-      .eq("id", data.local_id).eq("org_id", roleRow.org_id).maybeSingle();
-    if (!attempt || attempt.razorpay_order_id !== data.razorpay_order_id) throw new Error("Payment attempt not found");
+      .eq("id", data.local_id)
+      .eq("org_id", roleRow.org_id)
+      .maybeSingle();
+    if (!attempt || attempt.razorpay_order_id !== data.razorpay_order_id)
+      throw new Error("Payment attempt not found");
 
-    const secret = process.env['RAZORPAY_KEY_SECRET'];
+    const secret = process.env["RAZORPAY_KEY_SECRET"];
     if (!secret) throw new Error("Razorpay is not configured.");
     const expected = createHmac("sha256", secret)
-      .update(`${data.razorpay_order_id}|${data.razorpay_payment_id}`).digest("hex");
+      .update(`${data.razorpay_order_id}|${data.razorpay_payment_id}`)
+      .digest("hex");
     const supplied = Buffer.from(data.razorpay_signature);
     const expectedBuffer = Buffer.from(expected);
     if (supplied.length !== expectedBuffer.length || !timingSafeEqual(supplied, expectedBuffer)) {
@@ -306,7 +359,11 @@ export const verifyOwnerPayment = createServerFn({ method: "POST" })
     }
 
     const { activatePaidOrder } = await import("@/lib/billing.server");
-    return activatePaidOrder({ localId: data.local_id, orderId: data.razorpay_order_id, paymentId: data.razorpay_payment_id });
+    return activatePaidOrder({
+      localId: data.local_id,
+      orderId: data.razorpay_order_id,
+      paymentId: data.razorpay_payment_id,
+    });
   });
 
 // -------- Abandon an unpaid checkout attempt ----------
@@ -332,7 +389,10 @@ export const abandonSubscriptionAttempt = createServerFn({ method: "POST" })
       .eq("razorpay_order_id", data.order_id)
       .maybeSingle();
     if (!row || row.status !== "created") return { ok: true };
-    await supabaseAdmin.from("owner_subscriptions").update({ status: "abandoned" }).eq("id", row.id);
+    await supabaseAdmin
+      .from("owner_subscriptions")
+      .update({ status: "abandoned" })
+      .eq("id", row.id);
     return { ok: true };
   });
 
@@ -340,7 +400,10 @@ export const abandonSubscriptionAttempt = createServerFn({ method: "POST" })
 export const cutoverLegacySubscriptions = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { data: isSuper } = await context.supabase.rpc("has_role", { _user_id: context.userId, _role: "super_admin" });
+    const { data: isSuper } = await context.supabase.rpc("has_role", {
+      _user_id: context.userId,
+      _role: "super_admin",
+    });
     if (!isSuper) throw new Error("Forbidden");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: rows, error } = await supabaseAdmin
@@ -357,26 +420,40 @@ export const cutoverLegacySubscriptions = createServerFn({ method: "POST" })
     for (const row of rows ?? []) {
       const attemptedAt = new Date().toISOString();
       try {
-        await razorpayRequest(`/subscriptions/${row.razorpay_subscription_id}/cancel`, "POST", { cancel_at_cycle_end: 0 });
-        await supabaseAdmin.from("owner_subscriptions").update({
-          status: "expired", current_period_end: attemptedAt, legacy_cancel_attempted_at: attemptedAt,
-          legacy_cancelled_at: attemptedAt, legacy_cancel_error: null,
-        }).eq("id", row.id);
+        await razorpayRequest(`/subscriptions/${row.razorpay_subscription_id}/cancel`, "POST", {
+          cancel_at_cycle_end: 0,
+        });
+        await supabaseAdmin
+          .from("owner_subscriptions")
+          .update({
+            status: "expired",
+            current_period_end: attemptedAt,
+            legacy_cancel_attempted_at: attemptedAt,
+            legacy_cancelled_at: attemptedAt,
+            legacy_cancel_error: null,
+          })
+          .eq("id", row.id);
         cancelled += 1;
       } catch (cause) {
         const message = cause instanceof Error ? cause.message : "Cancellation failed";
         const providerNoLongerHasAgreement = /invalid or could not be found/i.test(message);
         if (providerNoLongerHasAgreement) {
-          await supabaseAdmin.from("owner_subscriptions").update({
-            status: "expired",
-            current_period_end: attemptedAt,
-            legacy_cancel_attempted_at: attemptedAt,
-            legacy_cancelled_at: attemptedAt,
-            legacy_cancel_error: "Razorpay agreement was not found; local cutover completed.",
-          }).eq("id", row.id);
+          await supabaseAdmin
+            .from("owner_subscriptions")
+            .update({
+              status: "expired",
+              current_period_end: attemptedAt,
+              legacy_cancel_attempted_at: attemptedAt,
+              legacy_cancelled_at: attemptedAt,
+              legacy_cancel_error: "Razorpay agreement was not found; local cutover completed.",
+            })
+            .eq("id", row.id);
           cancelled += 1;
         } else {
-          await supabaseAdmin.from("owner_subscriptions").update({ legacy_cancel_attempted_at: attemptedAt, legacy_cancel_error: message }).eq("id", row.id);
+          await supabaseAdmin
+            .from("owner_subscriptions")
+            .update({ legacy_cancel_attempted_at: attemptedAt, legacy_cancel_error: message })
+            .eq("id", row.id);
           failures.push({ id: row.id, error: message });
         }
       }
@@ -418,7 +495,10 @@ export const reviewLibrary = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const { data: isSuper } = await supabase.rpc("has_role", { _user_id: userId, _role: "super_admin" });
+    const { data: isSuper } = await supabase.rpc("has_role", {
+      _user_id: userId,
+      _role: "super_admin",
+    });
     if (!isSuper) throw new Error("Forbidden");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin
@@ -440,7 +520,10 @@ export const getLibraryDetailWithLog = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ library_id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const { data: isSuper } = await supabase.rpc("has_role", { _user_id: userId, _role: "super_admin" });
+    const { data: isSuper } = await supabase.rpc("has_role", {
+      _user_id: userId,
+      _role: "super_admin",
+    });
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     // Fetch library + photos
@@ -455,7 +538,10 @@ export const getLibraryDetailWithLog = createServerFn({ method: "POST" })
 
     // Authorize: super admin OR org admin of this branch
     if (!isSuper) {
-      const { data: isOwner } = await supabase.rpc("is_org_admin", { _user_id: userId, _org_id: (lib as any).org_id });
+      const { data: isOwner } = await supabase.rpc("is_org_admin", {
+        _user_id: userId,
+        _org_id: (lib as any).org_id,
+      });
       if (!isOwner) throw new Error("Forbidden");
     }
 

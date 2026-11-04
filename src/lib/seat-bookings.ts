@@ -14,7 +14,12 @@ export function useSeatBookings(libraryId: string | null | undefined) {
     queryKey: ["seat-bookings", libraryId],
     enabled: !!libraryId,
     staleTime: 15_000,
-    queryFn: async (): Promise<{ bookings: SeatBooking[]; shifts: ShiftTimes[]; timingText: string | null; configured: boolean }> => {
+    queryFn: async (): Promise<{
+      bookings: SeatBooking[];
+      shifts: ShiftTimes[];
+      timingText: string | null;
+      configured: boolean;
+    }> => {
       const [bookings, shifts, lib] = await Promise.all([
         fetchAllRows<SeatBooking>((from, to) =>
           supabase
@@ -34,12 +39,21 @@ export function useSeatBookings(libraryId: string | null | undefined) {
             .order("id")
             .range(from, to),
         ),
-        supabase.from("libraries").select("shifts, shift_schedule_configured").eq("id", libraryId ?? "").maybeSingle(),
+        supabase
+          .from("libraries")
+          .select("shifts, shift_schedule_configured")
+          .eq("id", libraryId ?? "")
+          .maybeSingle(),
       ]);
       // The branch's own Morning / Evening / Night hours decide which shifts can share a seat.
       const timings = parseBranchTimings((lib.data as { shifts?: string | null } | null)?.shifts);
       if (lib.error) throw lib.error;
-      return { bookings, shifts: shifts.map((s: ShiftTimes) => ({ ...s, timings })), timingText: lib.data?.shifts ?? null, configured: lib.data?.shift_schedule_configured ?? false };
+      return {
+        bookings,
+        shifts: shifts.map((s: ShiftTimes) => ({ ...s, timings })),
+        timingText: lib.data?.shifts ?? null,
+        configured: lib.data?.shift_schedule_configured ?? false,
+      };
     },
   });
 
