@@ -4,6 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { createHmac, timingSafeEqual } from "crypto";
 import { escapeLike } from "@/lib/otp";
 import { callOptionalRpc } from "@/lib/optional-rpc";
+import { assertOwner } from "@/lib/org-access";
 
 // -------- Subscription reads ----------
 export const getOwnerBilling = createServerFn({ method: "GET" })
@@ -168,15 +169,9 @@ export const createOwnerSubscription = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
-    const { data: roleRow } = await supabase
-      .from("user_roles")
-      .select("org_id")
-      .eq("user_id", userId)
-      .eq("role", "org_admin")
-      .maybeSingle();
-    const orgId = roleRow?.org_id;
-    if (!orgId) throw new Error("Not an organization admin");
+    const { supabase } = context;
+    // Staff share the org_admin role; only the owner buys the plan.
+    const orgId = await assertOwner(context, "buy or renew the subscription");
 
     const [{ data: plan }, { data: org }] = await Promise.all([
       supabase
