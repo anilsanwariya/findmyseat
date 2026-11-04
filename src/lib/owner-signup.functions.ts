@@ -1,20 +1,17 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { devCodeOrNull, generateOtp, sha256Hex } from "@/lib/otp";
+import {
+  HOUR_MS,
+  OTP_MAX_ATTEMPTS as MAX_ATTEMPTS,
+  decodeOtp,
+  devCodeOrNull,
+  encodeOtp,
+  generateOtp,
+  otpRequestBlockedReason,
+  sha256Hex,
+} from "@/lib/otp";
 
-// Stored in owner_signup_otps.otp_code as "v2:<attempts>:<sha256(code)>" so the
-// plain code is never persisted and wrong guesses are counted without needing
-// a schema change.
-const MAX_ATTEMPTS = 5;
-const RESEND_COOLDOWN_MS = 60 * 1000;
-
-function encodeOtp(hash: string, attempts: number) {
-  return `v2:${attempts}:${hash}`;
-}
-function decodeOtp(stored: string): { attempts: number; hash: string } | null {
-  const m = /^v2:(\d+):([0-9a-f]{64})$/.exec(stored);
-  return m ? { attempts: Number(m[1]), hash: m[2] } : null;
-}
+// Stored in owner_signup_otps.otp_code as "v2:<attempts>:<sha256(code)>" (see otp.ts).
 
 const SendSchema = z.object({
   email: z.string().trim().email().max(255),
@@ -25,6 +22,15 @@ export const sendOwnerSignupOtp = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const email = data.email.toLowerCase();
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Rate limit first, before the (expensive) scan of existing users.
+    const { data: recent } = await supabaseAdmin
+      .from("owner_signup_otps")
+      .select("created_at")
+      .eq("email", email)
+      .gte("created_at", new Date(Date.now() - HOUR_MS).toISOString());
+    const blocked = otpRequestBlockedReason((recent ?? []).map((r) => r.created_at));
+    if (blocked) throw new Error(blocked);
 
     // Reject if an auth user already exists with this email (scan every page).
     for (let page = 1; ; page++) {
@@ -38,17 +44,6 @@ export const sendOwnerSignupOtp = createServerFn({ method: "POST" })
         throw new Error("An account with this email already exists. Please sign in.");
       }
       if (users.length < 1000) break;
-    }
-
-    const { data: last } = await supabaseAdmin
-      .from("owner_signup_otps")
-      .select("created_at")
-      .eq("email", email)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (last && Date.now() - new Date(last.created_at).getTime() < RESEND_COOLDOWN_MS) {
-      throw new Error("Please wait a minute before requesting another code.");
     }
 
     const code = generateOtp();

@@ -18,7 +18,8 @@
 3. **Secrets never reach the browser.** Only `VITE_*` variables are public. `SUPABASE_SERVICE_ROLE_KEY`, `RAZORPAY_*`, `LOVABLE_API_KEY`, `GOOGLE_MAPS_API_KEY` are server-only.
 4. **Public data goes through narrow RPCs** (e.g. payment page details, rating summaries, student shift availability) that return only the fields needed — never student identities.
 5. **Validate input** in server functions (zod) and in database constraints/triggers.
-6. **OTPs** are hashed (`sha256Hex`), short-lived and single-use.
+6. **OTPs** are hashed (`sha256Hex`), short-lived and single-use, with the shared limits in
+   `src/lib/otp.ts`: one code a minute, five an hour, five wrong guesses per code.
 7. **Uploads** (photos, documents, receipts, QR images) go to scoped storage buckets; owners can write only their own branch folders. Check file type and size.
 8. **Webhooks** (Razorpay) verify the HMAC signature with a timing-safe compare before doing anything.
 9. **No destructive data changes without review** — see ADR-002.
