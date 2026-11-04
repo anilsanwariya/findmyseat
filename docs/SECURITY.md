@@ -12,6 +12,9 @@
 ## Rules
 1. **Authorization lives in the database.** Every table has row-level security. UI checks (`usePermissions`) only hide buttons.
 2. **Server functions verify the caller** (role, organisation, branch) before using the service-role client.
+   Staff logins share the `org_admin` role with the owner, so a role check alone is not enough:
+   use `assertOwner` for owner-only actions and `assertCanAccess` for staff-permitted ones
+   (`src/lib/org-access.ts`, mirroring `is_staff_user` / `staff_lib_ok` / `staff_perm_ok`).
 3. **Secrets never reach the browser.** Only `VITE_*` variables are public. `SUPABASE_SERVICE_ROLE_KEY`, `RAZORPAY_*`, `LOVABLE_API_KEY`, `GOOGLE_MAPS_API_KEY` are server-only.
 4. **Public data goes through narrow RPCs** (e.g. payment page details, rating summaries, student shift availability) that return only the fields needed — never student identities.
 5. **Validate input** in server functions (zod) and in database constraints/triggers.

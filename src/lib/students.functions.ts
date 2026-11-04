@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
+import { assertCanAccess, canAccess, getOrgAccess } from "@/lib/org-access";
 import { devCodeOrNull, escapeLike, generateOtp, sha256Hex } from "@/lib/otp";
 
 const StudentEmailDomain = "students.librarybandhu.local";
@@ -24,22 +25,13 @@ const CreateStudentSchema = z.object({
   id_card_url: z.string().max(500).optional().nullable(),
 });
 
-async function assertOrgAdmin(ctx: { supabase: any; userId: string }) {
-  const { data } = await ctx.supabase
-    .from("user_roles")
-    .select("org_id, role")
-    .eq("user_id", ctx.userId)
-    .eq("role", "org_admin")
-    .maybeSingle();
-  if (!data?.org_id) throw new Error("Not an organization admin");
-  return data.org_id as string;
-}
-
 export const createStudent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => CreateStudentSchema.parse(data))
   .handler(async ({ data, context }) => {
-    const orgId = await assertOrgAdmin(context);
+    // Owner, or staff allowed to manage students in this branch.
+    const access = await assertCanAccess(context, data.library_id, "manage_students");
+    const { orgId } = access;
     const { data: lib } = await context.supabase
       .from("libraries")
       .select("id, org_id")
@@ -68,6 +60,10 @@ export const createStudent = createServerFn({ method: "POST" })
       // Already registered in this org — reuse and (re)activate that row.
       const sameOrg = (existingRows ?? []).find((r) => r.org_id === orgId);
       if (sameOrg) {
+        // Re-onboarding moves the student here, so staff need their current branch too.
+        if (!canAccess(access, sameOrg.library_id, "manage_students")) {
+          throw new Error("This student belongs to a branch you don't manage.");
+        }
         await supabaseAdmin
           .from("students")
           .update({ library_id: data.library_id, is_active: true })
@@ -183,7 +179,9 @@ export const updateStudent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => UpdateStudentSchema.parse(d))
   .handler(async ({ data, context }) => {
-    const orgId = await assertOrgAdmin(context);
+    // Moving a student needs access to the new branch; the current one is
+    // checked by row-level security on the read below.
+    const { orgId } = await assertCanAccess(context, data.library_id, "manage_students");
     const { data: s } = await context.supabase
       .from("students")
       .select("id, org_id, user_id, mobile_number")
@@ -246,13 +244,15 @@ export const setStudentActive = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => SetActiveSchema.parse(d))
   .handler(async ({ data, context }) => {
-    const orgId = await assertOrgAdmin(context);
+    const access = await getOrgAccess(context);
     const { data: s } = await context.supabase
       .from("students")
-      .select("id, org_id")
+      .select("id, org_id, library_id")
       .eq("id", data.student_id)
       .maybeSingle();
-    if (!s || s.org_id !== orgId) throw new Error("Student not in your organization");
+    if (!s || s.org_id !== access.orgId) throw new Error("Student not in your organization");
+    if (!canAccess(access, s.library_id, "manage_students"))
+      throw new Error("You don't have permission to do this for this branch.");
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
@@ -278,13 +278,15 @@ export const resetStudentPin = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => ResetPinSchema.parse(data))
   .handler(async ({ data, context }) => {
-    const orgId = await assertOrgAdmin(context);
+    const access = await getOrgAccess(context);
     const { data: s } = await context.supabase
       .from("students")
-      .select("id, org_id, user_id, dob")
+      .select("id, org_id, library_id, user_id, dob")
       .eq("id", data.student_id)
       .maybeSingle();
-    if (!s || s.org_id !== orgId) throw new Error("Student not in your organization");
+    if (!s || s.org_id !== access.orgId) throw new Error("Student not in your organization");
+    if (!canAccess(access, s.library_id, "manage_students"))
+      throw new Error("You don't have permission to do this for this branch.");
     if (!s.user_id) throw new Error("Student has no auth user");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error: uErr } = await supabaseAdmin.auth.admin.updateUserById(s.user_id, {
@@ -349,13 +351,15 @@ export const setStudentEmailByAdmin = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => SetStudentEmailAdminSchema.parse(d))
   .handler(async ({ data, context }) => {
-    const orgId = await assertOrgAdmin(context);
+    const access = await getOrgAccess(context);
     const { data: s } = await context.supabase
       .from("students")
-      .select("id, org_id")
+      .select("id, org_id, library_id")
       .eq("id", data.student_id)
       .maybeSingle();
-    if (!s || s.org_id !== orgId) throw new Error("Not your student");
+    if (!s || s.org_id !== access.orgId) throw new Error("Not your student");
+    if (!canAccess(access, s.library_id, "manage_students"))
+      throw new Error("You don't have permission to do this for this branch.");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin
       .from("students")

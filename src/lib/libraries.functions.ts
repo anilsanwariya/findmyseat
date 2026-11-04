@@ -4,25 +4,26 @@ import { z } from "zod";
 import { createHash } from "crypto";
 import { generateOtp } from "@/lib/otp";
 import { callOptionalRpc } from "@/lib/optional-rpc";
+import { assertOwner } from "@/lib/org-access";
 
+/**
+ * Branch photos and branch deletion are owner-only, like the database policies on
+ * libraries and library_photos. Staff share the org_admin role, so check that the
+ * caller isn't staff before using the service-role client.
+ */
 async function assertOrgAdminForLibrary(
   ctx: { supabase: any; userId: string },
   library_id: string,
+  action: string,
 ) {
-  const { data: adminRow } = await ctx.supabase
-    .from("user_roles")
-    .select("org_id")
-    .eq("user_id", ctx.userId)
-    .eq("role", "org_admin")
-    .maybeSingle();
-  if (!adminRow?.org_id) throw new Error("Not an organization admin");
+  const orgId = await assertOwner(ctx, action);
   const { data: lib } = await ctx.supabase
     .from("libraries")
     .select("id, org_id")
     .eq("id", library_id)
     .maybeSingle();
-  if (!lib || lib.org_id !== adminRow.org_id) throw new Error("Library not in your organization");
-  return { orgId: adminRow.org_id as string };
+  if (!lib || lib.org_id !== orgId) throw new Error("Library not in your organization");
+  return { orgId };
 }
 
 const UploadPhotoSchema = z.object({
@@ -37,7 +38,7 @@ export const uploadLibraryPhoto = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => UploadPhotoSchema.parse(d))
   .handler(async ({ data, context }) => {
-    await assertOrgAdminForLibrary(context, data.library_id);
+    await assertOrgAdminForLibrary(context, data.library_id, "manage branch photos");
 
     const commaIdx = data.file_data_url.indexOf(",");
     if (commaIdx === -1) throw new Error("Invalid image data");
@@ -109,7 +110,7 @@ export const reorderLibraryPhotos = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => ReorderPhotosSchema.parse(d))
   .handler(async ({ data, context }) => {
-    await assertOrgAdminForLibrary(context, data.library_id);
+    await assertOrgAdminForLibrary(context, data.library_id, "manage branch photos");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: existing } = await supabaseAdmin
       .from("library_photos")
@@ -145,7 +146,7 @@ export const deleteLibraryPhoto = createServerFn({ method: "POST" })
       .eq("id", data.photo_id)
       .maybeSingle();
     if (!photo) throw new Error("Photo not found");
-    await assertOrgAdminForLibrary(context, photo.library_id);
+    await assertOrgAdminForLibrary(context, photo.library_id, "manage branch photos");
 
     // Extract storage path after '/library-photos/'
     const marker = "/library-photos/";
@@ -171,7 +172,7 @@ export const requestLibraryDeleteOtp = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => RequestDeleteOtpSchema.parse(d))
   .handler(async ({ data, context }) => {
-    await assertOrgAdminForLibrary(context, data.library_id);
+    await assertOrgAdminForLibrary(context, data.library_id, "delete a branch");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     const { data: userData, error: userErr } = await supabaseAdmin.auth.admin.getUserById(
@@ -214,7 +215,7 @@ export const deleteLibrary = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => DeleteLibrarySchema.parse(d))
   .handler(async ({ data, context }) => {
-    await assertOrgAdminForLibrary(context, data.library_id);
+    await assertOrgAdminForLibrary(context, data.library_id, "delete a branch");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const code_hash = createHash("sha256").update(data.otp_code).digest("hex");
 
