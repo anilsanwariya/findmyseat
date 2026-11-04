@@ -20,6 +20,8 @@ _Last updated: 2026-11-04_
 - PWA manifest, offline page, assetlinks; plan purchases hidden in the Android app.
 
 ## In progress / next
+- Apply `supabase/proposed/09_seat_requests_via_server_only.sql` in Lovable (stops direct
+  seat-request inserts that skip the anti-spam limit).
 - Apply `supabase/proposed/08_private_student_notes.sql` in Lovable (moves internal notes out of
   the student-readable record; removes student self-update).
 - Play Console: store listing, data safety, content rating, app access (demo login), testers.

@@ -2,7 +2,14 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { createHash } from "crypto";
-import { generateOtp } from "@/lib/otp";
+import {
+  HOUR_MS,
+  OTP_MAX_ATTEMPTS,
+  decodeOtp,
+  encodeOtp,
+  generateOtp,
+  otpRequestBlockedReason,
+} from "@/lib/otp";
 import { callOptionalRpc } from "@/lib/optional-rpc";
 import { assertOwner } from "@/lib/org-access";
 
@@ -182,15 +189,25 @@ export const requestLibraryDeleteOtp = createServerFn({ method: "POST" })
     const email = userData?.user?.email;
     if (!email) throw new Error("No email on file for your account");
 
-    const code = generateOtp();
-    const code_hash = createHash("sha256").update(code).digest("hex");
-    const expires_at = new Date(Date.now() + 15 * 60 * 1000).toISOString();
-
+    // One code a minute, five an hour (older codes are kept for an hour to count).
+    const hourAgo = new Date(Date.now() - HOUR_MS).toISOString();
     await supabaseAdmin
       .from("library_delete_otps")
       .delete()
       .eq("library_id", data.library_id)
+      .eq("user_id", context.userId)
+      .lt("created_at", hourAgo);
+    const { data: recent } = await supabaseAdmin
+      .from("library_delete_otps")
+      .select("created_at")
+      .eq("library_id", data.library_id)
       .eq("user_id", context.userId);
+    const blocked = otpRequestBlockedReason((recent ?? []).map((r) => r.created_at));
+    if (blocked) throw new Error(blocked);
+
+    const code = generateOtp();
+    const code_hash = encodeOtp(createHash("sha256").update(code).digest("hex"), 0);
+    const expires_at = new Date(Date.now() + 15 * 60 * 1000).toISOString();
 
     const { error: insErr } = await supabaseAdmin.from("library_delete_otps").insert({
       library_id: data.library_id,
@@ -229,7 +246,20 @@ export const deleteLibrary = createServerFn({ method: "POST" })
       .maybeSingle();
     if (!otp) throw new Error("No verification code found. Please request a new one.");
     if (new Date(otp.expires_at) < new Date()) throw new Error("Verification code expired");
-    if (otp.code_hash !== code_hash) throw new Error("Invalid verification code");
+    const stored = decodeOtp(otp.code_hash);
+    if (!stored) throw new Error("Please request a new verification code.");
+    if (stored.attempts >= OTP_MAX_ATTEMPTS) {
+      throw new Error("Too many attempts. Please request a new code.");
+    }
+    // Count the guess atomically before comparing, so parallel guesses can't skip it.
+    const { data: bumped } = await supabaseAdmin
+      .from("library_delete_otps")
+      .update({ code_hash: encodeOtp(stored.hash, stored.attempts + 1) })
+      .eq("id", otp.id)
+      .eq("code_hash", otp.code_hash)
+      .select("id");
+    if (!bumped?.length) throw new Error("Please try again.");
+    if (stored.hash !== code_hash) throw new Error("Invalid verification code");
 
     const libId = data.library_id;
 

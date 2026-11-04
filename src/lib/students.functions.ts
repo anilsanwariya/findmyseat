@@ -2,7 +2,17 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { assertCanAccess, canAccess, getOrgAccess } from "@/lib/org-access";
-import { devCodeOrNull, escapeLike, generateOtp, sha256Hex } from "@/lib/otp";
+import {
+  HOUR_MS,
+  OTP_MAX_ATTEMPTS,
+  decodeOtp,
+  devCodeOrNull,
+  encodeOtp,
+  escapeLike,
+  generateOtp,
+  otpRequestBlockedReason,
+  sha256Hex,
+} from "@/lib/otp";
 
 const StudentEmailDomain = "students.librarybandhu.local";
 const emailFromMobile = (m: string) => `${m}@${StudentEmailDomain}`;
@@ -368,6 +378,17 @@ export const requestPinReset = createServerFn({ method: "POST" })
       await new Promise((r) => setTimeout(r, 300));
       return { ok: true, dev_code: null as string | null };
     }
+    // At most 5 codes an hour, one a minute. Answer exactly as for an unknown email,
+    // so the reply never tells anyone whether the email belongs to a student.
+    const { data: recent } = await supabaseAdmin
+      .from("pin_reset_otps")
+      .select("created_at")
+      .eq("student_id", student.id)
+      .gte("created_at", new Date(Date.now() - HOUR_MS).toISOString());
+    if (otpRequestBlockedReason((recent ?? []).map((r) => r.created_at))) {
+      return { ok: true, dev_code: null as string | null };
+    }
+
     const code = generateOtp();
     const code_hash = await sha256Hex(code);
     const expires_at = new Date(Date.now() + 15 * 60 * 1000).toISOString();
@@ -414,7 +435,7 @@ export const verifyPinReset = createServerFn({ method: "POST" })
     if (!otp) throw new Error("No reset in progress");
     if (new Date(otp.expires_at).getTime() < Date.now())
       throw new Error("Code expired — request a new one");
-    if (otp.attempts >= 5) throw new Error("Too many attempts");
+    if (otp.attempts >= OTP_MAX_ATTEMPTS) throw new Error("Too many attempts");
     // Consume one attempt atomically before comparing, so parallel guesses
     // cannot get around the limit.
     const { data: bumped } = await supabaseAdmin
@@ -453,6 +474,74 @@ export const verifyPinReset = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+// ============ Emailed codes for students (email link + account deletion) ============
+// Stored hashed with a wrong-guess counter (see otp.ts). Limits per student: one
+// code a minute, five an hour, five guesses per code.
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AdminClient = any;
+
+async function issueStudentCode(
+  admin: AdminClient,
+  studentId: string,
+  key: string,
+  ttlMs: number,
+): Promise<string> {
+  const { data: recent } = await admin
+    .from("email_verification_otps")
+    .select("created_at")
+    .eq("student_id", studentId)
+    .gte("created_at", new Date(Date.now() - HOUR_MS).toISOString());
+  const blocked = otpRequestBlockedReason(
+    ((recent ?? []) as { created_at: string }[]).map((r) => r.created_at),
+  );
+  if (blocked) throw new Error(blocked);
+
+  const code = generateOtp();
+  const { error } = await admin.from("email_verification_otps").insert({
+    student_id: studentId,
+    email: key,
+    otp_code: encodeOtp(await sha256Hex(code), 0),
+    expires_at: new Date(Date.now() + ttlMs).toISOString(),
+  });
+  if (error) throw new Error(error.message);
+  return code;
+}
+
+/** Checks the latest code for this student + key; returns its row id when correct. */
+async function checkStudentCode(
+  admin: AdminClient,
+  studentId: string,
+  key: string,
+  code: string,
+): Promise<string> {
+  const invalid = "Invalid or expired code";
+  const { data: otp } = await admin
+    .from("email_verification_otps")
+    .select("id, expires_at, otp_code")
+    .eq("student_id", studentId)
+    .eq("email", key)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!otp || new Date(otp.expires_at).getTime() < Date.now()) throw new Error(invalid);
+  const stored = decodeOtp(otp.otp_code);
+  if (!stored) throw new Error("Please request a new code.");
+  if (stored.attempts >= OTP_MAX_ATTEMPTS) {
+    throw new Error("Too many attempts. Please request a new code.");
+  }
+  // Count the guess atomically before comparing, so parallel guesses can't skip it.
+  const { data: bumped } = await admin
+    .from("email_verification_otps")
+    .update({ otp_code: encodeOtp(stored.hash, stored.attempts + 1) })
+    .eq("id", otp.id)
+    .eq("otp_code", otp.otp_code)
+    .select("id");
+  if (!bumped?.length) throw new Error("Please try again.");
+  if ((await sha256Hex(code)) !== stored.hash) throw new Error(invalid);
+  return otp.id as string;
+}
+
 // ============ Email Verification (link/change student email) ============
 
 const SendEmailOtpSchema = z.object({
@@ -485,14 +574,8 @@ export const sendEmailVerificationOtp = createServerFn({ method: "POST" })
     if (!allowed) throw new Error("Not authorized for this student");
 
     const email = data.email.toLowerCase();
-    const otp_code = generateOtp();
-    const expires_at = new Date(Date.now() + 5 * 60 * 1000).toISOString();
-
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error: insErr } = await supabaseAdmin
-      .from("email_verification_otps")
-      .insert({ student_id: student.id, email, otp_code, expires_at });
-    if (insErr) throw new Error(insErr.message);
+    const otp_code = await issueStudentCode(supabaseAdmin, student.id, email, 5 * 60 * 1000);
 
     // Send via Lovable managed email (transactional template).
     let sent = false;
@@ -550,20 +633,7 @@ export const verifyEmailOtp = createServerFn({ method: "POST" })
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    const { data: otp } = await supabaseAdmin
-      .from("email_verification_otps")
-      .select("id, expires_at")
-      .eq("student_id", student.id)
-      .eq("email", email)
-      .eq("otp_code", data.otp)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (!otp) throw new Error("Invalid or expired OTP");
-    if (new Date(otp.expires_at).getTime() < Date.now()) {
-      throw new Error("Invalid or expired OTP");
-    }
+    const otp = { id: await checkStudentCode(supabaseAdmin, student.id, email, data.otp) };
 
     if (!student.user_id) throw new Error("Student is not linked to an auth user");
     const studentUserId = student.user_id;
@@ -624,14 +694,13 @@ export const requestAccountDeletionOtp = createServerFn({ method: "POST" })
       throw new Error("Please verify your email first, then try again.");
     }
 
-    const otp_code = generateOtp();
-    const expires_at = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error: insErr } = await supabaseAdmin
-      .from("email_verification_otps")
-      .insert({ student_id: student.id, email: DELETE_OTP_PREFIX + email, otp_code, expires_at });
-    if (insErr) throw new Error(insErr.message);
+    const otp_code = await issueStudentCode(
+      supabaseAdmin,
+      student.id,
+      DELETE_OTP_PREFIX + email,
+      10 * 60 * 1000,
+    );
 
     let sent = false;
     try {
@@ -674,17 +743,9 @@ export const deleteMyAccount = createServerFn({ method: "POST" })
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    const { data: otp } = await supabaseAdmin
-      .from("email_verification_otps")
-      .select("id, expires_at")
-      .eq("student_id", student.id)
-      .eq("email", DELETE_OTP_PREFIX + email)
-      .eq("otp_code", data.otp)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (!otp) throw new Error("Invalid or expired code");
-    if (new Date(otp.expires_at).getTime() < Date.now()) throw new Error("Invalid or expired code");
+    const otp = {
+      id: await checkStudentCode(supabaseAdmin, student.id, DELETE_OTP_PREFIX + email, data.otp),
+    };
 
     // Consume OTP first so it cannot be reused.
     await supabaseAdmin.from("email_verification_otps").delete().eq("id", otp.id);

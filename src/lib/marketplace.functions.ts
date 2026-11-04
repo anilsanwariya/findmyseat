@@ -3,6 +3,7 @@ import { shiftsOverlap, withBranchTimings } from "@/lib/dashboard-metrics";
 import { parseBranchTimings } from "@/lib/branch-timings";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { searchTerm } from "@/lib/search-term";
 
 function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
   const R = 6371;
@@ -32,23 +33,6 @@ export const marketplaceSearch = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    // Only include libraries whose owner org is active/trial/grace (not suspended, not delisted).
-    const { data: orgs } = await supabaseAdmin
-      .from("organizations")
-      .select("id, subscription_status");
-    const orgIds = (orgs ?? [])
-      .filter((o: any) => o.subscription_status !== "suspended")
-      .map((o: any) => o.id);
-    const states = await Promise.all(
-      orgIds.map(async (id: string) => ({
-        id,
-        state: (await supabaseAdmin.rpc("org_subscription_state", { _org_id: id })).data as string,
-      })),
-    );
-    const activeOrgIds = new Set(
-      states.filter((s) => s.state !== "expired_delisted").map((s) => s.id),
-    );
-
     let q = supabaseAdmin
       .from("libraries")
       // Added our new columns to the select query
@@ -58,13 +42,34 @@ export const marketplaceSearch = createServerFn({ method: "POST" })
       .eq("is_active", true)
       .eq("approval_status", "approved");
 
-    if (data.zone) q = q.ilike("zone_area", `%${data.zone}%`);
-    if (data.query)
-      q = q.or(
-        `name.ilike.%${data.query}%,city.ilike.%${data.query}%,zone_area.ilike.%${data.query}%`,
-      );
+    const zone = searchTerm(data.zone);
+    const query = searchTerm(data.query);
+    if (zone) q = q.ilike("zone_area", `%${zone}%`);
+    if (query) q = q.or(`name.ilike.%${query}%,city.ilike.%${query}%,zone_area.ilike.%${query}%`);
     if (data.exam_id) q = q.contains("targeted_exam_ids", [data.exam_id]);
     const { data: libs } = await q.order("name");
+
+    // Only include libraries whose owner org is active/trial/grace (not suspended, not
+    // delisted). Checked only for the orgs that own a matching library.
+    const candidateOrgIds = Array.from(new Set((libs ?? []).map((l) => l.org_id)));
+    const { data: orgs } = candidateOrgIds.length
+      ? await supabaseAdmin
+          .from("organizations")
+          .select("id, subscription_status")
+          .in("id", candidateOrgIds)
+      : { data: [] };
+    const orgIds = (orgs ?? [])
+      .filter((o: any) => o.subscription_status !== "suspended")
+      .map((o: any) => o.id as string);
+    const states = await Promise.all(
+      orgIds.map(async (id: string) => ({
+        id,
+        state: (await supabaseAdmin.rpc("org_subscription_state", { _org_id: id })).data as string,
+      })),
+    );
+    const activeOrgIds = new Set(
+      states.filter((s) => s.state !== "expired_delisted").map((s) => s.id),
+    );
     const libraries = (libs ?? []).filter((l: any) => activeOrgIds.has(l.org_id));
     if (!libraries.length) return { libraries: [] as any[] };
 
@@ -309,6 +314,23 @@ export const submitSeatRequest = createServerFn({ method: "POST" })
       .eq("id", data.library_id)
       .maybeSingle();
     if (!lib || !lib.is_active) throw new Error("Library not available");
+
+    // Anti-spam: one request per library per day, five per day overall, per mobile.
+    const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { data: recent } = await supabaseAdmin
+      .from("seat_requests")
+      .select("library_id")
+      .eq("mobile_number", data.mobile_number)
+      .gte("created_at", dayAgo);
+    if ((recent ?? []).some((r) => r.library_id === lib.id)) {
+      throw new Error(
+        "You've already sent a request to this library today. They'll contact you soon.",
+      );
+    }
+    if ((recent ?? []).length >= 5) {
+      throw new Error("Too many requests from this number today. Please try again tomorrow.");
+    }
+
     const { error } = await supabaseAdmin.from("seat_requests").insert({
       library_id: lib.id,
       org_id: lib.org_id,

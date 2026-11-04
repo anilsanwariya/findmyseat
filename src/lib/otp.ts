@@ -34,3 +34,48 @@ export function escapeLike(value: string): string {
 export function devCodeOrNull(code: string): string | null {
   return import.meta.env?.DEV === true ? code : null;
 }
+
+// ---------------------------------------------------------------------------
+// Limits for emailed one-time codes
+// ---------------------------------------------------------------------------
+
+/** Wrong guesses allowed per code. */
+export const OTP_MAX_ATTEMPTS = 5;
+/** Minimum gap between two codes for the same person / purpose. */
+export const OTP_RESEND_COOLDOWN_MS = 60 * 1000;
+/** Codes allowed per person / purpose per hour. */
+export const OTP_MAX_PER_HOUR = 5;
+export const HOUR_MS = 60 * 60 * 1000;
+
+/**
+ * Stored form of a code: "v2:<wrong attempts>:<sha256(code)>". Keeps the plain code
+ * out of the database and counts guesses without a schema change.
+ */
+export function encodeOtp(hash: string, attempts: number) {
+  return `v2:${attempts}:${hash}`;
+}
+
+export function decodeOtp(
+  stored: string | null | undefined,
+): { attempts: number; hash: string } | null {
+  const m = /^v2:(\d+):([0-9a-f]{64})$/.exec(stored ?? "");
+  return m ? { attempts: Number(m[1]), hash: m[2] } : null;
+}
+
+/**
+ * Why a new code can't be sent yet, or null if it can. `recent` are the creation
+ * times of earlier codes for the same person and purpose.
+ */
+export function otpRequestBlockedReason(
+  recent: (string | Date)[],
+  now = Date.now(),
+): string | null {
+  const ages = recent.map((t) => now - new Date(t).getTime()).filter((a) => a >= 0);
+  if (ages.some((a) => a < OTP_RESEND_COOLDOWN_MS)) {
+    return "Please wait a minute before requesting another code.";
+  }
+  if (ages.filter((a) => a < HOUR_MS).length >= OTP_MAX_PER_HOUR) {
+    return "Too many codes requested. Please try again in an hour.";
+  }
+  return null;
+}
