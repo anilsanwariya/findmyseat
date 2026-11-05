@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { weakPinReason } from "./pin-rules";
+import { generateStartingPin, weakPinReason } from "./pin-rules";
 
 describe("weakPinReason", () => {
   it("accepts an ordinary PIN", () => {
@@ -23,5 +23,19 @@ describe("weakPinReason", () => {
   });
   it("rejects malformed input", () => {
     expect(weakPinReason("12345")).toMatch(/6 digits/);
+  });
+});
+
+describe("generateStartingPin", () => {
+  it("returns a 6-digit PIN that isn't weak", () => {
+    for (let i = 0; i < 200; i++) {
+      const pin = generateStartingPin();
+      expect(pin).toMatch(/^\d{6}$/);
+      expect(weakPinReason(pin)).toBeNull();
+    }
+  });
+  it("skips weak candidates", () => {
+    const seq = ["123456", "000000", "482915"];
+    expect(generateStartingPin(() => seq.shift()!)).toBe("482915");
   });
 });

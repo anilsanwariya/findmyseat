@@ -27,7 +27,7 @@ test("owner login page shows sign-in and registration", async ({ page }) => {
 test("student login page asks for mobile and PIN", async ({ page }) => {
   await page.goto("/student-login");
   await expect(page.getByLabel("Mobile number")).toBeVisible();
-  await expect(page.getByLabel("PIN or DOB (DDMMYY)")).toBeVisible();
+  await expect(page.getByLabel("PIN", { exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Forgot PIN?" })).toBeVisible();
 });
 

@@ -44,7 +44,7 @@ function StudentLogin() {
 
     setLoading(false);
     if (error) {
-      toast.error("Wrong mobile or PIN/DOB");
+      toast.error("Wrong mobile number or PIN");
       return;
     }
     toast.success("Signed in");
@@ -66,8 +66,9 @@ function StudentLogin() {
             <GlassPanel className="p-6">
               <h1 className="text-xl font-bold">Student sign in</h1>
               <p className="mt-1 text-sm text-muted-foreground">
-                First-time? Use your <span className="font-mono">DOB (DDMMYY)</span>. Otherwise use
-                your 6-digit PIN.
+                First time? Use the starting PIN your library sent you. Otherwise use your own
+                6-digit PIN. (Added before starting PINs? Your date of birth, DDMMYY, works until
+                you set a PIN.)
               </p>
               <form onSubmit={submit} className="mt-6 space-y-4">
                 <div className="space-y-2">
@@ -85,7 +86,7 @@ function StudentLogin() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="c">PIN or DOB (DDMMYY)</Label>
+                  <Label htmlFor="c">PIN</Label>
                   <Input
                     id="c"
                     type="password"

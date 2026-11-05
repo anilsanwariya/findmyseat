@@ -1,3 +1,5 @@
+import { generateOtp } from "@/lib/otp";
+
 /**
  * Student PINs are 6 digits, so the easy ones go first in any guessing attempt.
  * Returns why a new PIN is too weak, or null if it's fine.
@@ -14,4 +16,12 @@ export function weakPinReason(pin: string, dob?: string | null): string | null {
     return "Don't use a repeating pattern like 121212.";
   }
   return null;
+}
+
+/** A random starting PIN for a new student or an owner reset (never a weak one). */
+export function generateStartingPin(generate: () => string = generateOtp): string {
+  for (;;) {
+    const pin = generate();
+    if (!weakPinReason(pin)) return pin;
+  }
 }

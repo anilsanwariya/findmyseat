@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { assertCanAccess, canAccess, getOrgAccess } from "@/lib/org-access";
-import { weakPinReason } from "@/lib/pin-rules";
+import { generateStartingPin, weakPinReason } from "@/lib/pin-rules";
 import {
   HOUR_MS,
   OTP_MAX_ATTEMPTS,
@@ -79,7 +79,12 @@ export const createStudent = createServerFn({ method: "POST" })
           .from("students")
           .update({ library_id: data.library_id, is_active: true })
           .eq("id", sameOrg.id);
-        return { ok: true, student_id: sameOrg.id, reused: true };
+        return {
+          ok: true,
+          student_id: sameOrg.id,
+          reused: true,
+          starting_pin: null as string | null,
+        };
       }
 
       // New org — create a linked student row using the original identity.
@@ -104,14 +109,22 @@ export const createStudent = createServerFn({ method: "POST" })
         .select("id")
         .single();
       if (insertErr) throw new Error(insertErr.message);
-      return { ok: true, student_id: student.id, reused: true };
+      // Same person, already has a login: they keep their PIN.
+      return {
+        ok: true,
+        student_id: student.id,
+        reused: true,
+        starting_pin: null as string | null,
+      };
     }
 
-    // Brand-new student — create auth user + first student row.
+    // Brand-new student — create auth user + first student row. They log in with a
+    // random starting PIN (shown once to the owner), not their date of birth.
     const email = emailFromMobile(data.mobile_number);
+    const startingPin = generateStartingPin();
     const { data: created, error: createErr } = await supabaseAdmin.auth.admin.createUser({
       email,
-      password: data.dob + PIN_SUFFIX,
+      password: startingPin + PIN_SUFFIX,
       email_confirm: true,
       user_metadata: { role: "student", mobile: data.mobile_number, full_name: data.full_name },
     });
@@ -141,7 +154,7 @@ export const createStudent = createServerFn({ method: "POST" })
       await supabaseAdmin.auth.admin.deleteUser(user_id).catch(() => {});
       throw new Error(insertErr.message);
     }
-    return { ok: true, student_id: student.id, reused: false };
+    return { ok: true, student_id: student.id, reused: false, starting_pin: startingPin };
   });
 
 const ArchiveAllocationSchema = z.object({
@@ -300,12 +313,17 @@ export const resetStudentPin = createServerFn({ method: "POST" })
       throw new Error("You don't have permission to do this for this branch.");
     if (!s.user_id) throw new Error("Student has no auth user");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // New random starting PIN, returned once so the owner can pass it on.
+    const startingPin = generateStartingPin();
     const { error: uErr } = await supabaseAdmin.auth.admin.updateUserById(s.user_id, {
-      password: s.dob + PIN_SUFFIX,
+      password: startingPin + PIN_SUFFIX,
     }); // Suffix appended here
     if (uErr) throw new Error(uErr.message);
-    await supabaseAdmin.from("students").update({ requires_pin_change: true }).eq("id", s.id);
-    return { ok: true };
+    await supabaseAdmin
+      .from("students")
+      .update({ requires_pin_change: true })
+      .eq("user_id", s.user_id);
+    return { ok: true, starting_pin: startingPin };
   });
 
 const ChangePinSchema = z.object({
@@ -319,23 +337,17 @@ export const changeMyPin = createServerFn({ method: "POST" })
     // A student can belong to several organisations (one row each, same DOB).
     const { data: rows } = await context.supabase
       .from("students")
-      .select("id, dob, requires_pin_change, created_at")
+      .select("id, dob, created_at")
       .eq("user_id", context.userId)
       .order("created_at", { ascending: true });
     const student = rows?.[0];
     if (!student) throw new Error("No student profile");
 
-    // The current PIN must be right: on first login (or after an owner reset) it is
-    // the date of birth; otherwise it must actually sign in.
-    const onDob = (rows ?? []).some((r) => r.requires_pin_change);
+    // The current PIN (or starting PIN) must actually sign in. Students added before
+    // starting PINs still sign in with their date of birth, which this also accepts.
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const currentOk = onDob
-      ? data.current_pin === student.dob
-      : await pinSignsIn(supabaseAdmin, context.userId, data.current_pin);
-    if (!currentOk) {
-      throw new Error(
-        onDob ? "Your date of birth (DDMMYY) is incorrect." : "Current PIN is incorrect.",
-      );
+    if (!(await pinSignsIn(supabaseAdmin, context.userId, data.current_pin))) {
+      throw new Error("Current PIN is incorrect.");
     }
     if (data.new_pin === data.current_pin)
       throw new Error("Choose a PIN different from the current one.");

@@ -56,7 +56,7 @@ type Chapter = {
 const QUICK_START: string[] = [
   "Add your first branch in Branches — name, address, contact, opening hours, shifts, amenities and photos.",
   "Open Layout Builder for that branch and draw your hall: add sections, generate seats, then save the layout.",
-  "Add a student in Students (name, mobile, DOB). The student uses mobile + DOB PIN to log in.",
+  "Add a student in Students (name, mobile, DOB). You get a starting PIN to send them; they log in with mobile + that PIN and choose their own.",
   "Assign a seat in Allocations — pick the student, choose the shift and monthly fee, then confirm.",
   "Log the first payment in Payments (or from the student's profile) so the due date starts tracking.",
   "Check the Dashboard each morning for expected revenue and the Needs attention list of overdue students.",
@@ -130,7 +130,7 @@ const CHAPTERS: Chapter[] = [
     summary:
       "Every person studying at your library, with documents, fees and full payment history.",
     steps: [
-      "Click Add student and enter name, mobile number and date of birth. Mobile + DOB is what the student uses to log in.",
+      "Click Add student and enter name, mobile number and date of birth. After saving you get a starting PIN — send it to the student on WhatsApp; they log in with mobile + that PIN.",
       "Optionally attach ID proof and a photo, and record address and guardian details.",
       "After saving, the app offers to continue straight into seat allocation and then the first payment — a single guided flow.",
       "Click any student name to open their profile: sticky header with actions, fee / next due / total paid stats, and Overview, Seats and Payments tabs.",
