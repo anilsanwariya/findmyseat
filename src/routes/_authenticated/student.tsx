@@ -1425,6 +1425,9 @@ function PinChangeForm({ forced, onDone }: { forced?: boolean; onDone?: () => vo
           />
         </div>
       </div>
+      <p className="text-[11px] text-muted-foreground">
+        Avoid your date of birth and easy PINs like 123456 or 000000.
+      </p>
       <Button
         disabled={loading}
         type="submit"

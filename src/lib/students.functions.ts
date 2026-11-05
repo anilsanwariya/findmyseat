@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { assertCanAccess, canAccess, getOrgAccess } from "@/lib/org-access";
+import { weakPinReason } from "@/lib/pin-rules";
 import {
   HOUR_MS,
   OTP_MAX_ATTEMPTS,
@@ -315,13 +316,32 @@ export const changeMyPin = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => ChangePinSchema.parse(d))
   .handler(async ({ data, context }) => {
-    const { data: student } = await context.supabase
+    // A student can belong to several organisations (one row each, same DOB).
+    const { data: rows } = await context.supabase
       .from("students")
-      .select("id")
+      .select("id, dob, requires_pin_change, created_at")
       .eq("user_id", context.userId)
-      .maybeSingle();
+      .order("created_at", { ascending: true });
+    const student = rows?.[0];
     if (!student) throw new Error("No student profile");
+
+    // The current PIN must be right: on first login (or after an owner reset) it is
+    // the date of birth; otherwise it must actually sign in.
+    const onDob = (rows ?? []).some((r) => r.requires_pin_change);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const currentOk = onDob
+      ? data.current_pin === student.dob
+      : await pinSignsIn(supabaseAdmin, context.userId, data.current_pin);
+    if (!currentOk) {
+      throw new Error(
+        onDob ? "Your date of birth (DDMMYY) is incorrect." : "Current PIN is incorrect.",
+      );
+    }
+    if (data.new_pin === data.current_pin)
+      throw new Error("Choose a PIN different from the current one.");
+    const weak = weakPinReason(data.new_pin, student.dob);
+    if (weak) throw new Error(weak);
+
     const { error } = await supabaseAdmin.auth.admin.updateUserById(context.userId, {
       password: data.new_pin + PIN_SUFFIX,
     }); // Suffix appended here
@@ -329,9 +349,34 @@ export const changeMyPin = createServerFn({ method: "POST" })
     await supabaseAdmin
       .from("students")
       .update({ requires_pin_change: false })
-      .eq("id", student.id);
+      .eq("user_id", context.userId);
     return { ok: true };
   });
+
+/**
+ * Does this PIN sign the user in? Uses a throwaway client that is signed out
+ * straight after, so the user's own sessions are untouched. Tries the current
+ * password format and the legacy one (no suffix), like the login page.
+ */
+async function pinSignsIn(admin: AdminClient, userId: string, pin: string): Promise<boolean> {
+  const { data } = await admin.auth.admin.getUserById(userId);
+  const email: string | undefined = data?.user?.email;
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_PUBLISHABLE_KEY;
+  if (!email || !url || !key) throw new Error("Can't verify your PIN right now. Try again later.");
+  const { createClient } = await import("@supabase/supabase-js");
+  for (const password of [pin + PIN_SUFFIX, pin]) {
+    const client = createClient(url, key, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data: signedIn } = await client.auth.signInWithPassword({ email, password });
+    if (signedIn?.session) {
+      await client.auth.signOut({ scope: "local" });
+      return true;
+    }
+  }
+  return false;
+}
 
 const SetStudentEmailAdminSchema = z.object({
   student_id: z.string().uuid(),
@@ -422,6 +467,9 @@ const VerifyResetSchema = z.object({
 export const verifyPinReset = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => VerifyResetSchema.parse(d))
   .handler(async ({ data }) => {
+    // Reject easy PINs before using up a guess on the code.
+    const weak = weakPinReason(data.new_pin);
+    if (weak) throw new Error(weak);
     const email = data.email.toLowerCase();
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: otp } = await supabaseAdmin
@@ -449,10 +497,12 @@ export const verifyPinReset = createServerFn({ method: "POST" })
     if (hash !== otp.code_hash) throw new Error("Invalid code");
     const { data: student } = await supabaseAdmin
       .from("students")
-      .select("id, user_id, mobile_number")
+      .select("id, user_id, mobile_number, dob")
       .eq("id", otp.student_id)
       .maybeSingle();
     if (!student?.user_id) throw new Error("Student user missing");
+    const weakForStudent = weakPinReason(data.new_pin, student.dob);
+    if (weakForStudent) throw new Error(weakForStudent);
 
     // Repair: ensure auth email matches the synthetic mobile address used
     // by student login. Earlier builds swapped it during email verification.

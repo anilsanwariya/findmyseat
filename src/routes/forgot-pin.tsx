@@ -154,6 +154,9 @@ function ForgotPinPage() {
                     className="bg-panel border-panel-border font-mono tracking-widest"
                   />
                 </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Avoid your date of birth and easy PINs like 123456 or 000000.
+                </p>
                 <Button
                   disabled={verify.isPending}
                   className="w-full bg-white text-slate-900 hover:bg-white/90"
