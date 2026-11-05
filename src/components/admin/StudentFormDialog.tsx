@@ -25,7 +25,11 @@ export function StudentFormDialog({
 }: {
   existing?: any;
   onDone: () => void;
-  onCreated?: (studentId: string, name: string) => void;
+  onCreated?: (
+    studentId: string,
+    name: string,
+    login: { mobile: string; startingPin: string | null },
+  ) => void;
 }) {
   const { data: libs } = useLibraries();
   const { data: exams } = useMasterExams();
@@ -95,7 +99,11 @@ export function StudentFormDialog({
               });
               toast.success("Student onboarded");
               onDone();
-              if (onCreated && res?.student_id) onCreated(res.student_id, name);
+              if (onCreated && res?.student_id)
+                onCreated(res.student_id, name, {
+                  mobile,
+                  startingPin: res.starting_pin ?? null,
+                });
               return;
             }
             onDone();
@@ -214,8 +222,9 @@ export function StudentFormDialog({
 
         {!isEdit && (
           <div className="rounded-lg border border-panel-border bg-panel p-3 text-xs text-muted-foreground leading-relaxed">
-            Login credentials: mobile + DOB. Student sets their own 6-digit PIN on first login and
-            manages it from their app. Owners cannot reset a student's PIN once registered.
+            Login: mobile number + a starting PIN shown to you after saving. Send it to the student;
+            they choose their own 6-digit PIN on first login. If they forget it, use Reset PIN on
+            their profile.
           </div>
         )}
 

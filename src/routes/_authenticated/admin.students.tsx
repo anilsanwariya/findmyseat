@@ -30,6 +30,7 @@ import { fmtDate } from "@/lib/format";
 
 import { Plus, Search, Download, X } from "lucide-react";
 import { StudentProfileDialog } from "@/components/admin/StudentProfileDialog";
+import { StartingPinCard } from "@/components/admin/StartingPinCard";
 import { StudentFormDialog } from "@/components/admin/StudentFormDialog";
 import { buildStudentExportRows, downloadStudentWorkbook } from "@/lib/export-students";
 import { ViewToggle, useDataView } from "@/components/admin/ViewToggle";
@@ -66,7 +67,12 @@ function StudentsPage() {
   const [viewing, setViewing] = useState<string | null>(null);
   const qc = useQueryClient();
   const [exporting, setExporting] = useState(false);
-  const [chain, setChain] = useState<{ id: string; name: string } | null>(null);
+  const [chain, setChain] = useState<{
+    id: string;
+    name: string;
+    mobile: string;
+    startingPin: string | null;
+  } | null>(null);
   const navigate = useNavigate();
   const [view, setView] = useDataView("admin-students");
 
@@ -161,7 +167,7 @@ function StudentsPage() {
                 await invalidate();
                 setOpen(false);
               }}
-              onCreated={(id, name) => setChain({ id, name })}
+              onCreated={(id, name, login) => setChain({ id, name, ...login })}
             />
           </Dialog>
         </div>
@@ -343,6 +349,9 @@ function StudentsPage() {
           <DialogHeader>
             <DialogTitle>Student added</DialogTitle>
           </DialogHeader>
+          {chain?.startingPin && (
+            <StartingPinCard name={chain.name} mobile={chain.mobile} pin={chain.startingPin} />
+          )}
           <p className="text-sm text-muted-foreground">
             {chain?.name} is onboarded. Assign a seat now and log the first payment in one go?
           </p>

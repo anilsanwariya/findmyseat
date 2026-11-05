@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { assertCanAccess, canAccess, getOrgAccess } from "@/lib/org-access";
+import { generateStartingPin, weakPinReason } from "@/lib/pin-rules";
 import {
   HOUR_MS,
   OTP_MAX_ATTEMPTS,
@@ -78,7 +79,12 @@ export const createStudent = createServerFn({ method: "POST" })
           .from("students")
           .update({ library_id: data.library_id, is_active: true })
           .eq("id", sameOrg.id);
-        return { ok: true, student_id: sameOrg.id, reused: true };
+        return {
+          ok: true,
+          student_id: sameOrg.id,
+          reused: true,
+          starting_pin: null as string | null,
+        };
       }
 
       // New org — create a linked student row using the original identity.
@@ -103,14 +109,22 @@ export const createStudent = createServerFn({ method: "POST" })
         .select("id")
         .single();
       if (insertErr) throw new Error(insertErr.message);
-      return { ok: true, student_id: student.id, reused: true };
+      // Same person, already has a login: they keep their PIN.
+      return {
+        ok: true,
+        student_id: student.id,
+        reused: true,
+        starting_pin: null as string | null,
+      };
     }
 
-    // Brand-new student — create auth user + first student row.
+    // Brand-new student — create auth user + first student row. They log in with a
+    // random starting PIN (shown once to the owner), not their date of birth.
     const email = emailFromMobile(data.mobile_number);
+    const startingPin = generateStartingPin();
     const { data: created, error: createErr } = await supabaseAdmin.auth.admin.createUser({
       email,
-      password: data.dob + PIN_SUFFIX,
+      password: startingPin + PIN_SUFFIX,
       email_confirm: true,
       user_metadata: { role: "student", mobile: data.mobile_number, full_name: data.full_name },
     });
@@ -140,7 +154,7 @@ export const createStudent = createServerFn({ method: "POST" })
       await supabaseAdmin.auth.admin.deleteUser(user_id).catch(() => {});
       throw new Error(insertErr.message);
     }
-    return { ok: true, student_id: student.id, reused: false };
+    return { ok: true, student_id: student.id, reused: false, starting_pin: startingPin };
   });
 
 const ArchiveAllocationSchema = z.object({
@@ -299,12 +313,17 @@ export const resetStudentPin = createServerFn({ method: "POST" })
       throw new Error("You don't have permission to do this for this branch.");
     if (!s.user_id) throw new Error("Student has no auth user");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // New random starting PIN, returned once so the owner can pass it on.
+    const startingPin = generateStartingPin();
     const { error: uErr } = await supabaseAdmin.auth.admin.updateUserById(s.user_id, {
-      password: s.dob + PIN_SUFFIX,
+      password: startingPin + PIN_SUFFIX,
     }); // Suffix appended here
     if (uErr) throw new Error(uErr.message);
-    await supabaseAdmin.from("students").update({ requires_pin_change: true }).eq("id", s.id);
-    return { ok: true };
+    await supabaseAdmin
+      .from("students")
+      .update({ requires_pin_change: true })
+      .eq("user_id", s.user_id);
+    return { ok: true, starting_pin: startingPin };
   });
 
 const ChangePinSchema = z.object({
@@ -315,13 +334,26 @@ export const changeMyPin = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => ChangePinSchema.parse(d))
   .handler(async ({ data, context }) => {
-    const { data: student } = await context.supabase
+    // A student can belong to several organisations (one row each, same DOB).
+    const { data: rows } = await context.supabase
       .from("students")
-      .select("id")
+      .select("id, dob, created_at")
       .eq("user_id", context.userId)
-      .maybeSingle();
+      .order("created_at", { ascending: true });
+    const student = rows?.[0];
     if (!student) throw new Error("No student profile");
+
+    // The current PIN (or starting PIN) must actually sign in. Students added before
+    // starting PINs still sign in with their date of birth, which this also accepts.
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    if (!(await pinSignsIn(supabaseAdmin, context.userId, data.current_pin))) {
+      throw new Error("Current PIN is incorrect.");
+    }
+    if (data.new_pin === data.current_pin)
+      throw new Error("Choose a PIN different from the current one.");
+    const weak = weakPinReason(data.new_pin, student.dob);
+    if (weak) throw new Error(weak);
+
     const { error } = await supabaseAdmin.auth.admin.updateUserById(context.userId, {
       password: data.new_pin + PIN_SUFFIX,
     }); // Suffix appended here
@@ -329,9 +361,34 @@ export const changeMyPin = createServerFn({ method: "POST" })
     await supabaseAdmin
       .from("students")
       .update({ requires_pin_change: false })
-      .eq("id", student.id);
+      .eq("user_id", context.userId);
     return { ok: true };
   });
+
+/**
+ * Does this PIN sign the user in? Uses a throwaway client that is signed out
+ * straight after, so the user's own sessions are untouched. Tries the current
+ * password format and the legacy one (no suffix), like the login page.
+ */
+async function pinSignsIn(admin: AdminClient, userId: string, pin: string): Promise<boolean> {
+  const { data } = await admin.auth.admin.getUserById(userId);
+  const email: string | undefined = data?.user?.email;
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_PUBLISHABLE_KEY;
+  if (!email || !url || !key) throw new Error("Can't verify your PIN right now. Try again later.");
+  const { createClient } = await import("@supabase/supabase-js");
+  for (const password of [pin + PIN_SUFFIX, pin]) {
+    const client = createClient(url, key, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data: signedIn } = await client.auth.signInWithPassword({ email, password });
+    if (signedIn?.session) {
+      await client.auth.signOut({ scope: "local" });
+      return true;
+    }
+  }
+  return false;
+}
 
 const SetStudentEmailAdminSchema = z.object({
   student_id: z.string().uuid(),
@@ -422,6 +479,9 @@ const VerifyResetSchema = z.object({
 export const verifyPinReset = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => VerifyResetSchema.parse(d))
   .handler(async ({ data }) => {
+    // Reject easy PINs before using up a guess on the code.
+    const weak = weakPinReason(data.new_pin);
+    if (weak) throw new Error(weak);
     const email = data.email.toLowerCase();
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: otp } = await supabaseAdmin
@@ -449,10 +509,12 @@ export const verifyPinReset = createServerFn({ method: "POST" })
     if (hash !== otp.code_hash) throw new Error("Invalid code");
     const { data: student } = await supabaseAdmin
       .from("students")
-      .select("id, user_id, mobile_number")
+      .select("id, user_id, mobile_number, dob")
       .eq("id", otp.student_id)
       .maybeSingle();
     if (!student?.user_id) throw new Error("Student user missing");
+    const weakForStudent = weakPinReason(data.new_pin, student.dob);
+    if (weakForStudent) throw new Error(weakForStudent);
 
     // Repair: ensure auth email matches the synthetic mobile address used
     // by student login. Earlier builds swapped it during email verification.

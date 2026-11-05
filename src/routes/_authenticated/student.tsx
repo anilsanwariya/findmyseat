@@ -1211,7 +1211,7 @@ function PinChangeGate() {
           <DialogTitle>Set your 6-digit PIN</DialogTitle>
         </DialogHeader>
         <p className="text-sm text-muted-foreground">
-          You're using your DOB as a temporary PIN. Set a new one to continue.
+          You're using a temporary PIN. Choose your own PIN to continue.
         </p>
         <PinChangeForm forced />
       </DialogContent>
@@ -1389,7 +1389,7 @@ function PinChangeForm({ forced, onDone }: { forced?: boolean; onDone?: () => vo
       }}
     >
       <div className="space-y-2">
-        <Label>{forced ? "Current DOB (DDMMYY)" : "Current PIN"}</Label>
+        <Label>{forced ? "Temporary PIN (the one you signed in with)" : "Current PIN"}</Label>
         <Input
           required
           inputMode="numeric"
@@ -1425,6 +1425,9 @@ function PinChangeForm({ forced, onDone }: { forced?: boolean; onDone?: () => vo
           />
         </div>
       </div>
+      <p className="text-[11px] text-muted-foreground">
+        Avoid your date of birth and easy PINs like 123456 or 000000.
+      </p>
       <Button
         disabled={loading}
         type="submit"

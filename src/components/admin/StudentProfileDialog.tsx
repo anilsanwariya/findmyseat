@@ -37,6 +37,7 @@ import { PaymentDetailDialog } from "@/components/admin/PaymentDetailDialog";
 import { LogPaymentDialog } from "@/components/admin/LogPaymentDialog";
 import { EditAllocationDialog } from "@/components/admin/EditAllocationDialog";
 import { StudentFormDialog } from "@/components/admin/StudentFormDialog";
+import { StartingPinCard } from "@/components/admin/StartingPinCard";
 import { useSession } from "@/lib/auth";
 import { usePermissions } from "@/lib/permissions";
 import {
@@ -195,6 +196,7 @@ export function StudentProfileDialog({
   const [savingActive, setSavingActive] = useState(false);
   const [confirmPin, setConfirmPin] = useState(false);
   const [resettingPin, setResettingPin] = useState(false);
+  const [issuedPin, setIssuedPin] = useState<string | null>(null);
   const [noteDraft, setNoteDraft] = useState("");
   const [savingNote, setSavingNote] = useState(false);
   const [imagePreview, setImagePreview] = useState<{ url: string; label: string } | null>(null);
@@ -370,11 +372,10 @@ export function StudentProfileDialog({
   const doResetPin = async () => {
     setResettingPin(true);
     try {
-      await resetPin({ data: { student_id: studentId } });
-      toast.success(
-        `PIN reset. ${s?.full_name ?? "The student"} can now sign in with ${s?.dob ?? "their date of birth"}.`,
-      );
+      const res = await resetPin({ data: { student_id: studentId } });
       setConfirmPin(false);
+      if (res?.starting_pin) setIssuedPin(res.starting_pin);
+      else toast.success("PIN reset.");
     } catch (e: any) {
       toast.error(e?.message ?? "Could not reset PIN");
     } finally {
@@ -998,9 +999,9 @@ export function StudentProfileDialog({
           <AlertDialogHeader>
             <AlertDialogTitle>Reset PIN?</AlertDialogTitle>
             <AlertDialogDescription>
-              {s?.full_name ?? "The student"}'s PIN will be reset to their date of birth
-              {s?.dob ? ` (${s.dob})` : ""}. They'll be asked to choose a new PIN the next time they
-              sign in.
+              {s?.full_name ?? "The student"}'s current PIN will stop working. You'll get a new
+              starting PIN to send them, and they'll choose their own PIN the next time they sign
+              in.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1017,6 +1018,24 @@ export function StudentProfileDialog({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {issuedPin && (
+        <Dialog open onOpenChange={(v) => !v && setIssuedPin(null)}>
+          <DialogContent className="glass-strong border-panel-border w-[95vw] max-w-md p-5">
+            <DialogHeader>
+              <DialogTitle>PIN reset</DialogTitle>
+            </DialogHeader>
+            <StartingPinCard
+              name={s?.full_name ?? "Student"}
+              mobile={s?.mobile_number ?? ""}
+              pin={issuedPin}
+            />
+            <Button className="w-full" onClick={() => setIssuedPin(null)}>
+              Done
+            </Button>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {logAllocId && (
         <Dialog open onOpenChange={(v) => !v && setLogAllocId(null)}>

@@ -34,7 +34,9 @@ Use a **test library**, not a real one.
 - [ ] Staff with access to branch A only can't see branch B.
 
 ### Student
-- [ ] First login with mobile + DOB (DDMMYY), forced to set a PIN, then log in with PIN.
+- [ ] Owner adds a student → a starting PIN is shown with Copy / Send on WhatsApp.
+- [ ] Student logs in with mobile + starting PIN, is forced to set a PIN (weak ones refused), then logs in with the new PIN.
+- [ ] Owner "Reset PIN" shows a new starting PIN; the old PIN stops working.
 - [ ] Sees own seat, shift, dues and payments; can't see other students.
 - [ ] Forgot PIN via email OTP works.
 

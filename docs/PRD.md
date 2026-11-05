@@ -22,7 +22,7 @@ when each student's fee is due. Students have no easy way to compare libraries n
 - **Branches**: details, photos, timings for Morning / Evening / Night, fee per shift package, payment details (UPI / QR / bank) and a public payment page `/pay/<branchId>`.
 - **Floor plan / layout builder**: sections, seats and objects on a grid; undo/redo; seats can be sold per shift.
 - **Allocations**: allot a seat + shift package to a student; overlap checks stop two students holding the same seat at the same time.
-- **Students**: add/edit/deactivate, documents, profile with payment history, PIN reset, Excel export.
+- **Students**: add/edit/deactivate, documents, profile with payment history, starting PIN on add / PIN reset (sent via WhatsApp), Excel export.
 - **Payments**: log full or part payments with the due date they cover; WhatsApp reminders with the branch payment link.
 - **Owner dashboard**: needs-attention lists (awaiting first payment, overdue, part-paid, due in 7 days), revenue, occupancy by shift, leads and tickets.
 - **Expenses**: categories, recurring expenses, receipts, Excel export.

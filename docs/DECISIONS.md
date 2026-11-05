@@ -31,8 +31,12 @@ Permanent decisions. Don't reverse one without the owner's agreement; add a new 
 **Decision:** UPI/QR/bank details live in `library_payment_settings`, readable publicly only through a narrow RPC for the payment page; editing them never triggers listing re-approval.
 
 ## ADR-008 — Students log in with mobile + PIN
-**Decision:** Students get a Supabase login with a synthetic email `<mobile>@students.librarybandhu.local`. First login uses date of birth (DDMMYY), then they set a 6-digit PIN.
-**Reason:** Many students have no email.
+**Decision:** Students get a Supabase login with a synthetic email `<mobile>@students.librarybandhu.local`.
+When an owner adds a student (or resets their PIN) the server creates a random 6-digit **starting PIN**,
+shown to the owner once with a "Send on WhatsApp" button. The student signs in with it and must
+choose their own PIN (`requires_pin_change`). Weak PINs (DOB, 000000, 123456, …) are refused
+(`src/lib/pin-rules.ts`). Students added before November 2026 can still use their DOB until they set a PIN.
+**Reason:** Many students have no email; a date of birth is too easy for others to know (changed 2026-11-05).
 
 ## ADR-009 — Owner subscriptions are one-time Razorpay payments
 **Decision:** Monthly/annual plans are bought as one-time payments with a 3-day grace period, then the workspace becomes read-only and the branch is delisted.
