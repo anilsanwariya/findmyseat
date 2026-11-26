@@ -55,7 +55,6 @@ import {
 } from "lucide-react";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { useSeatBookings } from "@/lib/seat-bookings";
-import { fetchLatestFullPayment } from "@/lib/payments";
 import { effectiveDue, localISO } from "@/lib/dashboard-metrics";
 import {
   feeStatus,
@@ -1306,7 +1305,10 @@ function NewAllocDialog({
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [sectionId, setSectionId] = useState<string>(initialSectionId || "");
   const [seatId, setSeatId] = useState(initialSeatId || "");
-  const [shiftId, setShiftId] = useState<string>(initialShiftId ?? "");
+  // Full day is the default way to sell a seat; the hall effect below clears it
+  // where the hall doesn't sell Full day, so the owner must pick a shift there.
+  const [shiftId, setShiftId] = useState<string>(initialShiftId || "none");
+  const [joiningDate, setJoiningDate] = useState(() => localISO(new Date()));
   const [fee, setFee] = useState<number | "">(1500);
   const [reservationType, setReservationType] = useState<"reserved" | "unreserved">("reserved");
   const [loading, setLoading] = useState(false);
@@ -1324,7 +1326,7 @@ function NewAllocDialog({
       const { data } = await supabase
         .from("students")
         .select(
-          "id, full_name, mobile_number, created_at, allocations(id, created_at, status, next_due_date, is_active, reservation_type, seat_id, shift_id, monthly_fee, seats(seat_number), shifts(name))",
+          "id, full_name, mobile_number, created_at, allocations(id, created_at, status, start_date, next_due_date, is_active, reservation_type, seat_id, shift_id, monthly_fee, seats(seat_number), shifts(name))",
         )
         .eq("org_id", orgId!)
         .eq("library_id", libraryId)
@@ -1468,6 +1470,8 @@ function NewAllocDialog({
   // Calculate selected student context
   const selectedStudent = students.data?.find((s: any) => s.id === studentId);
   const activeAlloc = selectedStudent?.allocations?.find((a: any) => a.is_active);
+  // Had a booking before but none now: they start a new stay.
+  const returning = !activeAlloc && (selectedStudent?.allocations?.length ?? 0) > 0;
 
   // The student's current bookings are released (or reused) on save, so they don't block.
   const releasing = useMemo(
@@ -1558,120 +1562,127 @@ function NewAllocDialog({
             toast.error("Choose an enabled shift for this hall.");
             return;
           }
-          setLoading(true);
-
-          // Carry over any existing paid coverage so a seat change (or re-allocation after
-          // removal) doesn't reset the student to "pending" and cause duplicate payments.
-          const { data: prevAllocs } = await supabase
-            .from("allocations")
-            .select(
-              "id, library_id, seat_id, reservation_type, next_due_date, start_date, status, is_active, created_at",
-            )
-            .eq("student_id", studentId)
-            .order("is_active", { ascending: false })
-            .order("created_at", { ascending: false })
-            .limit(10);
-          const prev = (prevAllocs ?? []).find((a: any) => a.next_due_date) ?? prevAllocs?.[0];
-
-          // The due date chosen on the student's most recent full payment stays their
-          // due date (src/lib/payments.ts) — not the furthest date any older payment
-          // ever covered, which could undo a date the owner deliberately changed.
-          // Without any payment, keep the due date of their previous allocation.
-          let latest = null as Awaited<ReturnType<typeof fetchLatestFullPayment>>;
-          try {
-            latest = await fetchLatestFullPayment(studentId);
-          } catch (err: any) {
-            setLoading(false);
-            toast.error(err?.message ?? "Couldn't read the student's payments. Try again.");
+          if (!activeAlloc && !joiningDate) {
+            toast.error("Choose the joining date.");
             return;
           }
-          const prevDue = prev?.next_due_date ? String(prev.next_due_date).split("T")[0] : null;
-          // A student who has never paid owes their first fee on the joining date.
-          const joining = prev?.start_date ? String(prev.start_date).split("T")[0] : todayISO();
-          const carriedDue = latest?.covers_until ?? prevDue ?? joining;
-          // "Paid" only when a real payment covers the date; never-paid students stay
-          // pending until the joining date passes, then show as overdue.
-          const carriedStatus = carriedDue < todayISO() ? "overdue" : latest ? "paid" : "pending";
+          setLoading(true);
+          const shiftValue = shiftId === "none" || !shiftId ? null : shiftId;
+          const seatValue = reservationType === "unreserved" ? null : seatId || null;
 
-          // A vacated reserved allocation remains the student's billing record. Assigning
-          // a new seat updates that same row so its payments and fee history stay linked.
-          const reusable = (prevAllocs ?? []).find(
-            (a: any) =>
-              a.is_active &&
-              a.library_id === libraryId &&
-              a.reservation_type === "reserved" &&
-              !a.seat_id,
-          );
-          if (reusable && reservationType === "reserved") {
-            const { error: updateError } = await supabase
+          // Read the student's bookings fresh; the list above may be out of date.
+          const { data: current, error: readErr } = await supabase
+            .from("allocations")
+            .select("id, library_id, seat_id, reservation_type, created_at")
+            .eq("student_id", studentId)
+            .eq("is_active", true)
+            .order("created_at", { ascending: false });
+          if (readErr) {
+            setLoading(false);
+            toast.error(readErr.message);
+            return;
+          }
+
+          if (current?.length) {
+            // Seat change: move the existing booking in a single update, so a clash
+            // leaves the student where they were. The joining date, due date and
+            // payments (including part payments) stay with the booking.
+            const target =
+              current.find(
+                (a) =>
+                  a.library_id === libraryId && a.reservation_type === "reserved" && !a.seat_id,
+              ) ??
+              current.find((a) => a.library_id === libraryId) ??
+              current[0];
+            const { error: moveErr } = await supabase
               .from("allocations")
               .update({
-                seat_id: seatId as string,
-                shift_id: shiftId === "none" || !shiftId ? null : shiftId,
+                library_id: libraryId,
+                seat_id: seatValue,
+                shift_id: shiftValue,
                 monthly_fee: Number(fee || 0),
-                next_due_date: carriedDue,
-                status: carriedStatus as any,
+                reservation_type: reservationType,
               })
-              .eq("id", reusable.id);
-            setLoading(false);
-            if (updateError) {
-              toast.error(friendlySeatError(updateError));
+              .eq("id", target.id);
+            if (moveErr) {
+              setLoading(false);
+              toast.error(friendlySeatError(moveErr));
               booked.refetch();
               return;
             }
-            toast.success("Seat assigned. Existing fees and payment history were preserved.");
+            // A student normally has one booking; end any others now the move is done.
+            const extra = current.filter((a) => a.id !== target.id).map((a) => a.id);
+            if (extra.length) {
+              const { error: endErr } = await supabase
+                .from("allocations")
+                .update({ is_active: false })
+                .in("id", extra);
+              if (endErr)
+                toast.error(
+                  `Seat assigned, but ${extra.length} older booking(s) couldn't be ended: ${endErr.message}`,
+                );
+            }
+            setLoading(false);
+            toast.success("Seat changed. Joining date, due date and payments are unchanged.");
             onDone();
             return;
           }
 
-          // Other active subscriptions are ended before creating a different allocation.
-          const { data: released, error: releaseErr } = await supabase
-            .from("allocations")
-            .update({ is_active: false })
+          // New or returning student: a fresh stay from the joining date. The first fee
+          // is due that day; payments from an earlier stay stay in their history only
+          // (src/lib/payments.ts, inCurrentStay).
+          const { data: lastPayment, error: payErr } = await supabase
+            .from("payments")
+            .select("logged_at, created_at")
             .eq("student_id", studentId)
-            .eq("is_active", true)
-            .select("id");
-          if (releaseErr) {
+            .order("logged_at", { ascending: false })
+            .limit(1);
+          if (payErr) {
             setLoading(false);
-            toast.error(releaseErr.message);
+            toast.error(payErr.message);
             return;
           }
-
+          const lastEntered = lastPayment?.[0]
+            ? localISO(new Date(lastPayment[0].logged_at ?? lastPayment[0].created_at))
+            : null;
+          if (lastEntered && joiningDate <= lastEntered) {
+            setLoading(false);
+            toast.error(
+              `Joining date must be after ${fmtDate(lastEntered)}, when their last payment from an earlier stay was entered.`,
+            );
+            return;
+          }
+          const today = localISO(new Date());
           const { data: createdAlloc, error } = await supabase
             .from("allocations")
             .insert({
               org_id: orgId!,
               library_id: libraryId,
               student_id: studentId,
-              seat_id: (reservationType === "unreserved" ? null : seatId) as string,
-              shift_id: shiftId === "none" || !shiftId ? null : shiftId,
+              seat_id: seatValue,
+              shift_id: shiftValue,
               monthly_fee: Number(fee || 0),
               reservation_type: reservationType,
-              start_date: prev?.start_date ?? todayISO(),
-              next_due_date: carriedDue,
-              status: carriedStatus as any,
+              start_date: joiningDate,
+              next_due_date: joiningDate,
+              status: joiningDate < today ? "overdue" : "pending",
             })
             .select("id")
             .single();
 
+          setLoading(false);
           if (error) {
-            // Don't leave the student without their previous booking.
-            const ids = (released ?? []).map((r: any) => r.id);
-            if (ids.length)
-              await supabase.from("allocations").update({ is_active: true }).in("id", ids);
-            setLoading(false);
             toast.error(friendlySeatError(error));
             booked.refetch();
             return;
           }
-          setLoading(false);
 
           if (onCreated && createdAlloc?.id) {
             toast.success("Seat assigned. Log the first payment.");
             onCreated(createdAlloc.id);
             return;
           }
-          toast.success("Allocation created. Set dates in Payments view.");
+          toast.success("Seat assigned. First fee is due on the joining date.");
           onDone();
         }}
       >
@@ -1886,19 +1897,11 @@ function NewAllocDialog({
                 {(() => {
                   const fullDayTaken =
                     reservationType === "reserved" && !!seatId && !seatFree(seatId, null);
+                  const notAllowed = !!currentSection && !currentSection.allow_full_day;
                   return (
-                    <SelectItem
-                      value="none"
-                      disabled={
-                        (!!currentSection && !currentSection.allow_full_day) || fullDayTaken
-                      }
-                    >
+                    <SelectItem value="none" disabled={notAllowed || fullDayTaken}>
                       Full day
-                      {!currentSection?.allow_full_day
-                        ? " (Not allowed)"
-                        : fullDayTaken
-                          ? " (Taken on this seat)"
-                          : ""}
+                      {notAllowed ? " (Not allowed)" : fullDayTaken ? " (Taken on this seat)" : ""}
                     </SelectItem>
                   );
                 })()}
@@ -1937,13 +1940,45 @@ function NewAllocDialog({
           </div>
         </div>
 
+        {studentId &&
+          (activeAlloc ? (
+            <p className="text-xs text-muted-foreground">
+              Seat change: keeps their joining date
+              {activeAlloc.start_date ? ` (${fmtDate(activeAlloc.start_date)})` : ""}, due date and
+              payments.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              <Label htmlFor="joining-date">Joining date</Label>
+              <Input
+                id="joining-date"
+                type="date"
+                required
+                value={joiningDate}
+                onChange={(e) => setJoiningDate(e.target.value)}
+                className="bg-panel border-panel-border font-mono"
+              />
+              <p className="text-xs text-muted-foreground">
+                The first fee is due on this date.
+                {returning &&
+                  " Returning student: they start fresh. Past payments stay in their history but don't count toward this stay."}
+              </p>
+            </div>
+          ))}
+
         <div className="rounded-lg border border-panel-border bg-panel p-3 text-xs text-muted-foreground leading-relaxed mt-2">
           Note: This only assigns the seat. You must log the initial payment on the Payments page to
           activate their access.
         </div>
 
         <Button
-          disabled={loading || (reservationType === "reserved" && !seatId) || !studentId}
+          disabled={
+            loading ||
+            (reservationType === "reserved" && !seatId) ||
+            !studentId ||
+            !shiftId ||
+            (!activeAlloc && !joiningDate)
+          }
           type="submit"
           className="w-full mt-2 bg-white text-slate-900 hover:bg-white/90"
         >
