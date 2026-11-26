@@ -1,4 +1,9 @@
-import { selectableShifts, matchesShift as matchesShiftPackage } from "@/lib/shift-selection";
+import {
+  selectableShifts,
+  shiftKey,
+  matchesShift as matchesShiftPackage,
+} from "@/lib/shift-selection";
+import { SeatMapPicker, hallBlockReason } from "@/components/admin/SeatMapPicker";
 import { ShiftFilter } from "@/components/admin/ShiftFilter";
 import { invalidateBillingCaches } from "@/lib/cache";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
@@ -35,7 +40,7 @@ import { ViewToggle, useDataView } from "@/components/admin/ViewToggle";
 import { FloorPlanGrid, seatDirIcon } from "@/components/admin/FloorPlanGrid";
 import { Skeleton } from "@/components/ui/skeleton";
 
-import { Plus, UserMinus, Edit2, Search, X } from "lucide-react";
+import { Plus, UserMinus, Edit2, Search, X, Map as MapIcon } from "lucide-react";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { useSeatBookings } from "@/lib/seat-bookings";
 import { effectiveDue, localISO } from "@/lib/dashboard-metrics";
@@ -1251,6 +1256,28 @@ function NewAllocDialog({
       (targetShift === undefined ? hasOpening(s.id) : seatFree(s.id, targetShift)),
   );
 
+  // Seat picker on the hall map. Picking a seat in another hall keeps the same shift
+  // package, switching to that hall's own shift row once its shifts load.
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const carryShiftKey = useRef<string | null>(null);
+  useEffect(() => {
+    const key = carryShiftKey.current;
+    if (!key || !shifts.data) return;
+    carryShiftKey.current = null;
+    if (shifts.data.some((s) => s.id === shiftId)) return;
+    const match = selectableShifts(
+      shifts.data,
+      sectionId,
+      currentSection,
+      booked.data?.timingText,
+      booked.data?.configured,
+    ).find((s) => shiftKey(s.name) === key);
+    setShiftId(match?.id ?? "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shifts.data]);
+  const chosenShiftRow =
+    targetShift === null ? null : (shifts.data ?? []).find((s) => s.id === targetShift);
+
   // Keep seat + shift compatible: a seat picked from the map stays and the clashing
   // shift is cleared; otherwise the seat is cleared.
   useEffect(() => {
@@ -1641,8 +1668,47 @@ function NewAllocDialog({
                 ))}
               </SelectContent>
             </Select>
+            {!initialSeatId && reservationType === "reserved" && libraryId && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full border-panel-border"
+                onClick={() => setPickerOpen(true)}
+              >
+                <MapIcon className="mr-2 size-4" /> Pick on map
+              </Button>
+            )}
           </div>
         </div>
+        {libraryId && (
+          <SeatMapPicker
+            open={pickerOpen}
+            onOpenChange={setPickerOpen}
+            libraryId={libraryId}
+            sectionId={sectionId}
+            shiftLabel={targetShift === undefined ? null : (chosenShiftRow?.name ?? "Full day")}
+            selectedSeatId={seatId}
+            isFree={(id) =>
+              targetShift === undefined ? hasOpening(id) : seatFree(id, targetShift)
+            }
+            hallBlocked={(hall) =>
+              hallBlockReason(
+                sections.data?.find((s) => s.id === hall),
+                reservationType,
+                targetShift === undefined ? undefined : chosenShiftRow,
+              )
+            }
+            onPick={(seat) => {
+              if (seat.section_id !== sectionId) {
+                if (chosenShiftRow?.section_id)
+                  carryShiftKey.current = shiftKey(chosenShiftRow.name);
+                setSectionId(seat.section_id);
+              }
+              setSeatId(seat.id);
+            }}
+          />
+        )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-2">
