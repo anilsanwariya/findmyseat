@@ -397,7 +397,13 @@ function AllocationsPage() {
       const list = allocsBySeat.get(seat.id) ?? [];
       const state =
         mapShift === "all"
-          ? seatState(seat.id, seatBookings, sectionShifts, booked.shiftMap)
+          ? seatState(
+              seat.id,
+              seatBookings,
+              sectionShifts,
+              booked.shiftMap,
+              !!currentSection.allow_full_day,
+            )
           : seatFreeFor(
                 seat.id,
                 mapShift === "none" ? null : mapShift,

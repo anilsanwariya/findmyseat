@@ -71,17 +71,22 @@ export type SeatState = "free" | "partial" | "full";
 /**
  * free    — nobody booked
  * partial — booked for some shifts, at least one sellable shift still open
- * full    — nothing left to sell (full-day booking, or every shift clashes)
+ * full    — nothing left to sell (every sellable shift, and Full day when the
+ *           hall sells it, clashes with a booking)
  */
 export function seatState(
   seatId: string,
   bookings: SeatBooking[],
   sellable: ShiftTimes[],
   shifts: ShiftLookup,
+  /** The hall sells Full day (no shift row), so a free Full day keeps the seat open. */
+  fullDaySellable = false,
 ): SeatState {
   const onSeat = bookings.filter((b) => b.seat_id === seatId);
   if (!onSeat.length) return "free";
-  const open = sellable.some((s) => seatFreeFor(seatId, s.id, onSeat, shifts));
+  const open =
+    (fullDaySellable && seatFreeFor(seatId, null, onSeat, shifts)) ||
+    sellable.some((s) => seatFreeFor(seatId, s.id, onSeat, shifts));
   return open ? "partial" : "full";
 }
 
