@@ -1,5 +1,14 @@
 # Roadmap
 
+## Seat allocation review (Nov 2026)
+- [x] Default New allocation to Full day; never save a blank shift as Full day.
+- [x] Move a student's seat with one update so a failed move can't leave them unseated.
+- [x] Allow fee edits on bookings whose shift is a duplicate or no longer sold.
+- [x] Keep seats open on the floor plan while Full day is still free.
+- [x] Returning students start fresh: joining date field, only current-stay payments count (ADR-012).
+- [x] "Pick on map" seat picker in New and Edit allocation; checked at 375px with sample data.
+- [ ] Verify with real owner data: seat change, returning student, map picker across halls.
+
 ## Full day distinction
 - [x] Use Morning + Evening for Full day in shared availability and database booking checks; keep 24 Hrs whole-day.
 - [x] Update floor-plan occupancy and verify branch-specific timing boundaries; 27 focused and regression tests pass.
