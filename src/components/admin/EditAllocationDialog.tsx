@@ -1,4 +1,9 @@
-import { selectableShifts, matchesShift as matchesShiftPackage } from "@/lib/shift-selection";
+import {
+  selectableShifts,
+  shiftSellable,
+  shiftKey,
+  matchesShift as matchesShiftPackage,
+} from "@/lib/shift-selection";
 import { ShiftFilter } from "@/components/admin/ShiftFilter";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -18,6 +23,8 @@ import { toast } from "sonner";
 import { classifyShiftByName } from "@/lib/shift-utils";
 import { useSeatBookings } from "@/lib/seat-bookings";
 import { friendlySeatError } from "@/lib/seat-status";
+import { SeatMapPicker, hallBlockReason } from "@/components/admin/SeatMapPicker";
+import { Map as MapIcon } from "lucide-react";
 
 export function EditAllocationDialog({
   alloc,
@@ -101,6 +108,14 @@ export function EditAllocationDialog({
   const seatOptions = (seats.data ?? []).filter(
     (s: any) => s.id === seatId || seatFree(s.id, targetShift),
   );
+  // Seat, shift and type exactly as booked: the database doesn't re-check these, so
+  // a fee edit works even if the hall or branch has since stopped selling that shift.
+  const placementUnchanged =
+    !!alloc &&
+    reservationType === (alloc.reservation_type || "reserved") &&
+    (reservationType === "unreserved" ? null : seatId || null) === (alloc.seat_id ?? null) &&
+    targetShift === (alloc.shift_id ?? null);
+  const ownFullDay = !!alloc && !alloc.shift_id;
 
   // If the chosen shift clashes on the chosen seat, clear the seat so the owner picks again.
   useEffect(() => {
@@ -135,8 +150,56 @@ export function EditAllocationDialog({
     if (!currentSection.allow_reserved && reservationType === "reserved")
       setReservationType("unreserved");
 
-    if (!currentSection.allow_full_day && (!shiftId || shiftId === "none")) setShiftId("");
+    // Keep a Full day booking's own shift in its own hall; only new choices are limited.
+    const ownHall = sectionId === (alloc?.seats?.section_id || "");
+    if (
+      !currentSection.allow_full_day &&
+      (!shiftId || shiftId === "none") &&
+      !(ownFullDay && ownHall)
+    )
+      setShiftId("");
   }, [currentSection?.id]);
+
+  const shiftChoices = useMemo(() => {
+    const list = selectableShifts(
+      shifts.data ?? [],
+      sectionId,
+      currentSection,
+      booked.data?.timingText,
+      booked.data?.configured,
+    );
+    // The booking's own shift stays listed even if it's a duplicate of a hall shift
+    // or no longer sold, so the form shows it and the owner can keep it.
+    if (alloc?.shift_id && !list.some((s) => s.id === alloc.shift_id)) {
+      const own = (shifts.data ?? []).find((s) => s.id === alloc.shift_id);
+      list.push(
+        own ?? {
+          id: alloc.shift_id,
+          name: alloc.shifts?.name ?? "Current shift",
+          section_id: null,
+          base_fee: null,
+        },
+      );
+    }
+    return list;
+  }, [shifts.data, sectionId, currentSection, booked.data, alloc]);
+
+  // Seat picker on the hall map. Picking a seat in another hall keeps the same shift
+  // package, switching to that hall's own shift row once its shifts load.
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const carryShiftKey = useRef<string | null>(null);
+  useEffect(() => {
+    const key = carryShiftKey.current;
+    if (!key || !shifts.data) return;
+    carryShiftKey.current = null;
+    if (shifts.data.some((s) => s.id === shiftId)) return;
+    const match = shiftChoices.find((s) => shiftKey(s.name) === key);
+    setShiftId(match?.id ?? "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shifts.data]);
+  const shiftChosen = !!shiftId;
+  const chosenShiftRow =
+    targetShift === null ? null : shiftChoices.find((s) => s.id === targetShift);
 
   // Dynamic Fee Calculator (Base Fee + Reservation Fee)
   useEffect(() => {
@@ -190,8 +253,10 @@ export function EditAllocationDialog({
           onSubmit={async (e) => {
             e.preventDefault();
 
-            // Final validation checks before submission
+            // Final validation checks before submission (skipped when seat, shift and
+            // type are as booked, matching the database guard).
             if (
+              !placementUnchanged &&
               currentSection &&
               !currentSection.allow_reserved &&
               reservationType === "reserved"
@@ -200,6 +265,7 @@ export function EditAllocationDialog({
               return;
             }
             if (
+              !placementUnchanged &&
               currentSection &&
               !currentSection.allow_unreserved &&
               reservationType === "unreserved"
@@ -208,6 +274,7 @@ export function EditAllocationDialog({
               return;
             }
             if (
+              !placementUnchanged &&
               currentSection &&
               !currentSection.allow_full_day &&
               (!shiftId || shiftId === "none")
@@ -223,16 +290,21 @@ export function EditAllocationDialog({
               return;
             }
 
+            const chosenShift = (shifts.data ?? []).find((s) => s.id === shiftId);
             if (
+              !placementUnchanged &&
               shiftId &&
               shiftId !== "none" &&
-              !selectableShifts(
-                shifts.data ?? [],
-                sectionId,
-                currentSection,
-                booked.data?.timingText,
-                booked.data?.configured,
-              ).some((s) => s.id === shiftId)
+              !(
+                chosenShift &&
+                shiftSellable(
+                  chosenShift,
+                  sectionId,
+                  currentSection,
+                  booked.data?.timingText,
+                  booked.data?.configured,
+                )
+              )
             ) {
               toast.error("Choose an enabled shift for this hall.");
               return;
@@ -336,7 +408,47 @@ export function EditAllocationDialog({
                 ))}
               </SelectContent>
             </Select>
+            {reservationType === "reserved" && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full border-panel-border"
+                onClick={() => setPickerOpen(true)}
+              >
+                <MapIcon className="mr-2 size-4" /> Pick on map
+              </Button>
+            )}
           </div>
+          <SeatMapPicker
+            open={pickerOpen}
+            onOpenChange={setPickerOpen}
+            libraryId={alloc.library_id}
+            sectionId={sectionId}
+            shiftLabel={shiftChosen ? (chosenShiftRow?.name ?? "Full day") : null}
+            selectedSeatId={seatId}
+            isFree={(id) =>
+              shiftChosen
+                ? seatFree(id, targetShift)
+                : seatFree(id, null) || shiftChoices.some((s) => seatFree(id, s.id))
+            }
+            hallBlocked={(hall) =>
+              hallBlockReason(
+                sections.data?.find((s) => s.id === hall),
+                reservationType,
+                shiftChosen ? chosenShiftRow : undefined,
+              )
+            }
+            onPick={(seat) => {
+              if (seat.section_id !== sectionId) {
+                feeTouched.current = true;
+                if (chosenShiftRow?.section_id)
+                  carryShiftKey.current = shiftKey(chosenShiftRow.name);
+                setSectionId(seat.section_id);
+              }
+              setSeatId(seat.id);
+            }}
+          />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-2">
@@ -355,15 +467,12 @@ export function EditAllocationDialog({
                   {(() => {
                     const fullDayTaken =
                       reservationType === "reserved" && !!seatId && !seatFree(seatId, null);
+                    const notAllowed =
+                      !!currentSection && !currentSection.allow_full_day && !ownFullDay;
                     return (
-                      <SelectItem
-                        value="none"
-                        disabled={
-                          (!!currentSection && !currentSection.allow_full_day) || fullDayTaken
-                        }
-                      >
+                      <SelectItem value="none" disabled={notAllowed || fullDayTaken}>
                         Full day
-                        {!currentSection?.allow_full_day
+                        {notAllowed
                           ? " (Not allowed)"
                           : fullDayTaken
                             ? " (Taken on this seat)"
@@ -371,16 +480,13 @@ export function EditAllocationDialog({
                       </SelectItem>
                     );
                   })()}
-                  {selectableShifts(
-                    shifts.data ?? [],
-                    sectionId,
-                    currentSection,
-                    booked.data?.timingText,
-                    booked.data?.configured,
-                  ).map((s: any) => {
+                  {shiftChoices.map((s: any) => {
                     const cls = classifyShiftByName(s.name || "");
                     const notAllowed =
-                      !!currentSection && !!cls && !(currentSection as any)[cls.allowKey];
+                      s.id !== alloc.shift_id &&
+                      !!currentSection &&
+                      !!cls &&
+                      !(currentSection as any)[cls.allowKey];
                     const taken =
                       reservationType === "reserved" && !!seatId && !seatFree(seatId, s.id);
 

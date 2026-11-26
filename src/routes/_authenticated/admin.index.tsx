@@ -1,4 +1,5 @@
 import { Label } from "@/components/ui/label";
+import { currentStay, inCurrentStay, type Stay, type StayPayment } from "@/lib/payments";
 import { ShiftFilter } from "@/components/admin/ShiftFilter";
 import { matchesShift } from "@/lib/shift-selection";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
@@ -263,17 +264,25 @@ function Dashboard() {
         ),
       ];
       const found = await inChunks(unknown, 150, 4, (chunk) =>
-        fetchAllRows<{ student_id: string }>((from, to) =>
+        fetchAllRows<{ student_id: string } & StayPayment>((from, to) =>
           supabase
             .from("payments")
-            .select("student_id")
+            .select("student_id, allocation_id, logged_at, created_at, allocations(start_date)")
             .eq("org_id", orgId!)
             .in("student_id", chunk)
             .order("id")
             .range(from, to),
         ),
       );
-      for (const p of found) paid.add(p.student_id);
+      // Only payments from the current stay count: a returning student who hasn't
+      // paid since rejoining is awaiting their first payment again.
+      const byStudent = new Map<string, DashAlloc[]>();
+      for (const a of allocs)
+        if (a.student_id) byStudent.set(a.student_id, [...(byStudent.get(a.student_id) ?? []), a]);
+      const stays = new Map<string, Stay | null>();
+      for (const id of unknown) stays.set(id, currentStay(byStudent.get(id) ?? []));
+      for (const p of found)
+        if (inCurrentStay(p, stays.get(p.student_id) ?? null)) paid.add(p.student_id);
       return { allocs, coverage, paidStudentIds: [...paid] };
     },
   });

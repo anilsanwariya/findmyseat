@@ -1,4 +1,9 @@
-import { selectableShifts, matchesShift as matchesShiftPackage } from "@/lib/shift-selection";
+import {
+  selectableShifts,
+  shiftKey,
+  matchesShift as matchesShiftPackage,
+} from "@/lib/shift-selection";
+import { SeatMapPicker, hallBlockReason } from "@/components/admin/SeatMapPicker";
 import { ShiftFilter } from "@/components/admin/ShiftFilter";
 import { invalidateBillingCaches } from "@/lib/cache";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
@@ -32,30 +37,12 @@ import { StudentProfileDialog } from "@/components/admin/StudentProfileDialog";
 import { EditAllocationDialog } from "@/components/admin/EditAllocationDialog";
 import { classifyShiftByName } from "@/lib/shift-utils";
 import { ViewToggle, useDataView } from "@/components/admin/ViewToggle";
-import { ZoomPanViewport } from "@/components/admin/ZoomPanViewport";
+import { FloorPlanGrid, seatDirIcon } from "@/components/admin/FloorPlanGrid";
 import { Skeleton } from "@/components/ui/skeleton";
 
-import {
-  Plus,
-  ArrowUp,
-  ArrowDown,
-  ArrowLeft,
-  ArrowRight,
-  DoorOpen,
-  Droplets,
-  Waves,
-  UserMinus,
-  Image as ImageIcon,
-  Navigation,
-  MessageSquare,
-  Utensils,
-  Edit2,
-  Search,
-  X,
-} from "lucide-react";
+import { Plus, UserMinus, Edit2, Search, X, Map as MapIcon } from "lucide-react";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { useSeatBookings } from "@/lib/seat-bookings";
-import { fetchLatestFullPayment } from "@/lib/payments";
 import { effectiveDue, localISO } from "@/lib/dashboard-metrics";
 import {
   feeStatus,
@@ -87,43 +74,6 @@ export const Route = createFileRoute("/_authenticated/admin/allocations")({
   }),
   component: AllocationsPage,
 });
-
-const DIR_ICON = { north: ArrowUp, south: ArrowDown, east: ArrowRight, west: ArrowLeft };
-
-// Enhanced Object Meta for Areas & standalone blocks
-const OBJ_META: Record<string, { icon: any; label: string; color: string }> = {
-  aisle: { icon: null, label: "Aisle", color: "bg-transparent" },
-  entry_gate: {
-    icon: DoorOpen,
-    label: "Entry",
-    color: "bg-slate-800/60 text-slate-300 border-slate-700",
-  },
-  washroom: { icon: Waves, label: "W/C", color: "bg-magenta/10 text-magenta border-magenta/30" },
-  water_cooler: { icon: Droplets, label: "H₂O", color: "bg-cyan/10 text-cyan border-cyan/30" },
-  reception: { icon: null, label: "Rcpt", color: "bg-panel-strong text-muted-foreground" },
-  gallery: {
-    icon: ImageIcon,
-    label: "Gallery",
-    color: "bg-purple-500/10 text-purple-300 border-purple-500/30",
-  },
-  hallway: {
-    icon: Navigation,
-    label: "Hallway",
-    color: "bg-stone-500/10 text-stone-300 border-stone-500/30",
-  },
-  discussion: {
-    icon: MessageSquare,
-    label: "Discussion Area",
-    color: "bg-amber-500/10 text-amber-300 border-amber-500/30",
-  },
-  dining: {
-    icon: Utensils,
-    label: "Dining Area",
-    color: "bg-orange-500/10 text-orange-300 border-orange-500/30",
-  },
-};
-
-const todayISO = () => new Date().toISOString().split("T")[0];
 
 // Derive fee status. A part-payment logged against the open cycle surfaces as
 // "partial" (it takes precedence over "overdue" so the Partial filter finds these
@@ -397,7 +347,13 @@ function AllocationsPage() {
       const list = allocsBySeat.get(seat.id) ?? [];
       const state =
         mapShift === "all"
-          ? seatState(seat.id, seatBookings, sectionShifts, booked.shiftMap)
+          ? seatState(
+              seat.id,
+              seatBookings,
+              sectionShifts,
+              booked.shiftMap,
+              !!currentSection.allow_full_day,
+            )
           : seatFreeFor(
                 seat.id,
                 mapShift === "none" ? null : mapShift,
@@ -448,81 +404,6 @@ function AllocationsPage() {
           seatFreeFor(selectedOccupiedSeat.id, null, seatBookings, booked.shiftMap),
       }
     : null;
-
-  // 🧠 Smart Layout Processor: Tile-matching for Walls/Windows & Merging for Areas
-  const processedLayout = useMemo(() => {
-    if (!currentSection || !layoutData.data?.objs)
-      return { areas: [], lines: [], objMap: new Map() };
-
-    const objs = layoutData.data.objs;
-    const areas: any[] = [];
-    const lines: any[] = [];
-    const visited = new Set<string>();
-    const objMap = new Map<string, any>();
-
-    objs.forEach((obj: any) => objMap.set(`${obj.row_position}-${obj.column_position}`, obj));
-
-    for (let r = 0; r < currentSection.grid_rows; r++) {
-      for (let c = 0; c < currentSection.grid_cols; c++) {
-        const key = `${r}-${c}`;
-        if (visited.has(key) || !objMap.has(key)) continue;
-
-        const baseObj = objMap.get(key);
-        const type = baseObj.object_type;
-
-        if (type === "wall" || type === "window") {
-          lines.push(baseObj);
-          visited.add(key);
-          continue;
-        }
-
-        let width = 1;
-        while (c + width < currentSection.grid_cols) {
-          const nextKey = `${r}-${c + width}`;
-          if (
-            visited.has(nextKey) ||
-            !objMap.has(nextKey) ||
-            objMap.get(nextKey).object_type !== type
-          )
-            break;
-          width++;
-        }
-
-        let height = 1;
-        let canExpandDown = true;
-        while (r + height < currentSection.grid_rows && canExpandDown) {
-          for (let i = 0; i < width; i++) {
-            const nextKey = `${r + height}-${c + i}`;
-            if (
-              visited.has(nextKey) ||
-              !objMap.has(nextKey) ||
-              objMap.get(nextKey).object_type !== type
-            ) {
-              canExpandDown = false;
-              break;
-            }
-          }
-          if (canExpandDown) height++;
-        }
-
-        for (let i = 0; i < height; i++) {
-          for (let j = 0; j < width; j++) {
-            visited.add(`${r + i}-${c + j}`);
-          }
-        }
-
-        areas.push({
-          id: baseObj.id,
-          type,
-          startRow: r,
-          startCol: c,
-          height,
-          width,
-        });
-      }
-    }
-    return { areas, lines, objMap };
-  }, [currentSection, layoutData.data]);
 
   const refreshData = () => {
     invalidateBillingCaches(qc);
@@ -667,172 +548,59 @@ function AllocationsPage() {
           ) : layoutData.isPending ? (
             <Skeleton className="h-64 w-full bg-white/5" />
           ) : (
-            <ZoomPanViewport
-              contentWidth={currentSection.grid_cols * 44 + (currentSection.grid_cols - 1) * 8}
-              contentHeight={currentSection.grid_rows * 44 + (currentSection.grid_rows - 1) * 8}
+            <FloorPlanGrid
+              section={currentSection}
+              objs={layoutData.data?.objs ?? []}
               fitKey={currentSectionId}
             >
-              <div
-                className="grid gap-2"
-                style={{
-                  gridTemplateColumns: `repeat(${currentSection.grid_cols}, 44px)`,
-                  gridTemplateRows: `repeat(${currentSection.grid_rows}, 44px)`,
-                }}
-              >
-                {processedLayout.areas.map((obj: any) => {
-                  const meta = OBJ_META[obj.type] ?? OBJ_META.reception;
-                  const Icon = meta.icon;
-                  const isMultiCell = obj.width > 1 || obj.height > 1;
-
+              {mapSeats
+                .filter((seat: any) => seat.inGrid)
+                .map((seat: any) => {
+                  const Icon = seatDirIcon(seat.facing_direction);
+                  const free = seat.state === "free";
+                  const who = seat.list
+                    .map(
+                      (a: any) =>
+                        `${a.shifts?.name ?? "Full day"}: ${a.students?.full_name ?? "Student"}`,
+                    )
+                    .join(", ");
+                  const label = `Seat ${seat.seat_number}${
+                    free && !seat.list.length ? " · free" : who ? ` · ${who}` : ""
+                  }${seat.state === "partial" ? " · some shifts free" : ""}`;
                   return (
-                    <div
-                      key={obj.id}
-                      className={cn(
-                        "flex flex-col items-center justify-center rounded-md border font-mono overflow-hidden transition-all pointer-events-none",
-                        meta.color,
-                        isMultiCell ? "text-xs" : "text-[8px]",
-                      )}
+                    <button
+                      key={seat.id}
+                      type="button"
+                      onClick={() => openSeat(seat)}
+                      title={label}
+                      aria-label={label}
                       style={{
-                        gridColumn: `${obj.startCol + 1} / span ${obj.width}`,
-                        gridRow: `${obj.startRow + 1} / span ${obj.height}`,
+                        gridColumn: seat.column_position + 1,
+                        gridRow: seat.row_position + 1,
                       }}
+                      className={cn(
+                        "group relative z-10 flex flex-col items-center justify-center rounded border text-[10px] font-mono transition-all hover:scale-110",
+                        free
+                          ? // Free seats are neutral grey so they never look like "Paid" (green).
+                            "border border-slate-500/40 bg-slate-500/10 text-slate-400 hover:border-slate-400/60 hover:bg-slate-500/20"
+                          : STATUS_META[seat.pay as SeatStatus].cell,
+                        seat.state === "partial" && "border-2 border-dashed",
+                        seat.match === true &&
+                          "ring-2 ring-white ring-offset-1 ring-offset-transparent",
+                        seat.match === false && "opacity-30",
+                      )}
                     >
-                      <div className="flex flex-col items-center justify-center opacity-80 gap-1 p-2 text-center">
-                        {Icon && <Icon className={cn(isMultiCell ? "size-5" : "size-3.5")} />}
-                        {meta.label && (
-                          <span
-                            className={cn(
-                              "truncate",
-                              isMultiCell ? "font-bold tracking-widest uppercase" : "mt-0.5",
-                            )}
-                          >
-                            {meta.label}
-                          </span>
-                        )}
-                      </div>
-                    </div>
+                      <Icon className="mb-0.5 size-3 opacity-70" />
+                      <span className="truncate font-bold">{seat.seat_number}</span>
+                      {seat.list.length > 1 && (
+                        <span className="absolute -right-1 -top-1 rounded-full bg-panel-strong px-1 text-[8px] leading-3 text-foreground">
+                          {seat.list.length}
+                        </span>
+                      )}
+                    </button>
                   );
                 })}
-
-                {processedLayout.lines.map((obj: any) => {
-                  const r = obj.row_position;
-                  const c = obj.column_position;
-
-                  const isLine = (type: string | undefined) => type === "wall" || type === "window";
-
-                  const top = isLine(processedLayout.objMap.get(`${r - 1}-${c}`)?.object_type);
-                  const bottom = isLine(processedLayout.objMap.get(`${r + 1}-${c}`)?.object_type);
-                  const left = isLine(processedLayout.objMap.get(`${r}-${c - 1}`)?.object_type);
-                  const right = isLine(processedLayout.objMap.get(`${r}-${c + 1}`)?.object_type);
-
-                  const isWindow = obj.object_type === "window";
-                  const thickness = isWindow ? "8px" : "4px";
-                  const color = isWindow
-                    ? "bg-sky-400/90 shadow-[0_0_8px_rgba(56,189,248,0.5)]"
-                    : "bg-slate-500 shadow-md";
-
-                  const isolated = !top && !bottom && !left && !right;
-
-                  return (
-                    <div
-                      key={obj.id}
-                      className="relative flex items-center justify-center pointer-events-none"
-                      style={{ gridColumn: c + 1, gridRow: r + 1 }}
-                    >
-                      <div
-                        className={cn("absolute", color)}
-                        style={{ width: thickness, height: thickness, zIndex: isWindow ? 5 : 4 }}
-                      />
-                      {top && (
-                        <div
-                          className={cn(
-                            "absolute top-0 bottom-[50%] left-1/2 -translate-x-1/2",
-                            color,
-                          )}
-                          style={{ width: thickness, zIndex: isWindow ? 5 : 4 }}
-                        />
-                      )}
-                      {bottom && (
-                        <div
-                          className={cn(
-                            "absolute top-[50%] bottom-0 left-1/2 -translate-x-1/2",
-                            color,
-                          )}
-                          style={{ width: thickness, zIndex: isWindow ? 5 : 4 }}
-                        />
-                      )}
-                      {(left || isolated) && (
-                        <div
-                          className={cn(
-                            "absolute left-0 right-[50%] top-1/2 -translate-y-1/2",
-                            color,
-                          )}
-                          style={{ height: thickness, zIndex: isWindow ? 5 : 4 }}
-                        />
-                      )}
-                      {(right || isolated) && (
-                        <div
-                          className={cn(
-                            "absolute left-[50%] right-0 top-1/2 -translate-y-1/2",
-                            color,
-                          )}
-                          style={{ height: thickness, zIndex: isWindow ? 5 : 4 }}
-                        />
-                      )}
-                    </div>
-                  );
-                })}
-
-                {mapSeats
-                  .filter((seat: any) => seat.inGrid)
-                  .map((seat: any) => {
-                    const Icon =
-                      DIR_ICON[seat.facing_direction as keyof typeof DIR_ICON] || ArrowUp;
-                    const free = seat.state === "free";
-                    const who = seat.list
-                      .map(
-                        (a: any) =>
-                          `${a.shifts?.name ?? "Full day"}: ${a.students?.full_name ?? "Student"}`,
-                      )
-                      .join(", ");
-                    const label = `Seat ${seat.seat_number}${
-                      free && !seat.list.length ? " · free" : who ? ` · ${who}` : ""
-                    }${seat.state === "partial" ? " · some shifts free" : ""}`;
-                    return (
-                      <button
-                        key={seat.id}
-                        type="button"
-                        onClick={() => openSeat(seat)}
-                        title={label}
-                        aria-label={label}
-                        style={{
-                          gridColumn: seat.column_position + 1,
-                          gridRow: seat.row_position + 1,
-                        }}
-                        className={cn(
-                          "group relative z-10 flex flex-col items-center justify-center rounded border text-[10px] font-mono transition-all hover:scale-110",
-                          free
-                            ? // Free seats are neutral grey so they never look like "Paid" (green).
-                              "border border-slate-500/40 bg-slate-500/10 text-slate-400 hover:border-slate-400/60 hover:bg-slate-500/20"
-                            : STATUS_META[seat.pay as SeatStatus].cell,
-                          seat.state === "partial" && "border-2 border-dashed",
-                          seat.match === true &&
-                            "ring-2 ring-white ring-offset-1 ring-offset-transparent",
-                          seat.match === false && "opacity-30",
-                        )}
-                      >
-                        <Icon className="mb-0.5 size-3 opacity-70" />
-                        <span className="truncate font-bold">{seat.seat_number}</span>
-                        {seat.list.length > 1 && (
-                          <span className="absolute -right-1 -top-1 rounded-full bg-panel-strong px-1 text-[8px] leading-3 text-foreground">
-                            {seat.list.length}
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-              </div>
-            </ZoomPanViewport>
+            </FloorPlanGrid>
           )}
         </GlassPanel>
       )}
@@ -1300,7 +1068,10 @@ function NewAllocDialog({
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [sectionId, setSectionId] = useState<string>(initialSectionId || "");
   const [seatId, setSeatId] = useState(initialSeatId || "");
-  const [shiftId, setShiftId] = useState<string>(initialShiftId ?? "");
+  // Full day is the default way to sell a seat; the hall effect below clears it
+  // where the hall doesn't sell Full day, so the owner must pick a shift there.
+  const [shiftId, setShiftId] = useState<string>(initialShiftId || "none");
+  const [joiningDate, setJoiningDate] = useState(() => localISO(new Date()));
   const [fee, setFee] = useState<number | "">(1500);
   const [reservationType, setReservationType] = useState<"reserved" | "unreserved">("reserved");
   const [loading, setLoading] = useState(false);
@@ -1318,7 +1089,7 @@ function NewAllocDialog({
       const { data } = await supabase
         .from("students")
         .select(
-          "id, full_name, mobile_number, created_at, allocations(id, created_at, status, next_due_date, is_active, reservation_type, seat_id, shift_id, monthly_fee, seats(seat_number), shifts(name))",
+          "id, full_name, mobile_number, created_at, allocations(id, created_at, status, start_date, next_due_date, is_active, reservation_type, seat_id, shift_id, monthly_fee, seats(seat_number), shifts(name))",
         )
         .eq("org_id", orgId!)
         .eq("library_id", libraryId)
@@ -1462,6 +1233,8 @@ function NewAllocDialog({
   // Calculate selected student context
   const selectedStudent = students.data?.find((s: any) => s.id === studentId);
   const activeAlloc = selectedStudent?.allocations?.find((a: any) => a.is_active);
+  // Had a booking before but none now: they start a new stay.
+  const returning = !activeAlloc && (selectedStudent?.allocations?.length ?? 0) > 0;
 
   // The student's current bookings are released (or reused) on save, so they don't block.
   const releasing = useMemo(
@@ -1482,6 +1255,28 @@ function NewAllocDialog({
       s.id === initialSeatId ||
       (targetShift === undefined ? hasOpening(s.id) : seatFree(s.id, targetShift)),
   );
+
+  // Seat picker on the hall map. Picking a seat in another hall keeps the same shift
+  // package, switching to that hall's own shift row once its shifts load.
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const carryShiftKey = useRef<string | null>(null);
+  useEffect(() => {
+    const key = carryShiftKey.current;
+    if (!key || !shifts.data) return;
+    carryShiftKey.current = null;
+    if (shifts.data.some((s) => s.id === shiftId)) return;
+    const match = selectableShifts(
+      shifts.data,
+      sectionId,
+      currentSection,
+      booked.data?.timingText,
+      booked.data?.configured,
+    ).find((s) => shiftKey(s.name) === key);
+    setShiftId(match?.id ?? "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shifts.data]);
+  const chosenShiftRow =
+    targetShift === null ? null : (shifts.data ?? []).find((s) => s.id === targetShift);
 
   // Keep seat + shift compatible: a seat picked from the map stays and the clashing
   // shift is cleared; otherwise the seat is cleared.
@@ -1552,120 +1347,127 @@ function NewAllocDialog({
             toast.error("Choose an enabled shift for this hall.");
             return;
           }
-          setLoading(true);
-
-          // Carry over any existing paid coverage so a seat change (or re-allocation after
-          // removal) doesn't reset the student to "pending" and cause duplicate payments.
-          const { data: prevAllocs } = await supabase
-            .from("allocations")
-            .select(
-              "id, library_id, seat_id, reservation_type, next_due_date, start_date, status, is_active, created_at",
-            )
-            .eq("student_id", studentId)
-            .order("is_active", { ascending: false })
-            .order("created_at", { ascending: false })
-            .limit(10);
-          const prev = (prevAllocs ?? []).find((a: any) => a.next_due_date) ?? prevAllocs?.[0];
-
-          // The due date chosen on the student's most recent full payment stays their
-          // due date (src/lib/payments.ts) — not the furthest date any older payment
-          // ever covered, which could undo a date the owner deliberately changed.
-          // Without any payment, keep the due date of their previous allocation.
-          let latest = null as Awaited<ReturnType<typeof fetchLatestFullPayment>>;
-          try {
-            latest = await fetchLatestFullPayment(studentId);
-          } catch (err: any) {
-            setLoading(false);
-            toast.error(err?.message ?? "Couldn't read the student's payments. Try again.");
+          if (!activeAlloc && !joiningDate) {
+            toast.error("Choose the joining date.");
             return;
           }
-          const prevDue = prev?.next_due_date ? String(prev.next_due_date).split("T")[0] : null;
-          // A student who has never paid owes their first fee on the joining date.
-          const joining = prev?.start_date ? String(prev.start_date).split("T")[0] : todayISO();
-          const carriedDue = latest?.covers_until ?? prevDue ?? joining;
-          // "Paid" only when a real payment covers the date; never-paid students stay
-          // pending until the joining date passes, then show as overdue.
-          const carriedStatus = carriedDue < todayISO() ? "overdue" : latest ? "paid" : "pending";
+          setLoading(true);
+          const shiftValue = shiftId === "none" || !shiftId ? null : shiftId;
+          const seatValue = reservationType === "unreserved" ? null : seatId || null;
 
-          // A vacated reserved allocation remains the student's billing record. Assigning
-          // a new seat updates that same row so its payments and fee history stay linked.
-          const reusable = (prevAllocs ?? []).find(
-            (a: any) =>
-              a.is_active &&
-              a.library_id === libraryId &&
-              a.reservation_type === "reserved" &&
-              !a.seat_id,
-          );
-          if (reusable && reservationType === "reserved") {
-            const { error: updateError } = await supabase
+          // Read the student's bookings fresh; the list above may be out of date.
+          const { data: current, error: readErr } = await supabase
+            .from("allocations")
+            .select("id, library_id, seat_id, reservation_type, created_at")
+            .eq("student_id", studentId)
+            .eq("is_active", true)
+            .order("created_at", { ascending: false });
+          if (readErr) {
+            setLoading(false);
+            toast.error(readErr.message);
+            return;
+          }
+
+          if (current?.length) {
+            // Seat change: move the existing booking in a single update, so a clash
+            // leaves the student where they were. The joining date, due date and
+            // payments (including part payments) stay with the booking.
+            const target =
+              current.find(
+                (a) =>
+                  a.library_id === libraryId && a.reservation_type === "reserved" && !a.seat_id,
+              ) ??
+              current.find((a) => a.library_id === libraryId) ??
+              current[0];
+            const { error: moveErr } = await supabase
               .from("allocations")
               .update({
-                seat_id: seatId as string,
-                shift_id: shiftId === "none" || !shiftId ? null : shiftId,
+                library_id: libraryId,
+                seat_id: seatValue,
+                shift_id: shiftValue,
                 monthly_fee: Number(fee || 0),
-                next_due_date: carriedDue,
-                status: carriedStatus as any,
+                reservation_type: reservationType,
               })
-              .eq("id", reusable.id);
-            setLoading(false);
-            if (updateError) {
-              toast.error(friendlySeatError(updateError));
+              .eq("id", target.id);
+            if (moveErr) {
+              setLoading(false);
+              toast.error(friendlySeatError(moveErr));
               booked.refetch();
               return;
             }
-            toast.success("Seat assigned. Existing fees and payment history were preserved.");
+            // A student normally has one booking; end any others now the move is done.
+            const extra = current.filter((a) => a.id !== target.id).map((a) => a.id);
+            if (extra.length) {
+              const { error: endErr } = await supabase
+                .from("allocations")
+                .update({ is_active: false })
+                .in("id", extra);
+              if (endErr)
+                toast.error(
+                  `Seat assigned, but ${extra.length} older booking(s) couldn't be ended: ${endErr.message}`,
+                );
+            }
+            setLoading(false);
+            toast.success("Seat changed. Joining date, due date and payments are unchanged.");
             onDone();
             return;
           }
 
-          // Other active subscriptions are ended before creating a different allocation.
-          const { data: released, error: releaseErr } = await supabase
-            .from("allocations")
-            .update({ is_active: false })
+          // New or returning student: a fresh stay from the joining date. The first fee
+          // is due that day; payments from an earlier stay stay in their history only
+          // (src/lib/payments.ts, inCurrentStay).
+          const { data: lastPayment, error: payErr } = await supabase
+            .from("payments")
+            .select("logged_at, created_at")
             .eq("student_id", studentId)
-            .eq("is_active", true)
-            .select("id");
-          if (releaseErr) {
+            .order("logged_at", { ascending: false })
+            .limit(1);
+          if (payErr) {
             setLoading(false);
-            toast.error(releaseErr.message);
+            toast.error(payErr.message);
             return;
           }
-
+          const lastEntered = lastPayment?.[0]
+            ? localISO(new Date(lastPayment[0].logged_at ?? lastPayment[0].created_at))
+            : null;
+          if (lastEntered && joiningDate <= lastEntered) {
+            setLoading(false);
+            toast.error(
+              `Joining date must be after ${fmtDate(lastEntered)}, when their last payment from an earlier stay was entered.`,
+            );
+            return;
+          }
+          const today = localISO(new Date());
           const { data: createdAlloc, error } = await supabase
             .from("allocations")
             .insert({
               org_id: orgId!,
               library_id: libraryId,
               student_id: studentId,
-              seat_id: (reservationType === "unreserved" ? null : seatId) as string,
-              shift_id: shiftId === "none" || !shiftId ? null : shiftId,
+              seat_id: seatValue,
+              shift_id: shiftValue,
               monthly_fee: Number(fee || 0),
               reservation_type: reservationType,
-              start_date: prev?.start_date ?? todayISO(),
-              next_due_date: carriedDue,
-              status: carriedStatus as any,
+              start_date: joiningDate,
+              next_due_date: joiningDate,
+              status: joiningDate < today ? "overdue" : "pending",
             })
             .select("id")
             .single();
 
+          setLoading(false);
           if (error) {
-            // Don't leave the student without their previous booking.
-            const ids = (released ?? []).map((r: any) => r.id);
-            if (ids.length)
-              await supabase.from("allocations").update({ is_active: true }).in("id", ids);
-            setLoading(false);
             toast.error(friendlySeatError(error));
             booked.refetch();
             return;
           }
-          setLoading(false);
 
           if (onCreated && createdAlloc?.id) {
             toast.success("Seat assigned. Log the first payment.");
             onCreated(createdAlloc.id);
             return;
           }
-          toast.success("Allocation created. Set dates in Payments view.");
+          toast.success("Seat assigned. First fee is due on the joining date.");
           onDone();
         }}
       >
@@ -1866,8 +1668,47 @@ function NewAllocDialog({
                 ))}
               </SelectContent>
             </Select>
+            {!initialSeatId && reservationType === "reserved" && libraryId && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full border-panel-border"
+                onClick={() => setPickerOpen(true)}
+              >
+                <MapIcon className="mr-2 size-4" /> Pick on map
+              </Button>
+            )}
           </div>
         </div>
+        {libraryId && (
+          <SeatMapPicker
+            open={pickerOpen}
+            onOpenChange={setPickerOpen}
+            libraryId={libraryId}
+            sectionId={sectionId}
+            shiftLabel={targetShift === undefined ? null : (chosenShiftRow?.name ?? "Full day")}
+            selectedSeatId={seatId}
+            isFree={(id) =>
+              targetShift === undefined ? hasOpening(id) : seatFree(id, targetShift)
+            }
+            hallBlocked={(hall) =>
+              hallBlockReason(
+                sections.data?.find((s) => s.id === hall),
+                reservationType,
+                targetShift === undefined ? undefined : chosenShiftRow,
+              )
+            }
+            onPick={(seat) => {
+              if (seat.section_id !== sectionId) {
+                if (chosenShiftRow?.section_id)
+                  carryShiftKey.current = shiftKey(chosenShiftRow.name);
+                setSectionId(seat.section_id);
+              }
+              setSeatId(seat.id);
+            }}
+          />
+        )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-2">
@@ -1880,19 +1721,11 @@ function NewAllocDialog({
                 {(() => {
                   const fullDayTaken =
                     reservationType === "reserved" && !!seatId && !seatFree(seatId, null);
+                  const notAllowed = !!currentSection && !currentSection.allow_full_day;
                   return (
-                    <SelectItem
-                      value="none"
-                      disabled={
-                        (!!currentSection && !currentSection.allow_full_day) || fullDayTaken
-                      }
-                    >
+                    <SelectItem value="none" disabled={notAllowed || fullDayTaken}>
                       Full day
-                      {!currentSection?.allow_full_day
-                        ? " (Not allowed)"
-                        : fullDayTaken
-                          ? " (Taken on this seat)"
-                          : ""}
+                      {notAllowed ? " (Not allowed)" : fullDayTaken ? " (Taken on this seat)" : ""}
                     </SelectItem>
                   );
                 })()}
@@ -1931,13 +1764,45 @@ function NewAllocDialog({
           </div>
         </div>
 
+        {studentId &&
+          (activeAlloc ? (
+            <p className="text-xs text-muted-foreground">
+              Seat change: keeps their joining date
+              {activeAlloc.start_date ? ` (${fmtDate(activeAlloc.start_date)})` : ""}, due date and
+              payments.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              <Label htmlFor="joining-date">Joining date</Label>
+              <Input
+                id="joining-date"
+                type="date"
+                required
+                value={joiningDate}
+                onChange={(e) => setJoiningDate(e.target.value)}
+                className="bg-panel border-panel-border font-mono"
+              />
+              <p className="text-xs text-muted-foreground">
+                The first fee is due on this date.
+                {returning &&
+                  " Returning student: they start fresh. Past payments stay in their history but don't count toward this stay."}
+              </p>
+            </div>
+          ))}
+
         <div className="rounded-lg border border-panel-border bg-panel p-3 text-xs text-muted-foreground leading-relaxed mt-2">
           Note: This only assigns the seat. You must log the initial payment on the Payments page to
           activate their access.
         </div>
 
         <Button
-          disabled={loading || (reservationType === "reserved" && !seatId) || !studentId}
+          disabled={
+            loading ||
+            (reservationType === "reserved" && !seatId) ||
+            !studentId ||
+            !shiftId ||
+            (!activeAlloc && !joiningDate)
+          }
           type="submit"
           className="w-full mt-2 bg-white text-slate-900 hover:bg-white/90"
         >

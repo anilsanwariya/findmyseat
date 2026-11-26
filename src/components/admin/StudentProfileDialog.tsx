@@ -47,7 +47,7 @@ import {
   whatsappLink,
   type CoverageRow,
 } from "@/lib/dashboard-metrics";
-import { pickLatestFullPayment } from "@/lib/payments";
+import { currentStay, inCurrentStay, pickLatestFullPayment } from "@/lib/payments";
 import { appendPaymentDetails } from "@/lib/payment-details";
 import { usePaymentDetails } from "@/lib/use-payment-details";
 import {
@@ -251,7 +251,7 @@ export function StudentProfileDialog({
       const { data, error } = await supabase
         .from("payments")
         .select(
-          "id, allocation_id, amount_paid, payment_date, logged_at, created_at, method, transaction_reference, covers_until, receipt_url, is_partial",
+          "id, allocation_id, amount_paid, payment_date, logged_at, created_at, method, transaction_reference, covers_until, receipt_url, is_partial, allocations(start_date)",
         )
         .eq("student_id", studentId)
         .order("payment_date", { ascending: false });
@@ -282,9 +282,16 @@ export function StudentProfileDialog({
     [rows],
   );
 
-  // Never paid anything (only knowable with payment access, once history has loaded):
-  // their first fee is due on the joining date.
-  const neverPaid = can.payments && history.isSuccess && rows.length === 0;
+  // A returning student starts fresh: payments from an earlier stay stay in the
+  // history but don't set the due date or count as paid (src/lib/payments.ts).
+  const stayRows = useMemo(() => {
+    const stay = currentStay(active);
+    return rows.filter((p) => inCurrentStay(p, stay));
+  }, [rows, active]);
+
+  // Never paid anything this stay (only knowable with payment access, once history has
+  // loaded): their first fee is due on the joining date.
+  const neverPaid = can.payments && history.isSuccess && stayRows.length === 0;
 
   // Part payments toward each seat's open cycle, exactly as the dashboard computes them.
   const standings = useMemo(() => {
@@ -415,8 +422,8 @@ export function StudentProfileDialog({
   // due date. Older code could leave a different date on the seat (e.g. after a seat
   // change); offer a one-tap fix when the student has a single seat and they disagree.
   const latestPaid = useMemo(
-    () => pickLatestFullPayment(rows as Parameters<typeof pickLatestFullPayment>[0]),
-    [rows],
+    () => pickLatestFullPayment(stayRows as Parameters<typeof pickLatestFullPayment>[0]),
+    [stayRows],
   );
   const shownDue =
     active.length === 1 && active[0].next_due_date

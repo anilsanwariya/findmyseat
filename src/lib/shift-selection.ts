@@ -32,6 +32,26 @@ export function branchShiftEnabled(
   return !parts || parts.every((part) => !!timings[part]);
 }
 
+/**
+ * Can this shift row be sold on a seat in this hall? Mirrors the database guard:
+ * it belongs to the hall (or the whole branch), the hall allows its package, and
+ * the branch schedule has every part it covers. Use this to validate a chosen
+ * shift; `selectableShifts` also hides duplicate packages, so an older booking's
+ * branch-wide shift may be missing from that list while still being valid.
+ */
+export function shiftSellable(
+  shift: { name: string; section_id?: string | null },
+  sectionId: string | null | undefined,
+  section: Record<string, unknown> | null | undefined,
+  timingText?: string | null,
+  configured = false,
+) {
+  if (shift.section_id && shift.section_id !== sectionId) return false;
+  const cls = classifyShiftByName(shift.name);
+  if (section && cls && !section[cls.allowKey]) return false;
+  return branchShiftEnabled(shift.name, timingText, configured);
+}
+
 export function selectableShifts<
   T extends { id: string; name: string; section_id?: string | null },
 >(
@@ -45,10 +65,7 @@ export function selectableShifts<
   return [...shifts]
     .sort((a, b) => Number(!!b.section_id) - Number(!!a.section_id) || a.id.localeCompare(b.id))
     .filter((s) => {
-      if (s.section_id && s.section_id !== sectionId) return false;
-      const cls = classifyShiftByName(s.name);
-      if (section && cls && !section[cls.allowKey]) return false;
-      if (!branchShiftEnabled(s.name, timingText, configured)) return false;
+      if (!shiftSellable(s, sectionId, section, timingText, configured)) return false;
       const key = shiftKey(s.name);
       if (seen.has(key)) return false;
       seen.add(key);

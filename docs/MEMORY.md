@@ -2,7 +2,7 @@
 
 Current state of the project. Update this at the end of each piece of work.
 
-_Last updated: 2026-11-04_
+_Last updated: 2026-11-26_
 
 ## Status
 - Web app live at librarybandhu.com; owners use it with real students and payments.
@@ -18,6 +18,11 @@ _Last updated: 2026-11-04_
 - Due date follows latest full payment; first fee due on joining date; never-paid students visible.
 - Branch payment details + public payment page; WhatsApp reminders with payment link.
 - PWA manifest, offline page, assetlinks; plan purchases hidden in the Android app.
+- Seat allocation fixes (Nov 2026): Full day is the default in New allocation; seat changes update the
+  booking in one write; older bookings can be edited even if their shift is no longer sold; floor plan
+  counts a free Full day; "Pick on map" seat picker in New/Edit allocation (`SeatMapPicker`).
+- Returning students start a new stay with a chosen joining date; only current-stay payments count
+  (ADR-012, `inCurrentStay` in `src/lib/payments.ts`).
 
 ## In progress / next
 - Apply `supabase/proposed/09_seat_requests_via_server_only.sql` in Lovable (stops direct

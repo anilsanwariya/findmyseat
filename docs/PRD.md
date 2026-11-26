@@ -37,6 +37,7 @@ These are the rules that have been agreed with the owner. Changing any of them n
 1. A student's **first fee is due on the joining date** (allocation start date).
 2. The **due date follows the latest full payment**: the "covers until" date picked when logging the most recently entered full payment is the due date until a later payment changes it. Part payments never move it.
 3. A student with an active seat and **no payments at all** shows under "Awaiting first payment", never as "No dues".
+   A **returning student** (given a seat after having none, e.g. reactivated after leaving) starts a new stay: a new joining date, first fee due that day, and "Awaiting first payment" until they pay again. Payments from earlier stays stay in their history but no longer set the due date or count as paid, and old unpaid dues are dropped. A seat change while active keeps the joining date, due date and payments. (Agreed with the owner, Nov 2026.)
 4. **Shifts**: Morning, Evening and Night hours are set per branch. "Full day" = Morning + Evening. "24 Hrs" = the whole day. Combined packages (e.g. Morning + Night) cover each part.
 5. A seat can be sold **per shift**: one student in the morning and another in the evening, as long as the hours don't overlap.
 6. Seats are uniform. Corner or premium seats were deliberately removed.

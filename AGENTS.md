@@ -31,6 +31,7 @@ Read before changing code: `docs/PRD.md` (business rules), `docs/ARCHITECTURE.md
 Business rules that must not change without the owner's approval:
 - First fee is due on the joining date; never-paid students show as "Awaiting first payment".
 - The due date is the "covers until" of the most recently entered full payment (`src/lib/payments.ts`); part payments never move it.
+- Returning students (seated again after having no booking) start a new stay: only payments from the current stay count (`inCurrentStay` in `src/lib/payments.ts`).
 - Shift hours come from each branch's Morning/Evening/Night timings; Full day = Morning + Evening; 24 Hrs = whole day; seats are sold per shift by time overlap.
 - Inside the Android app (`useIsAndroidApp()`), owner plan purchases stay hidden.
 
