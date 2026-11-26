@@ -1,12 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { branchShiftEnabled, matchesShift, selectableShifts } from "./shift-selection";
+import {
+  branchShiftEnabled,
+  matchesShift,
+  selectableShifts,
+  shiftSellable,
+} from "./shift-selection";
 import {
   from12h,
   parseBranchTimings,
   serializeBranchTimings,
   validateSchedule,
 } from "./branch-timings";
-import { seatFreeFor } from "./seat-status";
+import { seatFreeFor, seatState } from "./seat-status";
 import { shiftsOverlap, shiftRanges, shiftOccupancy } from "./dashboard-metrics";
 
 const schedule =
@@ -158,5 +163,29 @@ describe("shift schedules and selections", () => {
     expect(seatFreeFor("seat", "e", bookings, lookup)).toBe(true);
     expect(seatFreeFor("seat", null, bookings, lookup)).toBe(false);
     expect(seatFreeFor("seat", "m", bookings, lookup, "booking")).toBe(true);
+  });
+  it("keeps a seat open while Full day is still free", () => {
+    const timings = parseBranchTimings(schedule);
+    const night = { id: "n", name: "Night", timings };
+    const lookup = new Map([["n", night]]);
+    const bookings = [{ id: "booking", seat_id: "seat", shift_id: "n" }];
+    // The hall sells Full day and Night; Night is taken but Full day doesn't overlap it.
+    expect(seatState("seat", bookings, [night], lookup, true)).toBe("partial");
+    expect(seatState("seat", bookings, [night], lookup, false)).toBe("full");
+    const fullDay = [{ id: "booking", seat_id: "seat", shift_id: null }];
+    expect(seatState("seat", fullDay, [], lookup, true)).toBe("full");
+  });
+  it("accepts a branch-wide shift that the hall list hides as a duplicate", () => {
+    const shifts = [
+      { id: "a-branch", name: "Morning", section_id: null },
+      { id: "z-hall", name: "Morning", section_id: "hall" },
+    ];
+    const hall = { allow_morning: true };
+    expect(selectableShifts(shifts, "hall", hall, null, false).map((s) => s.id)).toEqual([
+      "z-hall",
+    ]);
+    expect(shiftSellable(shifts[0], "hall", hall, null, false)).toBe(true);
+    expect(shiftSellable(shifts[1], "other-hall", hall, null, false)).toBe(false);
+    expect(shiftSellable(shifts[0], "hall", { allow_morning: false }, null, false)).toBe(false);
   });
 });
