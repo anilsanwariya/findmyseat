@@ -52,3 +52,9 @@ with "Manage students" only), not in `students.notes`. A trigger moves anything 
 email changes go through server functions.
 **Reason:** Students can read their own `students` row, so notes stored there reached them.
 **SQL:** `supabase/proposed/08_private_student_notes.sql`.
+
+## ADR-012 — Returning students start a new stay
+**Decision:** A student given a seat when they have no active booking starts a new stay from a chosen joining date (start date). Only payments from the current stay count for the due date and "has paid": those logged against the stay's bookings (or an earlier seat with the same joining date) or entered on/after the joining date. Seat changes update the existing booking in one write, so they keep the stay and can't leave a student unseated.
+**Reason:** Owner decision (Nov 2026): returning students are treated as new; payment history is kept only for reference.
+**Code:** `currentStay()` / `inCurrentStay()` in `src/lib/payments.ts`; used by the allocation form, student profile and dashboard.
+

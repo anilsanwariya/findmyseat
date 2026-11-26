@@ -47,3 +47,54 @@ export async function fetchLatestFullPayment(studentId: string): Promise<LatestP
   if (error) throw error;
   return pickLatestFullPayment((data ?? []) as PaymentRow[]);
 }
+
+/**
+ * Returning students start fresh. A stay begins when a student with no active
+ * booking is given one; its joining date is the booking's start date, carried
+ * over on seat changes. Payments from an earlier stay stay in the history but no
+ * longer set the due date or count as "has paid". Older stays without a joining
+ * date count every payment, as before.
+ */
+export type Stay = { joined: string | null; allocationIds: Set<string> };
+
+const dayOf = (value: string | null | undefined) => {
+  if (!value) return null;
+  // Timestamps are compared by the owner's local calendar day.
+  if (value.length > 10) {
+    const d = new Date(value);
+    if (!Number.isNaN(d.getTime()))
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }
+  return value.slice(0, 10);
+};
+
+/** The current stay from a student's active bookings (null when they have none). */
+export function currentStay(active: { id: string; start_date?: string | null }[]): Stay | null {
+  if (!active.length) return null;
+  const dates = active.map((a) => dayOf(a.start_date)).filter((d): d is string => !!d);
+  return {
+    joined: dates.length === active.length ? dates.reduce((m, d) => (d < m ? d : m)) : null,
+    allocationIds: new Set(active.map((a) => a.id)),
+  };
+}
+
+export type StayPayment = {
+  allocation_id?: string | null;
+  logged_at?: string | null;
+  created_at?: string | null;
+  /** The booking the payment was logged against (its start date). */
+  allocations?: { start_date?: string | null } | null;
+};
+
+/**
+ * Does a payment belong to the current stay? Yes when it was logged against one
+ * of the stay's bookings or an earlier booking with the same joining date (a seat
+ * move), or was entered on or after the joining date.
+ */
+export function inCurrentStay(p: StayPayment, stay: Stay | null): boolean {
+  if (!stay?.joined) return true;
+  if (p.allocation_id && stay.allocationIds.has(p.allocation_id)) return true;
+  if (dayOf(p.allocations?.start_date) === stay.joined) return true;
+  const entered = dayOf(p.logged_at ?? p.created_at);
+  return !!entered && entered >= stay.joined;
+}
