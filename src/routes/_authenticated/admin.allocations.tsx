@@ -32,27 +32,10 @@ import { StudentProfileDialog } from "@/components/admin/StudentProfileDialog";
 import { EditAllocationDialog } from "@/components/admin/EditAllocationDialog";
 import { classifyShiftByName } from "@/lib/shift-utils";
 import { ViewToggle, useDataView } from "@/components/admin/ViewToggle";
-import { ZoomPanViewport } from "@/components/admin/ZoomPanViewport";
+import { FloorPlanGrid, seatDirIcon } from "@/components/admin/FloorPlanGrid";
 import { Skeleton } from "@/components/ui/skeleton";
 
-import {
-  Plus,
-  ArrowUp,
-  ArrowDown,
-  ArrowLeft,
-  ArrowRight,
-  DoorOpen,
-  Droplets,
-  Waves,
-  UserMinus,
-  Image as ImageIcon,
-  Navigation,
-  MessageSquare,
-  Utensils,
-  Edit2,
-  Search,
-  X,
-} from "lucide-react";
+import { Plus, UserMinus, Edit2, Search, X } from "lucide-react";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { useSeatBookings } from "@/lib/seat-bookings";
 import { effectiveDue, localISO } from "@/lib/dashboard-metrics";
@@ -86,43 +69,6 @@ export const Route = createFileRoute("/_authenticated/admin/allocations")({
   }),
   component: AllocationsPage,
 });
-
-const DIR_ICON = { north: ArrowUp, south: ArrowDown, east: ArrowRight, west: ArrowLeft };
-
-// Enhanced Object Meta for Areas & standalone blocks
-const OBJ_META: Record<string, { icon: any; label: string; color: string }> = {
-  aisle: { icon: null, label: "Aisle", color: "bg-transparent" },
-  entry_gate: {
-    icon: DoorOpen,
-    label: "Entry",
-    color: "bg-slate-800/60 text-slate-300 border-slate-700",
-  },
-  washroom: { icon: Waves, label: "W/C", color: "bg-magenta/10 text-magenta border-magenta/30" },
-  water_cooler: { icon: Droplets, label: "H₂O", color: "bg-cyan/10 text-cyan border-cyan/30" },
-  reception: { icon: null, label: "Rcpt", color: "bg-panel-strong text-muted-foreground" },
-  gallery: {
-    icon: ImageIcon,
-    label: "Gallery",
-    color: "bg-purple-500/10 text-purple-300 border-purple-500/30",
-  },
-  hallway: {
-    icon: Navigation,
-    label: "Hallway",
-    color: "bg-stone-500/10 text-stone-300 border-stone-500/30",
-  },
-  discussion: {
-    icon: MessageSquare,
-    label: "Discussion Area",
-    color: "bg-amber-500/10 text-amber-300 border-amber-500/30",
-  },
-  dining: {
-    icon: Utensils,
-    label: "Dining Area",
-    color: "bg-orange-500/10 text-orange-300 border-orange-500/30",
-  },
-};
-
-const todayISO = () => new Date().toISOString().split("T")[0];
 
 // Derive fee status. A part-payment logged against the open cycle surfaces as
 // "partial" (it takes precedence over "overdue" so the Partial filter finds these
@@ -454,81 +400,6 @@ function AllocationsPage() {
       }
     : null;
 
-  // 🧠 Smart Layout Processor: Tile-matching for Walls/Windows & Merging for Areas
-  const processedLayout = useMemo(() => {
-    if (!currentSection || !layoutData.data?.objs)
-      return { areas: [], lines: [], objMap: new Map() };
-
-    const objs = layoutData.data.objs;
-    const areas: any[] = [];
-    const lines: any[] = [];
-    const visited = new Set<string>();
-    const objMap = new Map<string, any>();
-
-    objs.forEach((obj: any) => objMap.set(`${obj.row_position}-${obj.column_position}`, obj));
-
-    for (let r = 0; r < currentSection.grid_rows; r++) {
-      for (let c = 0; c < currentSection.grid_cols; c++) {
-        const key = `${r}-${c}`;
-        if (visited.has(key) || !objMap.has(key)) continue;
-
-        const baseObj = objMap.get(key);
-        const type = baseObj.object_type;
-
-        if (type === "wall" || type === "window") {
-          lines.push(baseObj);
-          visited.add(key);
-          continue;
-        }
-
-        let width = 1;
-        while (c + width < currentSection.grid_cols) {
-          const nextKey = `${r}-${c + width}`;
-          if (
-            visited.has(nextKey) ||
-            !objMap.has(nextKey) ||
-            objMap.get(nextKey).object_type !== type
-          )
-            break;
-          width++;
-        }
-
-        let height = 1;
-        let canExpandDown = true;
-        while (r + height < currentSection.grid_rows && canExpandDown) {
-          for (let i = 0; i < width; i++) {
-            const nextKey = `${r + height}-${c + i}`;
-            if (
-              visited.has(nextKey) ||
-              !objMap.has(nextKey) ||
-              objMap.get(nextKey).object_type !== type
-            ) {
-              canExpandDown = false;
-              break;
-            }
-          }
-          if (canExpandDown) height++;
-        }
-
-        for (let i = 0; i < height; i++) {
-          for (let j = 0; j < width; j++) {
-            visited.add(`${r + i}-${c + j}`);
-          }
-        }
-
-        areas.push({
-          id: baseObj.id,
-          type,
-          startRow: r,
-          startCol: c,
-          height,
-          width,
-        });
-      }
-    }
-    return { areas, lines, objMap };
-  }, [currentSection, layoutData.data]);
-
   const refreshData = () => {
     invalidateBillingCaches(qc);
     qc.invalidateQueries({ queryKey: ["layout", currentSectionId] });
@@ -672,172 +543,59 @@ function AllocationsPage() {
           ) : layoutData.isPending ? (
             <Skeleton className="h-64 w-full bg-white/5" />
           ) : (
-            <ZoomPanViewport
-              contentWidth={currentSection.grid_cols * 44 + (currentSection.grid_cols - 1) * 8}
-              contentHeight={currentSection.grid_rows * 44 + (currentSection.grid_rows - 1) * 8}
+            <FloorPlanGrid
+              section={currentSection}
+              objs={layoutData.data?.objs ?? []}
               fitKey={currentSectionId}
             >
-              <div
-                className="grid gap-2"
-                style={{
-                  gridTemplateColumns: `repeat(${currentSection.grid_cols}, 44px)`,
-                  gridTemplateRows: `repeat(${currentSection.grid_rows}, 44px)`,
-                }}
-              >
-                {processedLayout.areas.map((obj: any) => {
-                  const meta = OBJ_META[obj.type] ?? OBJ_META.reception;
-                  const Icon = meta.icon;
-                  const isMultiCell = obj.width > 1 || obj.height > 1;
-
+              {mapSeats
+                .filter((seat: any) => seat.inGrid)
+                .map((seat: any) => {
+                  const Icon = seatDirIcon(seat.facing_direction);
+                  const free = seat.state === "free";
+                  const who = seat.list
+                    .map(
+                      (a: any) =>
+                        `${a.shifts?.name ?? "Full day"}: ${a.students?.full_name ?? "Student"}`,
+                    )
+                    .join(", ");
+                  const label = `Seat ${seat.seat_number}${
+                    free && !seat.list.length ? " · free" : who ? ` · ${who}` : ""
+                  }${seat.state === "partial" ? " · some shifts free" : ""}`;
                   return (
-                    <div
-                      key={obj.id}
-                      className={cn(
-                        "flex flex-col items-center justify-center rounded-md border font-mono overflow-hidden transition-all pointer-events-none",
-                        meta.color,
-                        isMultiCell ? "text-xs" : "text-[8px]",
-                      )}
+                    <button
+                      key={seat.id}
+                      type="button"
+                      onClick={() => openSeat(seat)}
+                      title={label}
+                      aria-label={label}
                       style={{
-                        gridColumn: `${obj.startCol + 1} / span ${obj.width}`,
-                        gridRow: `${obj.startRow + 1} / span ${obj.height}`,
+                        gridColumn: seat.column_position + 1,
+                        gridRow: seat.row_position + 1,
                       }}
+                      className={cn(
+                        "group relative z-10 flex flex-col items-center justify-center rounded border text-[10px] font-mono transition-all hover:scale-110",
+                        free
+                          ? // Free seats are neutral grey so they never look like "Paid" (green).
+                            "border border-slate-500/40 bg-slate-500/10 text-slate-400 hover:border-slate-400/60 hover:bg-slate-500/20"
+                          : STATUS_META[seat.pay as SeatStatus].cell,
+                        seat.state === "partial" && "border-2 border-dashed",
+                        seat.match === true &&
+                          "ring-2 ring-white ring-offset-1 ring-offset-transparent",
+                        seat.match === false && "opacity-30",
+                      )}
                     >
-                      <div className="flex flex-col items-center justify-center opacity-80 gap-1 p-2 text-center">
-                        {Icon && <Icon className={cn(isMultiCell ? "size-5" : "size-3.5")} />}
-                        {meta.label && (
-                          <span
-                            className={cn(
-                              "truncate",
-                              isMultiCell ? "font-bold tracking-widest uppercase" : "mt-0.5",
-                            )}
-                          >
-                            {meta.label}
-                          </span>
-                        )}
-                      </div>
-                    </div>
+                      <Icon className="mb-0.5 size-3 opacity-70" />
+                      <span className="truncate font-bold">{seat.seat_number}</span>
+                      {seat.list.length > 1 && (
+                        <span className="absolute -right-1 -top-1 rounded-full bg-panel-strong px-1 text-[8px] leading-3 text-foreground">
+                          {seat.list.length}
+                        </span>
+                      )}
+                    </button>
                   );
                 })}
-
-                {processedLayout.lines.map((obj: any) => {
-                  const r = obj.row_position;
-                  const c = obj.column_position;
-
-                  const isLine = (type: string | undefined) => type === "wall" || type === "window";
-
-                  const top = isLine(processedLayout.objMap.get(`${r - 1}-${c}`)?.object_type);
-                  const bottom = isLine(processedLayout.objMap.get(`${r + 1}-${c}`)?.object_type);
-                  const left = isLine(processedLayout.objMap.get(`${r}-${c - 1}`)?.object_type);
-                  const right = isLine(processedLayout.objMap.get(`${r}-${c + 1}`)?.object_type);
-
-                  const isWindow = obj.object_type === "window";
-                  const thickness = isWindow ? "8px" : "4px";
-                  const color = isWindow
-                    ? "bg-sky-400/90 shadow-[0_0_8px_rgba(56,189,248,0.5)]"
-                    : "bg-slate-500 shadow-md";
-
-                  const isolated = !top && !bottom && !left && !right;
-
-                  return (
-                    <div
-                      key={obj.id}
-                      className="relative flex items-center justify-center pointer-events-none"
-                      style={{ gridColumn: c + 1, gridRow: r + 1 }}
-                    >
-                      <div
-                        className={cn("absolute", color)}
-                        style={{ width: thickness, height: thickness, zIndex: isWindow ? 5 : 4 }}
-                      />
-                      {top && (
-                        <div
-                          className={cn(
-                            "absolute top-0 bottom-[50%] left-1/2 -translate-x-1/2",
-                            color,
-                          )}
-                          style={{ width: thickness, zIndex: isWindow ? 5 : 4 }}
-                        />
-                      )}
-                      {bottom && (
-                        <div
-                          className={cn(
-                            "absolute top-[50%] bottom-0 left-1/2 -translate-x-1/2",
-                            color,
-                          )}
-                          style={{ width: thickness, zIndex: isWindow ? 5 : 4 }}
-                        />
-                      )}
-                      {(left || isolated) && (
-                        <div
-                          className={cn(
-                            "absolute left-0 right-[50%] top-1/2 -translate-y-1/2",
-                            color,
-                          )}
-                          style={{ height: thickness, zIndex: isWindow ? 5 : 4 }}
-                        />
-                      )}
-                      {(right || isolated) && (
-                        <div
-                          className={cn(
-                            "absolute left-[50%] right-0 top-1/2 -translate-y-1/2",
-                            color,
-                          )}
-                          style={{ height: thickness, zIndex: isWindow ? 5 : 4 }}
-                        />
-                      )}
-                    </div>
-                  );
-                })}
-
-                {mapSeats
-                  .filter((seat: any) => seat.inGrid)
-                  .map((seat: any) => {
-                    const Icon =
-                      DIR_ICON[seat.facing_direction as keyof typeof DIR_ICON] || ArrowUp;
-                    const free = seat.state === "free";
-                    const who = seat.list
-                      .map(
-                        (a: any) =>
-                          `${a.shifts?.name ?? "Full day"}: ${a.students?.full_name ?? "Student"}`,
-                      )
-                      .join(", ");
-                    const label = `Seat ${seat.seat_number}${
-                      free && !seat.list.length ? " · free" : who ? ` · ${who}` : ""
-                    }${seat.state === "partial" ? " · some shifts free" : ""}`;
-                    return (
-                      <button
-                        key={seat.id}
-                        type="button"
-                        onClick={() => openSeat(seat)}
-                        title={label}
-                        aria-label={label}
-                        style={{
-                          gridColumn: seat.column_position + 1,
-                          gridRow: seat.row_position + 1,
-                        }}
-                        className={cn(
-                          "group relative z-10 flex flex-col items-center justify-center rounded border text-[10px] font-mono transition-all hover:scale-110",
-                          free
-                            ? // Free seats are neutral grey so they never look like "Paid" (green).
-                              "border border-slate-500/40 bg-slate-500/10 text-slate-400 hover:border-slate-400/60 hover:bg-slate-500/20"
-                            : STATUS_META[seat.pay as SeatStatus].cell,
-                          seat.state === "partial" && "border-2 border-dashed",
-                          seat.match === true &&
-                            "ring-2 ring-white ring-offset-1 ring-offset-transparent",
-                          seat.match === false && "opacity-30",
-                        )}
-                      >
-                        <Icon className="mb-0.5 size-3 opacity-70" />
-                        <span className="truncate font-bold">{seat.seat_number}</span>
-                        {seat.list.length > 1 && (
-                          <span className="absolute -right-1 -top-1 rounded-full bg-panel-strong px-1 text-[8px] leading-3 text-foreground">
-                            {seat.list.length}
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-              </div>
-            </ZoomPanViewport>
+            </FloorPlanGrid>
           )}
         </GlassPanel>
       )}
