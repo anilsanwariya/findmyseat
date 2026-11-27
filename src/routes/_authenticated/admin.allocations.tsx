@@ -3,7 +3,7 @@ import {
   shiftKey,
   matchesShift as matchesShiftPackage,
 } from "@/lib/shift-selection";
-import { SeatMapPicker, hallBlockReason } from "@/components/admin/SeatMapPicker";
+import { SeatMapPicker, hallBlockReason, type PickedSeat } from "@/components/admin/SeatMapPicker";
 import { ShiftFilter } from "@/components/admin/ShiftFilter";
 import { invalidateBillingCaches } from "@/lib/cache";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
@@ -34,13 +34,15 @@ import { toast } from "sonner";
 import { inr, fmtDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { StudentProfileDialog } from "@/components/admin/StudentProfileDialog";
-import { EditAllocationDialog } from "@/components/admin/EditAllocationDialog";
+import { EditPlanDialog } from "@/components/admin/EditPlanDialog";
+import { ChangeSeatDialog, type SeatChangeAllocation } from "@/components/admin/ChangeSeatDialog";
+import { suggestedFee } from "@/lib/allocation-fee";
 import { classifyShiftByName } from "@/lib/shift-utils";
 import { ViewToggle, useDataView } from "@/components/admin/ViewToggle";
 import { FloorPlanGrid, seatDirIcon } from "@/components/admin/FloorPlanGrid";
 import { Skeleton } from "@/components/ui/skeleton";
 
-import { Plus, UserMinus, Edit2, Search, X, Map as MapIcon } from "lucide-react";
+import { Plus, UserMinus, Edit2, Search, X, Map as MapIcon, MapPin } from "lucide-react";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { useSeatBookings } from "@/lib/seat-bookings";
 import { effectiveDue, localISO } from "@/lib/dashboard-metrics";
@@ -155,6 +157,9 @@ function AllocationsPage() {
   const [selectedVacantSeat, setSelectedVacantSeat] = useState<any>(null);
   const [selectedOccupiedSeat, setSelectedOccupiedSeat] = useState<any>(null);
   const [editAlloc, setEditAlloc] = useState<any>(null);
+  const [moveAlloc, setMoveAlloc] = useState<any>(null);
+  // A vacant seat clicked for a student who already has one: preselect it in Change seat.
+  const [moveTo, setMoveTo] = useState<PickedSeat | null>(null);
   const [view, setView] = useDataView("admin-allocations");
 
   // Table Filters
@@ -821,6 +826,15 @@ function AllocationsPage() {
           initialSectionId={currentSectionId}
           initialStudentId={newStudentId}
           initialStudentName={newStudentName}
+          onChangeSeat={(a) => {
+            setOpenNewAlloc(false);
+            setMoveTo(null);
+            setMoveAlloc(a);
+          }}
+          onEditPlan={(a) => {
+            setOpenNewAlloc(false);
+            setEditAlloc(a);
+          }}
           onDone={() => {
             refreshData();
             setOpenNewAlloc(false);
@@ -842,14 +856,27 @@ function AllocationsPage() {
       </Dialog>
 
       {/* Edit Allocation Dialog */}
-      <EditAllocationDialog
-        alloc={editAlloc}
-        onClose={() => setEditAlloc(null)}
-        onDone={() => {
-          refreshData();
-          setEditAlloc(null);
-        }}
-      />
+      {editAlloc && (
+        <EditPlanDialog
+          alloc={editAlloc}
+          onClose={() => setEditAlloc(null)}
+          onDone={() => {
+            refreshData();
+            setEditAlloc(null);
+          }}
+        />
+      )}
+      {moveAlloc && (
+        <ChangeSeatDialog
+          alloc={moveAlloc}
+          initialSeat={moveTo}
+          onClose={() => setMoveAlloc(null)}
+          onDone={() => {
+            refreshData();
+            setMoveAlloc(null);
+          }}
+        />
+      )}
 
       {/* Vacant Seat Clicked -> Quick Assign Dialog */}
       <Dialog
@@ -862,6 +889,19 @@ function AllocationsPage() {
             initialSectionId={selectedVacantSeat.section_id ?? currentSectionId}
             initialSeatId={selectedVacantSeat.id}
             initialShiftId={mapShift !== "all" ? mapShift : undefined}
+            onChangeSeat={(a) => {
+              setMoveTo({
+                id: selectedVacantSeat.id,
+                section_id: selectedVacantSeat.section_id,
+                seat_number: selectedVacantSeat.seat_number,
+              });
+              setSelectedVacantSeat(null);
+              setMoveAlloc(a);
+            }}
+            onEditPlan={(a) => {
+              setSelectedVacantSeat(null);
+              setEditAlloc(a);
+            }}
             onDone={() => {
               refreshData();
               setSelectedVacantSeat(null);
@@ -949,16 +989,27 @@ function AllocationsPage() {
                         </div>
                       </div>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="grid grid-cols-3 gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setMoveTo(null);
+                          setMoveAlloc(a);
+                          setSelectedOccupiedSeat(null);
+                        }}
+                        className="border-panel-border px-2 hover:text-cyan"
+                      >
+                        <MapPin className="mr-1.5 size-4" /> Move
+                      </Button>
                       <Button
                         variant="outline"
                         onClick={() => {
                           setEditAlloc(a);
                           setSelectedOccupiedSeat(null);
                         }}
-                        className="flex-1 border-panel-border hover:text-cyan"
+                        className="border-panel-border px-2 hover:text-cyan"
                       >
-                        <Edit2 className="mr-2 size-4" /> Edit
+                        <Edit2 className="mr-1.5 size-4" /> Plan
                       </Button>
                       <Button
                         variant="outline"
@@ -984,9 +1035,9 @@ function AllocationsPage() {
                           toast.success("Seat vacated. Billing remains active.");
                           refreshData();
                         }}
-                        className="flex-1 border-rose/30 text-rose hover:bg-rose/10 hover:text-rose"
+                        className="border-rose/30 px-2 text-rose hover:bg-rose/10 hover:text-rose"
                       >
-                        <UserMinus className="mr-2 size-4" /> Vacate
+                        <UserMinus className="mr-1.5 size-4" /> Vacate
                       </Button>
                     </div>
                   </div>
@@ -1047,6 +1098,8 @@ function NewAllocDialog({
   initialShiftId,
   initialStudentId,
   initialStudentName,
+  onChangeSeat,
+  onEditPlan,
 }: {
   onDone: () => void;
   onCreated?: (allocationId: string) => void;
@@ -1057,6 +1110,9 @@ function NewAllocDialog({
   initialShiftId?: string;
   initialStudentId?: string;
   initialStudentName?: string;
+  /** A student who already has a booking is sent to Change seat / Edit plan instead. */
+  onChangeSeat?: (alloc: SeatChangeAllocation) => void;
+  onEditPlan?: (alloc: SeatChangeAllocation) => void;
 }) {
   const { data: session } = useSession();
   const orgId = session?.orgId;
@@ -1089,7 +1145,7 @@ function NewAllocDialog({
       const { data } = await supabase
         .from("students")
         .select(
-          "id, full_name, mobile_number, created_at, allocations(id, created_at, status, start_date, next_due_date, is_active, reservation_type, seat_id, shift_id, monthly_fee, seats(seat_number), shifts(name))",
+          "id, full_name, mobile_number, created_at, allocations(id, library_id, created_at, status, start_date, next_due_date, is_active, reservation_type, seat_id, shift_id, monthly_fee, seats(seat_number, section_id), shifts(name))",
         )
         .eq("org_id", orgId!)
         .eq("library_id", libraryId)
@@ -1185,23 +1241,8 @@ function NewAllocDialog({
       return;
     }
 
-    let calculatedFee = 0;
-
-    // Determine Base Fee
-    if (!shiftId || shiftId === "none") {
-      calculatedFee = Number(currentSection.full_day_fee || 0);
-    } else {
-      const shift = shifts.data?.find((s: any) => s.id === shiftId);
-      const cls = classifyShiftByName(shift?.name ?? "");
-      if (cls) calculatedFee = Number((currentSection as any)[cls.feeKey] || 0);
-      else calculatedFee = Number(shift?.base_fee || 0);
-    }
-
-    // Add Reservation Extra Charge if type is reserved
-    if (reservationType === "reserved") {
-      calculatedFee += Number(currentSection.reservation_fee || 0);
-    }
-
+    const shift = shiftId && shiftId !== "none" ? shifts.data?.find((x) => x.id === shiftId) : null;
+    const calculatedFee = suggestedFee(currentSection, shift ?? null, reservationType);
     setFee(calculatedFee);
   }, [currentSection?.id, shiftId, shifts.data, reservationType]);
 
@@ -1233,6 +1274,18 @@ function NewAllocDialog({
   // Calculate selected student context
   const selectedStudent = students.data?.find((s: any) => s.id === studentId);
   const activeAlloc = selectedStudent?.allocations?.find((a: any) => a.is_active);
+  // The student's current booking in the shape Change seat / Edit plan expect.
+  const bookingForDialogs = (): SeatChangeAllocation => ({
+    id: activeAlloc?.id ?? "",
+    library_id: activeAlloc?.library_id ?? libraryId,
+    seat_id: activeAlloc?.seat_id ?? null,
+    shift_id: activeAlloc?.shift_id ?? null,
+    reservation_type: activeAlloc?.reservation_type,
+    monthly_fee: activeAlloc?.monthly_fee ?? 0,
+    seats: activeAlloc?.seats,
+    shifts: activeAlloc?.shifts,
+    students: { full_name: selectedStudent?.full_name },
+  });
   // Had a booking before but none now: they start a new stay.
   const returning = !activeAlloc && (selectedStudent?.allocations?.length ?? 0) > 0;
 
@@ -1347,7 +1400,7 @@ function NewAllocDialog({
             toast.error("Choose an enabled shift for this hall.");
             return;
           }
-          if (!activeAlloc && !joiningDate) {
+          if (!joiningDate) {
             toast.error("Choose the joining date.");
             return;
           }
@@ -1369,47 +1422,9 @@ function NewAllocDialog({
           }
 
           if (current?.length) {
-            // Seat change: move the existing booking in a single update, so a clash
-            // leaves the student where they were. The joining date, due date and
-            // payments (including part payments) stay with the booking.
-            const target =
-              current.find(
-                (a) =>
-                  a.library_id === libraryId && a.reservation_type === "reserved" && !a.seat_id,
-              ) ??
-              current.find((a) => a.library_id === libraryId) ??
-              current[0];
-            const { error: moveErr } = await supabase
-              .from("allocations")
-              .update({
-                library_id: libraryId,
-                seat_id: seatValue,
-                shift_id: shiftValue,
-                monthly_fee: Number(fee || 0),
-                reservation_type: reservationType,
-              })
-              .eq("id", target.id);
-            if (moveErr) {
-              setLoading(false);
-              toast.error(friendlySeatError(moveErr));
-              booked.refetch();
-              return;
-            }
-            // A student normally has one booking; end any others now the move is done.
-            const extra = current.filter((a) => a.id !== target.id).map((a) => a.id);
-            if (extra.length) {
-              const { error: endErr } = await supabase
-                .from("allocations")
-                .update({ is_active: false })
-                .in("id", extra);
-              if (endErr)
-                toast.error(
-                  `Seat assigned, but ${extra.length} older booking(s) couldn't be ended: ${endErr.message}`,
-                );
-            }
+            // Seat changes and plan changes have their own forms (Change seat / Edit plan).
             setLoading(false);
-            toast.success("Seat changed. Joining date, due date and payments are unchanged.");
-            onDone();
+            toast.error("This student already has a booking. Use Change seat or Edit plan.");
             return;
           }
 
@@ -1471,42 +1486,20 @@ function NewAllocDialog({
           onDone();
         }}
       >
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div className="space-y-2">
-            <Label>Branch</Label>
-            <Select value={libraryId} onValueChange={setLibraryId} disabled={!!initialLibraryId}>
-              <SelectTrigger className="bg-panel border-panel-border">
-                <SelectValue placeholder="Branch" />
-              </SelectTrigger>
-              <SelectContent>
-                {(libs ?? []).map((l) => (
-                  <SelectItem key={l.id} value={l.id}>
-                    {l.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Section</Label>
-            <Select
-              value={sectionId}
-              onValueChange={setSectionId}
-              disabled={!!initialSeatId || reservationType === "unreserved"}
-            >
-              <SelectTrigger className="bg-panel border-panel-border">
-                <SelectValue placeholder="Choose section" />
-              </SelectTrigger>
-              <SelectContent>
-                {(sections.data ?? []).map((s: any) => (
-                  <SelectItem key={s.id} value={s.id}>
-                    {s.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        <div className="space-y-2">
+          <Label>Branch</Label>
+          <Select value={libraryId} onValueChange={setLibraryId} disabled={!!initialLibraryId}>
+            <SelectTrigger className="bg-panel border-panel-border">
+              <SelectValue placeholder="Branch" />
+            </SelectTrigger>
+            <SelectContent>
+              {(libs ?? []).map((l) => (
+                <SelectItem key={l.id} value={l.id}>
+                  {l.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="space-y-2 relative z-50">
@@ -1598,216 +1591,270 @@ function NewAllocDialog({
             )}
           </div>
 
-          {activeAlloc &&
-            (() => {
-              const st = effectiveStatus(activeAlloc);
-              return (
-                <div className="flex items-center gap-4 rounded-md border border-panel-border bg-black/10 px-3 py-2 mt-2 text-xs">
-                  <div>
-                    <span className="text-muted-foreground mr-1">Status:</span>
-                    <span className={statusText(st)}>{st.toUpperCase()}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground mr-1">Due Date:</span>
-                    <span className="font-mono text-cyan">
-                      {activeAlloc.next_due_date ? fmtDate(activeAlloc.next_due_date) : "—"}
-                    </span>
-                  </div>
+          {activeAlloc && (
+            <div className="mt-2 space-y-3 rounded-lg border border-panel-border bg-black/10 p-3 text-xs">
+              <p>
+                Already booked:{" "}
+                <span className="font-mono text-cyan">
+                  {activeAlloc.reservation_type === "unreserved"
+                    ? "Unreserved"
+                    : activeAlloc.seat_id
+                      ? `Seat ${activeAlloc.seats?.seat_number ?? "—"}`
+                      : "No seat"}
+                </span>
+                {" · "}
+                {activeAlloc.shifts?.name ?? "Full day"} · {inr(activeAlloc.monthly_fee)}/month
+                {activeAlloc.next_due_date ? ` · due ${fmtDate(activeAlloc.next_due_date)}` : ""}
+              </p>
+              <p className="text-muted-foreground">
+                To move them, use Change seat. To change their shift or fee, use Edit plan.
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {activeAlloc.reservation_type !== "unreserved" && onChangeSeat ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="border-panel-border"
+                    onClick={() => onChangeSeat(bookingForDialogs())}
+                  >
+                    <MapPin className="mr-1.5 size-4" />
+                    {activeAlloc.seat_id ? "Change seat" : "Assign seat"}
+                  </Button>
+                ) : (
+                  <span />
+                )}
+                {onEditPlan && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="border-panel-border"
+                    onClick={() => onEditPlan(bookingForDialogs())}
+                  >
+                    <Edit2 className="mr-1.5 size-4" /> Edit plan
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {!activeAlloc && (
+          <>
+            <div className="space-y-3">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                Plan
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>Shift</Label>
+                  <Select value={shiftId} onValueChange={setShiftId}>
+                    <SelectTrigger className="bg-panel border-panel-border">
+                      <SelectValue placeholder="Choose shift" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(() => {
+                        const fullDayTaken =
+                          reservationType === "reserved" && !!seatId && !seatFree(seatId, null);
+                        const notAllowed = !!currentSection && !currentSection.allow_full_day;
+                        return (
+                          <SelectItem value="none" disabled={notAllowed || fullDayTaken}>
+                            Full day
+                            {notAllowed
+                              ? " (Not allowed)"
+                              : fullDayTaken
+                                ? " (Taken on this seat)"
+                                : ""}
+                          </SelectItem>
+                        );
+                      })()}
+                      {selectableShifts(
+                        shifts.data ?? [],
+                        sectionId,
+                        currentSection,
+                        booked.data?.timingText,
+                        booked.data?.configured,
+                      ).map((s: any) => {
+                        const cls = classifyShiftByName(s.name || "");
+                        const notAllowed =
+                          !!currentSection && !!cls && !(currentSection as any)[cls.allowKey];
+                        const taken =
+                          reservationType === "reserved" && !!seatId && !seatFree(seatId, s.id);
+
+                        return (
+                          <SelectItem key={s.id} value={s.id} disabled={notAllowed || taken}>
+                            {s.name}{" "}
+                            {notAllowed ? "(Not allowed)" : taken ? "(Taken on this seat)" : ""}
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
                 </div>
-              );
-            })()}
-        </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div className="space-y-2">
-            <Label>Type</Label>
-            <Select
-              value={reservationType}
-              onValueChange={(v: any) => {
-                setReservationType(v);
-                if (v === "unreserved") setSeatId("");
-              }}
-            >
-              <SelectTrigger className="bg-panel border-panel-border">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem
-                  value="reserved"
-                  disabled={!!currentSection && !currentSection.allow_reserved}
-                >
-                  Reserved{!currentSection?.allow_reserved ? " (Not allowed)" : ""}
-                </SelectItem>
-                <SelectItem
-                  value="unreserved"
-                  disabled={!!currentSection && !currentSection.allow_unreserved}
-                >
-                  Unreserved{!currentSection?.allow_unreserved ? " (Not allowed)" : ""}
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label>
-              Seat {reservationType === "unreserved" ? "(Not Required)" : "(Free for this shift)"}
-            </Label>
-            <Select
-              value={seatId}
-              onValueChange={setSeatId}
-              disabled={!!initialSeatId || reservationType === "unreserved"}
-            >
-              <SelectTrigger className="bg-panel border-panel-border">
-                <SelectValue placeholder={reservationType === "unreserved" ? "—" : "Choose seat"} />
-              </SelectTrigger>
-              <SelectContent>
-                {seatOptions.map((s: any) => (
-                  <SelectItem key={s.id} value={s.id}>
-                    {s.seat_number}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {!initialSeatId && reservationType === "reserved" && libraryId && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="w-full border-panel-border"
-                onClick={() => setPickerOpen(true)}
-              >
-                <MapIcon className="mr-2 size-4" /> Pick on map
-              </Button>
-            )}
-          </div>
-        </div>
-        {libraryId && (
-          <SeatMapPicker
-            open={pickerOpen}
-            onOpenChange={setPickerOpen}
-            libraryId={libraryId}
-            sectionId={sectionId}
-            shiftLabel={targetShift === undefined ? null : (chosenShiftRow?.name ?? "Full day")}
-            selectedSeatId={seatId}
-            isFree={(id) =>
-              targetShift === undefined ? hasOpening(id) : seatFree(id, targetShift)
-            }
-            hallBlocked={(hall) =>
-              hallBlockReason(
-                sections.data?.find((s) => s.id === hall),
-                reservationType,
-                targetShift === undefined ? undefined : chosenShiftRow,
-              )
-            }
-            onPick={(seat) => {
-              if (seat.section_id !== sectionId) {
-                if (chosenShiftRow?.section_id)
-                  carryShiftKey.current = shiftKey(chosenShiftRow.name);
-                setSectionId(seat.section_id);
-              }
-              setSeatId(seat.id);
-            }}
-          />
-        )}
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div className="space-y-2">
-            <Label>Shift</Label>
-            <Select value={shiftId} onValueChange={setShiftId}>
-              <SelectTrigger className="bg-panel border-panel-border">
-                <SelectValue placeholder="Choose shift" />
-              </SelectTrigger>
-              <SelectContent>
-                {(() => {
-                  const fullDayTaken =
-                    reservationType === "reserved" && !!seatId && !seatFree(seatId, null);
-                  const notAllowed = !!currentSection && !currentSection.allow_full_day;
-                  return (
-                    <SelectItem value="none" disabled={notAllowed || fullDayTaken}>
-                      Full day
-                      {notAllowed ? " (Not allowed)" : fullDayTaken ? " (Taken on this seat)" : ""}
-                    </SelectItem>
-                  );
-                })()}
-                {selectableShifts(
-                  shifts.data ?? [],
-                  sectionId,
-                  currentSection,
-                  booked.data?.timingText,
-                  booked.data?.configured,
-                ).map((s: any) => {
-                  const cls = classifyShiftByName(s.name || "");
-                  const notAllowed =
-                    !!currentSection && !!cls && !(currentSection as any)[cls.allowKey];
-                  const taken =
-                    reservationType === "reserved" && !!seatId && !seatFree(seatId, s.id);
-
-                  return (
-                    <SelectItem key={s.id} value={s.id} disabled={notAllowed || taken}>
-                      {s.name} {notAllowed ? "(Not allowed)" : taken ? "(Taken on this seat)" : ""}
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Monthly fee (₹)</Label>
-            <Input
-              required
-              type="number"
-              value={fee}
-              onChange={(e) => setFee(Number(e.target.value))}
-              className="bg-panel border-panel-border font-mono"
-            />
-          </div>
-        </div>
-
-        {studentId &&
-          (activeAlloc ? (
-            <p className="text-xs text-muted-foreground">
-              Seat change: keeps their joining date
-              {activeAlloc.start_date ? ` (${fmtDate(activeAlloc.start_date)})` : ""}, due date and
-              payments.
-            </p>
-          ) : (
-            <div className="space-y-2">
-              <Label htmlFor="joining-date">Joining date</Label>
-              <Input
-                id="joining-date"
-                type="date"
-                required
-                value={joiningDate}
-                onChange={(e) => setJoiningDate(e.target.value)}
-                className="bg-panel border-panel-border font-mono"
-              />
+                <div className="space-y-2">
+                  <Label>Type</Label>
+                  <Select
+                    value={reservationType}
+                    onValueChange={(v: any) => {
+                      setReservationType(v);
+                      if (v === "unreserved") setSeatId("");
+                    }}
+                  >
+                    <SelectTrigger className="bg-panel border-panel-border">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem
+                        value="reserved"
+                        disabled={!!currentSection && !currentSection.allow_reserved}
+                      >
+                        Reserved{!currentSection?.allow_reserved ? " (Not allowed)" : ""}
+                      </SelectItem>
+                      <SelectItem
+                        value="unreserved"
+                        disabled={!!currentSection && !currentSection.allow_unreserved}
+                      >
+                        Unreserved{!currentSection?.allow_unreserved ? " (Not allowed)" : ""}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>Monthly fee (₹)</Label>
+                  <Input
+                    required
+                    type="number"
+                    value={fee}
+                    onChange={(e) => setFee(e.target.value === "" ? "" : Number(e.target.value))}
+                    className="bg-panel border-panel-border font-mono"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="joining-date">Joining date</Label>
+                  <Input
+                    id="joining-date"
+                    type="date"
+                    required
+                    value={joiningDate}
+                    onChange={(e) => setJoiningDate(e.target.value)}
+                    className="bg-panel border-panel-border font-mono"
+                  />
+                </div>
+              </div>
               <p className="text-xs text-muted-foreground">
-                The first fee is due on this date.
+                The first fee is due on the joining date.
                 {returning &&
                   " Returning student: they start fresh. Past payments stay in their history but don't count toward this stay."}
               </p>
             </div>
-          ))}
 
-        <div className="rounded-lg border border-panel-border bg-panel p-3 text-xs text-muted-foreground leading-relaxed mt-2">
-          Note: This only assigns the seat. You must log the initial payment on the Payments page to
-          activate their access.
-        </div>
+            <div className="space-y-3">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                Seat
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>Hall</Label>
+                  <Select value={sectionId} onValueChange={setSectionId} disabled={!!initialSeatId}>
+                    <SelectTrigger className="bg-panel border-panel-border">
+                      <SelectValue placeholder="Choose hall" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(sections.data ?? []).map((s: any) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {reservationType === "reserved" && (
+                  <div className="space-y-2">
+                    <Label>Seat (free for this shift)</Label>
+                    <Select value={seatId} onValueChange={setSeatId} disabled={!!initialSeatId}>
+                      <SelectTrigger className="bg-panel border-panel-border">
+                        <SelectValue placeholder="Choose seat" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {seatOptions.map((s: any) => (
+                          <SelectItem key={s.id} value={s.id}>
+                            {s.seat_number}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {!initialSeatId && reservationType === "reserved" && libraryId && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="w-full border-panel-border"
+                        onClick={() => setPickerOpen(true)}
+                      >
+                        <MapIcon className="mr-2 size-4" /> Pick on map
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
+              {libraryId && (
+                <SeatMapPicker
+                  open={pickerOpen}
+                  onOpenChange={setPickerOpen}
+                  libraryId={libraryId}
+                  sectionId={sectionId}
+                  shiftLabel={
+                    targetShift === undefined ? null : (chosenShiftRow?.name ?? "Full day")
+                  }
+                  selectedSeatId={seatId}
+                  isFree={(id) =>
+                    targetShift === undefined ? hasOpening(id) : seatFree(id, targetShift)
+                  }
+                  hallBlocked={(hall) =>
+                    hallBlockReason(
+                      sections.data?.find((s) => s.id === hall),
+                      reservationType,
+                      targetShift === undefined ? undefined : chosenShiftRow,
+                    )
+                  }
+                  onPick={(seat) => {
+                    if (seat.section_id !== sectionId) {
+                      if (chosenShiftRow?.section_id)
+                        carryShiftKey.current = shiftKey(chosenShiftRow.name);
+                      setSectionId(seat.section_id);
+                    }
+                    setSeatId(seat.id);
+                  }}
+                />
+              )}
+            </div>
+          </>
+        )}
 
-        <Button
-          disabled={
-            loading ||
-            (reservationType === "reserved" && !seatId) ||
-            !studentId ||
-            !shiftId ||
-            (!activeAlloc && !joiningDate)
-          }
-          type="submit"
-          className="w-full mt-2 bg-white text-slate-900 hover:bg-white/90"
-        >
-          {loading ? "…" : "Confirm Assignment"}
-        </Button>
+        {!activeAlloc && (
+          <>
+            <div className="rounded-lg border border-panel-border bg-panel p-3 text-xs text-muted-foreground leading-relaxed mt-2">
+              Note: This only assigns the seat. You must log the initial payment on the Payments
+              page to activate their access.
+            </div>
+
+            <Button
+              disabled={
+                loading ||
+                (reservationType === "reserved" && !seatId) ||
+                !studentId ||
+                !shiftId ||
+                !joiningDate
+              }
+              type="submit"
+              className="w-full mt-2 bg-white text-slate-900 hover:bg-white/90"
+            >
+              {loading ? "…" : "Confirm Assignment"}
+            </Button>
+          </>
+        )}
       </form>
     </DialogContent>
   );

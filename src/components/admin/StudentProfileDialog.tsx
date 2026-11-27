@@ -35,7 +35,8 @@ import { resetStudentPin, setStudentActive } from "@/lib/students.functions";
 import { useSignedDoc } from "@/components/admin/StudentDocInput";
 import { PaymentDetailDialog } from "@/components/admin/PaymentDetailDialog";
 import { LogPaymentDialog } from "@/components/admin/LogPaymentDialog";
-import { EditAllocationDialog } from "@/components/admin/EditAllocationDialog";
+import { EditPlanDialog } from "@/components/admin/EditPlanDialog";
+import { ChangeSeatDialog } from "@/components/admin/ChangeSeatDialog";
 import { StudentFormDialog } from "@/components/admin/StudentFormDialog";
 import { StartingPinCard } from "@/components/admin/StartingPinCard";
 import { useSession } from "@/lib/auth";
@@ -72,6 +73,7 @@ import {
   KeyRound,
   Share2,
   Trash2,
+  MapPin,
 } from "lucide-react";
 
 function Field({ label, value }: { label: string; value?: string | null }) {
@@ -191,6 +193,7 @@ export function StudentProfileDialog({
   const [detailId, setDetailId] = useState<string | null>(null);
   const [logAllocId, setLogAllocId] = useState<string | null>(null);
   const [editAlloc, setEditAlloc] = useState<any | null>(null);
+  const [moveAlloc, setMoveAlloc] = useState<any | null>(null);
   const [editStudent, setEditStudent] = useState(false);
   const [confirmActive, setConfirmActive] = useState<null | boolean>(null);
   const [savingActive, setSavingActive] = useState(false);
@@ -739,6 +742,20 @@ export function StudentProfileDialog({
                                       <Receipt className="mr-1 size-3.5" /> Log payment
                                     </Button>
                                   )}
+                                  {can.allocations && a.reservation_type !== "unreserved" && (
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-11 w-full border-panel-border sm:h-9 sm:w-auto"
+                                      onClick={() =>
+                                        setMoveAlloc({ ...a, students: { full_name: s.full_name } })
+                                      }
+                                    >
+                                      <MapPin className="mr-1 size-3.5" />{" "}
+                                      {a.seat_id ? "Change seat" : "Assign seat"}
+                                    </Button>
+                                  )}
                                   {can.allocations && (
                                     <Button
                                       type="button"
@@ -749,7 +766,7 @@ export function StudentProfileDialog({
                                         setEditAlloc({ ...a, students: { full_name: s.full_name } })
                                       }
                                     >
-                                      <Pencil className="mr-1 size-3.5" /> Edit allocation
+                                      <Pencil className="mr-1 size-3.5" /> Edit plan
                                     </Button>
                                   )}
                                 </div>
@@ -1057,11 +1074,21 @@ export function StudentProfileDialog({
       )}
 
       {editAlloc && (
-        <EditAllocationDialog
+        <EditPlanDialog
           alloc={editAlloc}
           onClose={() => setEditAlloc(null)}
           onDone={() => {
             setEditAlloc(null);
+            refresh();
+          }}
+        />
+      )}
+      {moveAlloc && (
+        <ChangeSeatDialog
+          alloc={moveAlloc}
+          onClose={() => setMoveAlloc(null)}
+          onDone={() => {
+            setMoveAlloc(null);
             refresh();
           }}
         />
