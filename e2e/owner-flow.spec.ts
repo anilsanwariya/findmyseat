@@ -84,8 +84,8 @@ test.describe("owner flow", () => {
     if (await branch.getByText("Branch", { exact: true }).isVisible()) {
       await choose(page, branch, branchName);
     }
-    const section = field(alloc, "Section");
-    if (await section.getByText("Choose section").isVisible()) await choose(page, section);
+    const hall = field(alloc, "Hall");
+    if (await hall.getByText("Choose hall").isVisible()) await choose(page, hall);
     await choose(page, field(alloc, "Shift"));
     await choose(page, field(alloc, /^Seat/));
     await field(alloc, "Monthly fee").locator("input").fill(String(fee));

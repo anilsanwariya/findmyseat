@@ -4,6 +4,7 @@ import {
   matchesShift,
   selectableShifts,
   shiftSellable,
+  shiftForHall,
 } from "./shift-selection";
 import {
   from12h,
@@ -187,5 +188,16 @@ describe("shift schedules and selections", () => {
     expect(shiftSellable(shifts[0], "hall", hall, null, false)).toBe(true);
     expect(shiftSellable(shifts[1], "other-hall", hall, null, false)).toBe(false);
     expect(shiftSellable(shifts[0], "hall", { allow_morning: false }, null, false)).toBe(false);
+  });
+  it("finds the same package's shift row in another hall", () => {
+    const shifts = [
+      { id: "m-a", name: "Morning", section_id: "a" },
+      { id: "m-b", name: "Morning", section_id: "b" },
+      { id: "mn", name: "Morning + Night", section_id: null },
+    ];
+    expect(shiftForHall(shifts[0], "b", shifts)?.id).toBe("m-b");
+    expect(shiftForHall(shifts[0], "a", shifts)?.id).toBe("m-a");
+    expect(shiftForHall(shifts[2], "c", shifts)?.id).toBe("mn");
+    expect(shiftForHall(shifts[0], "c", shifts)).toBeUndefined();
   });
 });

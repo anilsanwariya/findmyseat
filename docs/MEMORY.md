@@ -21,6 +21,8 @@ _Last updated: 2026-11-26_
 - Seat allocation fixes (Nov 2026): Full day is the default in New allocation; seat changes update the
   booking in one write; older bookings can be edited even if their shift is no longer sold; floor plan
   counts a free Full day; "Pick on map" seat picker in New/Edit allocation (`SeatMapPicker`).
+- Seat changes are separate from plans: Change seat (map only, fee untouched), Edit plan (shift, type,
+  fee; offers a seat only when needed). New allocation is plan first, then seat.
 - Returning students start a new stay with a chosen joining date; only current-stay payments count
   (ADR-012, `inCurrentStay` in `src/lib/payments.ts`).
 

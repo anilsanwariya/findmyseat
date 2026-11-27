@@ -72,3 +72,20 @@ export function selectableShifts<
       return true;
     });
 }
+
+/**
+ * The shift row that sells the same package in `hallId`: the shift itself when
+ * it's branch-wide or already that hall's, else that hall's own row for the
+ * package, else a branch-wide one. undefined when the hall has none. Moving a
+ * student to another hall keeps their package without changing their plan.
+ */
+export function shiftForHall<T extends { id: string; name: string; section_id?: string | null }>(
+  shift: T,
+  hallId: string,
+  shifts: T[],
+): T | undefined {
+  if (!shift.section_id || shift.section_id === hallId) return shift;
+  const key = shiftKey(shift.name);
+  const same = shifts.filter((s) => shiftKey(s.name) === key);
+  return same.find((s) => s.section_id === hallId) ?? same.find((s) => !s.section_id);
+}
