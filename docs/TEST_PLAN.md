@@ -27,6 +27,9 @@ Use a **test library**, not a real one.
 - [ ] Build a floor plan; undo/redo; a seat with a student on it can't be deleted silently.
 - [ ] Add a student; they appear under **Awaiting first payment** with the joining date.
 - [ ] Allot Morning on a seat, then Evening to another student on the same seat → allowed. Allot Full day on top → blocked.
+- [ ] Change seat (floor-plan Move / profile Change seat): only the map shows, no fee; fee and due date unchanged after the move. Moving to a hall with a different fee shows a note.
+- [ ] Edit plan: change shift to one that clashes on their seat → "Pick another seat" appears; switching to Unreserved asks before freeing the seat.
+- [ ] New allocation for a student who already has a seat → shows Change seat / Edit plan instead of the form.
 - [ ] Log a full payment with due date X → profile, dashboard and floor plan show due date X.
 - [ ] Log a part payment → due date doesn't move; student shows as part-paid.
 - [ ] Back-date a payment → due date still follows the payment entered last.

@@ -7,6 +7,7 @@
 - [x] Keep seats open on the floor plan while Full day is still free.
 - [x] Returning students start fresh: joining date field, only current-stay payments count (ADR-012).
 - [x] "Pick on map" seat picker in New and Edit allocation; checked at 375px with sample data.
+- [x] Split Change seat (map only, fee untouched) from Edit plan (shift, type, fee); New allocation is plan first, then seat; checked at 375px with sample data.
 - [ ] Verify with real owner data: seat change, returning student, map picker across halls.
 
 ## Full day distinction
